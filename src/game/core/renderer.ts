@@ -773,10 +773,19 @@ function drawMinimap(game: Game, g: CanvasRenderingContext2D): void {
   g.lineWidth = 2;
   g.strokeRect(x - 2.5, y - 2.5, size + 5, size + 5);
   g.font = 'bold 10px "Trebuchet MS", sans-serif';
+  const coords = game.worldCoords();
+  const coordLabel = `${coords.isDoor ? 'Door ' : ''}${coords.x}, ${coords.y}`;
+  const infoText = `${map.name}  ·  ${game.timeLabel}  ·  ${coordLabel}`;
+  // size the info bar to its text (coordinates can run longer than "Day N"
+  // did) and right-align it to the minimap's own right edge so it never
+  // clips off the side of a narrow canvas.
+  const textW = g.measureText(infoText).width;
+  const boxW = Math.max(size + 6, textW + 14);
+  const boxX = x + size + 3 - boxW;
   g.fillStyle = 'rgba(12,10,18,0.9)';
-  g.fillRect(x - 3, y + size + 3, size + 6, 16);
+  g.fillRect(boxX, y + size + 3, boxW, 16);
   g.fillStyle = PAL.cloth;
-  g.fillText(`${map.name}  ·  ${game.timeLabel}  ·  Day ${game.day}`, x + 3, y + size + 15);
+  g.fillText(infoText, boxX + 7, y + size + 15);
   g.restore();
 }
 

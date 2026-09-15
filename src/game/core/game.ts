@@ -392,6 +392,23 @@ export class Game implements WorldCtx {
     return REGION_BY_INDEX[idx]?.id;
   }
 
+  /**
+   * World-tile coordinates to show in the HUD: the player's own position
+   * outdoors, or the position of the door that leads back outside when
+   * indoors (a building, dungeon or cave), since the player's position inside
+   * an interior map doesn't correspond to anywhere on the world map.
+   */
+  worldCoords(): { x: number; y: number; isDoor: boolean } {
+    if (this.map.outdoor) {
+      return { x: Math.floor(this.player.x / TILE), y: Math.floor(this.player.y / TILE), isDoor: false };
+    }
+    const exit = this.map.portals.find((p) => p.to === 'overworld') ?? this.map.portals[0];
+    if (exit) {
+      return { x: Math.floor(exit.tx / TILE), y: Math.floor(exit.ty / TILE), isDoor: true };
+    }
+    return { x: Math.floor(this.player.x / TILE), y: Math.floor(this.player.y / TILE), isDoor: false };
+  }
+
   nearestLocation(maxPx: number): LocationDef | null {
     if (this.map.id !== 'overworld') return null;
     let best: LocationDef | null = null;

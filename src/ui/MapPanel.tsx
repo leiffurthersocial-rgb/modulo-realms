@@ -50,6 +50,7 @@ export default function MapPanel({ game }: { game: Game }) {
   }, [world, game.player.discovered.size, game.uiVersion]);
 
   const toPct = (tx: number, ty: number) => ({ left: `${(tx / world.w) * 100}%`, top: `${(ty / world.h) * 100}%` });
+  const mapCoords = game.worldCoords();
   const markers = game.quests.markers();
   const trackedMarker = game.trackedQuest ? game.quests.markers().find((m) => m.quest.id === game.trackedQuest)?.location : undefined;
 
@@ -58,7 +59,10 @@ export default function MapPanel({ game }: { game: Game }) {
       <div className="modal panel" style={{ width: 'min(1000px, 96vw)' }}>
         <div className="panel-title">
           <span>Ashvale Valley</span>
-          <span className="sub">{game.player.discovered.size} / {LOCATIONS.length} places found · Day {game.day}, {game.timeLabel}</span>
+          <span className="sub">
+            {game.player.discovered.size} / {LOCATIONS.length} places found · {game.timeLabel} ·{' '}
+            {mapCoords.isDoor ? 'Door ' : ''}{mapCoords.x}, {mapCoords.y}
+          </span>
           <button className="close-x" onClick={() => game.closeAll()}>×</button>
         </div>
         <div className="map-panel">

@@ -160,6 +160,10 @@ canvas.world {
 .title-screen {
   position: absolute;
   inset: 0;
+  /* Establishes its own stacking context so the z-index:2 children below
+     (title-main, title-menu, title-foot) stay scoped inside it instead of
+     escaping to compete with sibling overlays like the settings modal. */
+  z-index: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -466,6 +470,9 @@ canvas.world {
 
 .modal-scrim {
   position: absolute; inset: 0;
+  /* Always above screen-level content (title screen, HUD, dialogue, ...)
+     regardless of DOM order or any z-index a screen's own content sets. */
+  z-index: 10;
   background: rgba(6, 5, 10, 0.68);
   backdrop-filter: blur(2px);
   display: grid; place-items: center;

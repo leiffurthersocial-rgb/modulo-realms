@@ -2,6 +2,7 @@ import type { Game } from '../game/core/game';
 import { deleteSave, saveGame } from '../game/save/save';
 
 export default function PausePanel({ game, onSettings }: { game: Game; onSettings: () => void }) {
+  const coords = game.worldCoords();
   return (
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
       <div className="modal panel" style={{ width: 380 }}>
@@ -12,7 +13,7 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
         <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 9 }}>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.6 }}>
             {game.player.name} · Level {game.player.level} {game.player.classDef.name}<br />
-            {game.map.name} · Day {game.day}, {game.timeLabel}
+            {game.map.name} · {game.timeLabel} · {coords.isDoor ? 'Door ' : ''}{coords.x}, {coords.y}
           </div>
           <button className="btn primary" onClick={() => game.closeAll()}>Resume</button>
           <button className="btn" onClick={() => { saveGame(game); game.toast('Game saved', undefined, '#6fbf5a'); }}>Save game</button>
