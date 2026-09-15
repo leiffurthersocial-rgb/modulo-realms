@@ -87,7 +87,7 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
   // plaza and streets
   for (let ty = CY - 8; ty <= CY + 8; ty++) {
     for (let tx = CX - 9; tx <= CX + 9; tx++) {
-      if (Math.hypot((tx - CX) * 0.8, ty - CY) < 9) setTile(map, tx, ty, T.ROAD);
+      if (Math.hypot((tx - CX) * 0.85, ty - CY) < 8) setTile(map, tx, ty, T.ROAD);
     }
   }
   for (let ty = CY - 22; ty <= CY + 32; ty++) for (let tx = CX - 2; tx <= CX + 2; tx++) setTile(map, tx, ty, T.ROAD);
@@ -203,12 +203,26 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
       if (rng.bool(0.6)) prop(map, bx + i, by + 2, 'bush_berry', { cw: 14, ch: 8 });
     }
   }
-  // clutter around the square
-  prop(map, CX - 10, CY + 2, 'barrel', { cw: 16, ch: 12 });
-  prop(map, CX - 11, CY + 3, 'crate', { cw: 18, ch: 12 });
-  prop(map, CX + 8, CY - 6, 'sack', { cw: 16, ch: 10 });
-  prop(map, CX + 7, CY + 8, 'log', { cw: 36, ch: 12 });
+  // clutter and furniture around the square, so it reads as a market not a plaza
+  prop(map, CX - 10, CY + 2, 'barrel_stack', { cw: 26, ch: 16 });
+  prop(map, CX - 11, CY + 4, 'crate', { cw: 18, ch: 12 });
+  prop(map, CX + 9, CY - 6, 'sack', { cw: 16, ch: 10 });
+  prop(map, CX + 8, CY + 7, 'log', { cw: 36, ch: 12 });
   prop(map, CX - 3, CY + 9, 'hay', { cw: 28, ch: 14 });
+  prop(map, CX + 10, CY + 3, 'barrel_stack', { cw: 26, ch: 16 });
+
+  for (const [bx, by] of [[-7, 1], [7, 1], [-7, -4], [7, -4]] as Array<[number, number]>) {
+    prop(map, CX + bx, CY + by, 'bench', { cw: 36, ch: 10 });
+  }
+  for (const [bx, by] of [[-5, 5], [5, 5], [-9, -2], [9, -2], [-2, -7], [2, -7]] as Array<[number, number]>) {
+    prop(map, CX + bx, CY + by, 'planter', { cw: 22, ch: 12 });
+  }
+  for (const [lx, ly] of [[-8, -8], [8, -8], [-8, 8], [8, 8]] as Array<[number, number]>) {
+    prop(map, CX + lx, CY + ly, 'lamp_post', { cw: 8, ch: 6, light: 165, lightColor: '#f6bf5d' });
+  }
+  // extra stalls flanking the square
+  prop(map, CX - 9, CY - 1, 'market_stall', { cw: 56, ch: 18 });
+  prop(map, CX + 9, CY - 1, 'market_stall', { cw: 56, ch: 18 });
 
   // a starter chest tucked behind the player's home
   map.chests.push({ id: 'chest_home_yard', x: 172 * TILE, y: 179 * TILE, level: 1, tier: 'small', gold: 30 });

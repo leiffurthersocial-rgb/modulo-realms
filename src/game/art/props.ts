@@ -1198,6 +1198,77 @@ GEN.waystone = (rng) => {
   return art(frames, 84, 9);
 };
 
+
+GEN.lamp_post = () => {
+  const frames: Px[] = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Px(20, 52);
+    groundShadow(p, 10, 49, 7);
+    p.fill(7, 44, 6, 6, PAL.ironDark);
+    p.fill(8, 12, 4, 34, PAL.ironDark);
+    p.fill(9, 12, 1, 34, PAL.iron);
+    p.fill(5, 8, 10, 3, PAL.ironDark);
+    p.fill(6, 3, 8, 6, f === 0 ? PAL.flameLit : PAL.gold);
+    p.box(5, 2, 10, 8, PAL.ironDark);
+    p.poly([[4, 2], [16, 2], [10, -3]], PAL.ironDark);
+    p.ellipse(10, 6, 13, 13, withAlpha(PAL.flameLit, 0.08));
+    frames.push(p);
+  }
+  return art(frames, 50, 3);
+};
+
+GEN.bench = (rng) => {
+  const p = new Px(42, 24);
+  groundShadow(p, 21, 22, 16);
+  p.fill(2, 10, 38, 5, PAL.plank);
+  p.fill(2, 10, 38, 1, PAL.plankLit);
+  p.fill(2, 15, 38, 1, PAL.woodDark);
+  p.fill(2, 4, 38, 4, PAL.wood);
+  p.fill(2, 4, 38, 1, PAL.plank);
+  p.fill(5, 15, 3, 7, PAL.woodDark);
+  p.fill(34, 15, 3, 7, PAL.woodDark);
+  for (let i = 0; i < 6; i++) p.fill(rng.int(3, 38), rng.int(5, 14), rng.int(2, 4), 1, shade(PAL.wood, 0.85));
+  return art([p], 23);
+};
+
+GEN.planter = (rng) => {
+  const p = new Px(30, 26);
+  groundShadow(p, 15, 24, 11);
+  p.fill(3, 14, 24, 10, PAL.wood);
+  p.fill(3, 14, 24, 2, PAL.plank);
+  p.fill(3, 22, 24, 2, PAL.woodDark);
+  p.fill(5, 11, 20, 4, PAL.soilDark);
+  for (let i = 0; i < 12; i++) {
+    const x = rng.int(5, 24);
+    const h = rng.int(3, 8);
+    for (let k = 0; k < h; k++) p.set(x, 12 - k, k > h - 2 ? PAL.grassPale : PAL.grass);
+  }
+  for (let i = 0; i < 3; i++) {
+    const x = rng.int(6, 23);
+    p.set(x, 6 + rng.int(0, 3), rng.pick([PAL.blood, PAL.gold, PAL.bone]));
+  }
+  p.outline(PAL.woodDark);
+  return art([p], 25);
+};
+
+GEN.barrel_stack = (rng) => {
+  const p = new Px(34, 40);
+  groundShadow(p, 17, 37, 14);
+  const barrel = (x: number, y: number) => {
+    p.fill(x, y, 14, 18, PAL.wood);
+    p.ellipse(x + 7, y, 7, 2.5, PAL.plank);
+    p.fill(x - 1, y + 4, 16, 2, PAL.iron);
+    p.fill(x - 1, y + 12, 16, 2, PAL.iron);
+    for (let i = 0; i < 3; i++) p.fill(x + 3 + i * 4, y + 1, 1, 16, PAL.woodDark);
+  };
+  barrel(2, 20);
+  barrel(18, 20);
+  barrel(10, 4);
+  for (let i = 0; i < 6; i++) p.set(rng.int(3, 30), rng.int(5, 36), PAL.woodDark);
+  p.outline(PAL.woodDark);
+  return art([p], 38);
+};
+
 const FALLBACK: Gen = () => {
   const p = new Px(24, 24);
   p.fillAll('#ff00ff');

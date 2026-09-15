@@ -689,8 +689,8 @@ canvas.world {
 }
 .shop-row:hover { background: rgba(255, 255, 255, 0.04); border-color: var(--edge); }
 .shop-row img { width: 34px; height: 34px; image-rendering: pixelated; }
-.shop-row .sr-name { flex: 1; font-size: 12.5px; }
-.shop-row .sr-meta { font-size: 10.5px; color: var(--muted); }
+.shop-row .sr-name { flex: 1; font-size: 12.5px; min-width: 0; text-align: left; }
+.shop-row .sr-meta { display: block; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
 .shop-row .sr-price { color: var(--gold); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .shop-foot {
   padding: 10px 14px; border-top: 1px solid var(--edge);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ANIM, ROW, getCharacterSheet, type Look } from '../game/art/characters';
 
 interface Props {
@@ -12,11 +12,14 @@ interface Props {
 /** Small animated character portrait used in creation, HUD and dialogue. */
 export default function SpritePreview({ look, scale = 4, dir = 'down', anim = 'idle', className }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // `look` is rebuilt on every render, so key the effect on its contents instead
+  // of its identity — otherwise the animation restarts and can end up blank.
+  const lookKey = useMemo(() => JSON.stringify(look), [look]);
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const sheet = getCharacterSheet(look);
+    const sheet = getCharacterSheet(JSON.parse(lookKey) as Look);
     canvas.width = sheet.fw * scale;
     canvas.height = sheet.fh * scale;
     const g = canvas.getContext('2d')!;
@@ -38,9 +41,9 @@ export default function SpritePreview({ look, scale = 4, dir = 'down', anim = 'i
       g.restore();
       raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
+    draw(start);
     return () => cancelAnimationFrame(raf);
-  }, [look, scale, dir, anim]);
+  }, [lookKey, scale, dir, anim]);
 
   return <canvas ref={ref} className={className} />;
 }

@@ -390,7 +390,10 @@ export function render(game: Game): void {
 
   // pickups
   for (const it of game.pickups) {
-    const icon = it.gold > 0 ? getIcon('gold') : getIcon(it.item!.icon, { metal: it.item!.iconMetal, accent: it.item!.iconAccent, glow: it.item!.glow });
+    if (!it.item && it.gold <= 0) continue;
+    const icon = it.item
+      ? getIcon(it.item.icon, { metal: it.item.iconMetal, accent: it.item.iconAccent, glow: it.item.glow })
+      : getIcon('gold');
     const bob = Math.sin(game.now * 3 + it.id) * 2;
     const dy = Math.round(it.y - it.z - 16 + bob);
     const dx = Math.round(it.x - 16);

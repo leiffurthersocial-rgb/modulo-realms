@@ -749,6 +749,7 @@ export class Game implements WorldCtx {
   /* ---------------- pickups ---------------- */
 
   dropPickup(x: number, y: number, item: Item | null, gold: number): void {
+    if (!item && gold <= 0) return;
     const a = Math.random() * Math.PI * 2;
     this.pickups.push({
       id: this.pickupId++,
@@ -2520,6 +2521,11 @@ export class Game implements WorldCtx {
     this.camera.y = damp(this.camera.y, ty, 9, dt);
     this.camera.shake *= 1 - Math.min(1, 7 * dt);
     if (this.camera.shake < 0.15) this.camera.shake = 0;
+  }
+
+  /** Exposed so the smoke tests can sample the loot tables. */
+  rollLootForTest(level: number): Item {
+    return rollLoot(level, new RNG(Math.floor(Math.random() * 1e9)), this.player?.stats().magicFind ?? 0, 0, this.regionAtPlayer());
   }
 
   /* ---------------- persistence ---------------- */

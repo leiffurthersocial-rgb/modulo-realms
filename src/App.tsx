@@ -66,6 +66,9 @@ export default function App() {
     };
     window.addEventListener('beforeunload', beforeUnload);
 
+    // exposed for the F3 debug overlay and for automated smoke tests
+    (window as unknown as { modulo: Game }).modulo = g;
+
     setGame(g);
     return () => {
       cancelAnimationFrame(raf);
