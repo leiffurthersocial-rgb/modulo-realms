@@ -1,9 +1,9 @@
-import type { AbilityDef } from '../../data/classes';
+import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ENEMY_BY_ID } from '../../data/enemies';
 import { TEMPLATE_BY_ID } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, type LocationDef } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
-import { QUEST_BY_ID, type QuestDef } from '../../data/quests';
+import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
 import { FACTION_BY_ID } from '../../data/races';
 import { PAL } from '../art/palette';
 import { audio, type MusicTrack } from '../audio/audio';
@@ -16,7 +16,7 @@ import { addItem, addTemplate, countItem, equip, removeByDefId, removeItem, uneq
 import { makeItem, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
-import { EQUIP_SLOT_ORDER, type EquipSlot, type Item, type Rarity } from '../items/types';
+import { EQUIP_SLOT_ORDER, RARITY_COLOR, type EquipSlot, type Item, type Rarity } from '../items/types';
 import { Player, type PlayerInit } from '../player/player';
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
@@ -153,6 +153,15 @@ export class Game implements WorldCtx {
   /** Waystone the player is currently standing at, if any. */
   currentWaystone: string | null = null;
   activeSpawns = new Map<string, Enemy[]>();
+  /**
+   * Kill streak. Chain kills inside the window and the rewards escalate — the
+   * pitch climbs, the XP multiplies, and the screen tells you about it. This
+   * is the loop that makes clearing a room feel worth doing twice.
+   */
+  streak = 0;
+  streakUntil = 0;
+  /** Full-screen colour pop, drained by the renderer each frame. */
+  screenFlash = { alpha: 0, color: '#ffffff' };
   uiVersion = 0;
   private listeners = new Set<() => void>();
   private toastId = 1;
@@ -253,14 +262,14 @@ export class Game implements WorldCtx {
 
     this.player.discovered.add('ashvale');
     this.player.waystones.add('ashvale');
-    this.quests.accept('main_1');
-    this.trackedQuest = 'main_1';
+    this.quests.accept('tutorial');
+    this.trackedQuest = 'tutorial';
     this.clock = DAY_SECONDS * (8 / 24);
     this.day = 1;
     this.screen = 'playing';
     this.panel = null;
     this.toast('Ashvale', 'Your story begins at the edge of the valley.', PAL.goldLit);
-    this.toast('New quest: A Quiet Morning', 'Speak with Elder Hanne in the square.', '#6fbf5a');
+    this.toast('New quest: Somewhere to Start', 'Head east and find Whisperwell Cave.', '#6fbf5a');
     this.touch();
   }
 
@@ -435,6 +444,17 @@ export class Game implements WorldCtx {
     this.camera.shake = Math.min(26, this.camera.shake + amount);
   }
 
+  /** Wash the screen in a colour for a few frames. Used sparingly, for payoffs. */
+  flashScreen(color: string, alpha = 0.3): void {
+    this.screenFlash.color = color;
+    this.screenFlash.alpha = Math.max(this.screenFlash.alpha, alpha);
+  }
+
+  /** Freeze the world briefly so a big hit lands with weight. */
+  freeze(seconds: number): void {
+    this.hitStop = Math.max(this.hitStop, seconds);
+  }
+
   playSound(name: string, volume = 1): void {
     audio.play(name, volume);
   }
@@ -462,20 +482,20 @@ export class Game implements WorldCtx {
 
   /* ---------------- aiming ---------------- */
 
-  /** Last direction the player faced, in radians. Drives keyboard-only combat. */
+  /** Last direction the player faced, in radians. */
   aim = 0;
+  /** The enemy combat is currently locked onto, for the HUD reticle. */
+  lockTarget: Enemy | null = null;
 
   /**
-   * Where attacks point. A recently moved mouse wins; otherwise we soft-lock
-   * onto the nearest enemy in front of the player, falling back to facing.
-   * This is what makes the game playable with a keyboard alone.
+   * Everything auto-aims. Attacks and abilities snap to the best nearby enemy
+   * with no pointing required; facing is only a fallback when nothing is in
+   * range. Keeping this in one place means every weapon and every ability
+   * behaves identically.
    */
-  aimAngle(): number {
+  bestTarget(range = 0): Enemy | null {
     const p = this.player;
-    if (this.input.hasMouse && this.input.mouseIdle < 1.6) {
-      return angleTo(p.x, p.y, this.input.world.x, this.input.world.y);
-    }
-    const lockRange = Math.max(260, p.attackRange() * 1.8);
+    const lockRange = range || Math.max(420, p.attackRange() * 1.6);
     let best: Enemy | null = null;
     let bestScore = Infinity;
     for (const e of this.enemies) {
@@ -485,31 +505,47 @@ export class Game implements WorldCtx {
       const a = angleTo(p.x, p.y, e.x, e.y);
       let diff = Math.abs(((a - this.aim + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
       diff = Math.PI - diff;
-      // prefer close enemies roughly in front of us
-      const score = d * (1 + diff * 0.9);
+      // strongly prefer whatever is closest; facing is only a light tiebreak
+      const score = d * (1 + diff * 0.25);
       if (score < bestScore) { bestScore = score; best = e; }
     }
-    if (best) return angleTo(p.x, p.y, best.x, best.y);
+    return best;
+  }
+
+  aimAngle(): number {
+    const p = this.player;
+    const target = this.bestTarget();
+    if (target) {
+      this.lockTarget = target;
+      return angleTo(p.x, p.y, target.x, target.y);
+    }
+    this.lockTarget = null;
+    if (this.input.hasMouse && this.input.mouseIdle < 1.2) {
+      return angleTo(p.x, p.y, this.input.world.x, this.input.world.y);
+    }
     return this.aim;
   }
 
-  /** Point the ground-targeted abilities land on. */
-  aimPoint(range = 220): { x: number; y: number } {
+  /** Point the ground-targeted abilities land on — the thickest nearby cluster. */
+  aimPoint(range = 260): { x: number; y: number } {
     const p = this.player;
-    if (this.input.hasMouse && this.input.mouseIdle < 1.6) {
-      const d = dist(p.x, p.y, this.input.world.x, this.input.world.y);
-      if (d <= range) return { x: this.input.world.x, y: this.input.world.y };
-    }
     let best: Enemy | null = null;
-    let bestD = range;
+    let bestScore = -1;
     for (const e of this.enemies) {
       if (e.dead || e.friendly) continue;
-      const d = dist(p.x, p.y, e.x, e.y);
-      if (d < bestD) { bestD = d; best = e; }
+      if (dist(p.x, p.y, e.x, e.y) > range) continue;
+      // score by how many other enemies stand near this one
+      let cluster = 1;
+      for (const o of this.enemies) {
+        if (o === e || o.dead || o.friendly) continue;
+        if (dist(o.x, o.y, e.x, e.y) < 110) cluster++;
+      }
+      const score = cluster * 100 - dist(p.x, p.y, e.x, e.y);
+      if (score > bestScore) { bestScore = score; best = e; }
     }
     if (best) return { x: best.x, y: best.y };
     const a = this.aimAngle();
-    return { x: p.x + Math.cos(a) * range * 0.7, y: p.y + Math.sin(a) * range * 0.7 };
+    return { x: p.x + Math.cos(a) * range * 0.55, y: p.y + Math.sin(a) * range * 0.55 };
   }
 
   /* ---------------- combat ---------------- */
@@ -557,13 +593,37 @@ export class Game implements WorldCtx {
     audio.play('die', 0.45);
     if (e.friendly) return;
 
+    // kill streak — chain kills inside the window and everything escalates
+    this.streak = this.now < this.streakUntil ? this.streak + 1 : 1;
+    this.streakUntil = this.now + 4;
+    const tier = this.streak >= 20 ? 4 : this.streak >= 12 ? 3 : this.streak >= 7 ? 2 : this.streak >= 4 ? 1 : 0;
+    const STREAK_COLOR = ['#cfc7e0', '#6fd0e8', '#6fbf5a', '#9578e8', '#f0c93c'];
+    const bonus = 1 + tier * 0.15;
+    if (this.streak >= 3) {
+      this.floatText(e.x, e.y - e.radius * 2.8, `${this.streak}x`, STREAK_COLOR[tier], 13 + tier * 3);
+      audio.play('crit', Math.min(0.85, 0.35 + tier * 0.15));
+    }
+    if (this.streak === 4 || this.streak === 7 || this.streak === 12 || this.streak === 20) {
+      this.fx.ring(p.x, p.y, 90 + tier * 30, STREAK_COLOR[tier]);
+      this.fx.spawn(p.x, p.y, 16 + tier * 8, STREAK_COLOR[tier], { speed: 180, life: 0.7, size: 3, gravity: -50 });
+      this.shake(3 + tier * 2);
+      this.flashScreen(STREAK_COLOR[tier], 0.1 + tier * 0.03);
+      this.toast(`${this.streak} kill streak`, `+${Math.round((bonus - 1) * 100)}% experience while it holds`, STREAK_COLOR[tier]);
+    }
+
     // xp and level ups
-    const levels = p.addXp(e.xp);
-    this.floatText(e.x, e.y - e.radius * 2, `+${e.xp} XP`, '#9578e8', 12);
+    const xp = Math.round(e.xp * bonus);
+    const levels = p.addXp(xp);
+    this.floatText(e.x, e.y - e.radius * 2, `+${xp} XP`, tier > 0 ? STREAK_COLOR[tier] : '#9578e8', 12 + tier);
     if (levels > 0) {
       audio.play('levelup', 0.8);
       this.fx.ring(p.x, p.y, 120, PAL.goldLit);
-      this.fx.spawn(p.x, p.y, 40, PAL.goldLit, { speed: 150, life: 0.9, size: 3, gravity: -60 });
+      this.fx.ring(p.x, p.y, 200, PAL.goldLit);
+      this.fx.spawn(p.x, p.y, 64, PAL.goldLit, { speed: 190, life: 1.1, size: 3, gravity: -60 });
+      this.flashScreen(PAL.goldLit, 0.32);
+      this.freeze(0.12);
+      this.shake(9);
+      this.floatText(p.x, p.y - 58, `LEVEL ${p.level}`, PAL.goldLit, 22);
       this.toast(`Level ${p.level}`, `+1 skill point${p.skillPoints > 1 ? ` (${p.skillPoints} unspent)` : ''}`, PAL.goldLit);
     }
 
@@ -767,6 +827,20 @@ export class Game implements WorldCtx {
 
   dropPickup(x: number, y: number, item: Item | null, gold: number): void {
     if (!item && gold <= 0) return;
+    // A good drop announces itself the instant it hits the ground, not when
+    // you happen to walk over it.
+    if (item && item.rarity !== 'common' && item.rarity !== 'rare') {
+      const c = RARITY_COLOR[item.rarity];
+      this.fx.ring(x, y, item.rarity === 'legendary' ? 180 : 110, c);
+      this.fx.spawn(x, y, item.rarity === 'legendary' ? 46 : 24, c, { speed: 150, life: 1.1, size: 3, gravity: -70 });
+      audio.play('quest', item.rarity === 'legendary' ? 0.9 : 0.6);
+      if (item.rarity === 'legendary' || item.rarity === 'epic') {
+        this.flashScreen(c, item.rarity === 'legendary' ? 0.4 : 0.22);
+        this.freeze(item.rarity === 'legendary' ? 0.16 : 0.07);
+        this.shake(item.rarity === 'legendary' ? 14 : 7);
+        this.floatText(x, y - 54, item.rarity === 'legendary' ? 'LEGENDARY' : 'EPIC', c, item.rarity === 'legendary' ? 22 : 17);
+      }
+    }
     const a = Math.random() * Math.PI * 2;
     this.pickups.push({
       id: this.pickupId++,
@@ -1741,6 +1815,8 @@ export class Game implements WorldCtx {
     }
     for (const r of def.rewards.rep ?? []) p.addRep(r.faction, r.amount);
     this.quests.complete(id);
+    // a finished quest must not keep the compass pointing at its marker
+    if (this.trackedQuest === id) this.trackedQuest = null;
     if (def.next) {
       const nx = QUEST_BY_ID[def.next];
       if (nx && this.quests.canAccept(nx, p)) {
@@ -1748,7 +1824,6 @@ export class Game implements WorldCtx {
         this.toast('New lead', `Speak to ${NPC_BY_ID[nx.giver]?.name ?? 'someone in town'}.`, '#9578e8');
       }
     }
-    if (id === 'side_ring') p.flags.add('ring_returned');
     this.toast(`Quest complete: ${def.name}`, `+${def.rewards.xp} XP, +${def.rewards.gold} gold`, PAL.goldLit, 'quest');
     audio.play('quest', 0.8);
     if (levels > 0) audio.play('levelup', 0.8);
@@ -1764,6 +1839,11 @@ export class Game implements WorldCtx {
     const def = QUEST_BY_ID[id];
     if (!def) return;
     if (this.quests.isComplete(id, this.player)) {
+      // Bounties pay on the spot — no walking back to a quest giver.
+      if (def.auto) {
+        this.turnInQuest(id);
+        return;
+      }
       const who = NPC_BY_ID[def.turnIn ?? def.giver];
       this.toast(`${def.name} — ready`, `Return to ${who?.name ?? 'the quest giver'}.`, PAL.goldLit, 'quest');
       audio.play('quest', 0.5);
@@ -1771,6 +1851,76 @@ export class Game implements WorldCtx {
       audio.play('ui', 0.4);
       this.touch();
     }
+  }
+
+  /**
+   * Offer every bounty tied to a place the moment the player finds it, and
+   * hand the tutorial over at the very start. Nothing queues at an NPC.
+   */
+  private offerAutoQuests(location?: string, quiet = false): void {
+    const p = this.player;
+    for (const def of QUESTS) {
+      if (!def.auto) continue;
+      if (location && def.marker !== location) continue;
+      if (!this.quests.canAccept(def, p)) continue;
+      this.quests.accept(def.id);
+      if (!quiet) {
+        this.toast(`Bounty: ${def.name}`, def.summary, '#6fbf5a', 'quest');
+        audio.play('quest', 0.55);
+      }
+      if (!this.trackedQuest) this.trackedQuest = def.id;
+      // A bounty you already satisfied before finding the board pays at once.
+      if (this.quests.isComplete(def.id, p)) this.turnInQuest(def.id);
+    }
+    this.touch();
+  }
+
+  /**
+   * Hand over the bounties for places the player already knows about. Run on
+   * load so a save made before a bounty existed still picks it up.
+   */
+  catchUpBounties(): void {
+    for (const id of this.player.discovered) this.offerAutoQuests(id, true);
+  }
+
+  /** Gold it costs to retrain into another class. */
+  readonly classChangeCost = 100;
+
+  /**
+   * Retrain into another class: swaps the stat block and ability set, refunds
+   * every spent skill point, and hands over that class's starting kit.
+   */
+  changeClass(cls: ClassId): boolean {
+    const p = this.player;
+    if (p.cls === cls) return false;
+    if (p.gold < this.classChangeCost) {
+      this.toast('Not enough gold', `Retraining costs ${this.classChangeCost} gold.`, '#d9553f');
+      return false;
+    }
+    p.gold -= this.classChangeCost;
+
+    const spent = Object.values(p.skills).reduce((a, b) => a + b, 0);
+    p.skills = {};
+    p.skillPoints += spent;
+    p.cooldowns = {};
+    p.buffs = [];
+    p.cls = cls;
+
+    const def = CLASS_BY_ID[cls];
+    for (const id of [def.startWeapon, ...def.startArmor]) {
+      const item = makeItem(id, { plain: true });
+      if (!addItem(p.inventory, item)) this.dropPickup(p.x, p.y, item, 0);
+    }
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    p.sp = p.maxSp;
+
+    this.fx.ring(p.x, p.y, 150, def.color);
+    this.fx.spawn(p.x, p.y, 48, def.color, { speed: 170, life: 1.1, size: 3, gravity: -70 });
+    audio.play('levelup', 0.9);
+    this.toast(`You are now a ${def.name}`, `${spent} skill point${spent === 1 ? '' : 's'} refunded, starting kit issued.`, def.color);
+    this.touch();
+    return true;
   }
 
   /** Track a quest so the map, minimap and compass point at it. */
@@ -2061,6 +2211,8 @@ export class Game implements WorldCtx {
     const dt = Math.min(0.05, dtRaw);
     this.dt = dt;
     this.now += dt;
+    if (this.screenFlash.alpha > 0) this.screenFlash.alpha = Math.max(0, this.screenFlash.alpha - dt * 2.4);
+    if (this.streak > 0 && this.now > this.streakUntil) this.streak = 0;
 
     if (this.screen !== 'playing') {
       this.fx.update(dt);
@@ -2364,6 +2516,24 @@ export class Game implements WorldCtx {
   private updateProjectiles(dt: number): void {
     for (const pr of this.projectiles) {
       if (pr.dead) continue;
+      // friendly shots gently home, so auto-aim stays true even if the target moves
+      if (pr.friendly && (pr.homing ?? 1) > 0) {
+        let best: Enemy | null = null;
+        let bestD = 340;
+        for (const e of this.enemies) {
+          if (e.dead || e.friendly || pr.hits.has(e.id)) continue;
+          const d = dist(pr.x, pr.y, e.x, e.y);
+          if (d < bestD) { bestD = d; best = e; }
+        }
+        if (best) {
+          const want = angleTo(pr.x, pr.y, best.x, best.y - best.radius * 0.3);
+          let delta = ((want - pr.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+          const turn = Math.min(Math.abs(delta), 5.5 * (pr.homing ?? 1) * dt) * Math.sign(delta);
+          pr.angle += turn;
+          pr.vx = Math.cos(pr.angle) * pr.speed;
+          pr.vy = Math.sin(pr.angle) * pr.speed;
+        }
+      }
       const step = pr.speed * dt;
       pr.x += pr.vx * dt;
       pr.y += pr.vy * dt;
@@ -2491,6 +2661,7 @@ export class Game implements WorldCtx {
         this.toast(`Discovered: ${loc.name}`, `${loc.desc}  (+${xp} XP)`, '#6fd0e8');
         audio.play('discover', 0.6);
         for (const qid of this.quests.onExplore(loc.id)) this.questProgressToast(qid);
+        this.offerAutoQuests(loc.id);
         this.touch();
       }
     }

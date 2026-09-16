@@ -2,7 +2,7 @@ import { RNG } from '../core/rng';
 import type { LocationDef } from '../../data/locations';
 import { T, TILE } from './tiles';
 import { getTile, setTile, type GameMap, type PropInstance } from './map';
-import { placeBuilding, type BuildingPlacement } from './village';
+import { placeBuilding } from './village';
 
 const prop = (map: GameMap, tx: number, ty: number, art: string, o: Partial<PropInstance> = {}) => {
   map.props.push({ art, x: tx * TILE + TILE / 2, y: ty * TILE + TILE, ...o });
@@ -41,16 +41,21 @@ export function buildSettlement(map: GameMap, rng: RNG, loc: LocationDef): void 
   for (let ty = CY - 13; ty <= CY + 13; ty++) for (let tx = CX - 1; tx <= CX + 1; tx++) setTile(map, tx, ty, T.ROAD);
   for (let tx = CX - 13; tx <= CX + 13; tx++) for (let ty = CY - 1; ty <= CY + 1; ty++) setTile(map, tx, ty, T.ROAD);
 
-  const spots: Array<[number, number]> = [[-8, -4], [8, -4], [-8, 7], [8, 7]];
-  const placements: BuildingPlacement[] = spots.map(([dx, dy], i) => ({
-    id: `${loc.id}_b${i}`,
-    art: style.houses[i % style.houses.length],
-    tx: CX + dx,
-    ty: CY + dy,
-    interior: `int_${loc.id}_${i}`,
-    label: `Enter the building`,
-  }));
-  for (const p of placements) placeBuilding(map, p);
+  // One building here is worth entering — a lodge with a bed and a stash. The
+  // rest are the valley's standard shuttered townhouse, so the player learns
+  // one silhouette and never wastes a walk on a door that does not open.
+  placeBuilding(map, {
+    id: `${loc.id}_lodge`,
+    art: style.houses[0],
+    tx: CX - 8,
+    ty: CY - 4,
+    interior: `int_${loc.id}_lodge`,
+    label: `Enter the ${loc.name} lodge`,
+  });
+  const filler: Array<[number, number]> = [[8, -4], [-8, 7], [8, 7], [-11, 1], [11, 1], [0, -9]];
+  filler.forEach(([dx, dy], i) => {
+    placeBuilding(map, { id: `${loc.id}_h${i}`, art: 'townhouse', tx: CX + dx, ty: CY + dy, label: 'A shuttered house' });
+  });
 
   prop(map, CX, CY + 4, loc.id === 'duneholt' ? 'market_stall' : 'well', { cw: 34, ch: 16, interact: loc.id === 'duneholt' ? undefined : 'well', label: 'Drink from the well' });
   prop(map, CX - 6, CY - 6, 'waystone', {
@@ -76,5 +81,5 @@ export function buildSettlement(map: GameMap, rng: RNG, loc: LocationDef): void 
 }
 
 export function settlementInteriorIds(loc: LocationDef): string[] {
-  return [0, 1, 2, 3].map((i) => `int_${loc.id}_${i}`);
+  return [`int_${loc.id}_lodge`];
 }

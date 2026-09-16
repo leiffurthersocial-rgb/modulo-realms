@@ -74,10 +74,16 @@ export const ASHVALE_BUILDINGS: BuildingPlacement[] = [
   { id: 'apothecary', art: 'apothecary', tx: 170, ty: 192, interior: 'int_apothecary', label: 'Enter the apothecary' },
   { id: 'chapel', art: 'chapel', tx: 214, ty: 175, interior: 'int_chapel', label: 'Enter the chapel' },
   { id: 'farmhouse', art: 'farmhouse', tx: 174, ty: 214, interior: 'int_farm', label: 'Enter the farmhouse' },
-  { id: 'cottage_a', art: 'cottage_a', tx: 199, ty: 214, interior: 'int_cottage_a', label: "Enter Maren's cottage" },
-  { id: 'cottage_b', art: 'cottage_b', tx: 212, ty: 212, interior: 'int_cottage_b', label: "Enter Old Bram's cottage" },
-  { id: 'cottage_c', art: 'cottage_c', tx: 187, ty: 216, interior: 'int_cottage_c', label: 'Enter the cottage' },
   { id: 'guard_post', art: 'guard_post', tx: 192, ty: 222, label: 'The south gatehouse' },
+];
+
+/**
+ * Filler housing. All one silhouette, all boarded shut — the player checks one
+ * of these, learns the shape, and never wastes another walk on it.
+ */
+const ASHVALE_TOWNHOUSES: Array<[number, number]> = [
+  [199, 214], [212, 212], [187, 216], [205, 216], [181, 218], [217, 205],
+  [166, 185], [168, 178], [215, 191], [200, 170], [184, 170], [173, 224],
 ];
 
 export function buildAshvale(map: GameMap, rng: RNG): void {
@@ -112,6 +118,9 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
   }
 
   for (const b of ASHVALE_BUILDINGS) placeBuilding(map, b);
+  ASHVALE_TOWNHOUSES.forEach(([tx, ty], i) => {
+    placeBuilding(map, { id: `ashvale_house_${i}`, art: 'townhouse', tx, ty, label: 'A shuttered house' });
+  });
 
   // the valley's first waystone, on the north side of the square
   prop(map, CX - 7, CY - 7, 'waystone', {

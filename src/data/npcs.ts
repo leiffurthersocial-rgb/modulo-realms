@@ -164,13 +164,12 @@ export const NPCS: NpcDef[] = [
     personality: 'Dry, unhurried, has already thought of the thing you are about to say.',
     map: 'overworld', tx: 194, ty: 186,
     look: look({ hair: '#d8cfc4', hairStyle: 'braid', shirt: '#4a5a7a', pants: '#3b3346', armor: 'robe', armorColor: '#4a5a7a', armorTrim: PAL.gold }),
-    quests: ['main_1', 'main_2'],
+    quests: ['tutorial'],
     schedule: dayJob(194, 186, 192, 178, 205, 184),
     wander: 40,
     greeting: [
       { cond: { races: ['revenant'] }, lines: ['Hanne looks at you a moment longer than is polite.', '"You are cold, and you are standing in my square. Welcome to Ashvale, all the same."'] },
       { cond: { races: ['orc'] }, lines: ['"Ashborn. Good. The wolves will think twice."', '"Some in town will not. Ignore them, they pay their taxes late anyway."'] },
-      { cond: { questDone: 'main_6' }, lines: ['"The valley is quiet. I do not entirely trust it, but I will take it."'] },
       { lines: ['"You look like someone who walked a long way to find a small town."', '"Ashvale will take you. It takes everyone. That is the whole trouble with it."'] },
     ],
     topics: [
@@ -192,7 +191,6 @@ export const NPCS: NpcDef[] = [
     personality: 'Blunt, fair, secretly proud of every blade he sells.',
     map: 'overworld', tx: 204, ty: 206,
     look: look({ skin: PAL.skin3, hair: '#b5462f', hairStyle: 'short', beard: 'long', height: 0.86, bulk: 1.18, shirt: '#6a4436', pants: '#3a2f28', armor: 'light', armorColor: '#5a4436', weapon: { kind: 'hammer', metal: PAL.iron, grip: PAL.woodDark } }),
-    quests: ['side_ore'],
     schedule: dayJob(204, 206, 208, 200, 205, 184),
     wander: 26,
     shop: {
@@ -228,7 +226,6 @@ export const NPCS: NpcDef[] = [
     personality: 'Cheerful, exhausting, would sell you your own boots.',
     map: 'overworld', tx: 187, ty: 189,
     look: look({ hair: '#8a6a3a', hairStyle: 'ponytail', shirt: '#7a5a3a', pants: '#4a3a2a', armor: 'light', armorColor: '#8a6a4a' }),
-    quests: ['side_delivery'],
     schedule: dayJob(187, 189, 199, 212, 205, 184),
     wander: 20,
     shop: {
@@ -260,7 +257,6 @@ export const NPCS: NpcDef[] = [
     personality: 'Warm, nosy, remembers every name that comes through the door.',
     map: 'int_inn', tx: 20, ty: 4,
     look: look({ skin: PAL.skinBeast, hair: '#6b4b34', hairStyle: 'wild', ears: 'beast', eyes: PAL.gold, shirt: '#8a6a4a', pants: '#4a3a2a', armor: 'light', armorColor: '#9a7046' }),
-    quests: ['side_ring'],
     wander: 12,
     services: ['inn'],
     shop: {
@@ -288,7 +284,6 @@ export const NPCS: NpcDef[] = [
     personality: 'Precise, faintly amused by everyone, including herself.',
     map: 'overworld', tx: 168, ty: 196,
     look: look({ skin: PAL.skinElf, hair: '#9578e8', hairStyle: 'long', ears: 'elf', eyes: '#2f6f93', shirt: '#4a3a6a', pants: '#2b1f4d', armor: 'robe', armorColor: '#4a3a6a', armorTrim: PAL.frost }),
-    quests: ['side_herbs'],
     schedule: dayJob(168, 196, 170, 190, 205, 184),
     wander: 22,
     shop: {
@@ -319,59 +314,10 @@ export const NPCS: NpcDef[] = [
     ],
   },
   {
-    id: 'captain_dara', name: 'Captain Dara Voss', title: 'Militia Captain', race: 'human', faction: 'alliance',
-    personality: 'Tired, competent, does not waste a sentence.',
-    map: 'overworld', tx: 197, ty: 196,
-    look: look({ hair: '#2a2029', hairStyle: 'ponytail', armor: 'heavy', armorColor: PAL.iron, armorTrim: PAL.gold, helmet: 'cap', cape: '#4f9ce8', weapon: { kind: 'sword', metal: PAL.steel, grip: PAL.woodDark }, offhand: 'shield', offhandColor: PAL.iron }),
-    quests: ['main_3', 'main_4'],
-    schedule: dayJob(197, 196, 192, 222, 205, 184),
-    wander: 30,
-    greeting: [
-      { cond: { races: ['orc'], repMax: { faction: 'alliance', value: 10 } }, lines: ['Dara looks you over without warmth.', '"Ashborn. Keep the axe strapped in town and we will have no trouble."'] },
-      { cond: { repMin: { faction: 'alliance', value: 40 } }, lines: ['"There you are. Half my patrol asks after you."'] },
-      { lines: ['"If you are looking for work, I have more than I can hand out."'] },
-    ],
-    topics: [
-      { text: 'How bad is it?', to: 'bad' },
-      { tag: 'Rogue', text: 'I could get inside the Cutter camp without a fight.', cond: { classes: ['rogue'] }, to: 'sneak' },
-      { tag: 'Orc', text: 'Your militia would not last a week in the crags.', cond: { races: ['orc'] }, to: 'crags' },
-    ],
-    nodes: [
-      { id: 'bad', text: ['"Twelve militia. Four know which end of a spear to hold."', '"So: bad, but survivable, which is how the valley likes things."'] },
-      { id: 'sneak', text: ['"Then do. I do not need a battle, I need what is in their captain\'s coat."', '"Come back with it and I will not ask how."'], choices: [{ text: 'Done.', actions: [{ type: 'rep', faction: 'alliance', amount: 4 }] }] },
-      { id: 'crags', text: ['"No. They would not."', 'She almost smiles. "Which is why I would rather you walked in first."'] },
-    ],
-  },
-  {
-    id: 'scholar_ivo', name: 'Ivo Marrowe', title: 'Concord Scholar', race: 'revenant', faction: 'arcane',
-    personality: 'Brilliant, rattled, talks to fill silence he finds frightening.',
-    map: 'overworld', tx: 196, ty: 180,
-    look: look({ skin: PAL.skinUndead, hair: '#d8cfc4', hairStyle: 'long', eyes: PAL.frost, shirt: '#3a4458', pants: '#241d2e', armor: 'robe', armorColor: '#3a4458', armorTrim: PAL.frost, weapon: { kind: 'tome', metal: PAL.blood, grip: PAL.woodDark, glow: PAL.arcaneLit } }),
-    quests: ['main_5', 'main_6', 'side_shards'],
-    schedule: dayJob(196, 180, 192, 178, 205, 184),
-    wander: 24,
-    greeting: [
-      { cond: { races: ['revenant'] }, lines: ['"Ah. One of us."', '"They will not say it to your face, so I will: it does not get warmer. You get better at pretending."'] },
-      { cond: { classes: ['mage', 'necromancer'] }, lines: ['"Finally, someone who will understand the second half of my sentences."'] },
-      { lines: ['"You are not a scholar. Good. Scholars argue; I want someone who walks into places."'] },
-    ],
-    topics: [
-      { text: 'What is the Modulo?', to: 'modulo' },
-      { text: 'What are the shards?', to: 'shards' },
-      { tag: 'Mage', text: 'You are describing a division that leaves a remainder in the world.', cond: { classes: ['mage'] }, to: 'deep' },
-    ],
-    nodes: [
-      { id: 'modulo', text: ['"A law, not a thing. Everything that exists is divided by it, and what is left over is us."', '"It used to divide cleanly. Now there is a remainder, and the remainder is walking around."'] },
-      { id: 'shards', text: ['"Fragments. They fall out of the division. Someone is gathering them, and they are very patient about it."'] },
-      { id: 'deep', text: ['Ivo looks at you for a long moment.', '"Yes. Exactly yes. Do you know how long I have wanted someone to say that back to me?"'], choices: [{ text: 'What does it mean for the valley?', actions: [{ type: 'rep', faction: 'arcane', amount: 5 }], to: 'modulo' }] },
-    ],
-  },
-  {
     id: 'priest_alun', name: 'Father Alun', title: 'Keeper of the Chapel', race: 'human', faction: 'alliance',
     personality: 'Gentle, stubborn, has buried more people than he will mention.',
     map: 'int_chapel', tx: 8, ty: 7,
     look: look({ hair: '#d8cfc4', hairStyle: 'bald', beard: 'full', shirt: '#c9c0a8', pants: '#8a8070', armor: 'robe', armorColor: '#c9c0a8', armorTrim: PAL.gold }),
-    quests: ['side_shrines'],
     services: ['heal'],
     wander: 10,
     greeting: [
@@ -389,49 +335,10 @@ export const NPCS: NpcDef[] = [
     ],
   },
   {
-    id: 'guard_temar', name: 'Temar', title: 'Gate Guard', race: 'human', faction: 'alliance',
-    personality: 'Bored, friendly, deeply invested in the weather.',
-    map: 'overworld', tx: 190, ty: 219,
-    look: look({ hair: '#4a3324', armor: 'heavy', armorColor: PAL.iron, helmet: 'cap', weapon: { kind: 'spear', metal: PAL.iron, grip: PAL.woodDark } }),
-    quests: ['side_guard'],
-    wander: 18,
-    greeting: [
-      { lines: ['"South gate. Road to Duneholt runs three days, less if you run and do not sleep."'] },
-    ],
-    topics: [{ text: 'Anything on the road?', to: 'road' }],
-    nodes: [{ id: 'road', text: ['"Cutters south. Wolves west. Whatever is in the mire, east."', '"North is the cold, which at least is honest about it."'] }],
-  },
-  {
-    id: 'guard_ilsa', name: 'Ilsa Crag', title: 'Gate Guard', race: 'orc', faction: 'alliance',
-    personality: 'Direct, protective, left her clan and does not discuss it.',
-    map: 'overworld', tx: 194, ty: 171,
-    look: look({ skin: PAL.skinOrc, hair: '#2a2029', hairStyle: 'braid', tusks: true, height: 1.1, bulk: 1.2, eyes: PAL.ember, armor: 'heavy', armorColor: PAL.iron, helmet: 'cap', weapon: { kind: 'axe', metal: PAL.iron, grip: PAL.woodDark } }),
-    wander: 18,
-    greeting: [
-      { cond: { races: ['orc'] }, lines: ['"Clanless, like me? Or still carrying them on your back?"', '"Either way, the gate is open."'] },
-      { lines: ['"North road. Cold, then colder, then Northwatch."'] },
-    ],
-    topics: [{ text: 'You are a long way from the crags.', to: 'crags' }],
-    nodes: [{ id: 'crags', text: ['"I am. The clans chose a war camp over a hold. I chose a gate."', '"Ashvale pays worse and shouts less."'] }],
-  },
-  {
-    id: 'farmer_ulla', name: 'Ulla Fallow', title: 'Farmer', race: 'human', faction: 'alliance',
-    personality: 'Practical, dry humour, always carrying something.',
-    map: 'overworld', tx: 178, ty: 211,
-    look: look({ hair: '#8a6a3a', hairStyle: 'braid', shirt: '#6a8a4a', pants: '#4a3a2a' }),
-    quests: ['side_boars'],
-    schedule: dayJob(178, 211, 174, 214, 205, 184),
-    wander: 34,
-    greeting: [{ lines: ['"Mind the rows. Everything you can see is somebody\'s winter."'] }],
-    topics: [{ text: 'How is the harvest?', to: 'harvest' }],
-    nodes: [{ id: 'harvest', text: ['"Better than last year. Last year the river took the low field and half the fence."'] }],
-  },
-  {
     id: 'hunter_kesh', name: 'Kesh', title: 'Hunter', race: 'beastfolk', faction: 'forest',
     personality: 'Quiet, watchful, more comfortable outside town than in it.',
     map: 'overworld', tx: 180, ty: 197,
     look: look({ skin: PAL.skinBeast, hair: '#a3823f', hairStyle: 'ponytail', ears: 'beast', eyes: PAL.gold, shirt: '#3f6a4a', pants: '#4a3324', armor: 'light', armorColor: '#4a5a3a', helmet: 'hood', weapon: { kind: 'bow', metal: PAL.wood, grip: PAL.woodDark } }),
-    quests: ['side_direwolf'],
     schedule: dayJob(180, 197, 187, 216, 205, 184),
     wander: 30,
     shop: {
@@ -448,41 +355,10 @@ export const NPCS: NpcDef[] = [
     nodes: [{ id: 'loud', text: ['"Birds where birds should not be. Deer running at noon."', '"Something in Thornhollow is moving them. I would like to know what before it reaches the fences."'] }],
   },
   {
-    id: 'miner_dorn', name: 'Dorn Ironroot', title: 'Guild Foreman', race: 'dwarf', faction: 'guild',
-    personality: 'Gruff, grieving, hiding it badly.',
-    map: 'overworld', tx: 182, ty: 199,
-    look: look({ skin: PAL.skin3, hair: '#8a6a3a', beard: 'long', height: 0.86, bulk: 1.18, shirt: '#4a5a6a', pants: '#3a2f28', armor: 'light', armorColor: '#5a5060', weapon: { kind: 'hammer', metal: PAL.iron, grip: PAL.woodDark } }),
-    quests: ['side_mine'],
-    schedule: dayJob(182, 199, 212, 210, 205, 184),
-    wander: 20,
-    greeting: [
-      { cond: { races: ['dwarf'] }, lines: ['"Deepstone. Then you will understand why I have not gone home."'] },
-      { lines: ['"I had a dig. Now I have a hole with something in it."'] },
-    ],
-    topics: [{ text: 'What did you hit down there?', to: 'hit' }],
-    nodes: [{ id: 'hit', text: ['"Web. Rope-thick. Twelve men and the web was the only thing that came back up."'] }],
-  },
-  {
-    id: 'child_tam', name: 'Tam', title: 'Ashvale Child', race: 'human', faction: 'alliance',
-    personality: 'Fearless in theory, less so in practice.',
-    map: 'overworld', tx: 189, ty: 198,
-    look: look({ hair: '#b5462f', hairStyle: 'short', height: 0.74, bulk: 0.8, shirt: '#6a8a4a', pants: '#4a3a2a' }),
-    quests: ['side_cave'],
-    wander: 44,
-    greeting: [
-      { cond: { races: ['orc'] }, lines: ['"You are ENORMOUS. Can you lift a cart? Bram says nobody can lift a cart."'] },
-      { cond: { races: ['revenant'] }, lines: ['"Are you a ghost? Mira says you are a ghost. I said ghosts do not buy bread."'] },
-      { lines: ['"Are you an adventurer? You look like an adventurer. Mostly."'] },
-    ],
-    topics: [{ text: 'What is in the cave?', to: 'cave' }],
-    nodes: [{ id: 'cave', text: ['"Something that BREATHES. I heard it. Rill says it was bats but Rill is a liar."'] }],
-  },
-  {
     id: 'fence_rook', name: 'Rook', title: 'Dealer in Lost Property', race: 'human', faction: 'bandits',
     personality: 'Soft-spoken, entirely transactional.',
     map: 'overworld', tx: 212, ty: 186,
     look: look({ hair: '#2a2029', hairStyle: 'short', shirt: '#3b3346', pants: '#241d2e', armor: 'light', armorColor: '#33304a', helmet: 'hood', weapon: { kind: 'dagger', metal: PAL.iron, grip: PAL.woodDark } }),
-    quests: ['side_thief'],
     wander: 8,
     shop: {
       id: 'shop_rook', name: 'Rook (no sign)', priceMod: 1.2,
@@ -504,41 +380,6 @@ export const NPCS: NpcDef[] = [
       { id: 'blackmail', text: ['Rook laughs once, quietly.', '"Fifty. Not because you frighten me — because I like an honest opening."'], choices: [{ text: 'Take the fifty.', actions: [{ type: 'gold', amount: 50 }, { type: 'rep', faction: 'alliance', amount: -3 }, { type: 'rep', faction: 'bandits', amount: 5 }] }, { text: 'Keep it. I would rather be owed.', actions: [{ type: 'rep', faction: 'bandits', amount: 8 }] }] },
     ],
   },
-  {
-    id: 'stablehand_jori', name: 'Jori', title: 'Stablehand', race: 'human', faction: 'alliance',
-    personality: 'Talks to horses more than people, and prefers it.',
-    map: 'overworld', tx: 203, ty: 196,
-    look: look({ hair: '#6b4b34', shirt: '#7a6a4a', pants: '#4a3a2a' }),
-    wander: 26,
-    greeting: [{ lines: ['"Mind your feet round the yard. The grey one bites and the brown one lies about it."'] }],
-    topics: [{ text: 'Busy season?', to: 'busy' }],
-    nodes: [{ id: 'busy', text: ['"Nobody rides south any more. Whole stable is full of horses with nowhere to be."'] }],
-  },
-  {
-    id: 'villager_maren', name: 'Maren', title: 'Weaver', race: 'human', faction: 'alliance',
-    personality: 'Kind, anxious, currently missing something important.',
-    map: 'overworld', tx: 200, ty: 211,
-    look: look({ hair: '#4a3324', hairStyle: 'long', shirt: '#8a5a6a', pants: '#4a3a4a' }),
-    schedule: dayJob(200, 211, 199, 214, 205, 184),
-    wander: 24,
-    greeting: [
-      { cond: { flag: 'ring_returned' }, lines: ['"I still have not told him it was ever gone. Thank you."'] },
-      { lines: ['"If you find a ring — plain, thin, worn through on one side — it is mine. Please."'] },
-    ],
-    topics: [{ text: 'Tell me about the ring.', to: 'ring' }],
-    nodes: [{ id: 'ring', text: ['"My boy took it to Whisperwell on a dare. He is nine and the cave is dark and I have said all of that to him twice."'] }],
-  },
-  {
-    id: 'villager_bram', name: 'Old Bram', title: 'Retired Militia', race: 'human', faction: 'alliance',
-    personality: 'Loud, nostalgic, 40% reliable.',
-    map: 'overworld', tx: 213, ty: 210,
-    look: look({ hair: '#d8cfc4', beard: 'long', shirt: '#5a6f86', pants: '#3b3346' }),
-    schedule: dayJob(213, 210, 212, 212, 205, 184),
-    wander: 20,
-    greeting: [{ lines: ['"In my day the fortress was ruins and it STAYED ruins. That is the difference."'] }],
-    topics: [{ text: 'You fought at the fortress?', to: 'fort' }],
-    nodes: [{ id: 'fort', text: ['"I carried water at the fortress, which is nearly the same and considerably wetter."', '"There was a thing in the gatehouse. Stone, tall as a door. We left it alone and it returned the favour."'] }],
-  },
 
   /* ------------------------------ Northwatch ------------------------------ */
   {
@@ -546,7 +387,6 @@ export const NPCS: NpcDef[] = [
     personality: 'Imposing, fair, measures people by what they finish.',
     map: 'overworld', tx: 190, ty: 88,
     look: look({ skin: PAL.skinOrc, hair: '#d8cfc4', hairStyle: 'braid', tusks: true, height: 1.12, bulk: 1.25, eyes: PAL.ember, armor: 'heavy', armorColor: '#5a5060', armorTrim: PAL.copper, cape: '#8fc4dc', weapon: { kind: 'greataxe', metal: PAL.ironLit, grip: PAL.woodDark } }),
-    quests: ['side_clan', 'side_frost'],
     wander: 20,
     greeting: [
       { cond: { races: ['orc'] }, lines: ['"Ashborn walks into a hold that is not hers and does not lower her eyes. Good."'] },
@@ -591,7 +431,6 @@ export const NPCS: NpcDef[] = [
       buys: ['weapon', 'armor', 'accessory', 'consumable', 'material'], gold: 900,
     },
     greeting: [
-      { cond: { questActive: 'side_delivery' }, lines: ['"You carry Pell\'s smell. Give me the parcel, do not shake it."'] },
       { lines: ['"Sell fast, leave faster. The water listens after dark."'] },
     ],
     topics: [{ text: 'Listens?', to: 'listens' }],
@@ -618,7 +457,6 @@ export const NPCS: NpcDef[] = [
     personality: 'Formal, grieving, holds the Court to a standard it no longer meets.',
     map: 'overworld', tx: 84, ty: 190,
     look: look({ skin: PAL.skinElf, hair: '#e8c27a', hairStyle: 'long', ears: 'elf', eyes: '#2f6f93', shirt: '#2d4a2f', pants: '#1e3324', armor: 'light', armorColor: '#3c6b39', armorTrim: PAL.leafLit, cape: '#25412a', helmet: 'circlet', weapon: { kind: 'bow', metal: PAL.leafLit, grip: PAL.woodDark } }),
-    quests: ['side_grove'],
     wander: 18,
     greeting: [
       { cond: { races: ['elf'] }, lines: ['"You return to the wood and the wood notices. Be careful what it decides that means."'] },
@@ -658,7 +496,6 @@ export const NPCS: NpcDef[] = [
     personality: 'Sharp, funny, ruthless about margins.',
     map: 'overworld', tx: 198, ty: 302,
     look: look({ skin: PAL.skin2, hair: '#b5462f', hairStyle: 'braid', beard: 'none', height: 0.86, bulk: 1.15, shirt: '#8a6a3a', pants: '#4a3a2a', armor: 'light', armorColor: '#a3823f', armorTrim: PAL.gold }),
-    quests: ['side_tomb'],
     wander: 16,
     shop: {
       id: 'shop_brigga', name: 'Guild Factorage', priceMod: 1.15,
@@ -672,19 +509,6 @@ export const NPCS: NpcDef[] = [
     ],
     topics: [{ text: 'Why fund an expedition now?', to: 'why' }],
     nodes: [{ id: 'why', text: ['"Because the tomb opened by itself, and things that open by themselves are cheaper to loot than to explain."'] }],
-  },
-  {
-    id: 'caravan_sef', name: 'Sef Marrin', title: 'Caravan Master', race: 'human', faction: 'alliance',
-    personality: 'Weary, generous, has lost three drivers this season.',
-    map: 'overworld', tx: 202, ty: 304,
-    look: look({ skin: PAL.skin3, hair: '#2a2029', hairStyle: 'short', beard: 'stubble', shirt: '#7a5a3a', pants: '#4a3a2a', armor: 'light', armorColor: '#8a6a4a', helmet: 'hood' }),
-    wander: 18,
-    greeting: [
-      { cond: { repMin: { faction: 'bandits', value: 25 } }, lines: ['Sef looks at the company you keep and says nothing about it.', '"Roads are bad. You would know."'] },
-      { lines: ['"Three drivers this season. Three. I am running out of ways to write the letters."'] },
-    ],
-    topics: [{ text: 'The Cutters?', to: 'cutters' }],
-    nodes: [{ id: 'cutters', text: ['"Cutters take goods. Whatever is in the tomb road takes drivers."', '"I would rather the Cutters."'] }],
   },
 
   /* ------------------------------ the crown ------------------------------ */
@@ -700,13 +524,8 @@ export const NPCS: NpcDef[] = [
       helmet: 'crown', cape: '#6a2436',
       weapon: { kind: 'sword', metal: PAL.goldLit, grip: '#3a2418', glow: PAL.holy },
     }),
-    quests: ['main_7'],
     wander: 10,
     greeting: [
-      { cond: { questDone: 'main_6' }, lines: [
-        'Jovan rises the moment he sees you, which kings are not supposed to do.',
-        '"The remainder is closed. You did that. Not the Concord, not my guard — you."',
-      ] },
       { cond: { races: ['revenant'] }, lines: [
         'The king looks up, and does not flinch, which is more than most manage.',
         '"They tell me you are cold to the touch. They tell me a great many things about my subjects."',

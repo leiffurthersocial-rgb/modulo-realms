@@ -118,7 +118,10 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
       prop(map, 2, 4, 'hay', { cw: 26, ch: 12 });
       break;
     default:
-      prop(map, w - 3, 3, 'bed', { cw: 30, ch: 40 });
+      // Every lodge earns its door: somewhere to sleep and the same stash you
+      // keep at home, so a settlement is a real forward base.
+      prop(map, w - 3, 3, 'bed', { cw: 30, ch: 40, interact: 'bed', label: 'Sleep until morning' });
+      prop(map, 2, 6, 'chest', { cw: 24, ch: 14, interact: 'storage', label: 'Open your storage chest' });
       prop(map, 3, 5, 'table', { cw: 40, ch: 14 });
       prop(map, 3, 6, 'chair', { cw: 16, ch: 10 });
       prop(map, cx, h - 4, 'rug', { flat: true });
@@ -143,7 +146,7 @@ export function buildInterior(id: string, name: string, returnX: number, returnY
     h: spec.h,
     music: 'village',
     outdoor: false,
-    darkness: 0.74,
+    darkness: 0,
   });
 
   fillRect(map, 0, 0, spec.w, spec.h, spec.wall);

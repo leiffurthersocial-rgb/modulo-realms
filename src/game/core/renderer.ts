@@ -3,9 +3,10 @@ import { getCreatureSheet, creatureStyle } from '../art/creatures';
 import { getBuilding } from '../art/buildings';
 import { getProp } from '../art/props';
 import { getIcon } from '../art/icons';
-import { PAL } from '../art/palette';
+import { PAL, withAlpha } from '../art/palette';
 import { getTileset, TILE_VARIANTS } from '../art/tileset';
 import { drawProjectile } from '../combat/projectiles';
+import { RARITY_COLOR } from '../items/types';
 import type { Enemy } from '../entities/enemy';
 import { T, TILE, TILES, isWall } from '../world/tiles';
 import { propsInRect, type GameMap } from '../world/map';
@@ -409,9 +410,23 @@ export function render(game: Game): void {
         g.fill();
         g.restore();
         if (rare) {
+          // A beam in the item's rarity colour, visible across the room. The
+          // whole point of a good drop is spotting it from a distance.
+          const beam = RARITY_COLOR[it.item!.rarity];
+          const pulse = 0.5 + 0.25 * Math.sin(game.now * 4 + it.id);
           g.save();
+          const grad = g.createLinearGradient(it.x, it.y - 120, it.x, it.y);
+          grad.addColorStop(0, withAlpha(beam, 0));
+          grad.addColorStop(1, withAlpha(beam, 0.5 * pulse));
+          g.fillStyle = grad;
+          g.fillRect(it.x - 7, it.y - 120, 14, 120);
+          g.globalCompositeOperation = 'lighter';
+          g.globalAlpha = pulse;
+          g.fillStyle = beam;
+          g.beginPath();
+          g.ellipse(it.x, it.y, 13, 5, 0, 0, Math.PI * 2);
+          g.fill();
           g.globalAlpha = 0.35 + 0.2 * Math.sin(game.now * 4);
-          g.fillStyle = it.item!.glow ?? PAL.goldLit;
           g.beginPath();
           g.ellipse(it.x, dy + 16, 16, 16, 0, 0, Math.PI * 2);
           g.fill();
@@ -520,6 +535,24 @@ export function render(game: Game): void {
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.draw();
 
+  // auto-aim reticle, so it is always obvious what the next swing will hit
+  const lock = game.lockTarget;
+  if (lock && !lock.dead) {
+    const t = game.now * 3;
+    g.save();
+    g.globalAlpha = 0.5 + 0.2 * Math.sin(t * 2);
+    g.strokeStyle = '#f0c93c';
+    g.lineWidth = 1.5;
+    const r = lock.radius + 7;
+    for (let i = 0; i < 4; i++) {
+      const a = t * 0.6 + (i / 4) * Math.PI * 2;
+      g.beginPath();
+      g.arc(lock.x, lock.y, r, a, a + 0.5);
+      g.stroke();
+    }
+    g.restore();
+  }
+
   // ground zones
   for (const z of game.groundZones) {
     g.save();
@@ -562,6 +595,18 @@ export function render(game: Game): void {
   if (game.debug) drawDebug(game, g, left, top, viewW, viewH);
 
   g.setTransform(1, 0, 0, 1, 0, 0);
+
+  // payoff flash — level ups, big drops, streak milestones
+  if (game.screenFlash.alpha > 0.005) {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = Math.min(0.55, game.screenFlash.alpha);
+    g.fillStyle = game.screenFlash.color;
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.restore();
+  }
+
+  drawStreak(game, g);
   if (game.showMinimap && game.screen === 'playing' && game.fade.alpha < 0.5) drawMinimap(game, g);
 
   if (game.fade.alpha > 0.001) {
@@ -579,6 +624,60 @@ export function render(game: Game): void {
     }
     g.restore();
   }
+}
+
+const STREAK_TIERS = [
+  { at: 20, color: '#f0c93c', word: 'UNSTOPPABLE' },
+  { at: 12, color: '#9578e8', word: 'RAMPAGE' },
+  { at: 7, color: '#6fbf5a', word: 'ON A TEAR' },
+  { at: 4, color: '#6fd0e8', word: 'STREAK' },
+];
+
+/**
+ * The streak readout. It lives above the hotbar, grows with the tier, and its
+ * timer bar drains in real time — the drain is what makes you push for one
+ * more kill instead of backing off.
+ */
+function drawStreak(game: Game, g: CanvasRenderingContext2D): void {
+  if (game.streak < 3 || game.screen !== 'playing') return;
+  const left = game.streakUntil - game.now;
+  if (left <= 0) return;
+  const tier = STREAK_TIERS.find((t) => game.streak >= t.at);
+  const color = tier?.color ?? '#cfc7e0';
+  const word = tier?.word ?? 'STREAK';
+  const cx = game.canvas.width / 2;
+  const y = game.canvas.height - 128;
+  const pop = Math.max(0, 1 - (game.now - (game.streakUntil - 4)) * 5);
+  const scale = 1 + pop * 0.35;
+
+  g.save();
+  g.translate(cx, y);
+  g.scale(scale, scale);
+  g.textAlign = 'center';
+  g.font = '700 30px "Cinzel", Georgia, serif';
+  g.fillStyle = 'rgba(8,6,14,0.75)';
+  g.fillText(`${game.streak}`, 2, 2);
+  g.fillStyle = color;
+  g.shadowColor = color;
+  g.shadowBlur = 16;
+  g.fillText(`${game.streak}`, 0, 0);
+  g.shadowBlur = 0;
+  g.font = '600 11px "Trebuchet MS", system-ui, sans-serif';
+  g.fillStyle = color;
+  g.globalAlpha = 0.85;
+  g.fillText(word, 0, 14);
+  g.restore();
+
+  // drain bar
+  const bw = 78;
+  g.save();
+  g.globalAlpha = 0.9;
+  g.fillStyle = 'rgba(8,6,14,0.7)';
+  g.fillRect(cx - bw / 2, y + 20, bw, 3);
+  g.fillStyle = color;
+  g.fillRect(cx - bw / 2, y + 20, bw * (left / 4), 3);
+  g.restore();
+  g.textAlign = 'left';
 }
 
 function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {

@@ -32,6 +32,12 @@ export interface BuildingOpts {
   banner?: boolean;
   lamps?: boolean;
   ruined?: boolean;
+  /**
+   * Nobody is home and nobody ever will be. Boards the door, closes every
+   * shutter and drops the handle, so a player can tell at a glance that this
+   * house has no interior without walking up to try it.
+   */
+  shuttered?: boolean;
 }
 
 function wallTexture(p: Px, x: number, y: number, w: number, h: number, o: BuildingOpts, rng: RNG) {
@@ -152,6 +158,27 @@ export function makeBuilding(o: BuildingOpts, seed: string): BuildingArt {
   p.g.translate(ox, 0);
   wallTexture(p, 0, wallY, w, wallH, o, rng);
 
+  // Form shading: the facade is lit from the upper left and sits in its own
+  // eave shadow, which is what keeps a wall from reading as a flat rectangle.
+  p.g.save();
+  const wash = p.g.createLinearGradient(0, wallY, w, wallY);
+  wash.addColorStop(0, withAlpha(PAL.white, 0.07));
+  wash.addColorStop(0.55, 'rgba(0,0,0,0)');
+  wash.addColorStop(1, 'rgba(10,8,16,0.26)');
+  p.g.fillStyle = wash;
+  p.g.fillRect(0, wallY, w, wallH);
+  const eave = p.g.createLinearGradient(0, wallY, 0, wallY + 9);
+  eave.addColorStop(0, 'rgba(10,8,16,0.4)');
+  eave.addColorStop(1, 'rgba(10,8,16,0)');
+  p.g.fillStyle = eave;
+  p.g.fillRect(0, wallY, w, 9);
+  p.g.restore();
+  // corner posts tie the facade together
+  for (const px of [0, w - 3]) {
+    p.fill(px, wallY, 3, wallH, shade(o.wallDark, px === 0 ? 1.05 : 0.8));
+    p.fill(px, wallY, 1, wallH, shade(o.wallDark, px === 0 ? 1.3 : 0.95));
+  }
+
   // foundation
   p.fill(0, wallY + wallH - 4, w, 4, shade(o.wallDark, 0.8));
   p.fill(0, wallY + wallH - 4, w, 1, shade(o.wallDark, 1.1));
@@ -165,9 +192,22 @@ export function makeBuilding(o: BuildingOpts, seed: string): BuildingArt {
   p.fill(doorX, doorY, doorW, doorH, PAL.woodDark);
   p.fill(doorX + 1, doorY + 1, doorW - 2, doorH - 1, PAL.wood);
   for (let i = 1; i < 4; i++) p.fill(doorX + i * 4, doorY + 1, 1, doorH - 1, PAL.woodDark);
-  p.fill(doorX + 1, doorY + 4, doorW - 2, 2, PAL.iron);
-  p.fill(doorX + 1, doorY + doorH - 6, doorW - 2, 2, PAL.iron);
-  p.circle(doorX + doorW - 4, doorY + doorH / 2, 1.5, PAL.gold);
+  if (o.shuttered) {
+    // greyed-out timber, two boards nailed across, no handle
+    p.fill(doorX, doorY, doorW, doorH, shade(PAL.woodDark, 0.72));
+    p.fill(doorX + 1, doorY + 1, doorW - 2, doorH - 1, shade(PAL.wood, 0.62));
+    for (let i = 1; i < 4; i++) p.fill(doorX + i * 4, doorY + 1, 1, doorH - 1, shade(PAL.woodDark, 0.7));
+    for (const by of [doorY + 6, doorY + doorH - 10]) {
+      p.fill(doorX - 4, by, doorW + 8, 4, PAL.wood);
+      p.fill(doorX - 4, by, doorW + 8, 1, shade(PAL.wood, 1.18));
+      p.set(doorX - 1, by + 1, PAL.ironDark);
+      p.set(doorX + doorW, by + 1, PAL.ironDark);
+    }
+  } else {
+    p.fill(doorX + 1, doorY + 4, doorW - 2, 2, PAL.iron);
+    p.fill(doorX + 1, doorY + doorH - 6, doorW - 2, 2, PAL.iron);
+    p.circle(doorX + doorW - 4, doorY + doorH / 2, 1.5, PAL.gold);
+  }
   // door step
   p.fill(doorX - 3, wallY + wallH - 1, doorW + 6, 3, PAL.ash);
 
@@ -180,6 +220,13 @@ export function makeBuilding(o: BuildingOpts, seed: string): BuildingArt {
     const wy = wallY + 8 + (storeys === 2 && i >= 2 ? 0 : 0);
     if (wx < 3 || wx > w - 15) continue;
     p.fill(wx - 1, wy - 1, 14, 14, PAL.woodDark);
+    if (o.shuttered) {
+      // closed shutters: two dark leaves meeting in the middle
+      p.fill(wx, wy, 12, 12, shade(PAL.wood, 0.6));
+      for (let k = 1; k < 12; k += 3) p.fill(wx, wy + k, 12, 1, shade(PAL.woodDark, 0.72));
+      p.fill(wx + 5, wy, 2, 12, shade(PAL.woodDark, 0.6));
+      continue;
+    }
     p.fill(wx, wy, 12, 12, mix(PAL.flameLit, PAL.clay, 0.35));
     p.fill(wx, wy, 12, 4, withAlpha(PAL.white, 0.25));
     p.fill(wx + 5, wy, 2, 12, PAL.woodDark);
@@ -289,7 +336,16 @@ export function makeBuilding(o: BuildingOpts, seed: string): BuildingArt {
 }
 
 const presets: Record<string, () => BuildingArt> = {
-  cottage_a: () => makeBuilding({ w: 96, h: 108, wall: PAL.plank, wallDark: PAL.woodDark, roof: PAL.clay, roofDark: '#5a3320', roofStyle: 'shingle', wallStyle: 'plank', chimney: true, windows: 2 }, 'cottage_a'),
+  /**
+   * The valley's filler housing. Every one of these is byte-identical on
+   * purpose: once a player has walked up to one boarded door, they know every
+   * house that looks like this is scenery and can stop checking.
+   */
+  townhouse: () => makeBuilding({
+    w: 96, h: 106, wall: '#6d6272', wallDark: '#403847', roof: '#4a4152', roofDark: '#2a2432',
+    roofStyle: 'shingle', wallStyle: 'plank', chimney: true, windows: 2, shuttered: true,
+  }, 'townhouse'),
+  cottage_a:() => makeBuilding({ w: 96, h: 108, wall: PAL.plank, wallDark: PAL.woodDark, roof: PAL.clay, roofDark: '#5a3320', roofStyle: 'shingle', wallStyle: 'plank', chimney: true, windows: 2 }, 'cottage_a'),
   cottage_b: () => makeBuilding({ w: 104, h: 112, wall: PAL.cloth, wallDark: PAL.wood, roof: '#7a4a58', roofDark: '#4a2a34', roofStyle: 'tile', wallStyle: 'plaster', chimney: true, windows: 2 }, 'cottage_b'),
   cottage_c: () => makeBuilding({ w: 88, h: 100, wall: PAL.wood, wallDark: PAL.woodDark, roof: PAL.sandDark, roofDark: PAL.soil, roofStyle: 'thatch', wallStyle: 'log', windows: 2 }, 'cottage_c'),
   farmhouse: () => makeBuilding({ w: 128, h: 118, wall: PAL.plank, wallDark: PAL.woodDark, roof: PAL.sand, roofDark: PAL.sandDark, roofStyle: 'thatch', wallStyle: 'plank', chimney: true, windows: 4 }, 'farmhouse'),

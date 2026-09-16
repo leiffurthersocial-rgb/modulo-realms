@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Game } from './game/core/game';
 import { render } from './game/core/renderer';
 import { audio } from './game/audio/audio';
+import { TILES } from './game/world/tiles';
 import { hasSave, loadGame, loadSettings, saveGame, saveSettings } from './game/save/save';
 import TitleScreen from './ui/TitleScreen';
 import CharacterCreation from './ui/CharacterCreation';
@@ -68,6 +69,8 @@ export default function App() {
 
     // exposed for the F3 debug overlay and for automated smoke tests
     (window as unknown as { modulo: Game }).modulo = g;
+    // the tile table too, so a smoke test can walk the map without guessing ids
+    (window as unknown as { moduloTiles: typeof TILES }).moduloTiles = TILES;
 
     setGame(g);
     return () => {

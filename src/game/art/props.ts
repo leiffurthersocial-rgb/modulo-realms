@@ -746,47 +746,111 @@ GEN.bookshelf = (rng) => {
   }
   return art([p], 47);
 };
-GEN.bed = () => {
+/** Grain, a lit top edge and a shaded bottom one — the minimum for wood to read as wood. */
+function grain(p: Px, x: number, y: number, w: number, h: number, base: string, rng?: RNG, vertical = false) {
+  p.fill(x, y, w, h, base);
+  p.fill(x, y, w, 1, shade(base, 1.2));
+  p.fill(x, y + h - 1, w, 1, shade(base, 0.7));
+  p.fill(x, y, 1, h, shade(base, 1.1));
+  p.fill(x + w - 1, y, 1, h, shade(base, 0.78));
+  if (!rng) return;
+  const lines = Math.max(2, Math.round((vertical ? w : h) / 4));
+  for (let i = 0; i < lines; i++) {
+    const c = rng.bool() ? shade(base, 0.84) : shade(base, 1.09);
+    if (vertical) p.fill(x + rng.int(1, Math.max(1, w - 2)), y + 1, 1, h - 2, c);
+    else p.fill(x + 1, y + rng.int(1, Math.max(1, h - 2)), w - 2, 1, c);
+  }
+}
+
+GEN.bed = (rng) => {
   const p = new Px(36, 52);
-  p.fill(2, 4, 32, 46, PAL.woodDark);
-  p.fill(4, 6, 28, 42, PAL.wood);
+  groundShadow(p, 18, 50, 15, 4);
+  // frame, then a mattress inset into it so the bed has depth
+  grain(p, 2, 4, 32, 46, PAL.woodDark, rng, true);
+  grain(p, 4, 6, 28, 42, PAL.wood, rng, true);
   p.fill(5, 10, 26, 36, PAL.blood);
-  p.fill(5, 10, 26, 4, shade(PAL.blood, 1.2));
+  p.fill(5, 10, 26, 2, shade(PAL.blood, 1.28));
+  p.fill(5, 44, 26, 2, shade(PAL.blood, 0.62));
+  p.fill(5, 10, 2, 36, shade(PAL.blood, 1.12));
+  p.fill(29, 10, 2, 36, shade(PAL.blood, 0.72));
+  // blanket folds
+  for (const fy of [22, 30, 38]) {
+    p.fill(6, fy, 24, 1, shade(PAL.blood, 0.74));
+    p.fill(6, fy + 1, 24, 1, shade(PAL.blood, 1.12));
+  }
+  // pillow, dented in the middle
   p.fill(6, 8, 24, 10, PAL.cloth);
-  p.fill(6, 8, 24, 3, PAL.white);
-  p.fill(4, 4, 28, 4, PAL.plank);
-  p.fill(4, 46, 28, 4, PAL.plank);
+  p.fill(6, 8, 24, 2, PAL.white);
+  p.fill(6, 16, 24, 2, shade(PAL.cloth, 0.72));
+  p.fill(13, 11, 10, 4, shade(PAL.cloth, 0.86));
+  // headboard and footboard posts
+  grain(p, 3, 3, 30, 5, PAL.plank, rng);
+  grain(p, 3, 45, 30, 5, PAL.plank, rng);
+  for (const px of [2, 31]) {
+    p.fill(px, 2, 3, 4, PAL.plankLit);
+    p.fill(px, 46, 3, 4, PAL.plankLit);
+  }
   p.outline(PAL.ink);
   return art([p], 51);
 };
 GEN.table = (rng) => {
   const p = new Px(46, 34);
-  p.fill(2, 8, 42, 8, PAL.plank);
-  p.fill(2, 8, 42, 2, PAL.plankLit);
-  p.fill(2, 16, 42, 2, PAL.woodDark);
-  p.fill(5, 18, 4, 14, PAL.wood);
-  p.fill(37, 18, 4, 14, PAL.wood);
+  groundShadow(p, 23, 32, 18, 4);
+  // top with a chamfered edge, then legs braced by a stretcher
+  grain(p, 2, 8, 42, 8, PAL.plank, rng);
+  p.fill(2, 8, 42, 1, PAL.plankLit);
+  p.fill(2, 15, 42, 3, shade(PAL.woodDark, 0.9));
+  p.fill(2, 15, 42, 1, PAL.woodDark);
+  grain(p, 5, 18, 5, 14, PAL.wood, rng, true);
+  grain(p, 36, 18, 5, 14, PAL.wood, rng, true);
+  p.fill(9, 26, 28, 2, shade(PAL.wood, 0.8));
   if (rng.bool(0.8)) {
-    p.fill(10, 3, 5, 6, PAL.bone); p.fill(10, 3, 5, 2, PAL.cloth);
-    p.ellipse(26, 6, 5, 3, PAL.clay); p.ellipse(26, 5, 4, 2, PAL.flameLit);
+    // a cup and a candle so the table reads as used
+    p.fill(10, 3, 5, 6, PAL.bone);
+    p.fill(10, 3, 5, 2, PAL.cloth);
+    p.fill(14, 5, 1, 3, shade(PAL.bone, 0.7));
+    p.ellipse(26, 6, 5, 3, PAL.clay);
+    p.ellipse(26, 5, 4, 2, PAL.flameLit);
+    p.set(24, 5, PAL.white);
   }
   return art([p], 33);
 };
-GEN.chair = () => {
+GEN.chair = (rng) => {
   const p = new Px(22, 30);
-  p.fill(4, 4, 14, 12, PAL.wood);
-  p.fill(4, 4, 14, 2, PAL.plank);
-  p.fill(4, 16, 14, 4, PAL.plank);
-  p.fill(5, 20, 3, 8, PAL.woodDark);
-  p.fill(14, 20, 3, 8, PAL.woodDark);
+  groundShadow(p, 11, 28, 8, 3);
+  // slatted back, seat with a lip, tapered legs
+  grain(p, 4, 4, 14, 3, PAL.plank, rng);
+  for (const sx of [5, 10, 15]) p.fill(sx, 6, 2, 10, shade(PAL.wood, 0.92));
+  p.fill(4, 4, 2, 13, shade(PAL.wood, 1.1));
+  p.fill(16, 4, 2, 13, shade(PAL.wood, 0.76));
+  grain(p, 3, 16, 16, 4, PAL.plank, rng);
+  p.fill(3, 19, 16, 1, shade(PAL.woodDark, 0.9));
+  p.fill(5, 20, 3, 8, PAL.wood);
+  p.fill(5, 20, 1, 8, shade(PAL.wood, 1.1));
+  p.fill(14, 20, 3, 8, shade(PAL.wood, 0.82));
+  p.fill(5, 27, 12, 1, PAL.woodDark);
   return art([p], 29);
 };
-GEN.rug = () => {
+GEN.rug = (rng) => {
   const p = new Px(56, 40);
+  // woven bands and a fringe, not concentric rings of flat colour
   p.ellipse(28, 20, 26, 18, PAL.arcaneDark);
-  p.ellipse(28, 20, 23, 15, PAL.blood);
-  p.ellipse(28, 20, 16, 10, PAL.arcaneDark);
-  p.ellipse(28, 20, 8, 5, PAL.gold);
+  p.ellipse(28, 20, 24, 16, PAL.blood);
+  p.ellipse(28, 20, 22, 14, shade(PAL.blood, 0.84));
+  p.ellipse(28, 20, 17, 11, PAL.arcaneDark);
+  p.ellipse(28, 20, 15, 9, shade(PAL.arcaneDark, 1.2));
+  p.ellipse(28, 20, 9, 5, PAL.gold);
+  p.ellipse(28, 20, 6, 3, shade(PAL.gold, 0.7));
+  // weave texture and a worn centre
+  for (let i = 0; i < 40; i++) {
+    const a = rng.range(0, Math.PI * 2);
+    const r = rng.range(0, 1);
+    p.set(28 + Math.cos(a) * r * 24, 20 + Math.sin(a) * r * 16, rng.bool() ? 'rgba(255,240,210,0.10)' : 'rgba(10,8,16,0.14)');
+  }
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    p.set(28 + Math.cos(a) * 26.5, 20 + Math.sin(a) * 18.5, PAL.cloth);
+  }
   return art([p], 40);
 };
 GEN.banner = () => {

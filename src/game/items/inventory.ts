@@ -54,23 +54,13 @@ export function removeByDefId(list: Item[], defId: string, qty = 1): number {
   return qty - remaining;
 }
 
+/**
+ * Anything equippable can be equipped. No class locks, no weapon proficiency,
+ * no level gates — if you found it, you can swing it.
+ */
 export function canEquip(player: Player, item: Item): { ok: boolean; reason?: string } {
+  void player;
   if (!isEquippable(item)) return { ok: false, reason: 'This cannot be equipped.' };
-  if (item.classes && !item.classes.includes(player.cls)) {
-    return { ok: false, reason: `Only a ${item.classes.map((c) => c[0].toUpperCase() + c.slice(1)).join(' or ')} can use this.` };
-  }
-  if (item.type === 'weapon' && item.weaponKind) {
-    const allowed = player.classDef.weapons;
-    if (!allowed.includes(item.weaponKind)) {
-      return { ok: false, reason: `A ${player.classDef.name} is not trained with that weapon.` };
-    }
-  }
-  if (item.slot === 'armor' && item.armorLook?.style === 'heavy' && player.classDef.armor === 'cloth') {
-    return { ok: false, reason: `A ${player.classDef.name} cannot move in plate.` };
-  }
-  if (item.level > player.level + 2) {
-    return { ok: false, reason: `Requires level ${item.level}.` };
-  }
   return { ok: true };
 }
 

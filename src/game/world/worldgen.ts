@@ -2,7 +2,7 @@ import { RNG, fbm, ridge } from '../core/rng';
 import {
   LOCATIONS, VILLAGE_TX, VILLAGE_TY, WORLD_H, WORLD_W, type LocationDef,
 } from '../../data/locations';
-import { T } from './tiles';
+import { T, isSolid } from './tiles';
 import { TILE } from './tiles';
 import { buildPropGrid, createMap, getTile, setTile, type GameMap, type PropInstance } from './map';
 import { buildAshvale } from './village';
@@ -58,9 +58,9 @@ function baseTerrain(ctx: GenCtx) {
       let tile: number;
       switch (reg) {
         case REGION_NORTH: {
-          const eN = e + rim * 0.5 + 0.06;
-          if (eN > 0.74) tile = T.SNOW_ROCK;
-          else if (eN > 0.66) tile = T.MOUNTAIN;
+          const eN = e + rim * 0.5;
+          if (eN > 0.88) tile = T.SNOW_ROCK;
+          else if (eN > 0.82) tile = T.MOUNTAIN;
           else if (m > 0.62) tile = T.SNOW;
           else if (m < 0.3) tile = T.GRAVEL;
           else tile = m > 0.48 ? T.SNOW : T.GRASS_DARK;
@@ -454,7 +454,7 @@ const REGION_SPAWNS: Record<number, Array<{ id: string; weight: number; level: [
 function placeSpawns(ctx: GenCtx) {
   const { map, rng, regions } = ctx;
   let id = 0;
-  const attempts = 5200;
+  const attempts = 1700;
   for (let i = 0; i < attempts; i++) {
     const tx = rng.int(10, WORLD_W - 10);
     const ty = rng.int(10, WORLD_H - 10);
@@ -465,7 +465,7 @@ function placeSpawns(ctx: GenCtx) {
     // keep settlements safe
     let nearTown = false;
     for (const loc of LOCATIONS) {
-      const safe = loc.kind === 'town' ? 40 : loc.kind === 'village' ? 24 : 0;
+      const safe = loc.kind === 'town' ? 46 : loc.kind === 'village' ? 30 : 0;
       if (safe && Math.hypot(tx - loc.tx, ty - loc.ty) < safe) { nearTown = true; break; }
     }
     if (nearTown) continue;
@@ -482,7 +482,7 @@ function placeSpawns(ctx: GenCtx) {
       y: ty * TILE + TILE / 2,
       level,
       radius: 150,
-      respawn: 75 + rng.range(0, 60),
+      respawn: 150 + rng.range(0, 120),
       group,
       elite: rng.bool(0.035),
     });
@@ -543,6 +543,155 @@ function placeTreasure(ctx: GenCtx) {
 
 /* ------------------------------------------------------------------ */
 
+
+/**
+ * Noise-driven mountains can wall a region off entirely. This flood-fills the
+ * walkable world from the home village, then tunnels a path to any sizeable
+ * pocket it could not reach, so every part of the map stays on foot.
+ */
+/**
+ * Sand is a shoreline, not a biome. The elevation band that produces it can
+ * land on a wide inland plateau and paint a desert into the middle of a green
+ * valley, so anything too far from water goes back to meadow.
+ */
+function trimInlandSand(ctx: GenCtx): void {
+  const { map } = ctx;
+  const nearWater = (tx: number, ty: number) => {
+    for (let oy = -3; oy <= 3; oy++) {
+      for (let ox = -3; ox <= 3; ox++) {
+        const t = getTile(map, tx + ox, ty + oy);
+        if (t === T.WATER || t === T.DEEP_WATER || t === T.SWAMP_WATER) return true;
+      }
+    }
+    return false;
+  };
+  const fixes: Array<[number, number]> = [];
+  for (let ty = 0; ty < map.h; ty++) {
+    for (let tx = 0; tx < map.w; tx++) {
+      // the southern desert's sand is meant to be there
+      if (ctx.regions[ty * map.w + tx] !== REGION_CENTRAL) continue;
+      if (getTile(map, tx, ty) !== T.SAND) continue;
+      if (nearWater(tx, ty)) continue;
+      fixes.push([tx, ty]);
+    }
+  }
+  for (const [tx, ty] of fixes) setTile(map, tx, ty, T.GRASS_PALE);
+}
+
+function ensureConnectivity(ctx: GenCtx): void {
+  const { map } = ctx;
+  const W = WORLD_W;
+  const H = WORLD_H;
+  const N = W * H;
+  const open = (i: number) => !isSolid(map.tiles[i]);
+  const seen = new Uint8Array(N);
+  const queue = new Int32Array(N);
+
+  const flood = (from: number): void => {
+    let head = 0;
+    let tail = 0;
+    if (!open(from) || seen[from]) return;
+    seen[from] = 1;
+    queue[tail++] = from;
+    while (head < tail) {
+      const i = queue[head++];
+      const x = i % W;
+      const y = (i / W) | 0;
+      if (x > 0 && !seen[i - 1] && open(i - 1)) { seen[i - 1] = 1; queue[tail++] = i - 1; }
+      if (x < W - 1 && !seen[i + 1] && open(i + 1)) { seen[i + 1] = 1; queue[tail++] = i + 1; }
+      if (y > 0 && !seen[i - W] && open(i - W)) { seen[i - W] = 1; queue[tail++] = i - W; }
+      if (y < H - 1 && !seen[i + W] && open(i + W)) { seen[i + W] = 1; queue[tail++] = i + W; }
+    }
+  };
+
+  flood(CY * W + CX);
+
+  const parent = new Int32Array(N);
+  const visit = new Int32Array(N);
+  let stamp = 0;
+
+  /** Dig from an unreachable pocket to the nearest reachable tile. */
+  const tunnel = (seeds: number[]): void => {
+    stamp++;
+    let head = 0;
+    let tail = 0;
+    for (const s of seeds) {
+      visit[s] = stamp;
+      parent[s] = -1;
+      queue[tail++] = s;
+    }
+    while (head < tail) {
+      const i = queue[head++];
+      if (seen[i]) {
+        // walk the path back, carving anything solid into passable ground
+        let cur = i;
+        while (cur !== -1) {
+          const cx = cur % W;
+          const cy = (cur / W) | 0;
+          for (let oy = -1; oy <= 1; oy++) {
+            for (let ox = -1; ox <= 1; ox++) {
+              const nx = cx + ox;
+              const ny = cy + oy;
+              if (nx < 4 || ny < 4 || nx >= W - 4 || ny >= H - 4) continue;
+              const ni = ny * W + nx;
+              const t = map.tiles[ni];
+              if (t === T.MOUNTAIN || t === T.CLIFF || t === T.SNOW_ROCK) {
+                map.tiles[ni] = ctx.regions[ni] === REGION_NORTH ? T.SNOW : T.GRAVEL;
+              }
+            }
+          }
+          cur = parent[cur];
+        }
+        return;
+      }
+      const x = i % W;
+      const y = (i / W) | 0;
+      const push = (ni: number) => {
+        if (visit[ni] === stamp) return;
+        visit[ni] = stamp;
+        parent[ni] = i;
+        queue[tail++] = ni;
+      };
+      if (x > 4) push(i - 1);
+      if (x < W - 5) push(i + 1);
+      if (y > 4) push(i - W);
+      if (y < H - 5) push(i + W);
+    }
+  };
+
+  // find pockets the first flood missed and connect the meaningful ones
+  const comp = new Int32Array(N);
+  let compStamp = 0;
+  for (let i = 0; i < N; i++) {
+    if (seen[i] || !open(i) || comp[i]) continue;
+    compStamp++;
+    const cells: number[] = [];
+    let head = 0;
+    let tail = 0;
+    comp[i] = compStamp;
+    queue[tail++] = i;
+    while (head < tail) {
+      const j = queue[head++];
+      cells.push(j);
+      const x = j % W;
+      const y = (j / W) | 0;
+      const push = (nj: number) => {
+        if (comp[nj] || !open(nj)) return;
+        comp[nj] = compStamp;
+        queue[tail++] = nj;
+      };
+      if (x > 0) push(j - 1);
+      if (x < W - 1) push(j + 1);
+      if (y > 0) push(j - W);
+      if (y < H - 1) push(j + W);
+    }
+    // tiny hollows inside a crag are scenery, not a problem
+    if (cells.length < 40) continue;
+    tunnel(cells);
+    for (const c of cells) flood(c);
+  }
+}
+
 export function generateOverworld(seed: number): GameMap {
   const map = createMap({
     id: 'overworld',
@@ -588,6 +737,8 @@ export function generateOverworld(seed: number): GameMap {
   carveRoad(ctx, CX, CY, 136, 244, 1, true);
   carveRoad(ctx, CX + 20, CY, 232, 262, 1, true);
 
+  trimInlandSand(ctx);
+  ensureConnectivity(ctx);
   scatterProps(ctx);
 
   // settlements and points of interest

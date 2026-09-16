@@ -62,9 +62,12 @@ Saves live in the visitor's own `localStorage`, so there is no backend and no da
 ## Controls
 
 The game is built to be **fully playable with a keyboard alone** — no mouse required, which
-also makes it comfortable on an iPad with a keyboard case. A mouse is supported but optional;
-when you have not moved the mouse recently, attacks aim where you are facing and softly lock
-onto the nearest enemy in front of you.
+also makes it comfortable on an iPad with a keyboard case.
+
+**Aiming is automatic.** You never point at anything. Attacks, spells and abilities lock onto
+the nearest enemy, projectiles you fire curve toward whatever they are closest to, and
+ground-targeted abilities land on the thickest cluster of enemies near you. A yellow reticle
+shows what you are locked onto. A mouse still works if you want it, but nothing needs it.
 
 ### Movement and combat
 
@@ -93,8 +96,8 @@ onto the nearest enemy in front of you.
 | `P` / `Esc` | Pause menu |
 | `F3` | Debug overlay |
 
-Mouse, if you want it: left click attacks, right click blocks or makes a heavy attack, and
-moving the mouse takes over aiming for a moment or two.
+Mouse, if you want it: left click attacks, right click blocks or makes a heavy attack.
+Auto-aim stays on regardless; the mouse only takes over when there is nothing in range.
 
 ---
 
@@ -108,9 +111,26 @@ shrines. Stronger regions sit further from home, so the world gates itself by di
 rather than by walls.
 
 **Ashvale.** The handcrafted home town: your house with a bed and a storage chest, a forge,
-a trading post, an apothecary, an inn, a moot hall, a chapel, a farm and a scatter of
-cottages — each with an interior you can walk into. NPCs keep daily schedules and move
-between work, the tavern and home as the clock runs.
+a trading post, an apothecary, an inn, a moot hall, a chapel and a farm — each with an interior
+you can walk into. NPCs keep daily schedules and move between work, the tavern and home as the
+clock runs.
+
+**Doors that open, and doors that don't.** Every building with something inside it looks like
+itself — the forge looks like a forge, the chapel like a chapel. Everything else is the same
+**shuttered townhouse**: grey timber, boarded door, closed shutters, one silhouette repeated
+across the valley. Check one, and you never have to check another. Every settlement also has a
+**lodge** in its regional style, with a bed and the same storage chest as your home, so the
+outposts are real forward bases.
+
+**Lighting.** Building interiors are at full brightness. Darkness is reserved for dungeons,
+crypts, caves and towers, where it means something.
+
+**Quests, or the lack of them.** There is exactly one tutorial quest — *Somewhere to Start*,
+which asks you to find a cave — and after that the world is yours. Everything else is a
+**bounty**: it offers itself the moment you discover the place it concerns and pays out the
+instant you finish it. Nothing queues at an NPC, nobody asks you to fetch nine boar hides, and
+no quest log ever fills up with errands. Talk to the people who sell things, ignore the rest,
+go where you like.
 
 **Combat.** Real-time, with dodge rolls, blocking, telegraphed enemy attacks, status effects
 (burning, poison, chill, stun, bleed) and knockback. Bosses run multi-phase fights with
@@ -118,6 +138,23 @@ readable wind-ups, summons and arena-wide attacks.
 
 **Progression.** Experience from combat, quests, exploration and dungeon clears; levels grant
 stats and a skill point; each class has three talent branches and four abilities.
+
+**Retraining.** Any class can become any other class for **100 gold**, from the skills panel.
+Retraining swaps your stat block and ability set, hands you that class's level-one kit, and
+**refunds every skill point you have ever spent** so you can rebuild from scratch. There is no
+penalty and no cooldown — trying a build should be cheap.
+
+**No gear restrictions.** Every class can equip every weapon, and there are no level
+requirements on anything. If you found it, you can swing it.
+
+**Kill streaks.** Chain kills within four seconds and the streak climbs. Each tier pays more
+experience (up to +60%), flashes the screen, rings out around you and escalates the sound. The
+timer drains on screen, so there is always a reason to push for one more kill instead of
+backing off.
+
+**Loot that announces itself.** Anything above Rare detonates where it drops — a ring, a burst
+of its rarity colour, and a beam of light standing over it that you can see across a room.
+Epic and Legendary drops also freeze the frame, shake the screen and flash it in their colour.
 
 **Waystones.** Every settlement and every dungeon mouth has a stone gate with a blue vortex.
 Touch one to attune it, and from then on any gate can carry you to any other — from the
@@ -329,8 +366,20 @@ into the conversation automatically.
 
 `src/data/quests.ts`. Objectives can be `kill`, `collect`, `talk`, `explore`, `clear`, `boss`
 or `interact`; rewards can include XP, gold, fixed items, a random loot roll at a given level
-and rarity, and reputation. Set `giver` and `turnIn` to NPC ids and the dialogue system does
-the rest. `marker` points the map, minimap and compass at a location when the player tracks it.
+and rarity, and reputation. `marker` points the map, minimap and compass at a location when the
+player tracks it.
+
+Set `auto: true` and the quest becomes a **bounty**: it accepts itself the moment the player
+discovers its `marker` location and turns itself in the instant its objectives complete, with
+no NPC involved. Prefer this. Only use `giver` / `turnIn` for something that genuinely needs a
+conversation — the design goal is an open world, not a queue of errands.
+
+### Add a decorative building
+
+`src/game/world/village.ts` (`ASHVALE_TOWNHOUSES`) or the `filler` list in
+`src/game/world/settlements.ts`. Add a tile coordinate and you get another shuttered
+townhouse with no interior. Always use the `townhouse` art for these — the uniform silhouette
+is the contract that tells the player which doors are worth trying.
 
 ### Add a location or dungeon
 

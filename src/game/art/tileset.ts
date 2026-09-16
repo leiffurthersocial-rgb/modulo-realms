@@ -271,10 +271,37 @@ function generateTile(id: number, rng: RNG): Px {
       return p;
     }
     case T.ROAD: {
-      // warm worn flagstones, lighter down the middle where feet fall
-      const p = cobbleTile(rng, '#6d6152', '#3d362d', '#9a8d78', 7);
-      for (let i = 0; i < 26; i++) p.set(rng.int(0, S - 1), rng.int(0, S - 1), rng.bool() ? '#7d7160' : '#574c40');
-      for (let i = 0; i < 4; i++) p.ellipse(rng.int(0, S), rng.int(0, S), rng.int(3, 7), rng.int(2, 4), withAlpha('#8d7f68', 0.22));
+      // Irregular fitted flagstones. Each slab gets its own tone, a lit top
+      // bevel and a dark bottom one, with real mortar between — the contrast
+      // is what stops a paved square reading as one flat slab of colour.
+      const mortar = '#332d26';
+      const p = new Px(S, S);
+      p.fillAll(mortar);
+      const rows = [0, 11, 22];
+      for (const ry of rows) {
+        const rh = 10;
+        let x = -rng.int(0, 7);
+        while (x < S) {
+          const sw = rng.int(7, 13);
+          const c = mix('#6d6152', rng.bool() ? '#9a8d78' : '#4a4137', rng.range(0.05, 0.5));
+          p.fill(x + 1, ry + 1, sw - 1, rh - 1, c);
+          p.fill(x + 1, ry + 1, sw - 1, 1, mix(c, '#c0b39a', 0.5));       // lit bevel
+          p.fill(x + 1, ry + rh - 1, sw - 1, 1, mix(c, PAL.ink, 0.45));   // shaded bevel
+          p.fill(x + 1, ry + 1, 1, rh - 1, mix(c, '#c0b39a', 0.25));
+          // pitting and a hairline crack on some slabs
+          for (let k = 0; k < 3; k++) {
+            p.set(x + rng.int(1, sw - 1), ry + rng.int(2, rh - 2), rng.bool() ? mix(c, PAL.ink, 0.4) : mix(c, '#c0b39a', 0.35));
+          }
+          if (rng.bool(0.3)) {
+            const kx = x + rng.int(2, Math.max(3, sw - 2));
+            for (let k = 2; k < rh - 2; k++) p.set(kx + (k % 3 === 0 ? 1 : 0), ry + k, mix(c, PAL.ink, 0.5));
+          }
+          x += sw;
+        }
+      }
+      // wear polished down the middle where boots fall
+      for (let i = 0; i < 4; i++) p.ellipse(rng.int(0, S), rng.int(0, S), rng.int(4, 8), rng.int(3, 5), withAlpha('#a2957c', 0.16));
+      for (let i = 0; i < 8; i++) p.set(rng.int(0, S - 1), rng.int(0, S - 1), withAlpha(PAL.mossDark, 0.5));
       return p;
     }
     case T.ROAD_DIRT: {

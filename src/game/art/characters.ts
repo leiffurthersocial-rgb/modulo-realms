@@ -90,23 +90,45 @@ function drawCape(p: Px, look: Look, cx: number, top: number, bodyH: number, dir
   p.fill(x, top + 1, 2, bodyH + 4, shade(look.cape, 1.2));
 }
 
+/**
+ * Everything is lit from the upper left, the way Stardew and Terraria sprites
+ * are, so highlights go on the left edge and occlusion on the right and under.
+ */
+const LIT = 1.22;
+const DIM = 0.72;
+const DEEP = 0.55;
+
+function drawLeg(p: Px, look: Look, x: number, y: number, legH: number, off: number, front: boolean) {
+  const pants = front ? look.pants : shade(look.pants, 0.78);
+  const boots = front ? look.boots : shade(look.boots, 0.78);
+  const h = legH - Math.abs(off);
+  const top = y + off;
+  // thigh is a pixel wider than the shin, which reads as a knee
+  p.fill(x, top, 4, Math.max(1, h - 4), pants);
+  p.fill(x, top, 1, Math.max(1, h - 4), shade(pants, LIT));
+  p.fill(x + 3, top, 1, Math.max(1, h - 4), shade(pants, DIM));
+  p.fill(x, top + h - 5, 3, 2, shade(pants, 0.86));
+  // boot: cuff, shaft, then a toe that overhangs forward
+  p.fill(x, top + h - 4, 4, 1, shade(boots, LIT));
+  p.fill(x, top + h - 3, 4, 3, boots);
+  p.fill(x + 3, top + h - 3, 1, 3, shade(boots, DIM));
+  p.fill(x, top + h - 1, 5, 1, shade(boots, DEEP));
+}
+
 function drawLegs(p: Px, look: Look, cx: number, hipY: number, pose: Pose, dir: string) {
   const legH = 9;
-  const legW = 3;
   const gap = dir === 'right' ? 1 : 3;
   const a = Math.round(pose.legA);
   const b = Math.round(pose.legB);
-  const pantsDark = shade(look.pants, 0.75);
 
-  // back leg
-  p.fill(cx - gap - legW + (dir === 'right' ? 1 : 0), hipY + b, legW, legH - Math.abs(b), pantsDark);
-  p.fill(cx - gap - legW + (dir === 'right' ? 1 : 0), hipY + legH - 3 + b, legW, 3, shade(look.boots, 0.8));
-  // front leg
-  p.fill(cx + gap - (dir === 'right' ? 1 : 0), hipY + a, legW, legH - Math.abs(a), look.pants);
-  p.fill(cx + gap - (dir === 'right' ? 1 : 0), hipY + legH - 3 + a, legW, 3, look.boots);
+  drawLeg(p, look, cx - gap - 4 + (dir === 'right' ? 1 : 0), hipY, legH, b, false);
+  drawLeg(p, look, cx + gap - (dir === 'right' ? 1 : 0), hipY, legH, a, true);
   if (look.armor === 'heavy') {
-    p.fill(cx - gap - legW, hipY + legH - 5 + b, legW, 2, look.armorColor ?? PAL.iron);
-    p.fill(cx + gap, hipY + legH - 5 + a, legW, 2, look.armorColor ?? PAL.iron);
+    const ac = look.armorColor ?? PAL.iron;
+    p.fill(cx - gap - 4, hipY + legH - 6 + b, 4, 2, ac);
+    p.fill(cx - gap - 4, hipY + legH - 6 + b, 4, 1, shade(ac, LIT));
+    p.fill(cx + gap, hipY + legH - 6 + a, 4, 2, ac);
+    p.fill(cx + gap, hipY + legH - 6 + a, 4, 1, shade(ac, LIT));
   }
 }
 
@@ -123,9 +145,17 @@ function drawTorso(p: Px, look: Look, cx: number, top: number, bodyH: number, bu
     }
     p.fill(cx - 1, top + 2, 2, bodyH + 2, look.armorTrim ?? PAL.gold);
   } else {
+    // shoulders sit a pixel wide of the waist, so the torso tapers
     p.fill(x, top, w, bodyH, look.shirt);
-    p.fill(x, top, w, 2, shade(look.shirt, 1.15));
+    p.fill(x - 1, top + 1, w + 2, 3, look.shirt);
+    p.fill(x - 1, top + 1, w + 2, 1, shade(look.shirt, 1.18));
+    p.fill(x, top, w, 1, shade(look.shirt, LIT));
+    p.fill(x, top, 1, bodyH, shade(look.shirt, 1.1));
     p.fill(x + w - 2, top, 2, bodyH, shirtDark);
+    // collar and two cloth folds so the chest is not a flat slab
+    if (dir !== 'up') p.fill(cx - 2, top, 4, 2, shade(look.shirt, 0.82));
+    p.fill(x + 1, top + Math.round(bodyH * 0.5), w - 3, 1, shade(look.shirt, 0.88));
+    p.fill(x + 2, top + Math.round(bodyH * 0.72), w - 5, 1, shade(look.shirt, 0.88));
   }
 
   if (look.armor === 'light') {
@@ -158,8 +188,15 @@ function drawTorso(p: Px, look: Look, cx: number, top: number, bodyH: number, bu
 function drawArm(p: Px, look: Look, x: number, y: number, len: number, front: boolean) {
   const sleeve = look.armor === 'heavy' ? (look.armorColor ?? PAL.iron) : look.armor === 'light' ? (look.armorColor ?? PAL.wood) : look.shirt;
   const c = front ? sleeve : shade(sleeve, 0.78);
+  const skin = front ? look.skin : shade(look.skin, SKIN_SHADE);
   p.fill(x, y, 3, len, c);
-  p.fill(x, y + len, 3, 3, front ? look.skin : shade(look.skin, SKIN_SHADE));
+  p.fill(x, y, 1, len, shade(c, front ? LIT : 1.1));
+  p.fill(x + 2, y, 1, len, shade(c, DIM));
+  // cuff, then a hand that narrows to a fist
+  p.fill(x, y + len - 1, 3, 1, shade(c, DEEP));
+  p.fill(x, y + len, 3, 3, skin);
+  p.fill(x, y + len, 1, 3, shade(skin, 1.12));
+  p.fill(x + 2, y + len + 1, 1, 2, shade(skin, SKIN_SHADE));
 }
 
 function drawHead(p: Px, look: Look, cx: number, y: number, dir: string, pose: Pose) {
@@ -183,29 +220,50 @@ function drawHead(p: Px, look: Look, cx: number, y: number, dir: string, pose: P
     p.fill(hx + headW, y + 5, 1, 3, skinDark);
   }
 
-  // skull
+  // skull — corners knocked off so it reads round rather than as a block
   p.fill(hx, y + 1, headW, 10, skin);
   p.fill(hx + 1, y, headW - 2, 1, skin);
-  p.fill(hx + headW - 2, y + 1, 2, 10, skinDark);
-  p.fill(hx, y + 10, headW, 1, skinDark);
+  p.fill(hx, y + 1, 1, 1, skinDark);
+  p.fill(hx + headW - 1, y + 1, 1, 1, skinDark);
+  p.fill(hx + 1, y + 1, headW - 3, 1, shade(skin, 1.12));   // forehead catch-light
+  p.fill(hx, y + 2, 1, 6, shade(skin, 1.06));               // lit cheek
+  p.fill(hx + headW - 2, y + 1, 2, 10, skinDark);           // shadowed cheek
+  p.fill(hx, y + 10, headW, 1, skinDark);                   // jaw underside
+  p.fill(hx + 1, y + 11, headW - 2, 1, shade(skin, 0.62));  // chin contact shadow
 
   // face
   const eye = look.eyes ?? PAL.ink;
+  const white = mix(PAL.white, skin, 0.18);
+  const brow = shade(look.hair, 0.8);
   if (dir === 'down') {
-    p.fill(hx + 2, y + 5, 2, 2, eye);
+    // sclera, iris, and a single specular pixel — the thing that makes a
+    // pixel face read as alive instead of as two dots
+    p.fill(hx + 2, y + 5, 3, 2, white);
+    p.fill(hx + headW - 5, y + 5, 3, 2, white);
+    p.fill(hx + 3, y + 5, 2, 2, eye);
     p.fill(hx + headW - 4, y + 5, 2, 2, eye);
-    p.set(hx + 2, y + 5, mix(eye, PAL.white, 0.5));
-    p.set(hx + headW - 4, y + 5, mix(eye, PAL.white, 0.5));
-    p.fill(hx + 4, y + 8, 3, 1, shade(skin, 0.6));
+    p.set(hx + 3, y + 5, mix(eye, PAL.white, 0.62));
+    p.set(hx + headW - 4, y + 5, mix(eye, PAL.white, 0.62));
+    p.fill(hx + 2, y + 4, 3, 1, brow);
+    p.fill(hx + headW - 5, y + 4, 3, 1, brow);
+    p.fill(hx + 5, y + 6, 1, 2, shade(skin, 0.78));         // nose
+    p.fill(hx + 4, y + 9, 3, 1, shade(skin, 0.6));          // mouth
+    p.set(hx + 1, y + 7, mix(skin, PAL.blood, 0.22));       // cheek blush
+    p.set(hx + headW - 2, y + 7, mix(skinDark, PAL.blood, 0.22));
     if (look.tusks) {
       p.fill(hx + 3, y + 8, 1, 2, PAL.cloth);
       p.fill(hx + headW - 4, y + 8, 1, 2, PAL.cloth);
     }
   } else if (dir === 'right') {
+    p.fill(hx + headW - 6, y + 5, 3, 2, white);
     p.fill(hx + headW - 5, y + 5, 2, 2, eye);
-    p.fill(hx + headW - 1, y + 6, 1, 2, skin);
-    p.fill(hx + headW - 4, y + 8, 2, 1, shade(skin, 0.6));
+    p.set(hx + headW - 5, y + 5, mix(eye, PAL.white, 0.62));
+    p.fill(hx + headW - 6, y + 4, 3, 1, brow);
+    p.fill(hx + headW - 1, y + 6, 1, 2, skin);              // nose in profile
+    p.fill(hx + headW - 4, y + 9, 2, 1, shade(skin, 0.6));
     if (look.tusks) p.fill(hx + headW - 3, y + 8, 1, 2, PAL.cloth);
+  } else {
+    p.fill(hx + 1, y + 2, headW - 2, 2, shade(skin, 0.88));  // back of the skull
   }
 
   // beard
@@ -220,6 +278,7 @@ function drawHead(p: Px, look: Look, cx: number, y: number, dir: string, pose: P
   // hair
   const hair = look.hair;
   const hairLit = shade(hair, 1.25);
+  const hairDark = shade(hair, 0.72);
   switch (look.hairStyle) {
     case 'bald':
       p.fill(hx + 1, y, headW - 2, 1, shade(skin, 1.08));
@@ -228,28 +287,45 @@ function drawHead(p: Px, look: Look, cx: number, y: number, dir: string, pose: P
       p.fill(hx, y, headW, 4, hair);
       p.fill(hx + 1, y - 1, headW - 2, 1, hair);
       p.fill(hx + 1, y, 4, 1, hairLit);
+      p.fill(hx + 5, y + 1, 3, 1, shade(hair, 1.12));
+      p.fill(hx + headW - 3, y, 3, 4, hairDark);
       p.fill(hx - 1, y + 2, 1, 4, hair);
-      p.fill(hx + headW, y + 2, 1, 4, hair);
+      p.fill(hx + headW, y + 2, 1, 4, hairDark);
+      p.fill(hx + 1, y + 3, headW - 2, 1, hairDark);       // hairline against the brow
       break;
     case 'long':
       p.fill(hx, y, headW, 4, hair);
       p.fill(hx + 1, y - 1, headW - 2, 1, hair);
       p.fill(hx - 2, y + 1, 2, 11, hair);
-      p.fill(hx + headW, y + 1, 2, 11, shade(hair, 0.8));
+      p.fill(hx + headW, y + 1, 2, 11, hairDark);
       p.fill(hx + 1, y, 4, 1, hairLit);
+      p.fill(hx - 2, y + 2, 1, 7, shade(hair, 1.14));      // sheen down the lit fall
+      p.fill(hx - 2, y + 11, 3, 1, hairDark);
+      p.fill(hx + headW, y + 11, 2, 1, shade(hair, 0.66));
+      p.fill(hx + 1, y + 3, headW - 2, 1, hairDark);
       break;
     case 'ponytail':
       p.fill(hx, y, headW, 4, hair);
       p.fill(hx + 1, y - 1, headW - 2, 1, hair);
       p.fill(dir === 'right' ? hx - 3 : hx + headW, y + 2, 3, 9, hair);
+      p.fill(dir === 'right' ? hx - 3 : hx + headW, y + 2, 1, 8, shade(hair, 1.14));
+      p.fill(dir === 'right' ? hx - 3 : hx + headW, y + 10, 3, 1, hairDark);
       p.fill(hx + 1, y, 4, 1, hairLit);
+      p.fill(hx + 1, y + 3, headW - 2, 1, hairDark);
       break;
     case 'braid':
       p.fill(hx, y, headW, 4, hair);
+      p.fill(hx + 1, y, 4, 1, hairLit);
       p.fill(hx - 2, y + 2, 2, 6, hair);
-      p.fill(hx + headW, y + 2, 2, 6, shade(hair, 0.8));
-      p.fill(hx - 2, y + 8, 2, 2, shade(hair, 0.8));
-      p.fill(hx + headW, y + 8, 2, 2, shade(hair, 0.7));
+      p.fill(hx + headW, y + 2, 2, 6, hairDark);
+      // the plait: alternating light and dark bands
+      for (let i = 0; i < 3; i++) {
+        p.fill(hx - 2, y + 2 + i * 2, 2, 1, i % 2 ? shade(hair, 1.14) : hairDark);
+        p.fill(hx + headW, y + 2 + i * 2, 2, 1, i % 2 ? hair : shade(hair, 0.66));
+      }
+      p.fill(hx - 2, y + 8, 2, 2, hairDark);
+      p.fill(hx + headW, y + 8, 2, 2, shade(hair, 0.66));
+      p.fill(hx + 1, y + 3, headW - 2, 1, hairDark);
       break;
     case 'mohawk':
       p.fill(cx - 2, y - 3, 4, 6, hair);

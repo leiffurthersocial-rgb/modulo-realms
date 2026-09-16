@@ -195,6 +195,7 @@ export function loadGame(game: Game): boolean {
   player.y = sp.y;
   game.camera.x = sp.x;
   game.camera.y = sp.y;
+  game.catchUpBounties();
   game.toast('Game loaded', `${player.name}, level ${player.level}`, '#6fd0e8');
   game.touch();
   return true;
