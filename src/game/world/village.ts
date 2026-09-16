@@ -16,6 +16,26 @@ export interface BuildingPlacement {
   label: string;
 }
 
+/**
+ * Fill water out of a settlement's footprint. Terrain is generated before
+ * anything is built on it, so a lake or a river bend can land on the site and
+ * strand a doorway. Everything inside `solidR` becomes dry ground; between
+ * `solidR` and `featherR` only the deep water is raised to shallow, so the
+ * remaining shoreline slopes away from town instead of ending at a wall.
+ */
+export function drainFor(map: GameMap, cx: number, cy: number, solidR: number, featherR: number, ground: number = T.GRASS): void {
+  for (let ty = cy - featherR; ty <= cy + featherR; ty++) {
+    for (let tx = cx - featherR; tx <= cx + featherR; tx++) {
+      const d = Math.hypot(tx - cx, ty - cy);
+      if (d > featherR) continue;
+      const cur = getTile(map, tx, ty);
+      if (cur !== T.WATER && cur !== T.DEEP_WATER && cur !== T.SWAMP_WATER) continue;
+      if (d <= solidR) setTile(map, tx, ty, ground);
+      else if (cur === T.DEEP_WATER) setTile(map, tx, ty, T.WATER);
+    }
+  }
+}
+
 /** Place a building sprite, its collision footprint and its door portal. */
 export function placeBuilding(map: GameMap, b: BuildingPlacement): void {
   const art = getBuilding(b.art);
@@ -123,6 +143,13 @@ const ASHVALE_TOWNHOUSES: Array<[number, number]> = [
 ];
 
 export function buildAshvale(map: GameMap, rng: RNG): void {
+  // Drain the town before laying anything on it. The elevation pass can drop a
+  // lake straight onto the site, and on an unlucky seed that walls the player's
+  // own front door off from the square. Ground is filled solid out to the lane
+  // and the lake edge is feathered beyond it, so a river still runs past the
+  // town without running through the doorsteps.
+  drainFor(map, CX, CY, 34, 46);
+
   // A tight paved square with a short spoke out to each service door. Paving
   // the whole ring turned the town into one grey slab; this way the stone
   // points at the doors and everything else stays green.
@@ -172,15 +199,18 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
   });
 
   // A lit name plate and a matching lamp outside every door worth opening.
+  // The sign hangs two tiles to the side: a door drops you directly in front
+  // of itself when you step out, and anything standing on that tile wedges you
+  // against the wall.
   for (const sv of SERVICES) {
     const sx = CX + sv.dx;
     const sy = CY + sv.dy + 1;
-    prop(map, sx, sy, 'shop_sign', {
+    prop(map, sx + 2, sy, 'shop_sign', {
       cw: 12, ch: 8, light: 96, lightColor: sv.color,
       nameplate: sv.plate, nameplateColor: sv.color,
     });
     prop(map, sx - 4, sy, 'lamp_post', { cw: 8, ch: 6, light: 150, lightColor: sv.color });
-    prop(map, sx + 4, sy, 'lamp_post', { cw: 8, ch: 6, light: 150, lightColor: sv.color });
+    prop(map, sx + 5, sy, 'lamp_post', { cw: 8, ch: 6, light: 150, lightColor: sv.color });
   }
 
   // the valley's first waystone, dead centre where you cannot miss it

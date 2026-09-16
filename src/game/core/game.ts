@@ -261,7 +261,7 @@ export class Game implements WorldCtx {
     const home = world.portals.find((p) => p.to === 'int_home');
     this.player.x = home ? home.x + home.w / 2 : VILLAGE_TX * TILE;
     this.player.y = home ? home.y + home.h + 26 : VILLAGE_TY * TILE;
-    const open = findOpenNear(this.map, this.player.x, this.player.y, 10, 7);
+    const open = this.findStandingSpot(this.player.x, this.player.y);
     this.player.x = open.x;
     this.player.y = open.y;
 
@@ -340,7 +340,7 @@ export class Game implements WorldCtx {
 
   private doTravel(mapId: string, x: number, y: number): void {
     this.setMap(mapId);
-    const open = findOpenNear(this.map, x, y, 10, 7);
+    const open = this.findStandingSpot(x, y);
     this.player.x = open.x;
     this.player.y = open.y;
     this.camera.x = this.player.x;
@@ -2567,6 +2567,34 @@ export class Game implements WorldCtx {
     if (dy !== 0 && tryMove(e.x, e.y + dy)) e.y += dy;
     e.x = clamp(e.x, 8, this.map.w * TILE - 8);
     e.y = clamp(e.y, 8, this.map.h * TILE - 8);
+  }
+
+  /**
+   * Nearest spot the player can actually stand, accounting for props as well
+   * as terrain. `findOpenNear` only tests tiles, so on its own it will happily
+   * drop you inside a shop sign or a barrel and wedge you there. Arrivals —
+   * doors, stairs, waystones — all come through here.
+   */
+  findStandingSpot(x: number, y: number, hw = 10, hh = 7): { x: number; y: number } {
+    const free = (nx: number, ny: number) =>
+      !boxHitsTerrain(this.map, nx, ny, hw, hh) && !this.propBlocks(nx, ny, hw, hh);
+    if (free(x, y)) return { x, y };
+    // spiral outward, preferring straight down: a door's clear ground is the
+    // street in front of it, not the wall it is set into
+    for (let r = 1; r <= 26; r++) {
+      const steps = r * 8;
+      for (let i = 0; i < steps; i++) {
+        // start the sweep pointing down and alternate sides
+        const half = Math.ceil(i / 2) * (i % 2 === 0 ? 1 : -1);
+        const a = Math.PI / 2 + (half / steps) * Math.PI * 2;
+        const nx = x + Math.cos(a) * r * TILE * 0.55;
+        const ny = y + Math.sin(a) * r * TILE * 0.55;
+        if (free(nx, ny)) return { x: nx, y: ny };
+      }
+    }
+    // nothing within range is clear; fall back to terrain-only so the player
+    // at least never lands inside a wall
+    return findOpenNear(this.map, x, y, hw, hh);
   }
 
   private propIdx: number[] = [];

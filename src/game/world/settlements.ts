@@ -2,7 +2,7 @@ import { RNG } from '../core/rng';
 import type { LocationDef } from '../../data/locations';
 import { T, TILE } from './tiles';
 import { getTile, setTile, type GameMap, type PropInstance } from './map';
-import { placeBuilding } from './village';
+import { drainFor, placeBuilding } from './village';
 
 const prop = (map: GameMap, tx: number, ty: number, art: string, o: Partial<PropInstance> = {}) => {
   map.props.push({ art, x: tx * TILE + TILE / 2, y: ty * TILE + TILE, ...o });
@@ -26,6 +26,11 @@ const STYLES: Record<string, SettlementStyle> = {
 export function buildSettlement(map: GameMap, rng: RNG, loc: LocationDef): void {
   const style = STYLES[loc.id] ?? STYLES.mirefall;
   const { tx: CX, ty: CY } = loc;
+
+  // Drain the site first, or a bend of the river can sit on the huts and
+  // strand the lodge door. Mirefall is built over a bog on purpose, so it
+  // keeps its water everywhere except the ground the buildings stand on.
+  drainFor(map, CX, CY, loc.id === 'mirefall' ? 10 : 15, 22, style.ground);
 
   map.props = map.props.filter((p) => Math.hypot(p.x / TILE - CX, p.y / TILE - CY) > 13);
   for (let ty = CY - 13; ty <= CY + 13; ty++) {
