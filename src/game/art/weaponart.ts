@@ -3,7 +3,8 @@ import { Px } from './pixel';
 
 export type WeaponKind =
   | 'sword' | 'greatsword' | 'axe' | 'greataxe' | 'hammer' | 'mace' | 'dagger' | 'spear'
-  | 'bow' | 'crossbow' | 'staff' | 'wand' | 'tome' | 'scythe' | 'claws' | 'shield' | 'none';
+  | 'bow' | 'crossbow' | 'staff' | 'wand' | 'tome' | 'scythe' | 'claws' | 'shield'
+  | 'flail' | 'halberd' | 'rapier' | 'warpick' | 'orb' | 'none';
 
 export interface WeaponStyle {
   kind: WeaponKind;
@@ -156,6 +157,107 @@ export function drawWeapon(w: WeaponStyle, scale = 1): Px {
       p.poly([[25, 1], [34, 5], [25, 9]], metal);
       p.poly([[26, 3], [31, 5], [26, 5]], light);
       p.poly([[25, 4], [33, 5], [25, 5]], edge);
+      break;
+    }
+    case 'rapier': {
+      // A duelling blade: swept bell guard, long thin blade, needle point.
+      p = new Px(30, 12);
+      wrap(p, 0, 5, 4, 3, grip);
+      pommel(p, 0, 6.5, 1.6, brass);
+      // swept guard — a bell of thin bars around the hand
+      for (let i = 0; i < 7; i++) {
+        const a = -1.1 + (i / 6) * 2.2;
+        p.set(6 + Math.cos(a) * 3.4, 6.5 + Math.sin(a) * 4.4, brass);
+        p.set(7 + Math.cos(a) * 2.2, 6.5 + Math.sin(a) * 3.4, brassLit);
+      }
+      p.fill(5, 4, 2, 6, brass);
+      p.fill(5, 4, 2, 1, brassLit);
+      // blade tapers to a needle
+      p.fill(8, 6, 17, 2, metal);
+      p.fill(8, 6, 17, 1, edge);
+      p.fill(8, 7, 15, 1, shade(metal, 0.82));
+      p.fill(24, 6, 4, 1, metal);
+      p.fill(24, 6, 4, 1, edge);
+      p.set(28, 6, edge);
+      break;
+    }
+    case 'flail': {
+      // Haft, a length of chain, and a spiked head hanging off the end.
+      p = new Px(28, 20);
+      wrap(p, 0, 9, 12, 3, grip);
+      p.fill(0, 11, 12, 1, shade(grip, 0.6));
+      p.fill(10, 7, 3, 6, PAL.ironDark);
+      p.fill(10, 7, 3, 1, PAL.iron);
+      // a proper length of chain, so this never reads as a mace
+      for (let i = 0; i < 6; i++) {
+        const lx = 12 + i * 1.7;
+        const ly = 10 + i * 1.1;
+        p.fill(lx, ly, 2, 2, i % 2 ? PAL.ironDark : PAL.iron);
+        p.set(lx, ly, PAL.ironLit);
+      }
+      p.circle(24, 16, 3.6, metal);
+      p.circle(22.9, 14.9, 2, light);
+      p.set(22, 14, edge);
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + 0.4;
+        const sx = 24 + Math.cos(a) * 4;
+        const sy = 16 + Math.sin(a) * 4;
+        p.fill(sx, sy, 2, 2, dark);
+        p.set(sx, sy, shade(metal, 1.15));
+      }
+      break;
+    }
+    case 'halberd': {
+      // Long shaft, an axe bit one side, a beak the other, a spike on top.
+      p = new Px(38, 20);
+      wrap(p, 0, 9, 26, 3, grip);
+      p.fill(0, 11, 26, 1, shade(grip, 0.6));
+      p.fill(23, 6, 3, 9, PAL.ironDark);
+      p.fill(23, 6, 3, 1, PAL.iron);
+      // axe bit above the shaft
+      p.poly([[25, 10], [30, 1], [34, 4], [31, 10]], metal);
+      p.poly([[26, 9], [30, 3], [32, 5], [28, 10]], light);
+      p.poly([[32, 2.5], [34, 4], [31, 10], [30, 9]], edge);
+      // rear beak
+      p.poly([[25, 10], [21, 4], [19, 6], [24, 12]], shade(metal, 0.86));
+      // top spike
+      p.poly([[30, 1], [38, 8], [33, 8]], metal);
+      p.poly([[31, 2], [37, 8], [34, 8]], edge);
+      break;
+    }
+    case 'warpick': {
+      // A short haft and a single wicked beak, balanced by a blunt poll.
+      p = new Px(24, 18);
+      wrap(p, 0, 9, 15, 3, grip);
+      p.fill(0, 11, 15, 1, shade(grip, 0.6));
+      p.fill(13, 5, 4, 9, PAL.ironDark);
+      p.fill(13, 5, 4, 1, PAL.iron);
+      p.poly([[16, 8], [23, 1], [24, 4], [18, 11]], metal);
+      p.poly([[17, 8], [22, 3], [23, 4], [19, 9]], light);
+      p.poly([[22, 1.6], [24, 4], [21, 7], [20.4, 5]], edge);
+      p.fill(10, 6, 4, 6, metal);            // poll
+      p.fill(10, 6, 4, 1, light);
+      p.fill(10, 11, 4, 1, dark);
+      break;
+    }
+    case 'orb': {
+      // A floating focus caged in three metal bands, lit from within.
+      p = new Px(20, 20);
+      const gl = w.glow ?? metal;
+      p.ellipse(10, 10, 9, 9, withAlpha(gl, 0.18));
+      p.circle(10, 10, 6.5, shade(gl, 0.6));
+      p.circle(10, 10, 5.4, gl);
+      p.circle(8.6, 8.6, 2.8, shade(gl, 1.4));
+      p.circle(8, 8, 1.3, PAL.white);
+      for (const ry of [5, 10, 15]) {
+        for (let x = 3; x < 17; x++) {
+          const dy = Math.round(Math.sin((x - 3) / 14 * Math.PI) * (ry === 10 ? 0 : (ry < 10 ? -1 : 1)));
+          const yy = ry + dy;
+          if (Math.hypot(x - 10, yy - 10) > 7) continue;
+          p.set(x, yy, x < 10 ? PAL.ironLit : PAL.ironDark);
+        }
+      }
+      p.fill(9, 1, 2, 3, PAL.ironDark);
       break;
     }
     case 'scythe': {

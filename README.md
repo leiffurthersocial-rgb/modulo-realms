@@ -103,17 +103,20 @@ Auto-aim stays on regardless; the mouse only takes over when there is nothing in
 
 ## The game
 
-**The world.** One continuous 384×384-tile overworld (roughly 12,000×12,000 pixels) split
+**The world.** One continuous 512×512-tile overworld (roughly 16,000×16,000 pixels) split
 into five regions — the central Ashvale Valley, the frozen Crag Reach to the north, the
 Sunken Mire east, Duneholt Reach south, and Thornhollow in the west. Roads, rivers and
 bridges connect five settlements, seven dungeons and a couple of dozen landmarks, camps and
 shrines. Stronger regions sit further from home, so the world gates itself by difficulty
 rather than by walls.
 
-**Ashvale.** The handcrafted home town: your house with a bed and a storage chest, a forge,
-a trading post, an apothecary, an inn, a moot hall, a chapel and a farm — each with an interior
-you can walk into. NPCs keep daily schedules and move between work, the tavern and home as the
-clock runs.
+**Ashvale.** The handcrafted home town, laid out as a ring rather than a sprawl. Every
+building you can use — the forge, the trading post, the apothecary, the inn, the chapel and the
+moot hall — faces the square within a few steps of the waystone, each with its own roofline, its
+own trade sign, and a **lit name plate over the door** that you can read from the middle of
+town. Stand by the waystone and you can see where everything is without trying a single handle.
+Your house, the farm and the gatehouse sit just off the square; NPCs keep daily schedules and
+move between work, the tavern and home as the clock runs.
 
 **Doors that open, and doors that don't.** Every building with something inside it looks like
 itself — the forge looks like a forge, the chapel like a chapel. Everything else is the same
@@ -164,12 +167,35 @@ travel panel or by clicking the marker on the world map.
 has a cart parked at every major point of interest, so there is always somewhere to sell loot
 and buy something better.
 
+**Merchants scale with the ground they stand on.** What a shop stocks is set by the danger of
+its region and its distance from home, not by a fixed list. The stall in Ashvale sells
+level-5 commons; the cart parked at the mouth of the Barrow Crypt sells level-15 epics, and
+carries more slots besides. Stock also re-rolls as you level, so a merchant you outgrew is
+worth visiting again. If you want better gear to buy, walk somewhere worse.
+
+**King Jovan.** The king keeps court in the Ashvale moot hall, and he is worth the walk twice
+over. He runs **the Royal Armoury** — the best-stocked shop in the valley, sold at a loss
+because his answer to every problem is to hand it money and a sword. And he keeps a tally of
+everything you have put down: one **crown warrant** per boss felled. Spend a warrant on
+anything you carry and he has it remade **one rarity grade finer**, with an extra enchantment
+slot and fresh rolls. It is the only way to push gear you chose up to Legendary instead of
+waiting for the drop you wanted.
+
 **Saving.** The game autosaves on a timer and at transitions, and always on quitting to the
 title screen. Continue from the title screen picks up where you left off.
 
 ---
 
 ## Gear, rarity and enchantments
+
+### Weapon families
+
+Twenty weapon kinds, each with its own silhouette, in-hand art and icon: swords and
+greatswords, axes and greataxes, hammers, maces, daggers, spears, **rapiers** (fast, crit-led),
+**flails** (a chained head that comes round late and hits hard), **halberds** (reach and sweep),
+**war picks** (armour-breakers that pay out on a crit), bows, crossbows, staves, wands, tomes,
+**orbs** (caged focus stones that hover and strike at range), scythes and claws. Every class can
+use every one of them.
 
 ### Slots
 

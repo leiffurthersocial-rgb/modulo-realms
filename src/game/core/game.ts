@@ -1,7 +1,7 @@
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ENEMY_BY_ID } from '../../data/enemies';
 import { TEMPLATE_BY_ID } from '../../data/items';
-import { LOCATIONS, LOCATION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, type LocationDef } from '../../data/locations';
+import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
 import { FACTION_BY_ID } from '../../data/races';
@@ -16,7 +16,7 @@ import { addItem, addTemplate, countItem, equip, removeByDefId, removeItem, uneq
 import { makeItem, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
-import { EQUIP_SLOT_ORDER, RARITY_COLOR, type EquipSlot, type Item, type Rarity } from '../items/types';
+import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, type EquipSlot, type Item, type Rarity } from '../items/types';
 import { Player, type PlayerInit } from '../player/player';
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
@@ -220,6 +220,7 @@ export class Game implements WorldCtx {
 
   closeAll(): void {
     this.panel = null;
+    this.royalOpen = false;
     this.dialogue = null;
     this.shop = null;
     const npc = this.npcs.find((n) => n.talking);
@@ -389,6 +390,13 @@ export class Game implements WorldCtx {
   }
 
   /** Region id under the player, used for region-locked loot. */
+  /** Region id at an overworld tile, for loot and shop rolls. */
+  regionIdAt(tx: number, ty: number): string | undefined {
+    const world = this.getMap('overworld');
+    const idx = world.regions?.[ty * world.w + tx];
+    return idx === undefined ? undefined : REGION_BY_INDEX[idx]?.id;
+  }
+
   regionAtPlayer(): string | undefined {
     if (this.map.id !== 'overworld' || !this.map.regions) {
       // inside a dungeon, inherit the region of its overworld entrance
@@ -1512,18 +1520,48 @@ export class Game implements WorldCtx {
     this.touch();
   }
 
+  /**
+   * How good a merchant's wares are. A cart parked at a level-16 dungeon mouth
+   * sells level-16 gear at level-16 odds; the stall in the starting square
+   * sells what a level-1 player can use. The further out and the deadlier the
+   * ground, the better the stock — so walking somewhere frightening is how you
+   * shop, not just how you fight.
+   */
+  private shopTier(npc: NpcDef): { level: number; magicFind: number; luck: number; band: number } {
+    const region = REGION_BY_ID[(npc.map === 'overworld'
+      ? REGION_BY_INDEX[this.getMap('overworld').regions?.[npc.ty * WORLD_W + npc.tx] ?? 0]?.id
+      : 'central') as RegionId] ?? REGION_BY_ID.central;
+    // distance from home town, in tiles, as a second difficulty axis
+    const dist = Math.hypot(npc.tx - VILLAGE_TX, npc.ty - VILLAGE_TY);
+    const far = Math.min(1, dist / 190);
+    const base = npc.shop?.randomGear?.level ?? region.level[0];
+    // A shop indoors inherits its own stated tier rather than the region's, so
+    // the king's armoury is not priced like a village stall.
+    const band = Math.max(base, region.level[1], Math.round(region.level[0] + (region.level[1] - region.level[0]) * far));
+    // meet the player where they are, but never below what the region is worth
+    const level = Math.max(base, band, Math.min(band + 4, this.player.level + 2));
+    return { level, magicFind: 30 + band * 5 + far * 40, luck: 0.3 + far * 0.7, band };
+  }
+
   openShop(npc: NpcDef): void {
     const shop = npc.shop!;
-    let stock = this.shopStock.get(shop.id);
+    const tier = this.shopTier(npc);
+    // Stock is keyed to a level bucket as well as the shop, so a merchant
+    // restocks with better goods once the player has meaningfully grown.
+    const bucket = Math.floor(this.player.level / 3);
+    const key = `${shop.id}:${bucket}`;
+    let stock = this.shopStock.get(key);
     if (!stock) {
-      const rng = new RNG(`${this.seed}:${shop.id}`);
+      const rng = new RNG(`${this.seed}:${key}`);
       stock = shop.stock.map((s) => makeItem(s.item, { qty: s.qty ?? 1, level: s.level, plain: true, rng }));
       if (shop.randomGear) {
-        for (let i = 0; i < shop.randomGear.count; i++) {
-          stock.push(rollLoot(shop.randomGear.level, rng, 40, 0.5));
+        // one extra slot per four levels of regional danger
+        const count = shop.randomGear.count + Math.floor(tier.band / 4);
+        for (let i = 0; i < count; i++) {
+          stock.push(rollLoot(tier.level + rng.int(-1, 2), rng, tier.magicFind, tier.luck, npc.map === 'overworld' ? this.regionIdAt(npc.tx, npc.ty) : undefined));
         }
       }
-      this.shopStock.set(shop.id, stock);
+      this.shopStock.set(key, stock);
     }
     this.shop = {
       npcId: npc.id,
@@ -1664,6 +1702,13 @@ export class Game implements WorldCtx {
             return;
           case 'shop':
             this.openShop(npc);
+            return;
+          case 'royal':
+            this.royalOpen = true;
+            this.panel = 'forge';
+            this.dialogue = null;
+            audio.play('ui_big', 0.6);
+            this.touch();
             return;
           case 'inn': {
             if (this.player.gold < 20) break;
@@ -2138,6 +2183,63 @@ export class Game implements WorldCtx {
     audio.play('quest', 0.5);
     this.toast('Runes rebound', `${item.name} draws new enchantments.`, '#7fd4ff');
     this.touch();
+  }
+
+  /* ---------------- the crown ---------------- */
+
+  /** True while the anvil panel is open under King Jovan's warrant. */
+  royalOpen = false;
+
+  /**
+   * Crown warrants. Jovan keeps a tally of everything you have put down and
+   * owes you for each of it: one warrant per boss felled, and each warrant
+   * buys one step up the rarity ladder for something you already carry. It is
+   * the only way to reach Legendary on gear you chose rather than gear that
+   * happened to drop.
+   */
+  warrantsAvailable(): number {
+    return Math.max(0, this.player.bossesKilled.size - this.player.warrantsUsed);
+  }
+
+  /** Can this item still be raised, and is there a warrant to spend on it? */
+  canElevate(item: Item): { ok: boolean; reason?: string; next?: Rarity } {
+    const order: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary'];
+    const i = order.indexOf(item.rarity);
+    if (i < 0 || i === order.length - 1) return { ok: false, reason: 'Already as fine as the crown can make it.' };
+    if (this.warrantsAvailable() <= 0) return { ok: false, reason: 'No warrants. Fell a boss and the crown owes you one.' };
+    return { ok: true, next: order[i + 1] };
+  }
+
+  /** Spend a warrant: one rarity tier up, an extra enchant slot, new rolls. */
+  royalElevate(uid: string): boolean {
+    const p = this.player;
+    const item = this.findGear(uid);
+    if (!item) return false;
+    const check = this.canElevate(item);
+    if (!check.ok || !check.next) {
+      this.toast('The crown declines', check.reason, '#d9553f');
+      return false;
+    }
+    p.warrantsUsed += 1;
+    item.rarity = check.next;
+    item.enchantSlots = Math.max(item.enchantSlots, RARITY_ENCHANT_SLOTS[check.next]);
+    const scale = 1.18;
+    for (const key of ['damage', 'defense', 'maxHealth', 'maxMana', 'abilityPower'] as const) {
+      if (item.stats[key] !== undefined) item.stats[key] = Math.round(item.stats[key]! * scale + 1);
+    }
+    item.value = Math.round(item.value * 1.6);
+    const template = TEMPLATE_BY_ID[item.defId];
+    item.enchants = (template?.fixedEnchants ?? []).map((e) => ({ ...e }));
+    rollEnchants(item, new RNG(Math.floor(Math.random() * 1e9)));
+    const color = RARITY_COLOR[item.rarity];
+    this.fx.ring(p.x, p.y, 150, color);
+    this.fx.spawn(p.x, p.y - 10, 44, color, { speed: 170, life: 1.1, size: 3, gravity: -60 });
+    this.flashScreen(color, 0.3);
+    this.shake(8);
+    audio.play('levelup', 0.9);
+    this.toast(`${item.name} is elevated`, `Raised to ${item.rarity} by royal warrant.`, color, item.icon);
+    this.touch();
+    return true;
   }
 
   /** Find an item across the pack and the equipped slots. */

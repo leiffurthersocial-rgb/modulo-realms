@@ -103,6 +103,43 @@ export const WEAPONS: ItemTemplate[] = [
   W('tome_lesser', 'Lesser Grimoire', 'tome', 4, 14, 1.2, 290, { metal: PAL.blood, glow: PAL.arcaneLit, stats: { intelligence: 3, maxMana: 15 } }),
   W('scythe_bone', 'Bone Scythe', 'scythe', 1, 10, 1.05, 58, { metal: PAL.cloth, stats: { intelligence: 2 }, classes: ['necromancer'] }),
   W('scythe_grave', 'Gravewarden Scythe', 'scythe', 10, 32, 0.95, 64, { metal: PAL.rot, glow: PAL.toxic, rarity: 'rare', stats: { intelligence: 5, lifesteal: 3 } }),
+
+  /* --- duelling blades: fast, precise, built around crit --- */
+  W('rapier_town', 'Town Guard Rapier', 'rapier', 3, 11, 1.85, 44, { metal: PAL.steel, stats: { critChance: 6, dexterity: 1 } }),
+  W('rapier_duellist', "Duellist's Needle", 'rapier', 8, 22, 1.9, 46, { metal: PAL.steel, rarity: 'rare', stats: { critChance: 11, dexterity: 4 } }),
+  W('rapier_court', 'Court Fencer', 'rapier', 13, 34, 1.95, 48, { metal: PAL.leafLit, glow: PAL.leafLit, rarity: 'superRare', stats: { critChance: 15, dexterity: 6, moveSpeed: 4 }, fixedEnchants: [{ id: 'piercing', level: 2 }] }),
+  W('rapier_mire', 'Mirefall Stinger', 'rapier', 10, 26, 2, 46, { metal: PAL.toxic, glow: PAL.toxic, rarity: 'rare', stats: { critChance: 9, dexterity: 4 }, fixedEnchants: [{ id: 'venomous', level: 1 }] }),
+
+  /* --- flails: slow, heavy, they hit everything nearby --- */
+  W('flail_iron', 'Iron Flail', 'flail', 4, 18, 0.9, 54, { stats: { strength: 2 } }),
+  W('flail_morning', 'Morning Star', 'flail', 9, 31, 0.85, 56, { metal: PAL.ironLit, rarity: 'rare', stats: { strength: 4, critDamage: 18 } }),
+  W('flail_crag', 'Cragfall Flail', 'flail', 14, 49, 0.78, 58, { metal: PAL.rockPale, rarity: 'superRare', stats: { strength: 7, critDamage: 25 }, fixedEnchants: [{ id: 'shockwave', level: 2 }] }),
+
+  /* --- polearms: reach, sweep, the front rank's weapon --- */
+  W('halberd_levy', 'Levy Halberd', 'halberd', 5, 21, 0.92, 78, { stats: { defense: 2 } }),
+  W('halberd_watch', 'Northwatch Halberd', 'halberd', 11, 37, 0.88, 82, { metal: PAL.steel, rarity: 'rare', stats: { strength: 4, defense: 4 } }),
+  W('halberd_reaper', 'Reaper of the Reach', 'halberd', 16, 56, 0.82, 86, { metal: PAL.frost, glow: PAL.frost, rarity: 'superRare', stats: { strength: 7, defense: 5 }, fixedEnchants: [{ id: 'swirling', level: 2 }] }),
+
+  /* --- war picks: armour-breakers, punishing on a crit --- */
+  W('warpick_miner', "Miner's Pick", 'warpick', 2, 12, 1.15, 44, { metal: PAL.iron, desc: 'Meant for ore. It has stopped caring about the difference.' }),
+  W('warpick_guild', 'Guild War Pick', 'warpick', 7, 25, 1.1, 46, { metal: PAL.copper, rarity: 'rare', stats: { critDamage: 25, strength: 2 } }),
+  W('warpick_ironroot', 'Ironroot Beak', 'warpick', 13, 41, 1.08, 48, { metal: PAL.copper, glow: PAL.ember, rarity: 'superRare', stats: { critDamage: 40, critChance: 8, strength: 4 }, fixedEnchants: [{ id: 'piercing', level: 3 }] }),
+
+  /* --- orbs: caster focuses that hover and strike at range --- */
+  W('orb_apprentice', 'Apprentice Orb', 'orb', 3, 12, 1.4, 290, { metal: PAL.frost, glow: PAL.frost, stats: { intelligence: 3, maxMana: 18 } }),
+  W('orb_ember', 'Emberglass Orb', 'orb', 8, 25, 1.35, 320, { metal: PAL.flame, glow: PAL.ember, rarity: 'rare', stats: { intelligence: 5, abilityPower: 12 }, fixedEnchants: [{ id: 'fire_aspect', level: 1 }] }),
+  W('orb_tide', 'Drowned Tidestone', 'orb', 11, 33, 1.32, 340, { metal: PAL.water, glow: PAL.frost, rarity: 'superRare', stats: { intelligence: 7, abilityPower: 16, maxMana: 40 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+  W('orb_hollow', 'Hollow Light', 'orb', 15, 45, 1.3, 360, { metal: PAL.arcaneLit, glow: PAL.arcane, rarity: 'epic', stats: { intelligence: 10, abilityPower: 24, cooldownReduction: 8, lifesteal: 4 } }),
+
+  /* --- a few more of the old kinds, to fill the mid-game --- */
+  W('sword_mire', 'Bogsteel Falchion', 'sword', 8, 23, 1.3, 50, { metal: PAL.swamp, rarity: 'rare', stats: { strength: 3, lifesteal: 2 } }),
+  W('greatsword_dune', 'Duneholt Cleaver', 'greatsword', 9, 35, 0.75, 64, { metal: PAL.sandDark, rarity: 'rare', stats: { strength: 4, maxHealth: 20 } }),
+  W('axe_cutter', 'Ash Cutter Hatchet', 'axe', 7, 24, 1.02, 50, { metal: PAL.ironDark, rarity: 'rare', stats: { attackSpeed: 6, critChance: 5 } }),
+  W('dagger_guild', 'Guild Shiv', 'dagger', 6, 15, 2.05, 36, { metal: PAL.copper, stats: { critChance: 9, magicFind: 4 } }),
+  W('bow_mire', 'Mirewood Recurve', 'bow', 8, 24, 1.2, 400, { metal: PAL.swampDark, rarity: 'rare', stats: { dexterity: 4, critChance: 4 } }),
+  W('staff_dune', 'Sunstruck Staff', 'staff', 10, 29, 1.02, 360, { metal: PAL.sand, glow: PAL.goldLit, rarity: 'rare', stats: { intelligence: 6, abilityPower: 12 } }),
+  W('spear_mire', 'Bog Harpoon', 'spear', 6, 19, 1.12, 74, { metal: PAL.rot, rarity: 'rare', stats: { dexterity: 3, range: 4 } }),
+  W('mace_crag', 'Cragwarden Mace', 'mace', 12, 35, 1.05, 50, { metal: PAL.rockPale, rarity: 'rare', stats: { strength: 5, defense: 4 } }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -136,6 +173,16 @@ export const ARMOR: ItemTemplate[] = [
     effects: ['vampiric', 'flowstate'],
     desc: 'The court wore this to the grave and kept wearing it.',
   }),
+
+  /* --- mid-game outfits, one per region, so travel changes how you dress --- */
+  A('armor_bogweave', 'Bogweave Coat', 7, 17, light(PAL.swamp, PAL.rot, 'hood'), { rarity: 'rare', stats: { maxHealth: 26, defense: 2 }, desc: 'Waxed against water that would rather be inside you.' }),
+  A('armor_sunveil', 'Sunveil Wrap', 8, 15, robe(PAL.sandLit, PAL.gold, 'hood'), { rarity: 'rare', stats: { maxMana: 34, intelligence: 4, moveSpeed: 3 } }),
+  A('armor_clanmail', 'Clanhold Ringmail', 10, 28, heavy(PAL.ironDark, PAL.copper, 'horned'), { rarity: 'rare', stats: { maxHealth: 46, strength: 3 } }),
+  A('armor_thornweave', 'Thornweave Habit', 9, 18, robe('#2d4a2f', PAL.leafLit, 'hood', '#1f3322'), { rarity: 'rare', stats: { maxMana: 38, abilityPower: 9, moveSpeed: 3 } }),
+  A('armor_cutter', 'Cutter Raid Harness', 11, 23, light('#5a3a2a', PAL.ember, 'cap'), { rarity: 'superRare', stats: { attackSpeed: 6, critChance: 5, moveSpeed: 5 } }),
+  A('armor_wardplate', 'Wardens Bulwark', 13, 34, heavy('#4a5a6a', PAL.frost, 'full', '#2a3a4a'), { rarity: 'superRare', stats: { maxHealth: 64, defense: 7, moveSpeed: -2 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
+  A('armor_emberplate', 'Emberforge Plate', 15, 44, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 88, defense: 8, strength: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
+  A('armor_tidecaller', 'Tidecaller Vestments', 14, 26, robe('#274a5e', PAL.frost, 'wizard', '#1a3242'), { rarity: 'epic', glow: PAL.frost, stats: { maxMana: 72, intelligence: 9, abilityPower: 16 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -150,6 +197,12 @@ export const OFFHANDS: ItemTemplate[] = [
   { id: 'tome_off', name: 'Bound Codex', type: 'armor', slot: 'offHand', icon: 'tome', weaponKind: 'tome', metal: PAL.blood, rarity: 'common', level: 5, value: 120, stats: { maxMana: 28, intelligence: 2 } },
   { id: 'tome_whisper', name: 'Whispering Codex', type: 'armor', slot: 'offHand', icon: 'tome', weaponKind: 'tome', metal: PAL.arcane, glow: PAL.arcaneLit, rarity: 'superRare', level: 12, value: 480, stats: { maxMana: 60, intelligence: 6, abilityPower: 10 } },
   { id: 'torch_off', name: 'Everburning Brand', type: 'armor', slot: 'offHand', icon: 'torch_item', metal: PAL.flame, glow: PAL.flame, rarity: 'common', level: 3, value: 70, stats: { critChance: 2 }, desc: 'Lights the dark places. Never quite goes out.' },
+  { id: 'shield_bog', name: 'Bogplank Shield', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: PAL.swampDark, accent: PAL.rot, rarity: 'rare', level: 8, value: 240, stats: { defense: 18, maxHealth: 28 } },
+  { id: 'shield_dune', name: 'Sunburst Targe', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: PAL.sand, accent: PAL.goldLit, glow: PAL.goldLit, rarity: 'superRare', level: 11, value: 400, stats: { defense: 22, maxHealth: 32, moveSpeed: 3 } },
+  { id: 'shield_crag', name: 'Clanhold Bulwark', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: PAL.ironDark, accent: PAL.copper, rarity: 'epic', level: 16, value: 1050, stats: { defense: 44, maxHealth: 85, moveSpeed: -4 }, fixedEnchants: [{ id: 'shockwave', level: 1 }] },
+  { id: 'orb_off', name: 'Focusing Lens', type: 'armor', slot: 'offHand', icon: 'orb', weaponKind: 'orb', metal: PAL.frost, glow: PAL.frost, rarity: 'rare', level: 7, value: 200, stats: { abilityPower: 9, maxMana: 30 } },
+  { id: 'orb_dark', name: 'Nightglass Lens', type: 'armor', slot: 'offHand', icon: 'orb', weaponKind: 'orb', metal: PAL.arcaneDark, glow: PAL.arcaneLit, rarity: 'epic', level: 14, value: 760, stats: { abilityPower: 20, maxMana: 65, cooldownReduction: 6 } },
+  { id: 'lantern_off', name: 'Wayfarer Lantern', type: 'armor', slot: 'offHand', icon: 'lantern', metal: PAL.iron, glow: PAL.goldLit, rarity: 'rare', level: 6, value: 180, stats: { magicFind: 8, maxHealth: 14 }, desc: 'Burns whale oil and something the apothecary will not name.' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -199,6 +252,26 @@ export const ARTIFACTS: ItemTemplate[] = [
     { maxHealth: 90, defense: 10, strength: 6, magicFind: 12 },
     { id: 'rally', name: "King's Rally", cooldown: 38, desc: 'A rallying cry: heals you and empowers your strikes.' },
     { metal: PAL.gold, accent: PAL.holy, glow: PAL.holy, noDrop: true, desc: 'Given, not found. Jovan gives a great many things away.' }),
+
+  /* --- artifacts with their own icon art --- */
+  ART('art_rally_horn', 'Horn of the Old Levy', 'horn', 6, 'rare', 300, { maxHealth: 30, defense: 3 },
+    { id: 'rally', name: 'Sound the Levy', cooldown: 30, desc: 'A blast that heals you and knocks enemies back.' },
+    { metal: PAL.bone, accent: PAL.copper }),
+  ART('art_grave_chalice', 'Chalice of the Ninth King', 'chalice', 11, 'epic', 860, { lifesteal: 5, maxHealth: 40 },
+    { id: 'soul_burst', name: 'Drink Deep', cooldown: 30, desc: 'Drains life from everything around you into yourself.' },
+    { metal: PAL.gold, accent: PAL.blood, glow: PAL.blood }),
+  ART('art_hourglass', 'Cracked Hourglass', 'hourglass', 12, 'epic', 940, { cooldownReduction: 10, attackSpeed: 5 },
+    { id: 'time_fold', name: 'Spill the Sand', cooldown: 40, desc: 'Slows everything nearby to a crawl for six seconds.' },
+    { metal: PAL.sandLit, accent: PAL.frost, glow: PAL.frost }),
+  ART('art_plague_mask', 'Mirefall Plague Mask', 'mask', 9, 'superRare', 500, { defense: 5, abilityPower: 8 },
+    { id: 'frenzy', name: 'Breathe the Bog', cooldown: 32, desc: 'Exhales a poison cloud that eats through armour.' },
+    { metal: PAL.bone, accent: PAL.toxic, glow: PAL.toxic }),
+  ART('art_stormvane', 'Stormvane', 'weathervane', 14, 'epic', 1100, { critChance: 7, moveSpeed: 5 },
+    { id: 'beam', name: 'Call the Vane', cooldown: 34, desc: 'Draws a lightning arc through everything in a line.' },
+    { metal: PAL.iron, accent: '#8fd0f0', glow: '#8fd0f0' }),
+  ART('art_emberdrum', 'Emberforge Drum', 'drum', 10, 'superRare', 620, { strength: 5, attackSpeed: 4 },
+    { id: 'fire_nova', name: 'Beat the Forge', cooldown: 24, desc: 'A pounding rhythm that sets the ground alight around you.' },
+    { metal: PAL.wood, accent: PAL.ember, glow: PAL.ember }),
 ];
 
 /* ------------------------------------------------------------------ */

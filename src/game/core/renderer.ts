@@ -590,6 +590,7 @@ export function render(game: Game): void {
     g.restore();
   }
 
+  drawNameplates(game, g, propIdx);
   drawTrackedCompass(game, g, left, top, viewW, viewH);
 
   if (game.debug) drawDebug(game, g, left, top, viewW, viewH);
@@ -624,6 +625,44 @@ export function render(game: Game): void {
     }
     g.restore();
   }
+}
+
+/**
+ * Permanent labels over the props that carry one — shop signs, the waystone,
+ * the anvil. They fade in as you approach and never need interacting with, so
+ * a settlement tells you what it holds from the middle of the square.
+ */
+function drawNameplates(game: Game, g: CanvasRenderingContext2D, propIdx: number[]): void {
+  const p = game.player;
+  const props = game.map.props;
+  g.save();
+  g.font = '700 9px "Trebuchet MS", system-ui, sans-serif';
+  g.textAlign = 'center';
+  for (const i of propIdx) {
+    const pr = props[i];
+    if (!pr.nameplate) continue;
+    const d = Math.hypot(pr.x - p.x, pr.y - p.y);
+    if (d > 460) continue;
+    const alpha = Math.min(1, (460 - d) / 110);
+    const color = pr.nameplateColor ?? PAL.cloth;
+    const text = pr.nameplate;
+    const w = g.measureText(text).width + 12;
+    const x = Math.round(pr.x);
+    const y = Math.round(pr.y - 52);
+    g.globalAlpha = alpha * 0.92;
+    g.fillStyle = 'rgba(10,8,16,0.82)';
+    g.fillRect(x - w / 2, y, w, 13);
+    g.fillStyle = color;
+    g.fillRect(x - w / 2, y + 12, w, 1);
+    g.globalAlpha = alpha;
+    g.fillText(text, x, y + 10);
+    // a small tick pointing down at the door
+    g.globalAlpha = alpha * 0.82;
+    g.fillStyle = 'rgba(10,8,16,0.82)';
+    g.fillRect(x - 2, y + 13, 4, 3);
+  }
+  g.restore();
+  g.textAlign = 'left';
 }
 
 const STREAK_TIERS = [

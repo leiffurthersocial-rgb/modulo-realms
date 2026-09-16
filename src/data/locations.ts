@@ -52,69 +52,75 @@ export interface LocationDef {
   level?: number;
 }
 
-export const WORLD_W = 384;
-export const WORLD_H = 384;
-export const VILLAGE_TX = 192;
-export const VILLAGE_TY = 192;
+/**
+ * The overworld is 512x512 tiles — about 16,000 pixels on a side. Every
+ * location coordinate below is in this space, and the whole valley was scaled
+ * up from a 384-tile draft, so the regions sit further apart and the roads
+ * between them are a real journey rather than a short walk.
+ */
+export const WORLD_W = 512;
+export const WORLD_H = 512;
+export const VILLAGE_TX = 256;
+export const VILLAGE_TY = 256;
 
 export const LOCATIONS: LocationDef[] = [
   // settlements
-  { id: 'ashvale', name: 'Ashvale', kind: 'town', tx: 192, ty: 192, region: 'central', desc: 'The last town in the valley with a working forge and a full inn.', known: true, radius: 22, level: 1 },
-  { id: 'northwatch', name: 'Northwatch', kind: 'village', tx: 190, ty: 86, region: 'north', desc: 'A clanhold of stone huts wedged against the crag wall.', radius: 14, level: 10 },
-  { id: 'mirefall', name: 'Mirefall', kind: 'village', tx: 300, ty: 204, region: 'east', desc: 'Stilt houses over black water. Nobody here sleeps well.', radius: 14, level: 7 },
-  { id: 'duneholt', name: 'Duneholt', kind: 'village', tx: 198, ty: 300, region: 'south', desc: 'A walled trade post that pays the Cutters not to burn it.', radius: 14, level: 8 },
-  { id: 'thornhollow', name: 'Thornhollow', kind: 'village', tx: 84, ty: 188, region: 'west', desc: 'Elven halls grown rather than built, high in the old canopy.', radius: 14, level: 6 },
+  { id: 'ashvale', name: 'Ashvale', kind: 'town', tx: 256, ty: 256, region: 'central', desc: 'The last town in the valley with a working forge and a full inn.', known: true, radius: 29, level: 1 },
+  { id: 'northwatch', name: 'Northwatch', kind: 'village', tx: 253, ty: 115, region: 'north', desc: 'A clanhold of stone huts wedged against the crag wall.', radius: 19, level: 10 },
+  { id: 'mirefall', name: 'Mirefall', kind: 'village', tx: 400, ty: 272, region: 'east', desc: 'Stilt houses over black water. Nobody here sleeps well.', radius: 19, level: 7 },
+  { id: 'duneholt', name: 'Duneholt', kind: 'village', tx: 264, ty: 400, region: 'south', desc: 'A walled trade post that pays the Cutters not to burn it.', radius: 19, level: 8 },
+  { id: 'thornhollow', name: 'Thornhollow', kind: 'village', tx: 112, ty: 251, region: 'west', desc: 'Elven halls grown rather than built, high in the old canopy.', radius: 19, level: 6 },
 
   // dungeons
   {
-    id: 'ruined_fortress', name: 'The Ruined Fortress', kind: 'dungeon', tx: 252, ty: 118, region: 'north', level: 10,
+    id: 'ruined_fortress', name: 'The Ruined Fortress', kind: 'dungeon', tx: 336, ty: 157, region: 'north', level: 10,
     desc: 'A border keep the clans abandoned. Something still holds the gate.',
     dungeon: { mapId: 'dungeon_fortress', theme: 'fortress', level: 10, rooms: 12, boss: 'boss_stone_warden', enemies: ['skeleton', 'skeleton_archer', 'golem', 'bandit_brute'], name: 'The Ruined Fortress' },
   },
   {
-    id: 'barrow_crypt', name: 'The Barrow Crypt', kind: 'dungeon', tx: 118, ty: 268, region: 'south', level: 14,
+    id: 'barrow_crypt', name: 'The Barrow Crypt', kind: 'dungeon', tx: 157, ty: 357, region: 'south', level: 14,
     desc: 'Layered tombs of a line of kings that ended badly.',
     dungeon: { mapId: 'dungeon_crypt', theme: 'crypt', level: 14, rooms: 14, boss: 'boss_hollow_king', enemies: ['skeleton', 'crawler', 'wraith', 'revenant_knight'], name: 'The Barrow Crypt' },
   },
   {
-    id: 'grove_temple', name: 'The Thornhollow Grove', kind: 'dungeon', tx: 56, ty: 148, region: 'west', level: 12,
+    id: 'grove_temple', name: 'The Thornhollow Grove', kind: 'dungeon', tx: 75, ty: 197, region: 'west', level: 12,
     desc: 'A temple the forest has almost finished swallowing.',
     dungeon: { mapId: 'dungeon_grove', theme: 'grove', level: 12, rooms: 12, boss: 'boss_matriarch', enemies: ['sapling', 'spider', 'wisp', 'venomspider'], name: 'The Thornhollow Grove' },
   },
   {
-    id: 'sunken_tomb', name: 'The Sunken Tomb', kind: 'dungeon', tx: 246, ty: 332, region: 'south', level: 12,
+    id: 'sunken_tomb', name: 'The Sunken Tomb', kind: 'dungeon', tx: 328, ty: 443, region: 'south', level: 12,
     desc: 'Sandstone halls under the dunes, sealed for a reason.',
     dungeon: { mapId: 'dungeon_tomb', theme: 'tomb', level: 12, rooms: 12, boss: 'boss_sand_tyrant', enemies: ['scorpion', 'sandgolem', 'skeleton', 'crawler'], name: 'The Sunken Tomb' },
   },
   {
-    id: 'ashen_spire', name: 'The Ashen Spire', kind: 'dungeon', tx: 146, ty: 46, region: 'north', level: 16,
+    id: 'ashen_spire', name: 'The Ashen Spire', kind: 'dungeon', tx: 195, ty: 61, region: 'north', level: 16,
     desc: 'A Concord tower that froze mid-collapse and never finished falling.',
     dungeon: { mapId: 'dungeon_spire', theme: 'spire', level: 16, rooms: 14, boss: 'boss_rime_lich', miniboss: 'mini_frostwarden', enemies: ['cultist', 'wraith', 'revenant_knight', 'emberwisp'], name: 'The Ashen Spire' },
   },
   {
-    id: 'ironroot_mine', name: 'Ironroot Mine', kind: 'cave', tx: 264, ty: 158, region: 'east', level: 6,
+    id: 'ironroot_mine', name: 'Ironroot Mine', kind: 'cave', tx: 352, ty: 211, region: 'east', level: 6,
     desc: 'A Guild dig that hit something other than ore.',
     dungeon: { mapId: 'dungeon_mine', theme: 'mine', level: 6, rooms: 10, miniboss: 'mini_broodmother', enemies: ['bat', 'spider', 'goblin', 'goblin_shaman', 'slime'], name: 'Ironroot Mine' },
   },
   {
-    id: 'whisperwell', name: 'Whisperwell Cave', kind: 'cave', tx: 136, ty: 244, region: 'central', level: 4,
+    id: 'whisperwell', name: 'Whisperwell Cave', kind: 'cave', tx: 181, ty: 325, region: 'central', level: 4,
     desc: 'A shallow cave the Ashvale children dare each other to enter.',
     dungeon: { mapId: 'dungeon_whisper', theme: 'mine', level: 4, rooms: 7, enemies: ['bat', 'slime', 'spider', 'crawler'], name: 'Whisperwell Cave' },
   },
 
   // camps and landmarks
-  { id: 'cutter_camp', name: 'Cutter Camp', kind: 'camp', tx: 232, ty: 262, region: 'south', level: 8, desc: 'Ash Cutter tents ringed by stolen wagons.' },
-  { id: 'goblin_warren', name: 'Scrap Warren', kind: 'camp', tx: 238, ty: 228, region: 'east', level: 4, desc: 'Goblins have made a home from a collapsed barn.' },
-  { id: 'crag_camp', name: 'Crag War Camp', kind: 'camp', tx: 224, ty: 96, region: 'north', level: 11, desc: 'Orc raiders staging for a push into the valley.' },
-  { id: 'drowned_shrine', name: 'The Drowned Shrine', kind: 'shrine', tx: 288, ty: 168, region: 'east', level: 7, desc: 'A shrine standing waist-deep in black water. It still answers.' },
-  { id: 'standing_stones', name: 'The Counting Stones', kind: 'landmark', tx: 132, ty: 140, region: 'west', level: 5, desc: 'Nine stones in a ring. Count them twice and you get ten.' },
-  { id: 'old_bridge', name: 'Kettle Bridge', kind: 'landmark', tx: 224, ty: 186, region: 'central', level: 2, desc: 'The old river crossing east out of Ashvale.' },
-  { id: 'hermit_hut', name: "Hermit's Hut", kind: 'landmark', tx: 108, ty: 228, region: 'west', level: 5, desc: 'Somebody lives here on purpose.' },
-  { id: 'sunken_wreck', name: 'The Broken Caravan', kind: 'landmark', tx: 210, ty: 250, region: 'south', level: 6, desc: 'A merchant train that did not make it to Duneholt.' },
-  { id: 'frost_altar', name: 'The Frost Altar', kind: 'shrine', tx: 168, ty: 104, region: 'north', level: 12, desc: 'Ice that has not melted in living memory.' },
-  { id: 'ember_falls', name: 'Emberfall', kind: 'landmark', tx: 160, ty: 154, region: 'central', level: 3, desc: 'A waterfall that runs warm all winter.' },
-  { id: 'watchers_ring', name: "The Watcher's Ring", kind: 'ruin', tx: 300, ty: 268, region: 'east', level: 9, desc: 'Broken pillars around a pit that goes nowhere.' },
-  { id: 'lost_chapel', name: 'The Lost Chapel', kind: 'ruin', tx: 96, ty: 296, region: 'south', level: 10, desc: 'The valley forgot which god this was for.' },
+  { id: 'cutter_camp', name: 'Cutter Camp', kind: 'camp', tx: 309, ty: 349, region: 'south', level: 8, desc: 'Ash Cutter tents ringed by stolen wagons.' },
+  { id: 'goblin_warren', name: 'Scrap Warren', kind: 'camp', tx: 317, ty: 304, region: 'east', level: 4, desc: 'Goblins have made a home from a collapsed barn.' },
+  { id: 'crag_camp', name: 'Crag War Camp', kind: 'camp', tx: 299, ty: 128, region: 'north', level: 11, desc: 'Orc raiders staging for a push into the valley.' },
+  { id: 'drowned_shrine', name: 'The Drowned Shrine', kind: 'shrine', tx: 384, ty: 224, region: 'east', level: 7, desc: 'A shrine standing waist-deep in black water. It still answers.' },
+  { id: 'standing_stones', name: 'The Counting Stones', kind: 'landmark', tx: 176, ty: 187, region: 'west', level: 5, desc: 'Nine stones in a ring. Count them twice and you get ten.' },
+  { id: 'old_bridge', name: 'Kettle Bridge', kind: 'landmark', tx: 299, ty: 248, region: 'central', level: 2, desc: 'The old river crossing east out of Ashvale.' },
+  { id: 'hermit_hut', name: "Hermit's Hut", kind: 'landmark', tx: 144, ty: 304, region: 'west', level: 5, desc: 'Somebody lives here on purpose.' },
+  { id: 'sunken_wreck', name: 'The Broken Caravan', kind: 'landmark', tx: 280, ty: 333, region: 'south', level: 6, desc: 'A merchant train that did not make it to Duneholt.' },
+  { id: 'frost_altar', name: 'The Frost Altar', kind: 'shrine', tx: 224, ty: 139, region: 'north', level: 12, desc: 'Ice that has not melted in living memory.' },
+  { id: 'ember_falls', name: 'Emberfall', kind: 'landmark', tx: 213, ty: 205, region: 'central', level: 3, desc: 'A waterfall that runs warm all winter.' },
+  { id: 'watchers_ring', name: "The Watcher's Ring", kind: 'ruin', tx: 400, ty: 357, region: 'east', level: 9, desc: 'Broken pillars around a pit that goes nowhere.' },
+  { id: 'lost_chapel', name: 'The Lost Chapel', kind: 'ruin', tx: 128, ty: 395, region: 'south', level: 10, desc: 'The valley forgot which god this was for.' },
 ];
 
 export const LOCATION_BY_ID: Record<string, LocationDef> = Object.fromEntries(LOCATIONS.map((l) => [l.id, l]));

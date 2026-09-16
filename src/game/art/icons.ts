@@ -11,7 +11,8 @@ export type IconKind =
   | 'potion_health' | 'potion_mana' | 'potion_stamina' | 'potion_buff' | 'elixir'
   | 'food_bread' | 'food_meat' | 'food_cheese' | 'food_apple'
   | 'mat_ore' | 'mat_ingot' | 'mat_leather' | 'mat_cloth' | 'mat_herb' | 'mat_bone' | 'mat_crystal' | 'mat_essence'
-  | 'gold' | 'key' | 'scroll' | 'map' | 'gem' | 'quest' | 'skull' | 'rune' | 'torch_item' | 'bomb';
+  | 'gold' | 'key' | 'scroll' | 'map' | 'gem' | 'quest' | 'skull' | 'rune' | 'torch_item' | 'bomb'
+  | 'lantern' | 'horn' | 'chalice' | 'hourglass' | 'mask' | 'weathervane' | 'drum';
 
 interface IconOpts {
   metal?: string;
@@ -403,6 +404,187 @@ const GEN: Record<string, (rng: RNG, o: IconOpts) => Px> = {
     p.fill(10, 6, 12, 1, PAL.bone);
     p.poly([[21, 4], [26, 6], [21, 8]], m);
     for (let i = 0; i < 4; i++) p.set(rng.int(6, 24), rng.int(8, 24), withAlpha(PAL.white, 0.2));
+    p.outline(PAL.ink);
+  }),
+
+  /* --- artifacts and off-hands that earn their own silhouette --- */
+
+  lantern: (rng, o) => centered((p) => {
+    const m = o.metal ?? PAL.iron;
+    const fire = o.glow ?? PAL.goldLit;
+    // ring handle, capped top, four-pane glass body, vented base
+    for (let i = 0; i < 10; i++) {
+      const a = Math.PI + (i / 9) * Math.PI;
+      p.set(16 + Math.cos(a) * 4, 5 + Math.sin(a) * 4, m);
+    }
+    p.poly([[9, 8], [23, 8], [21, 11], [11, 11]], m);
+    p.fill(9, 8, 14, 1, shade(m, 1.5));
+    p.fill(11, 11, 10, 12, withAlpha(fire, 0.34));
+    p.fill(12, 14, 8, 8, withAlpha(fire, 0.6));
+    p.ellipse(16, 19, 3, 4, fire);
+    p.ellipse(15, 18, 1.6, 2, PAL.white);
+    // corner posts and a cross brace
+    for (const px of [10, 21]) p.fill(px, 11, 1, 12, shade(m, px === 10 ? 1.35 : 0.65));
+    p.fill(11, 16, 10, 1, shade(m, 0.8));
+    p.poly([[9, 23], [23, 23], [21, 26], [11, 26]], m);
+    p.fill(9, 23, 14, 1, shade(m, 1.4));
+    p.ellipse(16, 20, 13, 13, withAlpha(fire, 0.1));
+    for (let i = 0; i < 4; i++) p.set(rng.int(11, 21), rng.int(12, 22), withAlpha(PAL.white, 0.4));
+    p.outline(PAL.ink);
+  }),
+
+  horn: (rng, o) => centered((p) => {
+    const body = o.metal ?? PAL.bone;
+    const band = o.accent ?? PAL.copper;
+    // A war horn read as a crescent: wide bell at the upper left, tapering
+    // down and round to a tip, with two brass bands and a carrying cord.
+    const path: Array<[number, number, number]> = [];
+    for (let i = 0; i <= 30; i++) {
+      const t = i / 30;
+      const a = -2.5 + t * 2.5;              // sweeps from upper-left round to the right
+      path.push([16 + Math.cos(a) * 12, 17 + Math.sin(a) * 12, 6.5 - t * 5.4]);
+    }
+    for (const [cx, cy, r] of path) {
+      p.circle(cx, cy, r, body);
+      p.circle(cx - r * 0.35, cy - r * 0.35, Math.max(0.6, r * 0.42), shade(body, 1.22));
+      p.circle(cx + r * 0.45, cy + r * 0.45, Math.max(0.5, r * 0.3), shade(body, 0.76));
+    }
+    // the bell, hollowed out so you can see down the throat
+    const [bx, by] = path[0];
+    p.ellipse(bx, by, 7, 6, shade(body, 1.28));
+    p.ellipse(bx, by, 5, 4.2, shade(body, 0.5));
+    p.ellipse(bx - 1, by - 1, 2.6, 2, shade(body, 0.34));
+    // brass bands at two points along the taper
+    for (const idx of [7, 18]) {
+      const [cx, cy, r] = path[idx];
+      p.circle(cx, cy, r + 0.6, band);
+      p.circle(cx - r * 0.3, cy - r * 0.3, Math.max(0.7, r * 0.5), shade(band, 1.4));
+    }
+    // carrying cord between the bands
+    p.line(path[7][0] - 2, path[7][1] + 5, path[18][0] - 6, path[18][1] + 4, PAL.sandDark);
+    for (let i = 0; i < 5; i++) p.set(rng.int(9, 24), rng.int(8, 26), withAlpha(PAL.white, 0.22));
+    p.outline(PAL.ink);
+  }),
+
+  chalice: (rng, o) => centered((p) => {
+    const m = o.metal ?? PAL.gold;
+    const wine = o.accent ?? PAL.blood;
+    // bowl, stem, knop and foot
+    p.poly([[7, 5], [25, 5], [23, 15], [16, 20], [9, 15]], m);
+    p.poly([[7, 5], [16, 5], [16, 20], [9, 15]], shade(m, 1.3));
+    p.poly([[9, 7], [23, 7], [21.4, 14], [16, 18], [10.6, 14]], wine);
+    p.ellipse(16, 7.5, 7, 2, shade(wine, 1.35));
+    p.ellipse(13, 7, 2.4, 1, PAL.white);
+    p.fill(14, 20, 4, 5, m);
+    p.fill(14, 20, 1, 5, shade(m, 1.35));
+    p.circle(16, 22, 2.6, m);
+    p.circle(15, 21, 1.2, shade(m, 1.45));
+    p.poly([[10, 25], [22, 25], [24, 28], [8, 28]], m);
+    p.fill(8, 25, 16, 1, shade(m, 1.4));
+    p.fill(8, 28, 16, 1, shade(m, 0.6));
+    for (let i = 0; i < 4; i++) p.set(rng.int(9, 23), rng.int(6, 16), withAlpha(PAL.white, 0.35));
+    p.outline(PAL.ink);
+  }),
+
+  hourglass: (rng, o) => centered((p) => {
+    const frame = o.metal ?? PAL.sandLit;
+    const sand = o.accent ?? PAL.gold;
+    // two end caps joined by three posts, with the glass between them
+    for (const cy of [4, 25]) {
+      p.fill(6, cy, 20, 3, frame);
+      p.fill(6, cy, 20, 1, shade(frame, 1.35));
+      p.fill(6, cy + 2, 20, 1, shade(frame, 0.62));
+    }
+    for (const px of [6, 25]) p.fill(px, 7, 1, 18, shade(frame, px === 6 ? 1.3 : 0.7));
+    // glass: upper bulb draining, lower bulb filling
+    p.poly([[9, 7], [23, 7], [17, 16], [15, 16]], withAlpha(PAL.frost, 0.28));
+    p.poly([[15, 16], [17, 16], [23, 25], [9, 25]], withAlpha(PAL.frost, 0.28));
+    p.poly([[11, 9], [21, 9], [16.6, 15], [15.4, 15]], sand);
+    p.poly([[11, 25], [21, 25], [18, 20], [14, 20]], sand);
+    p.fill(16, 15, 1, 6, shade(sand, 1.3));
+    p.fill(10, 9, 1, 3, withAlpha(PAL.white, 0.5));
+    // a crack across the upper bulb
+    for (let i = 0; i < 5; i++) p.set(12 + i, 10 + (i % 2), withAlpha(PAL.white, 0.6));
+    for (let i = 0; i < 3; i++) p.set(rng.int(11, 21), rng.int(21, 24), shade(sand, 1.4));
+    p.outline(PAL.ink);
+  }),
+
+  mask: (rng, o) => centered((p) => {
+    const body = o.metal ?? PAL.bone;
+    const lens = o.accent ?? PAL.toxic;
+    // plague mask: domed brow, glass lenses, a long beak, buckled straps
+    p.ellipse(16, 12, 10, 9, body);
+    p.ellipse(16, 10, 9, 6, shade(body, 1.18));
+    p.fill(6, 11, 20, 1, shade(body, 0.7));
+    p.circle(11, 12, 3.4, PAL.ink);
+    p.circle(21, 12, 3.4, PAL.ink);
+    p.circle(11, 12, 2.4, lens);
+    p.circle(21, 12, 2.4, lens);
+    p.set(10, 11, PAL.white);
+    p.set(20, 11, PAL.white);
+    p.poly([[12, 16], [20, 16], [18, 24], [16, 29], [14, 24]], body);
+    p.poly([[12, 16], [16, 16], [16, 29], [14, 24]], shade(body, 1.2));
+    p.fill(14, 21, 4, 1, shade(body, 0.6));
+    p.set(15, 26, PAL.ink);
+    p.set(17, 26, PAL.ink);
+    for (const sx of [4, 26]) {
+      p.fill(sx, 8, 2, 7, PAL.woodDark);
+      p.set(sx, 11, o.accent ?? PAL.copper);
+    }
+    for (let i = 0; i < 5; i++) p.set(rng.int(8, 24), rng.int(6, 16), withAlpha(PAL.white, 0.2));
+    p.outline(PAL.ink);
+  }),
+
+  weathervane: (rng, o) => centered((p) => {
+    const m = o.metal ?? PAL.iron;
+    const spark = o.glow ?? '#8fd0f0';
+    // a spindle with compass arms and a cut-iron arrow that catches the storm
+    p.fill(15, 6, 2, 22, m);
+    p.fill(15, 6, 1, 22, shade(m, 1.35));
+    p.fill(4, 20, 24, 1, shade(m, 0.8));
+    p.fill(4, 20, 24, 1, m);
+    p.fill(15, 9, 2, 1, shade(m, 1.5));
+    for (const [ax, ay] of [[4, 20], [27, 20]] as Array<[number, number]>) {
+      p.fill(ax, ay - 2, 2, 5, m);
+      p.set(ax, ay - 2, shade(m, 1.4));
+    }
+    // arrow head and flight
+    p.poly([[17, 4], [28, 10], [17, 12]], m);
+    p.poly([[17, 5], [26, 10], [17, 10]], shade(m, 1.3));
+    p.poly([[15, 4], [6, 8], [15, 12]], shade(m, 0.82));
+    // storm arcing off the tip
+    for (let i = 0; i < 7; i++) p.set(26 - i, 3 + ((i * 5) % 4), withAlpha(spark, 0.85));
+    p.ellipse(27, 8, 7, 7, withAlpha(spark, 0.14));
+    p.poly([[11, 26], [21, 26], [24, 29], [8, 29]], m);
+    for (let i = 0; i < 4; i++) p.set(rng.int(8, 24), rng.int(6, 26), withAlpha(PAL.white, 0.25));
+    p.outline(PAL.ink);
+  }),
+
+  drum: (rng, o) => centered((p) => {
+    const shell = o.metal ?? PAL.wood;
+    const rim = o.accent ?? PAL.ember;
+    // a war drum seen slightly from above: skin head, staved shell, rope lacing
+    p.fill(5, 10, 22, 14, shell);
+    for (let i = 0; i < 6; i++) p.fill(6 + i * 4, 10, 1, 14, shade(shell, 0.78));
+    p.fill(5, 10, 1, 14, shade(shell, 1.25));
+    p.fill(26, 10, 1, 14, shade(shell, 0.62));
+    p.ellipse(16, 10, 11, 4.5, shade(PAL.bone, 1.05));
+    p.ellipse(16, 10, 9, 3.2, PAL.cloth);
+    p.ellipse(13, 9, 3, 1.2, withAlpha(PAL.white, 0.5));
+    p.ellipse(16, 24, 11, 4, shade(shell, 0.62));
+    // rope lacing zig-zagging between the hoops
+    for (let i = 0; i < 6; i++) {
+      const x0 = 6 + i * 4;
+      p.line(x0, 12, x0 + 3, 22, PAL.sandDark);
+      p.line(x0 + 3, 12, x0, 22, PAL.sandDark);
+    }
+    p.fill(5, 12, 22, 2, rim);
+    p.fill(5, 12, 22, 1, shade(rim, 1.35));
+    p.fill(5, 21, 22, 2, rim);
+    // beaters resting across it
+    p.fill(2, 6, 12, 2, PAL.woodDark);
+    p.circle(14, 7, 2.4, PAL.bone);
+    for (let i = 0; i < 4; i++) p.set(rng.int(7, 25), rng.int(14, 21), withAlpha(PAL.white, 0.2));
     p.outline(PAL.ink);
   }),
 

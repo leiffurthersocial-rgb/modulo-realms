@@ -5,7 +5,12 @@ import { EQUIP_SLOT_ORDER, type Item } from '../game/items/types';
 import { getIconUrl } from '../game/art/icons';
 import ItemCard, { itemIcon, rarityColor } from './ItemCard';
 
-/** Anvil: push gear a level higher, or rebind its enchantments with a rune. */
+/**
+ * The anvil: push gear a level higher, or rebind its enchantments with a rune.
+ * Opened under King Jovan's warrant it also offers the royal commission, which
+ * raises an item's rarity outright — the one way to promote gear you chose
+ * rather than waiting for the drop you wanted.
+ */
 export default function ForgePanel({ game }: { game: Game }) {
   const p = game.player;
   const equipped = EQUIP_SLOT_ORDER.map((s) => p.equipment[s]).filter((i): i is Item => !!i);
@@ -18,13 +23,19 @@ export default function ForgePanel({ game }: { game: Game }) {
   const ingots = countItem(p.inventory, 'mat_iron_ingot');
   const reforge = item ? game.reforgeCost(item) : null;
   const rebind = item ? game.enchantCost(item) : null;
+  const royal = game.royalOpen;
+  const warrants = game.warrantsAvailable();
+  const elevate = item ? game.canElevate(item) : null;
 
   return (
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
       <div className="modal panel" style={{ width: 'min(880px, 95vw)', height: 'min(620px, 92vh)' }}>
         <div className="panel-title">
-          <span>The Anvil</span>
-          <span className="sub">{ingots} iron ingots &middot; {runes} binding runes &middot; {p.gold} gold</span>
+          <span>{royal ? 'Crown Commission' : 'The Anvil'}</span>
+          <span className="sub">
+            {royal ? <>{warrants} warrant{warrants === 1 ? '' : 's'} &middot; </> : null}
+            {ingots} iron ingots &middot; {runes} binding runes &middot; {p.gold} gold
+          </span>
           <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
         </div>
 
@@ -77,6 +88,30 @@ export default function ForgePanel({ game }: { game: Game }) {
                   </button>
                 </div>
 
+                {royal ? (
+                  <div className="forge-action royal">
+                    <div>
+                      <div className="fa-title">Royal commission</div>
+                      <div className="fa-desc">
+                        {elevate?.ok
+                          ? <>Jovan has this remade one grade finer — <b>{item.rarity}</b> becomes <b>{elevate.next}</b> — with an extra enchantment slot and fresh rolls.</>
+                          : elevate?.reason}
+                      </div>
+                      <div className="fa-cost">
+                        <span className="warrant-pip" />
+                        1 crown warrant &middot; {warrants} held
+                      </div>
+                    </div>
+                    <button
+                      className="btn primary"
+                      disabled={!elevate?.ok}
+                      onClick={() => game.royalElevate(item.uid)}
+                    >
+                      Commission
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="forge-action">
                   <div>
                     <div className="fa-title">Rebind runes</div>
@@ -100,6 +135,7 @@ export default function ForgePanel({ game }: { game: Game }) {
                 </div>
 
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 14, lineHeight: 1.7 }}>
+                  {royal ? 'The crown owes you one warrant for every boss you have felled, and spends one per grade. ' : ''}
                   An item can only take enchantments from its own family — a blade will never roll Multishot — and
                   never two from the same school, so Fire Aspect and Freezing can never sit on the same weapon.
                 </div>

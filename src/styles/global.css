@@ -939,6 +939,20 @@ canvas.world {
 .forge-action .fa-cost img { width: 17px; height: 17px; image-rendering: pixelated; margin-left: 6px; }
 .forge-action .fa-cost img:first-child { margin-left: 0; }
 
+/* The crown's own offer sits apart from the smith's two. */
+.forge-action.royal {
+  border-color: var(--gold-dim);
+  background: linear-gradient(180deg, rgba(216, 176, 106, 0.1), rgba(0, 0, 0, 0.3));
+  box-shadow: inset 0 0 0 1px rgba(216, 176, 106, 0.12);
+}
+.forge-action.royal .fa-desc b { color: var(--parchment); font-weight: 600; }
+.warrant-pip {
+  display: inline-block; width: 11px; height: 11px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, var(--gold) 60%, #6a4a1e);
+  box-shadow: 0 0 7px rgba(216, 176, 106, 0.8);
+  margin-right: 4px;
+}
+
 .obj-dot {
   display: inline-block; width: 7px; height: 7px; margin-right: 9px;
   border: 1px solid var(--edge-lit); transform: rotate(45deg) translateY(-1px);

@@ -67,6 +67,11 @@ export class Player implements Entity {
   sp = 100;
   gold = 75;
   skillPoints = 0;
+  /**
+   * Crown warrants already spent with King Jovan. Warrants earned is simply
+   * the number of bosses felled, so the two together give what is available.
+   */
+  warrantsUsed = 0;
   skills: Record<string, number> = {};
 
   inventory: Item[] = [];

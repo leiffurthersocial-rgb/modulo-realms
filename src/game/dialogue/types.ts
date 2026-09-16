@@ -9,6 +9,7 @@ export type DialogueAction =
   | { type: 'inn' }
   | { type: 'heal' }
   | { type: 'storage' }
+  | { type: 'royal' }
   | { type: 'quest_offer'; quest: string }
   | { type: 'quest_accept'; quest: string }
   | { type: 'quest_turnin'; quest: string }

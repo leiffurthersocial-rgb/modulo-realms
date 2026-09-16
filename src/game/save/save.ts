@@ -52,6 +52,7 @@ export interface SaveData {
     waystones: string[];
     killCounts: Record<string, number>;
     bossesKilled: string[];
+    warrantsUsed?: number;
     clearedDungeons: string[];
     shrinesTended: number;
     quickItem: string | null;
@@ -109,7 +110,7 @@ export function saveGame(game: Game): void {
       inventory: p.inventory, storage: p.storage, equipment: p.equipment,
       reputation: p.reputation,
       flags: [...p.flags], discovered: [...p.discovered], waystones: [...p.waystones],
-      killCounts: p.killCounts, bossesKilled: [...p.bossesKilled], clearedDungeons: [...p.clearedDungeons],
+      killCounts: p.killCounts, bossesKilled: [...p.bossesKilled], warrantsUsed: p.warrantsUsed, clearedDungeons: [...p.clearedDungeons],
       shrinesTended: p.shrinesTended, quickItem: p.quickItem, playTime: p.playTime, deaths: p.deaths,
     },
     quests: game.quests.serialize(),
@@ -165,6 +166,7 @@ export function loadGame(game: Game): boolean {
   player.waystones = new Set(sp.waystones ?? ['ashvale']);
   player.killCounts = sp.killCounts ?? {};
   player.bossesKilled = new Set(sp.bossesKilled ?? []);
+  player.warrantsUsed = sp.warrantsUsed ?? 0;
   player.clearedDungeons = new Set(sp.clearedDungeons ?? []);
   player.shrinesTended = sp.shrinesTended ?? 0;
   player.quickItem = sp.quickItem ?? null;

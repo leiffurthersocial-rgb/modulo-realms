@@ -881,6 +881,34 @@ GEN.market_stall = (rng) => {
   }
   return art([p], 54);
 };
+/**
+ * A hanging trade sign on an iron bracket. One stands outside every building
+ * in Ashvale you can actually use, under a name plate, so the town labels
+ * itself instead of making the player try every door.
+ */
+GEN.shop_sign = (rng) => {
+  const p = new Px(30, 44);
+  groundShadow(p, 15, 42, 8);
+  // post and scrolled bracket
+  p.fill(4, 8, 4, 34, PAL.wood);
+  p.fill(4, 8, 1, 34, PAL.woodLit);
+  p.fill(7, 8, 1, 34, PAL.woodDark);
+  p.fill(4, 6, 16, 3, PAL.ironDark);
+  p.fill(4, 6, 16, 1, PAL.iron);
+  p.fill(11, 9, 1, 3, PAL.ironDark);
+  p.fill(18, 9, 1, 3, PAL.ironDark);
+  // board, hung from two rings and swinging a little
+  p.fill(8, 12, 18, 16, PAL.woodDark);
+  p.fill(9, 13, 16, 14, PAL.wood);
+  p.fill(9, 13, 16, 1, PAL.plankLit);
+  p.fill(9, 26, 16, 1, shade(PAL.woodDark, 0.8));
+  for (let i = 0; i < 4; i++) p.fill(9, 15 + i * 3, 16, 1, shade(PAL.wood, 0.9));
+  // a gilt border and a blank device the nameplate above explains
+  p.box(11, 15, 12, 10, PAL.gold);
+  for (let i = 0; i < 5; i++) p.set(rng.int(10, 24), rng.int(14, 26), PAL.woodLit);
+  p.outline(PAL.ink);
+  return art([p], 43);
+};
 GEN.notice_board = (rng) => {
   const p = new Px(40, 44);
   groundShadow(p, 20, 42, 12);

@@ -1,6 +1,6 @@
 import { RNG, fbm, ridge } from '../core/rng';
 import {
-  LOCATIONS, VILLAGE_TX, VILLAGE_TY, WORLD_H, WORLD_W, type LocationDef,
+  LOCATIONS, LOCATION_BY_ID, VILLAGE_TX, VILLAGE_TY, WORLD_H, WORLD_W, type LocationDef,
 } from '../../data/locations';
 import { T, isSolid } from './tiles';
 import { TILE } from './tiles';
@@ -19,12 +19,19 @@ const CY = VILLAGE_TY;
 
 /** Which region a tile belongs to, with a noisy boundary so it never looks like a pie chart. */
 function regionAt(tx: number, ty: number, seed: number): number {
-  const warpX = (fbm(tx * 0.012, ty * 0.012, seed + 11) - 0.5) * 46;
-  const warpY = (fbm(tx * 0.012, ty * 0.012, seed + 29) - 0.5) * 46;
+  // Two octaves of domain warp: a broad one that bends whole borders and a
+  // finer one that frays their edges, so the five regions never read as a pie
+  // chart even across a 512-tile map.
+  const warpX = (fbm(tx * 0.007, ty * 0.007, seed + 11) - 0.5) * 96
+    + (fbm(tx * 0.028, ty * 0.028, seed + 41) - 0.5) * 26;
+  const warpY = (fbm(tx * 0.007, ty * 0.007, seed + 29) - 0.5) * 96
+    + (fbm(tx * 0.028, ty * 0.028, seed + 59) - 0.5) * 26;
   const dx = tx + warpX - CX;
   const dy = ty + warpY - CY;
   const d = Math.hypot(dx, dy);
-  if (d < 62) return REGION_CENTRAL;
+  // the central valley's own edge wobbles too
+  const lobe = 83 + (fbm(Math.atan2(dy, dx) * 1.4, 0.5, seed + 71, 3) - 0.5) * 34;
+  if (d < lobe) return REGION_CENTRAL;
   if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? REGION_EAST : REGION_WEST;
   return dy > 0 ? REGION_SOUTH : REGION_NORTH;
 }
@@ -454,7 +461,9 @@ const REGION_SPAWNS: Record<number, Array<{ id: string; weight: number; level: [
 function placeSpawns(ctx: GenCtx) {
   const { map, rng, regions } = ctx;
   let id = 0;
-  const attempts = 1700;
+  // Scaled with the world so density stays where it was tuned: the map grew
+  // 1.8x in area, and an empty map is worse than a quiet one.
+  const attempts = 3000;
   for (let i = 0; i < attempts; i++) {
     const tx = rng.int(10, WORLD_W - 10);
     const ty = rng.int(10, WORLD_H - 10);
@@ -524,7 +533,7 @@ function placeSpawns(ctx: GenCtx) {
 
 function placeTreasure(ctx: GenCtx) {
   const { map, rng } = ctx;
-  for (let i = 0; i < 46; i++) {
+  for (let i = 0; i < 84; i++) {
     const tx = rng.int(14, WORLD_W - 14);
     const ty = rng.int(14, WORLD_H - 14);
     const tile = getTile(map, tx, ty);
@@ -578,7 +587,13 @@ function trimInlandSand(ctx: GenCtx): void {
   for (const [tx, ty] of fixes) setTile(map, tx, ty, T.GRASS_PALE);
 }
 
-function ensureConnectivity(ctx: GenCtx): void {
+/**
+ * Guarantees the player can walk from home to everything that matters.
+ * `locationsOnly` skips the general pocket sweep and just makes sure every
+ * named place is reachable — used for a second pass after dungeon entrances
+ * have carved their own ground.
+ */
+function ensureConnectivity(ctx: GenCtx, locationsOnly = false): void {
   const { map } = ctx;
   const W = WORLD_W;
   const H = WORLD_H;
@@ -662,7 +677,7 @@ function ensureConnectivity(ctx: GenCtx): void {
   // find pockets the first flood missed and connect the meaningful ones
   const comp = new Int32Array(N);
   let compStamp = 0;
-  for (let i = 0; i < N; i++) {
+  for (let i = 0; !locationsOnly && i < N; i++) {
     if (seen[i] || !open(i) || comp[i]) continue;
     compStamp++;
     const cells: number[] = [];
@@ -690,6 +705,38 @@ function ensureConnectivity(ctx: GenCtx): void {
     tunnel(cells);
     for (const c of cells) flood(c);
   }
+
+  // A named place the player can be sent to must always be walkable to, even
+  // if it landed in a pocket too small for the pass above to bother with.
+  for (const loc of LOCATIONS) {
+    const here = loc.ty * W + loc.tx;
+    if (seen[here]) continue;
+    // clear a landing pad at the site, then dig back to the mainland
+    const pad: number[] = [];
+    for (let oy = -3; oy <= 3; oy++) {
+      for (let ox = -3; ox <= 3; ox++) {
+        const nx = loc.tx + ox;
+        const ny = loc.ty + oy;
+        if (nx < 4 || ny < 4 || nx >= W - 4 || ny >= H - 4) continue;
+        const ni = ny * W + nx;
+        if (isSolid(map.tiles[ni])) map.tiles[ni] = ctx.regions[ni] === REGION_NORTH ? T.SNOW : T.GRAVEL;
+        pad.push(ni);
+      }
+    }
+    tunnel(pad);
+    for (const c of pad) flood(c);
+    // nothing may stand in a corridor that only exists so this place is reachable
+    map.props = map.props.filter((pr) => {
+      const px = Math.floor(pr.x / TILE);
+      const py = Math.floor(pr.y / TILE);
+      return !(pr.cw && Math.abs(px - loc.tx) <= 3 && Math.abs(py - loc.ty) <= 3);
+    });
+  }
+}
+
+/** Second connectivity pass, once every entrance has cleared its own ground. */
+function connectLocations(ctx: GenCtx): void {
+  ensureConnectivity(ctx, true);
 }
 
 export function generateOverworld(seed: number): GameMap {
@@ -717,10 +764,12 @@ export function generateOverworld(seed: number): GameMap {
   map.regions = ctx.regions;
 
   // water features
-  carveLake(ctx, CX + 38, CY - 26, 13);
-  carveRiver(ctx, 176, 30, 214, 150, 3.2);
-  carveRiver(ctx, 214, 150, 300, 214, 3.6);
-  carveRiver(ctx, 120, 210, 60, 300, 2.8);
+  carveLake(ctx, CX + 51, CY - 35, 17);
+  carveLake(ctx, CX - 74, CY + 62, 14);
+  carveRiver(ctx, 235, 40, 285, 200, 3.6);
+  carveRiver(ctx, 285, 200, 400, 285, 4);
+  carveRiver(ctx, 160, 280, 80, 400, 3.2);
+  carveRiver(ctx, 300, 330, 210, 430, 3);
 
   // roads between every settlement and the capital, then on to the dungeons
   const towns = LOCATIONS.filter((l) => l.kind === 'village' || l.kind === 'town');
@@ -728,14 +777,30 @@ export function generateOverworld(seed: number): GameMap {
     if (t.id === 'ashvale') continue;
     carveRoad(ctx, CX, CY, t.tx, t.ty, 2);
   }
-  carveRoad(ctx, 190, 86, 252, 118, 1, true);
-  carveRoad(ctx, 190, 86, 146, 46, 1, true);
-  carveRoad(ctx, 198, 300, 246, 332, 1, true);
-  carveRoad(ctx, 198, 300, 118, 268, 1, true);
-  carveRoad(ctx, 84, 188, 56, 148, 1, true);
-  carveRoad(ctx, 300, 204, 264, 158, 1, true);
-  carveRoad(ctx, CX, CY, 136, 244, 1, true);
-  carveRoad(ctx, CX + 20, CY, 232, 262, 1, true);
+  // Every dungeon hangs off the settlement that watches it, by id rather than
+  // by coordinate, so the road network survives the world being rescaled.
+  const road = (fromId: string, toId: string) => {
+    const a = LOCATION_BY_ID[fromId];
+    const b = LOCATION_BY_ID[toId];
+    if (a && b) carveRoad(ctx, a.tx, a.ty, b.tx, b.ty, 1, true);
+  };
+  road('northwatch', 'ruined_fortress');
+  road('northwatch', 'ashen_spire');
+  road('northwatch', 'crag_camp');
+  road('northwatch', 'frost_altar');
+  road('duneholt', 'sunken_tomb');
+  road('duneholt', 'barrow_crypt');
+  road('duneholt', 'cutter_camp');
+  road('duneholt', 'lost_chapel');
+  road('thornhollow', 'grove_temple');
+  road('thornhollow', 'standing_stones');
+  road('thornhollow', 'hermit_hut');
+  road('mirefall', 'ironroot_mine');
+  road('mirefall', 'drowned_shrine');
+  road('mirefall', 'watchers_ring');
+  road('ashvale', 'whisperwell');
+  road('ashvale', 'ember_falls');
+  road('ashvale', 'old_bridge');
 
   trimInlandSand(ctx);
   ensureConnectivity(ctx);
@@ -749,6 +814,9 @@ export function generateOverworld(seed: number): GameMap {
     else if (loc.kind === 'dungeon' || loc.kind === 'cave') buildDungeonEntrance(ctx, loc);
     else if (loc.kind !== 'town') buildLandmark(ctx, loc);
   }
+  // Entrances carve their own ground, so the guarantee that you can walk to
+  // every named place has to run once more after they exist.
+  connectLocations(ctx);
 
   placeSpawns(ctx);
   placeTreasure(ctx);

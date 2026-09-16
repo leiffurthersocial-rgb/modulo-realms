@@ -19,6 +19,14 @@ export interface PropInstance {
   /** Interaction hook id, resolved by the interaction system. */
   interact?: string;
   label?: string;
+  /**
+   * A permanent name plate drawn above this prop whenever the player is near.
+   * Used on shop signs so a town tells you what every door is without you
+   * having to walk up and read a prompt.
+   */
+  nameplate?: string;
+  /** Accent colour for the name plate. */
+  nameplateColor?: string;
   /** Free-form payload for the interaction (chest contents, sign text, ...). */
   data?: Record<string, unknown>;
 }
