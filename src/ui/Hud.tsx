@@ -29,40 +29,48 @@ export default function Hud({ game }: { game: Game }) {
   return (
     <div className="hud">
       <div className="hud-left">
-        <div className="portrait">
-          <SpritePreview look={p.look()} scale={1.5} />
-          <span className="lvl">{p.level}</span>
-        </div>
-        <div>
-          <div className="bars">
-            <Bar cls="hp" value={p.hp} max={p.maxHp} label={`${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`} shield={p.shield} />
-            <Bar cls="mp" value={p.mp} max={p.maxMp} label={`${Math.ceil(p.mp)} / ${Math.round(p.maxMp)}`} />
-            <Bar cls="sp" value={p.sp} max={p.maxSp} label={`${Math.ceil(p.sp)} / ${Math.round(p.maxSp)}`} />
-            <Bar cls="xp" value={p.xp} max={xpToNext(p.level)} label="" />
+        <div className="vitals">
+          <div className="portrait">
+            <SpritePreview look={p.look()} scale={1.5} />
+            <span className="lvl">{p.level}</span>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 7, alignItems: 'center' }}>
-            <div className="gold-pill">
-              <img src={getIconUrl('gold')} alt="" />
-              {p.gold}
+          <div className="vitals-body">
+            <div className="who">
+              <span className="who-name">{p.name}</span>
+              <span className="who-class" style={{ color: p.classDef.color }}>{p.classDef.name}</span>
             </div>
-            {p.skillPoints > 0 ? (
-              <button className="btn small" style={{ pointerEvents: 'auto' }} onClick={() => game.setPanel('skills')}>
-                {p.skillPoints} skill point{p.skillPoints > 1 ? 's' : ''}
-              </button>
-            ) : null}
+            <div className="bars">
+              <Bar cls="hp" value={p.hp} max={p.maxHp} label={`${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`} shield={p.shield} />
+              <Bar cls="mp" value={p.mp} max={p.maxMp} label={`${Math.ceil(p.mp)} / ${Math.round(p.maxMp)}`} />
+              <Bar cls="sp" value={p.sp} max={p.maxSp} label={`${Math.ceil(p.sp)} / ${Math.round(p.maxSp)}`} />
+            </div>
+            <div className="xp-row">
+              <Bar cls="xp" value={p.xp} max={xpToNext(p.level)} label="" />
+              <span className="xp-text">{Math.round((p.xp / Math.max(1, xpToNext(p.level))) * 100)}%</span>
+            </div>
           </div>
-          <div className="buff-row">
-            {p.buffs.map((b) => (
-              <span className="buff" key={b.id} style={{ color: b.color, borderColor: b.color }}>
-                {b.name} {Math.max(0, Math.ceil(b.until - game.now))}s
-              </span>
-            ))}
-            {p.statuses.map((s, i) => (
-              <span className="buff" key={`${s.kind}${i}`} style={{ color: s.color, borderColor: s.color }}>
-                {s.kind}
-              </span>
-            ))}
+        </div>
+        <div className="chip-row">
+          <div className="chip gold">
+            <img src={getIconUrl('gold')} alt="" />
+            {p.gold.toLocaleString()}
           </div>
+          {p.skillPoints > 0 ? (
+            <button className="chip action" onClick={() => game.setPanel('skills')}>
+              <span className="chip-dot" />
+              {p.skillPoints} skill point{p.skillPoints > 1 ? 's' : ''}
+            </button>
+          ) : null}
+          {p.buffs.map((b) => (
+            <span className="chip effect" key={b.id} style={{ color: b.color, borderColor: `${b.color}66` }}>
+              {b.name} <em>{Math.max(0, Math.ceil(b.until - game.now))}s</em>
+            </span>
+          ))}
+          {p.statuses.map((s, i) => (
+            <span className="chip effect" key={`${s.kind}${i}`} style={{ color: s.color, borderColor: `${s.color}66` }}>
+              {s.kind}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -191,10 +199,13 @@ export default function Hud({ game }: { game: Game }) {
 function Bar({ cls, value, max, label, shield }: { cls: string; value: number; max: number; label: string; shield?: number }) {
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const shieldPct = shield ? Math.min(100 - pct, (shield / Math.max(1, max)) * 100) : 0;
+  // A health bar under a quarter reads as an emergency, so it says so.
+  const critical = cls === 'hp' && pct <= 25;
   return (
-    <div className={`bar ${cls}`}>
+    <div className={`bar ${cls}${critical ? ' critical' : ''}`}>
       <div className="fill" style={{ width: `${pct}%` }} />
       {shieldPct > 0 ? <div className="shield" style={{ left: `${pct}%`, width: `${shieldPct}%` }} /> : null}
+      <span className="ticks" />
       {label ? <span className="label">{label}</span> : null}
     </div>
   );

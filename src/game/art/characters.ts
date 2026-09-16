@@ -98,37 +98,50 @@ const LIT = 1.22;
 const DIM = 0.72;
 const DEEP = 0.55;
 
-function drawLeg(p: Px, look: Look, x: number, y: number, legH: number, off: number, front: boolean) {
+/** `toe` is which way the foot points: -1 left, +1 right, 0 straight down. */
+function drawLeg(p: Px, look: Look, x: number, y: number, w: number, legH: number, off: number, front: boolean, toe: number) {
   const pants = front ? look.pants : shade(look.pants, 0.78);
   const boots = front ? look.boots : shade(look.boots, 0.78);
   const h = legH - Math.abs(off);
   const top = y + off;
-  // thigh is a pixel wider than the shin, which reads as a knee
-  p.fill(x, top, 4, Math.max(1, h - 4), pants);
-  p.fill(x, top, 1, Math.max(1, h - 4), shade(pants, LIT));
-  p.fill(x + 3, top, 1, Math.max(1, h - 4), shade(pants, DIM));
-  p.fill(x, top + h - 5, 3, 2, shade(pants, 0.86));
-  // boot: cuff, shaft, then a toe that overhangs forward
-  p.fill(x, top + h - 4, 4, 1, shade(boots, LIT));
-  p.fill(x, top + h - 3, 4, 3, boots);
-  p.fill(x + 3, top + h - 3, 1, 3, shade(boots, DIM));
-  p.fill(x, top + h - 1, 5, 1, shade(boots, DEEP));
+  const thighH = Math.max(1, h - 4);
+
+  // thigh full width, shin a pixel narrower on the outside — that step is the knee
+  p.fill(x, top, w, thighH, pants);
+  p.fill(x, top, 1, thighH, shade(pants, LIT));
+  p.fill(x + w - 1, top, 1, thighH, shade(pants, DIM));
+  p.fill(x, top + thighH - 2, w - 1, 1, shade(pants, 0.84));
+
+  // boot: a lighter cuff, the shaft, then a sole that overhangs the way the foot points
+  p.fill(x, top + h - 4, w, 1, shade(boots, LIT));
+  p.fill(x, top + h - 3, w, 3, boots);
+  p.fill(x + w - 1, top + h - 3, 1, 3, shade(boots, DIM));
+  p.fill(x + Math.min(0, toe), top + h - 1, w + Math.abs(toe), 1, shade(boots, DEEP));
 }
 
 function drawLegs(p: Px, look: Look, cx: number, hipY: number, pose: Pose, dir: string) {
   const legH = 9;
-  const gap = dir === 'right' ? 1 : 3;
+  const bulk = look.bulk ?? 1;
+  // Hips are as wide as the waist and no wider. Facing the camera the legs
+  // stand a single pixel apart; in profile they nearly overlap, because that
+  // is what a body actually looks like from the side.
+  const legW = Math.max(3, Math.round(4 * bulk));
+  const side = dir === 'right';
+  const span = side ? legW + 2 : legW * 2 + 1;
+  const originX = cx - Math.floor(span / 2);
+  const backX = originX;
+  const frontX = side ? originX + 2 : originX + legW + 1;
   const a = Math.round(pose.legA);
   const b = Math.round(pose.legB);
 
-  drawLeg(p, look, cx - gap - 4 + (dir === 'right' ? 1 : 0), hipY, legH, b, false);
-  drawLeg(p, look, cx + gap - (dir === 'right' ? 1 : 0), hipY, legH, a, true);
+  drawLeg(p, look, backX, hipY, legW, legH, b, false, side ? 1 : -1);
+  drawLeg(p, look, frontX, hipY, legW, legH, a, true, side ? 1 : 1);
   if (look.armor === 'heavy') {
     const ac = look.armorColor ?? PAL.iron;
-    p.fill(cx - gap - 4, hipY + legH - 6 + b, 4, 2, ac);
-    p.fill(cx - gap - 4, hipY + legH - 6 + b, 4, 1, shade(ac, LIT));
-    p.fill(cx + gap, hipY + legH - 6 + a, 4, 2, ac);
-    p.fill(cx + gap, hipY + legH - 6 + a, 4, 1, shade(ac, LIT));
+    for (const [lx, off] of [[backX, b], [frontX, a]] as Array<[number, number]>) {
+      p.fill(lx, hipY + legH - 6 + off, legW, 2, ac);
+      p.fill(lx, hipY + legH - 6 + off, legW, 1, shade(ac, LIT));
+    }
   }
 }
 
@@ -159,29 +172,69 @@ function drawTorso(p: Px, look: Look, cx: number, top: number, bodyH: number, bu
   }
 
   if (look.armor === 'light') {
+    // A jerkin, not a slab: a leather body that leaves the shirt showing at
+    // the shoulders, two shoulder straps, and a laced seam down the front.
     const ac = look.armorColor ?? PAL.wood;
-    p.fill(x, top + 1, w, bodyH - 3, ac);
-    p.fill(x, top + 1, w, 1, shade(ac, 1.25));
-    p.fill(x + w - 2, top + 1, 2, bodyH - 3, shade(ac, 0.7));
-    p.fill(x, top + 4, w, 1, shade(ac, 0.75));
-    p.fill(x, top + 7, w, 1, shade(ac, 0.75));
+    const trim = look.armorTrim ?? shade(ac, 0.6);
+    const bodyTop = top + 2;
+    const bodyBot = top + bodyH - 2;
+    p.fill(x, bodyTop, w, bodyBot - bodyTop, ac);
+    p.fill(x, bodyTop, w, 1, shade(ac, 1.3));
+    p.fill(x, bodyTop, 1, bodyBot - bodyTop, shade(ac, 1.12));
+    p.fill(x + w - 2, bodyTop, 2, bodyBot - bodyTop, shade(ac, 0.68));
+    p.fill(x, bodyBot - 1, w, 1, shade(ac, 0.5));
+    if (dir !== 'up') {
+      // straps over each shoulder, meeting the chest
+      p.fill(x + 1, top, 2, 4, shade(ac, 0.8));
+      p.fill(x + w - 3, top, 2, 4, shade(ac, 0.66));
+      p.fill(x + 1, top, 2, 1, shade(ac, 1.1));
+      // lacing: crossed stitches down the centre seam
+      p.fill(cx - 1, bodyTop + 1, 1, bodyBot - bodyTop - 3, shade(ac, 0.58));
+      for (let i = 1; i < bodyBot - bodyTop - 2; i += 2) {
+        p.set(cx - 2, bodyTop + i, trim);
+        p.set(cx, bodyTop + i + 1, trim);
+      }
+      // studs along the hem
+      for (let sx = x + 1; sx < x + w - 2; sx += 3) p.set(sx, bodyBot - 2, shade(ac, 1.45));
+    }
   } else if (look.armor === 'heavy') {
+    // Plate: a fluted breastplate, layered pauldrons and a ridged fauld.
     const ac = look.armorColor ?? PAL.iron;
+    const trim = look.armorTrim ?? PAL.gold;
     p.fill(x - 1, top, w + 2, bodyH - 1, ac);
     p.fill(x - 1, top, w + 2, 2, shade(ac, 1.3));
-    p.fill(x + w, top, 1, bodyH - 1, shade(ac, 0.65));
-    // pauldrons
-    p.fill(x - 2, top, 3, 4, shade(ac, 1.15));
-    p.fill(x + w - 1, top, 3, 4, shade(ac, 1.15));
+    p.fill(x - 1, top + 2, 1, bodyH - 3, shade(ac, 1.15));
+    p.fill(x + w, top, 1, bodyH - 1, shade(ac, 0.6));
+    p.fill(x + w - 1, top, 1, bodyH - 1, shade(ac, 0.78));
+    // pauldrons, two lames each
+    for (const [px, lit] of [[x - 2, true], [x + w - 1, false]] as Array<[number, boolean]>) {
+      p.fill(px, top, 3, 3, shade(ac, lit ? 1.25 : 1.05));
+      p.fill(px, top, 3, 1, shade(ac, lit ? 1.5 : 1.2));
+      p.fill(px, top + 3, 3, 2, shade(ac, lit ? 1.05 : 0.85));
+      p.fill(px, top + 4, 3, 1, shade(ac, 0.6));
+    }
     if (dir !== 'up') {
-      p.fill(cx - 2, top + 3, 4, 4, look.armorTrim ?? PAL.gold);
-      p.set(cx, top + 4, shade(look.armorTrim ?? PAL.gold, 1.3));
+      // gorget, central flute, and a heraldic boss
+      p.fill(cx - 2, top, 4, 1, shade(ac, 1.55));
+      p.fill(cx, top + 1, 1, bodyH - 4, shade(ac, 1.22));
+      p.fill(cx + 1, top + 1, 1, bodyH - 4, shade(ac, 0.8));
+      p.fill(cx - 2, top + 3, 4, 4, trim);
+      p.fill(cx - 2, top + 3, 4, 1, shade(trim, 1.35));
+      p.set(cx - 1, top + 4, shade(trim, 1.5));
+      // fauld ridges above the belt
+      p.fill(x, top + bodyH - 4, w, 1, shade(ac, 0.62));
     }
   }
 
   if (look.belt && look.armor !== 'robe') {
+    // belt with a lit top edge and a buckle that catches the light
     p.fill(x, top + bodyH - 2, w, 2, look.belt);
-    if (dir !== 'up') p.fill(cx - 1, top + bodyH - 2, 2, 2, PAL.gold);
+    p.fill(x, top + bodyH - 2, w, 1, shade(look.belt, 1.3));
+    p.fill(x, top + bodyH, w, 1, shade(look.belt, 0.55));
+    if (dir !== 'up') {
+      p.fill(cx - 1, top + bodyH - 2, 2, 2, PAL.gold);
+      p.set(cx - 1, top + bodyH - 2, PAL.goldLit);
+    }
   }
 }
 

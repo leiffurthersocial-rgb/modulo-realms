@@ -15,88 +15,147 @@ export interface WeaponStyle {
   glow?: string;
 }
 
+/**
+ * Wraps a grip in leather binding — alternating bands with a lit top edge.
+ * Used on every hafted and hilted weapon so handles stop reading as bare bars.
+ */
+function wrap(p: Px, x: number, y: number, len: number, h: number, grip: string, horizontal = true) {
+  p.fill(x, y, horizontal ? len : h, horizontal ? h : len, grip);
+  p.fill(x, y, horizontal ? len : h, 1, shade(grip, 1.32));
+  for (let i = 1; i < len; i += 3) {
+    if (horizontal) p.fill(x + i, y, 1, h, shade(grip, 0.66));
+    else p.fill(x, y + i, h, 1, shade(grip, 0.66));
+  }
+}
+
+/** A round pommel counterweight at the butt of a hilt. */
+function pommel(p: Px, x: number, y: number, r: number, metal: string) {
+  p.circle(x, y, r, metal);
+  p.circle(x - r * 0.3, y - r * 0.3, Math.max(0.6, r * 0.45), shade(metal, 1.4));
+}
+
 /** Draws a weapon pointing right, with its grip at (0, h/2). Used in-hand and for icons. */
 export function drawWeapon(w: WeaponStyle, scale = 1): Px {
   const metal = w.metal;
   const light = shade(metal, 1.35);
   const dark = shade(metal, 0.6);
+  const edge = shade(metal, 1.6);
   const grip = w.grip;
+  // Hilt furniture is aged brass, not bright gold. At sprite scale a gold
+  // crossguard and pommel together out-shout the blade and read as one blob.
+  const brass = shade(PAL.gold, 0.72);
+  const brassLit = shade(PAL.gold, 0.95);
   let p: Px;
 
   switch (w.kind) {
     case 'sword': {
       p = new Px(26, 10);
-      p.fill(0, 4, 6, 3, grip);
-      p.fill(5, 2, 2, 7, PAL.gold);
+      wrap(p, 1, 4, 5, 3, grip);
+      pommel(p, 1, 5.5, 1.5, brass);
+      // crossguard with flared quillons
+      p.fill(5, 2, 2, 7, brass);
+      p.fill(5, 2, 2, 1, brassLit);
+      p.fill(4, 4, 1, 3, shade(brass, 0.7));
+      // blade: lit upper bevel, a fuller down the spine, shaded lower bevel
       p.fill(7, 4, 15, 3, metal);
-      p.fill(7, 4, 15, 1, light);
+      p.fill(7, 4, 15, 1, edge);
+      p.fill(7, 5, 14, 1, shade(metal, 0.86));
       p.fill(7, 6, 15, 1, dark);
       p.poly([[22, 3], [26, 5.5], [22, 8]], metal);
-      p.set(1, 3, PAL.goldLit);
+      p.poly([[22, 4], [25, 5.5], [22, 5]], edge);
       break;
     }
     case 'greatsword': {
       p = new Px(36, 14);
-      p.fill(0, 6, 9, 3, grip);
-      p.fill(8, 2, 3, 11, PAL.gold);
+      wrap(p, 1, 6, 8, 3, grip);
+      pommel(p, 1, 7.5, 2, brass);
+      p.fill(8, 2, 3, 11, brass);
+      p.fill(8, 2, 3, 1, brassLit);
+      p.fill(7, 5, 1, 5, shade(brass, 0.7));
       p.fill(11, 4, 20, 6, metal);
-      p.fill(11, 4, 20, 2, light);
-      p.fill(11, 8, 20, 2, dark);
+      p.fill(11, 4, 20, 1, edge);
+      p.fill(11, 5, 20, 1, light);
+      p.fill(12, 6, 18, 2, shade(metal, 0.88));   // fuller
+      p.fill(11, 9, 20, 1, dark);
       p.poly([[31, 3], [36, 7], [31, 11]], metal);
+      p.poly([[31, 4], [35, 7], [31, 7]], light);
       break;
     }
     case 'dagger': {
       p = new Px(16, 8);
-      p.fill(0, 3, 5, 3, grip);
+      wrap(p, 0, 3, 4, 3, grip);
+      pommel(p, 0, 4.5, 1.5, PAL.copper);
       p.fill(4, 2, 2, 5, PAL.copper);
+      p.fill(4, 2, 2, 1, shade(PAL.copper, 1.4));
       p.fill(6, 3, 7, 2, metal);
-      p.fill(6, 3, 7, 1, light);
+      p.fill(6, 3, 7, 1, edge);
       p.poly([[13, 2], [16, 4], [13, 6]], metal);
+      p.poly([[13, 3], [15, 4], [13, 4]], edge);
       break;
     }
     case 'axe': {
       p = new Px(24, 16);
-      p.fill(0, 7, 18, 3, grip);
-      p.fill(0, 7, 18, 1, shade(grip, 1.3));
+      wrap(p, 0, 7, 17, 3, grip);
+      p.fill(0, 9, 17, 1, shade(grip, 0.6));
+      // bearded head: bit, a lit cheek and a ground edge along the arc
       p.poly([[14, 8], [20, 1], [24, 5], [24, 11], [20, 15], [14, 9]], metal);
       p.poly([[16, 8], [20, 3], [22, 6], [17, 9]], light);
+      p.poly([[22, 3], [24, 5], [24, 11], [22, 13]], edge);
+      p.poly([[15, 8], [18, 5], [18, 11]], dark);
       p.fill(13, 5, 3, 7, PAL.ironDark);
+      p.fill(13, 5, 3, 1, PAL.iron);
       break;
     }
     case 'greataxe': {
       p = new Px(30, 22);
-      p.fill(0, 10, 22, 4, grip);
+      wrap(p, 0, 10, 21, 4, grip);
+      p.fill(0, 13, 21, 1, shade(grip, 0.6));
       p.poly([[16, 11], [24, 0], [30, 6], [30, 16], [24, 22], [16, 13]], metal);
       p.poly([[18, 11], [24, 3], [27, 8], [20, 12]], light);
+      p.poly([[27, 4], [30, 6], [30, 16], [27, 18]], edge);
       p.poly([[16, 11], [12, 6], [10, 10], [16, 13]], dark);
+      p.poly([[13, 8], [15, 9], [15, 12]], shade(metal, 0.9));
       break;
     }
     case 'hammer': {
       p = new Px(26, 18);
-      p.fill(0, 8, 18, 3, grip);
+      wrap(p, 0, 8, 17, 3, grip);
+      p.fill(0, 10, 17, 1, shade(grip, 0.6));
+      // banded head with a struck, worn face
       p.fill(15, 3, 10, 12, metal);
-      p.fill(15, 3, 10, 3, light);
+      p.fill(15, 3, 10, 2, light);
+      p.fill(15, 5, 10, 1, edge);
       p.fill(15, 12, 10, 3, dark);
+      p.fill(23, 3, 2, 12, shade(metal, 0.78));
+      p.fill(17, 3, 1, 12, shade(metal, 1.15));
       p.fill(13, 5, 3, 8, PAL.ironDark);
+      p.fill(13, 5, 3, 1, PAL.iron);
       break;
     }
     case 'mace': {
       p = new Px(24, 16);
-      p.fill(0, 7, 15, 3, grip);
+      wrap(p, 0, 7, 14, 3, grip);
       p.circle(18, 8, 5, metal);
-      p.circle(17, 7, 3, light);
+      p.circle(16.6, 6.6, 3, light);
+      p.circle(16, 6, 1.4, edge);
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
-        p.fill(18 + Math.cos(a) * 5, 8 + Math.sin(a) * 5, 2, 2, dark);
+        const fx = 18 + Math.cos(a) * 5;
+        const fy = 8 + Math.sin(a) * 5;
+        p.fill(fx, fy, 2, 2, dark);
+        p.set(fx, fy, shade(metal, 1.1));
       }
+      p.fill(13, 6, 2, 5, PAL.ironDark);
       break;
     }
     case 'spear': {
       p = new Px(34, 10);
-      p.fill(0, 4, 26, 2, grip);
-      p.fill(0, 4, 26, 1, shade(grip, 1.3));
+      wrap(p, 0, 4, 25, 2, grip);
+      p.fill(21, 3, 4, 4, PAL.ironDark);   // socket ferrule
+      p.fill(21, 3, 4, 1, PAL.iron);
       p.poly([[25, 1], [34, 5], [25, 9]], metal);
       p.poly([[26, 3], [31, 5], [26, 5]], light);
+      p.poly([[25, 4], [33, 5], [25, 5]], edge);
       break;
     }
     case 'scythe': {
@@ -119,7 +178,10 @@ export function drawWeapon(w: WeaponStyle, scale = 1): Px {
         p.set(10 - t * t * 7, y, PAL.woodLit);
       }
       p.line(9, 2, 9, 26, PAL.cloth);
-      p.fill(8, 12, 4, 5, PAL.woodDark);
+      // wrapped riser with a lit face, and nocks at both limbs
+      wrap(p, 7, 11, 7, 4, w.grip, false);
+      p.fill(8, 1, 2, 2, PAL.iron);
+      p.fill(8, 25, 2, 2, PAL.iron);
       break;
     }
     case 'crossbow': {
@@ -134,9 +196,16 @@ export function drawWeapon(w: WeaponStyle, scale = 1): Px {
       p = new Px(32, 14);
       p.fill(0, 6, 26, 3, PAL.wood);
       p.fill(0, 6, 26, 1, PAL.woodLit);
-      p.circle(27, 7, 4, w.glow ?? PAL.arcaneLit);
-      p.circle(26, 6, 2, PAL.white);
-      p.ellipse(27, 7, 7, 7, withAlpha(w.glow ?? PAL.arcaneLit, 0.15));
+      p.fill(0, 8, 26, 1, PAL.woodDark);
+      wrap(p, 6, 6, 8, 3, w.grip);
+      // iron claw cradling the focus stone
+      const gl = w.glow ?? PAL.arcaneLit;
+      p.fill(22, 4, 3, 7, PAL.ironDark);
+      p.fill(22, 4, 3, 1, PAL.iron);
+      p.circle(27, 7, 4, gl);
+      p.circle(27, 7, 2.6, shade(gl, 1.35));
+      p.circle(26, 6, 1.3, PAL.white);
+      p.ellipse(27, 7, 8, 8, withAlpha(gl, 0.16));
       break;
     }
     case 'wand': {
@@ -166,10 +235,16 @@ export function drawWeapon(w: WeaponStyle, scale = 1): Px {
     }
     case 'shield': {
       p = new Px(16, 20);
-      p.poly([[1, 1], [15, 1], [14, 12], [8, 19], [2, 12]], metal);
-      p.poly([[1, 1], [8, 1], [8, 19], [2, 12]], light);
-      p.poly([[3, 3], [13, 3], [12, 11], [8, 16], [4, 11]], dark);
-      p.circle(8, 8, 2, PAL.gold);
+      // rim, then a recessed face, then vertical planking and a boss
+      p.poly([[1, 1], [15, 1], [14, 12], [8, 19], [2, 12]], dark);
+      p.poly([[2, 2], [14, 2], [13, 11.5], [8, 18], [3, 11.5]], metal);
+      p.poly([[2, 2], [8, 2], [8, 18], [3, 11.5]], light);
+      p.poly([[3, 3], [13, 3], [12, 11], [8, 16], [4, 11]], shade(metal, 0.82));
+      for (const bx of [5, 8, 11]) p.fill(bx, 3, 1, 12, shade(metal, 0.66));
+      p.fill(2, 2, 12, 1, edge);
+      p.circle(8, 8, 2.6, PAL.gold);
+      p.circle(7.4, 7.4, 1.2, PAL.goldLit);
+      for (const [rx, ry] of [[3, 3], [13, 3], [8, 16]] as Array<[number, number]>) p.set(rx, ry, PAL.goldLit);
       break;
     }
     default: {

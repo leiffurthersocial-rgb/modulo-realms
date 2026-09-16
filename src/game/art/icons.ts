@@ -31,42 +31,94 @@ function armorPiece(kind: string, metal: string, accent: string, rng: RNG): Px {
   return centered((p) => {
     switch (kind) {
       case 'helmet':
+        // skull, brow ridge, a visor slit with eye glints, comb and cheek plates
         p.ellipse(16, 15, 10, 9, metal);
         p.fill(6, 15, 20, 8, metal);
-        p.ellipse(16, 13, 9, 7, light);
+        p.ellipse(16, 12, 9, 6, light);
+        p.ellipse(16, 11, 6, 3, shade(metal, 1.55));
         p.ellipse(16, 14, 8, 6, metal);
-        p.fill(6, 17, 20, 4, PAL.ink);
+        p.fill(6, 15, 20, 1, dark);                 // brow ridge
+        p.fill(6, 17, 20, 4, PAL.ink);              // visor slit
+        p.fill(6, 16, 20, 1, shade(metal, 1.45));
         p.fill(8, 18, 5, 2, accent);
         p.fill(19, 18, 5, 2, accent);
-        p.fill(15, 6, 2, 18, light);
+        p.fill(15, 5, 2, 12, light);                // comb
+        p.fill(15, 5, 1, 12, shade(metal, 1.6));
+        p.fill(6, 21, 5, 4, metal);                 // cheek plates
+        p.fill(21, 21, 5, 4, shade(metal, 0.84));
         p.fill(6, 22, 20, 3, dark);
+        for (const rx of [8, 16, 24]) p.set(rx, 22, shade(metal, 1.5));
         break;
-      case 'chest':
-        p.poly([[8, 6], [24, 6], [26, 12], [24, 26], [8, 26], [6, 12]], metal);
-        p.poly([[8, 6], [16, 6], [16, 26], [8, 26], [6, 12]], light);
-        p.fill(6, 10, 20, 2, dark);
-        p.fill(14, 12, 4, 12, accent);
-        p.fill(4, 7, 5, 6, metal);
-        p.fill(23, 7, 5, 6, metal);
-        p.fill(6, 24, 20, 2, dark);
+      case 'chest': {
+        // A cuirass, not a box: pauldrons, a waisted torso, a neck opening, a
+        // fluted breastplate and a skirt of tassets at the hem.
+        p.poly([[9, 8], [23, 8], [25, 13], [23, 19], [24, 26], [8, 26], [9, 19], [7, 13]], metal);
+        p.poly([[9, 8], [16, 8], [16, 26], [8, 26], [9, 19], [7, 13]], light);
+        // pauldrons, layered in two lames each
+        for (const [px, lit] of [[3, true], [22, false]] as Array<[number, boolean]>) {
+          p.poly([[px, 9], [px + 7, 6], [px + 8, 11], [px + 1, 13]], lit ? light : metal);
+          p.fill(px, 12, 8, 3, lit ? metal : shade(metal, 0.82));
+          p.fill(px, 12, 8, 1, lit ? shade(light, 1.15) : light);
+          p.fill(px, 14, 8, 1, dark);
+        }
+        // neck opening and collar
+        p.poly([[12, 7], [20, 7], [19, 11], [13, 11]], PAL.ink);
+        p.poly([[12, 7], [20, 7], [20, 8], [12, 8]], shade(metal, 1.5));
+        // central flute and rivets
+        p.fill(15, 12, 2, 10, accent);
+        p.fill(15, 12, 1, 10, shade(accent, 1.4));
+        for (const ry of [13, 17, 21]) {
+          p.set(11, ry, shade(metal, 1.5));
+          p.set(21, ry, dark);
+        }
+        // tassets
+        p.fill(8, 22, 16, 1, dark);
+        for (const tx of [9, 14, 19]) {
+          p.fill(tx, 23, 4, 4, metal);
+          p.fill(tx, 23, 4, 1, light);
+          p.fill(tx, 26, 4, 1, dark);
+        }
         break;
+      }
       case 'gloves':
         for (const ox of [2, 15]) {
-          p.fill(ox + 1, 12, 12, 12, metal);
-          p.fill(ox + 1, 12, 12, 3, light);
-          p.fill(ox + 2, 8, 3, 5, metal);
-          p.fill(ox + 6, 7, 3, 6, metal);
-          p.fill(ox + 10, 9, 3, 4, metal);
-          p.fill(ox + 1, 21, 12, 3, accent);
+          const lit = ox === 2;
+          // cuff, back-of-hand plate, then four articulated finger lames
+          p.fill(ox, 19, 14, 5, lit ? metal : shade(metal, 0.86));
+          p.fill(ox, 19, 14, 1, light);
+          p.fill(ox, 23, 14, 1, dark);
+          p.fill(ox + 1, 12, 12, 8, lit ? metal : shade(metal, 0.86));
+          p.fill(ox + 1, 12, 12, 1, light);
+          p.fill(ox + 12, 12, 1, 8, dark);
+          for (let f = 0; f < 4; f++) {
+            const fx = ox + 1 + f * 3;
+            p.fill(fx, 7, 2, 6, metal);
+            p.fill(fx, 7, 2, 1, light);
+            p.fill(fx, 9, 2, 1, dark);
+            p.fill(fx, 11, 2, 1, dark);
+          }
+          p.fill(ox + 1, 17, 12, 2, accent);
+          p.set(ox + 2, 15, shade(metal, 1.5));
         }
         break;
       case 'boots':
         for (const ox of [2, 16]) {
-          p.fill(ox + 2, 7, 8, 14, metal);
-          p.fill(ox + 2, 7, 8, 3, light);
-          p.fill(ox, 19, 13, 6, dark);
+          const lit = ox === 2;
+          const body = lit ? metal : shade(metal, 0.86);
+          // shaft with a turned-down cuff, an ankle plate, then a sole and heel
+          p.fill(ox + 2, 5, 9, 3, shade(body, 1.2));
+          p.fill(ox + 2, 5, 9, 1, shade(metal, 1.5));
+          p.fill(ox + 2, 8, 9, 11, body);
+          p.fill(ox + 2, 8, 1, 11, light);
+          p.fill(ox + 10, 8, 1, 11, dark);
+          p.fill(ox + 2, 13, 9, 2, accent);
+          p.fill(ox + 2, 13, 9, 1, shade(accent, 1.35));
+          // foot swells forward of the shaft
+          p.fill(ox, 19, 13, 4, body);
+          p.fill(ox, 19, 13, 1, shade(body, 1.18));
           p.fill(ox, 23, 13, 2, PAL.ink);
-          p.fill(ox + 2, 14, 8, 2, accent);
+          p.fill(ox + 9, 23, 4, 3, PAL.ink);   // heel
+          for (const ry of [10, 17]) p.set(ox + 3, ry, shade(metal, 1.5));
         }
         break;
       case 'cloak':
@@ -184,11 +236,26 @@ const GEN: Record<string, (rng: RNG, o: IconOpts) => Px> = {
     p.outline(PAL.ink);
   }),
   mat_ingot: (rng, o) => centered((p) => {
+    // Two stacked bars seen at an angle: a lit top face, a shaded front face,
+    // a chamfered edge between them and a cast stamp on top.
     const m = o.metal ?? PAL.iron;
-    p.poly([[6, 22], [10, 14], [22, 14], [26, 22]], m);
-    p.fill(10, 12, 12, 3, shade(m, 1.35));
-    p.poly([[6, 22], [10, 14], [16, 14], [14, 22]], shade(m, 1.15));
-    p.fill(6, 22, 20, 3, shade(m, 0.7));
+    const top = shade(m, 1.38);
+    const front = shade(m, 0.86);
+    const side = shade(m, 0.6);
+    // lower bar
+    p.poly([[5, 24], [9, 18], [23, 18], [27, 24]], front);
+    p.poly([[23, 18], [27, 24], [27, 26], [23, 20]], side);
+    p.fill(5, 24, 22, 2, side);
+    // upper bar, offset back
+    p.poly([[8, 18], [12, 12], [24, 12], [28, 18]], front);
+    p.poly([[12, 10], [24, 10], [28, 16], [8, 16]], top);
+    p.poly([[12, 10], [18, 10], [16, 16], [8, 16]], shade(top, 1.12));
+    p.fill(8, 16, 20, 1, shade(m, 1.1));   // chamfer catches the light
+    p.poly([[24, 10], [28, 16], [28, 18], [24, 12]], side);
+    // foundry stamp and a couple of casting pits
+    p.fill(16, 12, 4, 1, shade(m, 0.72));
+    p.fill(17, 13, 2, 1, shade(m, 0.72));
+    for (let i = 0; i < 5; i++) p.set(rng.int(10, 26), rng.int(11, 23), rng.bool() ? shade(m, 1.5) : side);
     p.outline(PAL.ink);
   }),
   mat_leather: () => centered((p) => {
@@ -281,6 +348,64 @@ const GEN: Record<string, (rng: RNG, o: IconOpts) => Px> = {
     p.line(23, 18, 19, 22, PAL.blood);
     p.outline(PAL.soil);
   }),
+  /**
+   * Shields get their own icon rather than a rotated in-hand sprite: a shield
+   * held at 45 degrees reads as a lump, and this is the slot the player looks
+   * at most after their weapon.
+   */
+  shield: (rng, o) => centered((p) => {
+    const m = o.metal ?? PAL.iron;
+    const accent = o.accent ?? PAL.gold;
+    const light = shade(m, 1.35);
+    const dark = shade(m, 0.55);
+    const rim = mix(m, PAL.ironDark, 0.4);
+    const face: Array<[number, number]> = [[5, 3], [27, 3], [26, 18], [16, 29], [6, 18]];
+    // rim, recessed face, then vertical planking
+    p.poly([[3, 1], [29, 1], [28, 19], [16, 31], [4, 19]], rim);
+    p.poly([[3, 1], [16, 1], [16, 31], [4, 19]], shade(rim, 1.25));
+    p.poly(face, m);
+    p.poly([[5, 3], [16, 3], [16, 29], [6, 18]], light);
+    for (const bx of [10, 16, 22]) p.fill(bx, 4, 1, 22, shade(m, 0.72));
+    p.fill(5, 3, 22, 1, shade(m, 1.6));
+    p.fill(4, 17, 24, 1, dark);
+    // boss, straps and rivets around the rim
+    p.circle(16, 13, 5, accent);
+    p.circle(16, 13, 3.2, shade(accent, 1.35));
+    p.circle(14.8, 11.8, 1.4, PAL.white);
+    p.fill(8, 12, 16, 2, withAlpha(PAL.ink, 0.35));
+    for (const [rx, ry] of [[6, 4], [26, 4], [6, 16], [26, 16], [16, 27]] as Array<[number, number]>) {
+      p.set(rx, ry, shade(m, 1.7));
+      p.set(rx, ry + 1, dark);
+    }
+    for (let i = 0; i < 5; i++) p.set(rng.int(7, 25), rng.int(5, 25), withAlpha(PAL.white, 0.18));
+    p.outline(PAL.ink);
+  }),
+
+  crossbow: (rng, o) => centered((p) => {
+    const m = o.metal ?? PAL.iron;
+    // stock and tiller running down-right, prod across the top, string drawn
+    p.poly([[4, 6], [10, 6], [24, 24], [20, 28], [4, 12]], PAL.wood);
+    p.poly([[4, 6], [8, 6], [22, 26], [20, 28], [4, 12]], PAL.woodLit);
+    p.fill(6, 8, 14, 1, PAL.woodDark);
+    // prod
+    for (let i = 0; i < 22; i++) {
+      const t = i / 21;
+      const x = 6 + t * 22;
+      const y = 4 + Math.sin(t * Math.PI) * 4;
+      p.fill(x, y, 2, 2, m);
+      p.set(x, y, shade(m, 1.4));
+    }
+    p.line(6, 5, 28, 5, PAL.cloth);
+    // lock, trigger and bolt
+    p.fill(12, 10, 5, 4, PAL.ironDark);
+    p.fill(12, 10, 5, 1, m);
+    p.fill(15, 14, 2, 4, PAL.ironDark);
+    p.fill(10, 6, 12, 1, PAL.bone);
+    p.poly([[21, 4], [26, 6], [21, 8]], m);
+    for (let i = 0; i < 4; i++) p.set(rng.int(6, 24), rng.int(8, 24), withAlpha(PAL.white, 0.2));
+    p.outline(PAL.ink);
+  }),
+
   gem: (rng, o) => centered((p) => {
     const c = o.metal ?? PAL.blood;
     p.poly([[16, 5], [26, 13], [16, 27], [6, 13]], c);

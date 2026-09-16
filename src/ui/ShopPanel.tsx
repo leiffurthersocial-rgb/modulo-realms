@@ -87,7 +87,7 @@ export default function ShopPanel({ game }: { game: Game }) {
             </div>
             <div className="shop-foot">
               <span style={{ color: 'var(--muted)' }}>Click to buy.</span>
-              <span className="gold-pill"><img src={getIconUrl('gold')} alt="" />{p.gold}</span>
+              <span className="chip gold"><img src={getIconUrl('gold')} alt="" />{p.gold}</span>
             </div>
           </div>
         </div>
