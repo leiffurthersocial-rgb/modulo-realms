@@ -17,15 +17,15 @@ import { makeItem, rollEnchants, rollLoot, sellValue, buyValue } from '../items/
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
 import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, type EquipSlot, type Item, type Rarity } from '../items/types';
-import { Player, type PlayerInit } from '../player/player';
+import { DEFAULT_SWING_ARC, Player, SWING_ARC, type PlayerInit } from '../player/player';
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
 import { buildInterior, interiorEntry } from '../world/interiors';
 import { boxHitsTerrain, findOpenNear, propsInRect, type GameMap, type PropInstance } from '../world/map';
-import { T, TILE, TILES, isSolid } from '../world/tiles';
+import { T, TILE, TILES, blocksProjectiles } from '../world/tiles';
 import { generateOverworld } from '../world/worldgen';
 import { Input } from './input';
-import { angleTo, clamp, damp, dirFromAngle, dist, dist2 } from './math';
+import { angleBetween, angleTo, clamp, damp, dirFromAngle, dist, dist2 } from './math';
 import { RNG } from './rng';
 import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
@@ -152,6 +152,10 @@ export class Game implements WorldCtx {
   trackedQuest: string | null = null;
   /** Waystone the player is currently standing at, if any. */
   currentWaystone: string | null = null;
+  /** Game-clock time the player last took damage, for the fast-travel lockout. */
+  lastDamageTaken = -Infinity;
+  /** Seconds after taking damage before a waystone can be used again. */
+  readonly travelLockoutAfterDamage = 3;
   activeSpawns = new Map<string, Enemy[]>();
   /**
    * Kill streak. Chain kills inside the window and the rewards escalate — the
@@ -501,20 +505,31 @@ export class Game implements WorldCtx {
    * range. Keeping this in one place means every weapon and every ability
    * behaves identically.
    */
+  /**
+   * How far the current weapon can actually reach. Melee gets the swing arc's
+   * reach; ranged gets the distance its shot travels before expiring. Lock-on
+   * is clamped to this, because pointing the reticle at something the weapon
+   * cannot possibly hit is what makes a bow feel broken.
+   */
+  weaponReach(): number {
+    const p = this.player;
+    return p.isRangedWeapon() ? p.attackRange() : p.attackRange() + 18;
+  }
+
   bestTarget(range = 0): Enemy | null {
     const p = this.player;
-    const lockRange = range || Math.max(420, p.attackRange() * 1.6);
+    // a little headroom under the true reach, so a locked target that drifts
+    // outward is still inside the shot when it lands
+    const lockRange = range || Math.max(p.isRangedWeapon() ? 0 : 420, this.weaponReach() * 0.92);
     let best: Enemy | null = null;
     let bestScore = Infinity;
     for (const e of this.enemies) {
       if (e.dead || e.friendly) continue;
       const d = dist(p.x, p.y, e.x, e.y);
       if (d > lockRange) continue;
-      const a = angleTo(p.x, p.y, e.x, e.y);
-      let diff = Math.abs(((a - this.aim + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-      diff = Math.PI - diff;
       // strongly prefer whatever is closest; facing is only a light tiebreak
-      const score = d * (1 + diff * 0.25);
+      const off = angleBetween(this.aim, angleTo(p.x, p.y, e.x, e.y));
+      const score = d * (1 + off * 0.25);
       if (score < bestScore) { bestScore = score; best = e; }
     }
     return best;
@@ -774,6 +789,7 @@ export class Game implements WorldCtx {
       this.floatText(p.x, p.y - 30, `-${Math.round(dmg)}`, '#f45b5b', 14);
       this.shake(Math.min(10, 2 + dmg * 0.12));
       audio.play('hurt', 0.5);
+      this.lastDamageTaken = this.now;
     }
     p.invuln = 0.45;
 
@@ -870,6 +886,18 @@ export class Game implements WorldCtx {
     const stats = p.stats();
     const staminaCost = power ? 16 : 0;
     if (power && p.sp < staminaCost) return;
+
+    // Resources are checked before anything is committed, so a dry caster
+    // doesn't burn the swing animation and its cooldown on a shot it can't
+    // afford — and doesn't reprint "no mana" on every frame of a held key.
+    const ranged = p.isRangedWeapon();
+    const magic = ranged && p.isMagicWeapon();
+    const manaCost = magic ? 4 : 0;
+    if (p.mp < manaCost) {
+      p.attackTimer = 0.4;
+      this.floatText(p.x, p.y - 40, 'Out of mana', PAL.arcaneLit, 12);
+      return;
+    }
     p.sp -= staminaCost;
 
     const aim = this.aimAngle();
@@ -880,15 +908,10 @@ export class Game implements WorldCtx {
     p.attackTimer = this.player.attackInterval() * (power ? 1.6 : 1);
 
     const mult = power ? 1.85 : 1;
-    const ranged = p.isRangedWeapon();
     const enchMul = 1 + (ranged ? p.enchantPower('power') : p.enchantPower('sharpness')) / 100;
     const base = p.attackPower() * mult * enchMul;
 
     if (ranged) {
-      const kind = p.weaponKind();
-      const magic = kind === 'staff' || kind === 'wand' || kind === 'tome';
-      const manaCost = magic ? 4 : 0;
-      if (p.mp < manaCost) return;
       p.mp -= manaCost;
       const pierce = enchantValue('piercing', p.enchant('piercing'));
       const multishot = p.enchantPower('multishot');
@@ -929,7 +952,9 @@ export class Game implements WorldCtx {
     } else {
       const swirl = p.enchantPower('swirling') / 100;
       const reach = (p.attackRange() + 18) * (1 + swirl);
-      const arc = (power ? 1.5 : 1.15) * (1 + swirl * 0.6);
+      const baseArc = SWING_ARC[p.weaponKind()] ?? DEFAULT_SWING_ARC;
+      // a heavy attack commits to a wider cut than a quick one
+      const arc = baseArc * (power ? 1.3 : 1) * (1 + swirl * 0.6);
       const committed = p.enchantPower('committed') / 100;
       this.fx.telegraph(p.x, p.y, reach, 0.14, withTint(p), 'cone', aim);
       audio.play('swing', 0.4);
@@ -938,10 +963,7 @@ export class Game implements WorldCtx {
         if (e.dead || e.friendly) continue;
         const d = dist(p.x, p.y, e.x, e.y);
         if (d > reach + e.radius) continue;
-        const a = angleTo(p.x, p.y, e.x, e.y);
-        let diff = Math.abs(((a - aim + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        diff = Math.PI - diff;
-        if (diff > arc / 2) continue;
+        if (angleBetween(aim, angleTo(p.x, p.y, e.x, e.y)) > arc / 2) continue;
         const wounded = committed > 0 && e.hp / e.maxHp < 0.5 ? 1 + committed : 1;
         const roll = this.rollDamage(base * wounded);
         this.damageEnemy(e, roll.dmg, { element: 'physical', crit: roll.crit, knockback: power ? 220 : 110, fromX: p.x, fromY: p.y });
@@ -1110,10 +1132,7 @@ export class Game implements WorldCtx {
           if (e.dead || e.friendly) continue;
           const d = dist(p.x, p.y, e.x, e.y);
           if (d > r + e.radius) continue;
-          const a = angleTo(p.x, p.y, e.x, e.y);
-          let diff = Math.abs(((a - aim + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-          diff = Math.PI - diff;
-          if (ab.id !== 'assassinate' && diff > 0.95) continue;
+          if (ab.id !== 'assassinate' && angleBetween(aim, angleTo(p.x, p.y, e.x, e.y)) > 0.95) continue;
           const roll = ab.id === 'assassinate' ? { dmg: power * (1 + stats.critDamage / 100), crit: true } : this.rollDamage(power);
           this.damageEnemy(e, roll.dmg, { element: ab.element, crit: roll.crit, knockback: 180, fromX: p.x, fromY: p.y });
           this.applyHitEffects(e, roll.dmg, roll.crit);
@@ -1393,10 +1412,7 @@ export class Game implements WorldCtx {
           if (e.dead || e.friendly) continue;
           const d = dist(p.x, p.y, e.x, e.y);
           if (d > len) continue;
-          const a = angleTo(p.x, p.y, e.x, e.y);
-          let diff = Math.abs(((a - aim + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-          diff = Math.PI - diff;
-          if (diff > 0.28) continue;
+          if (angleBetween(aim, angleTo(p.x, p.y, e.x, e.y)) > 0.28) continue;
           this.damageEnemy(e, power * 2.6, { element: 'arcane', knockback: 60, fromX: p.x, fromY: p.y });
         }
         this.shake(7);
@@ -1990,10 +2006,21 @@ export class Game implements WorldCtx {
     return { x: loc.tx * TILE, y: loc.ty * TILE, name: loc.name };
   }
 
+  /** Seconds left before a waystone can be used again, 0 if it's clear. */
+  travelLockoutRemaining(): number {
+    return Math.max(0, this.travelLockoutAfterDamage - (this.now - this.lastDamageTaken));
+  }
+
   /** Fast travel between attuned waystones. */
   travelToWaystone(siteId: string): void {
     const loc = LOCATION_BY_ID[siteId];
     if (!loc || !this.player.waystones.has(siteId)) return;
+    const lockout = this.travelLockoutRemaining();
+    if (lockout > 0) {
+      this.toast('Too dangerous to travel', `Wait ${lockout.toFixed(1)}s after taking damage.`, '#d9553f');
+      audio.play('ui', 0.4);
+      return;
+    }
     this.closeAll();
     const wx = (loc.tx - 6) * TILE + TILE / 2;
     const wy = (loc.ty - 5) * TILE + TILE;
@@ -2636,44 +2663,52 @@ export class Game implements WorldCtx {
           pr.vy = Math.sin(pr.angle) * pr.speed;
         }
       }
-      const step = pr.speed * dt;
-      pr.x += pr.vx * dt;
-      pr.y += pr.vy * dt;
-      pr.travelled += step;
-      if (pr.travelled > pr.range) { pr.dead = true; continue; }
-      if (isSolid(this.mapTileAt(pr.x, pr.y))) {
-        pr.dead = true;
-        this.fx.spawn(pr.x, pr.y, 6, pr.color, { speed: 80, life: 0.3, size: 2 });
-        continue;
-      }
-      if (pr.friendly) {
-        for (const e of this.enemies) {
-          if (e.dead || e.friendly || pr.hits.has(e.id)) continue;
-          if (dist2(pr.x, pr.y, e.x, e.y - e.radius * 0.3) > (e.radius + pr.radius * 0.35) ** 2) continue;
-          pr.hits.add(e.id);
-          this.damageEnemy(e, pr.damage, { element: pr.element, crit: pr.crit, knockback: 120, fromX: pr.x - pr.vx, fromY: pr.y - pr.vy });
-          this.applyHitEffects(e, pr.damage, !!pr.crit);
-          if (pr.splash && pr.splash > 0) {
-            this.fx.ring(pr.x, pr.y, pr.splash, pr.color);
-            for (const other of this.enemies) {
-              if (other === e || other.dead || other.friendly) continue;
-              if (dist2(pr.x, pr.y, other.x, other.y) < pr.splash * pr.splash) {
-                this.damageEnemy(other, pr.damage * 0.5, { element: pr.element, noProc: true });
+      // Sweep the frame's movement in short sub-steps. An arrow covers 520
+      // px/s, which at a clamped 50ms frame is 26 pixels — far enough to skip
+      // clean over an enemy and make a bow feel like it does nothing.
+      const frameStep = pr.speed * dt;
+      const subs = Math.max(1, Math.ceil(frameStep / 7));
+      const sdt = dt / subs;
+      for (let s = 0; s < subs && !pr.dead; s++) {
+        pr.x += pr.vx * sdt;
+        pr.y += pr.vy * sdt;
+        pr.travelled += frameStep / subs;
+        if (pr.travelled > pr.range) { pr.dead = true; break; }
+        if (blocksProjectiles(this.mapTileAt(pr.x, pr.y))) {
+          pr.dead = true;
+          this.fx.spawn(pr.x, pr.y, 6, pr.color, { speed: 80, life: 0.3, size: 2 });
+          break;
+        }
+        if (pr.friendly) {
+          for (const e of this.enemies) {
+            if (e.dead || e.friendly || pr.hits.has(e.id)) continue;
+            if (dist2(pr.x, pr.y, e.x, e.y - e.radius * 0.3) > (e.radius + pr.radius * 0.35) ** 2) continue;
+            pr.hits.add(e.id);
+            this.damageEnemy(e, pr.damage, { element: pr.element, crit: pr.crit, knockback: 120, fromX: pr.x - pr.vx, fromY: pr.y - pr.vy });
+            this.applyHitEffects(e, pr.damage, !!pr.crit);
+            if (pr.splash && pr.splash > 0) {
+              this.fx.ring(pr.x, pr.y, pr.splash, pr.color);
+              for (const other of this.enemies) {
+                if (other === e || other.dead || other.friendly) continue;
+                if (dist2(pr.x, pr.y, other.x, other.y) < pr.splash * pr.splash) {
+                  this.damageEnemy(other, pr.damage * 0.5, { element: pr.element, noProc: true });
+                }
               }
             }
+            if (pr.pierceLeft > 0) pr.pierceLeft--;
+            else { pr.dead = true; }
+            break;
           }
-          if (pr.pierceLeft > 0) pr.pierceLeft--;
-          else { pr.dead = true; break; }
-        }
-      } else {
-        const p = this.player;
-        if (dist2(pr.x, pr.y, p.x, p.y - 8) < (p.radius + pr.radius * 0.3) ** 2) {
-          pr.dead = true;
-          this.damagePlayer(pr.damage, { element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
-          if (pr.element === 'poison') applyStatus(p, 'poison', pr.damage * 0.25, 5, PAL.toxic, this.now);
-          if (pr.element === 'fire') applyStatus(p, 'burn', pr.damage * 0.25, 4, PAL.flame, this.now);
-          if (pr.element === 'frost') applyStatus(p, 'chill', 0.3, 3, PAL.frost, this.now);
-          this.fx.spawn(pr.x, pr.y, 8, pr.color, { speed: 90, life: 0.35, size: 2 });
+        } else {
+          const p = this.player;
+          if (dist2(pr.x, pr.y, p.x, p.y - 8) < (p.radius + pr.radius * 0.3) ** 2) {
+            pr.dead = true;
+            this.damagePlayer(pr.damage, { element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
+            if (pr.element === 'poison') applyStatus(p, 'poison', pr.damage * 0.25, 5, PAL.toxic, this.now);
+            if (pr.element === 'fire') applyStatus(p, 'burn', pr.damage * 0.25, 4, PAL.flame, this.now);
+            if (pr.element === 'frost') applyStatus(p, 'chill', 0.3, 3, PAL.frost, this.now);
+            this.fx.spawn(pr.x, pr.y, 8, pr.color, { speed: 90, life: 0.35, size: 2 });
+          }
         }
       }
     }

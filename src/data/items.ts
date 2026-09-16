@@ -33,14 +33,25 @@ export interface ItemTemplate {
   regions?: Array<'central' | 'north' | 'east' | 'south' | 'west'>;
 }
 
+/**
+ * `extra` is spread BEFORE `stats`, never after. Spread last, an `extra.stats`
+ * object replaces the whole merged block rather than adding to it, which
+ * silently stripped the damage, speed and range from every weapon below that
+ * carries a bonus attribute — and the defense from every such armour.
+ */
 const W = (
   id: string, name: string, kind: WeaponKind, level: number, damage: number, speed: number, range: number,
   extra: Partial<ItemTemplate> = {},
 ): ItemTemplate => ({
   id, name, type: 'weapon', slot: 'mainHand', icon: kind as IconKind, weaponKind: kind,
   rarity: 'common', level, value: Math.round(20 + damage * 3.4 + level * 7),
-  stats: { damage, attackSpeed: speed, range, ...(extra.stats ?? {}) },
-  metal: PAL.iron, ...extra,
+  metal: PAL.iron,
+  ...extra,
+  // The positional damage/speed/range also win over `extra.stats`, which only
+  // ever carries bonus attributes. On a weapon `attackSpeed` is the base swing
+  // rate and `range` the literal reach, so a "+6 speed" bonus written there
+  // would read as six swings a second.
+  stats: { ...(extra.stats ?? {}), damage, attackSpeed: speed, range },
 });
 
 const A = (
@@ -49,8 +60,9 @@ const A = (
 ): ItemTemplate => ({
   id, name, type: 'armor', slot: 'armor', icon: 'chest',
   rarity: 'common', level, value: Math.round(24 + defense * 5.5 + level * 6),
-  stats: { defense, ...(extra.stats ?? {}) },
-  metal: look.color, accent: look.trim, armorLook: look, ...extra,
+  metal: look.color, accent: look.trim, armorLook: look,
+  ...extra,
+  stats: { ...(extra.stats ?? {}), defense },
 });
 
 const light = (color: string, trim?: string, helmet: ArmorLook['helmet'] = 'none', cape?: string | null): ArmorLook =>
@@ -134,11 +146,11 @@ export const WEAPONS: ItemTemplate[] = [
   /* --- a few more of the old kinds, to fill the mid-game --- */
   W('sword_mire', 'Bogsteel Falchion', 'sword', 8, 23, 1.3, 50, { metal: PAL.swamp, rarity: 'rare', stats: { strength: 3, lifesteal: 2 } }),
   W('greatsword_dune', 'Duneholt Cleaver', 'greatsword', 9, 35, 0.75, 64, { metal: PAL.sandDark, rarity: 'rare', stats: { strength: 4, maxHealth: 20 } }),
-  W('axe_cutter', 'Ash Cutter Hatchet', 'axe', 7, 24, 1.02, 50, { metal: PAL.ironDark, rarity: 'rare', stats: { attackSpeed: 6, critChance: 5 } }),
+  W('axe_cutter', 'Ash Cutter Hatchet', 'axe', 7, 24, 1.28, 50, { metal: PAL.ironDark, rarity: 'rare', stats: { critChance: 5 } }),
   W('dagger_guild', 'Guild Shiv', 'dagger', 6, 15, 2.05, 36, { metal: PAL.copper, stats: { critChance: 9, magicFind: 4 } }),
   W('bow_mire', 'Mirewood Recurve', 'bow', 8, 24, 1.2, 400, { metal: PAL.swampDark, rarity: 'rare', stats: { dexterity: 4, critChance: 4 } }),
   W('staff_dune', 'Sunstruck Staff', 'staff', 10, 29, 1.02, 360, { metal: PAL.sand, glow: PAL.goldLit, rarity: 'rare', stats: { intelligence: 6, abilityPower: 12 } }),
-  W('spear_mire', 'Bog Harpoon', 'spear', 6, 19, 1.12, 74, { metal: PAL.rot, rarity: 'rare', stats: { dexterity: 3, range: 4 } }),
+  W('spear_mire', 'Bog Harpoon', 'spear', 6, 19, 1.12, 78, { metal: PAL.rot, rarity: 'rare', stats: { dexterity: 3 } }),
   W('mace_crag', 'Cragwarden Mace', 'mace', 12, 35, 1.05, 50, { metal: PAL.rockPale, rarity: 'rare', stats: { strength: 5, defense: 4 } }),
 ];
 
@@ -213,7 +225,9 @@ const ART = (
   id: string, name: string, icon: IconKind, level: number, rarity: Rarity, value: number,
   stats: Stats, artifact: NonNullable<ItemTemplate['artifact']>, extra: Partial<ItemTemplate> = {},
 ): ItemTemplate => ({
-  id, name, type: 'accessory', slot: 'accessory', icon, rarity, level, value, stats, artifact, ...extra,
+  id, name, type: 'accessory', slot: 'accessory', icon, rarity, level, value, artifact,
+  ...extra,
+  stats: { ...stats, ...(extra.stats ?? {}) },
 });
 
 export const ARTIFACTS: ItemTemplate[] = [

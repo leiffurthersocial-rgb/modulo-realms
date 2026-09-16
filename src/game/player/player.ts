@@ -19,6 +19,33 @@ export interface Buff {
 
 export const EQUIP_SLOTS: EquipSlot[] = EQUIP_SLOT_ORDER;
 
+/**
+ * Every weapon kind is classified in exactly one place. Adding a kind without
+ * listing it here used to leave it silently melee — an orb with 340 range then
+ * swung a 340-pixel melee cone that hit half the screen.
+ */
+export const RANGED_KINDS = new Set<WeaponKind>(['bow', 'crossbow', 'staff', 'wand', 'tome', 'orb']);
+export const MAGIC_KINDS = new Set<WeaponKind>(['staff', 'wand', 'tome', 'orb']);
+
+/**
+ * How wide a melee kind sweeps, in radians. A greatsword and a halberd cut
+ * through a rank; a dagger or a rapier is a thrust and only ever touches what
+ * it is pointed at. Unlisted kinds use the default.
+ */
+export const SWING_ARC: Partial<Record<WeaponKind, number>> = {
+  dagger: 0.75, rapier: 0.6, spear: 0.7, warpick: 0.85,
+  greatsword: 1.9, greataxe: 2.0, halberd: 1.8, scythe: 2.1, flail: 1.6, claws: 1.5,
+};
+export const DEFAULT_SWING_ARC = 1.15;
+
+/** Which attribute a weapon kind scales with, overriding the class default. */
+export const WEAPON_STAT: Partial<Record<WeaponKind, 'strength' | 'dexterity' | 'intelligence'>> = {
+  bow: 'dexterity', crossbow: 'dexterity', dagger: 'dexterity', claws: 'dexterity', rapier: 'dexterity',
+  staff: 'intelligence', wand: 'intelligence', tome: 'intelligence', scythe: 'intelligence', orb: 'intelligence',
+  greatsword: 'strength', greataxe: 'strength', hammer: 'strength', flail: 'strength',
+  halberd: 'strength', warpick: 'strength',
+};
+
 export const xpToNext = (level: number): number => Math.round(64 * Math.pow(level, 1.48) + 40);
 
 export interface PlayerInit {
@@ -221,12 +248,10 @@ export class Player implements Entity {
   }
 
   primaryStat(): 'strength' | 'dexterity' | 'intelligence' {
-    const kind = this.weaponKind();
-    if (kind === 'bow' || kind === 'crossbow' || kind === 'dagger' || kind === 'claws') return 'dexterity';
-    if (kind === 'staff' || kind === 'wand' || kind === 'tome' || kind === 'scythe') return 'intelligence';
-    if (this.cls === 'mage' || this.cls === 'necromancer') return 'intelligence';
-    if (this.cls === 'ranger' || this.cls === 'rogue') return 'dexterity';
-    return 'strength';
+    return WEAPON_STAT[this.weaponKind()]
+      ?? (this.cls === 'mage' || this.cls === 'necromancer' ? 'intelligence'
+        : this.cls === 'ranger' || this.cls === 'rogue' ? 'dexterity'
+          : 'strength');
   }
 
   weaponKind(): WeaponKind {
@@ -234,8 +259,12 @@ export class Player implements Entity {
   }
 
   isRangedWeapon(): boolean {
-    const k = this.weaponKind();
-    return k === 'bow' || k === 'crossbow' || k === 'staff' || k === 'wand' || k === 'tome';
+    return RANGED_KINDS.has(this.weaponKind());
+  }
+
+  /** Magic weapons fire a slower, larger bolt and cost mana per shot. */
+  isMagicWeapon(): boolean {
+    return MAGIC_KINDS.has(this.weaponKind());
   }
 
   attackPower(): number {

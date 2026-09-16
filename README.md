@@ -161,7 +161,9 @@ Epic and Legendary drops also freeze the frame, shake the screen and flash it in
 
 **Waystones.** Every settlement and every dungeon mouth has a stone gate with a blue vortex.
 Touch one to attune it, and from then on any gate can carry you to any other — from the
-travel panel or by clicking the marker on the world map.
+travel panel or by clicking the marker on the world map. A gate will not answer within **three
+seconds of taking damage**, so fast travel is a way to cross the valley, not a way out of a
+fight you are losing. The travel panel shows the countdown.
 
 **Wandering traders.** A family of dwarven smiths follows the waystone network; one of them
 has a cart parked at every major point of interest, so there is always somewhere to sell loot
@@ -196,6 +198,12 @@ greatswords, axes and greataxes, hammers, maces, daggers, spears, **rapiers** (f
 **war picks** (armour-breakers that pay out on a crit), bows, crossbows, staves, wands, tomes,
 **orbs** (caged focus stones that hover and strike at range), scythes and claws. Every class can
 use every one of them.
+
+Each kind carries its own reach, swing rate and **swing arc**: a greatsword, greataxe, halberd or
+scythe cuts a wide sweep through a rank, while a dagger or a rapier is a thrust that only touches
+what it is pointed at. Bows, crossbows and casting weapons fire a projectile whose flight is
+exactly the weapon's listed range — auto-aim never locks onto something further than the shot can
+actually reach.
 
 ### Slots
 

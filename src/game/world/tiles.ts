@@ -156,4 +156,14 @@ export const isWall = (id: TileId): boolean => {
   return !!t && t.solid && id !== T.PIT && id !== T.VOID;
 };
 
+/**
+ * Walls stop a shot; water and pits do not. Both are solid to walk on, but an
+ * arrow fired across a river should land on the far bank, not drop in.
+ */
+export const blocksProjectiles = (id: TileId): boolean => {
+  const t = TILES[id];
+  if (!t) return true;
+  return t.solid && !t.water && id !== T.PIT;
+};
+
 export const TILE = 32;

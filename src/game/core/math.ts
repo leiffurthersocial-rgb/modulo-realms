@@ -36,6 +36,14 @@ export const angleDelta = (a: number, b: number): number => {
   return d;
 };
 
+/**
+ * Unsigned angle between two headings, in [0, PI]. Zero means pointing the
+ * same way. Every cone and arc test goes through this — hand-rolled copies of
+ * the normalisation drifted and ended up inverted, which silently turned melee
+ * swings into a cone that only hit what was directly behind the player.
+ */
+export const angleBetween = (a: number, b: number): number => Math.abs(angleDelta(a, b));
+
 export const rectsOverlap = (a: Rect, b: Rect): boolean =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
