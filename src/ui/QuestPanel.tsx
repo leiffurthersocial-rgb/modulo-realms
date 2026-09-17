@@ -102,10 +102,12 @@ export default function QuestPanel({ game }: { game: Game }) {
                 <div className="reward-row">
                   <span className="reward-pill">{sel.rewards.xp} XP</span>
                   <span className="reward-pill"><img src={getIconUrl('gold')} alt="" />{sel.rewards.gold}</span>
-                  {(sel.rewards.items ?? []).map((id) => {
+                  {/* A quest can list the same item twice — two health draughts is a
+                      perfectly ordinary reward — so the index is the key, not the id. */}
+                  {(sel.rewards.items ?? []).map((id, i) => {
                     const t = TEMPLATE_BY_ID[id];
                     return t ? (
-                      <span className="reward-pill" key={id}>
+                      <span className="reward-pill" key={`${id}:${i}`}>
                         <img src={getIconUrl(t.icon, { metal: t.metal })} alt="" />{t.name}
                       </span>
                     ) : null;

@@ -155,6 +155,11 @@ export default function HelpPanel({ game }: { game: Game }) {
                   wait you out: stay too long and they start hitting harder every second, without limit. Attrition is
                   not a plan.
                 </P>
+                <P>
+                  Most of them also have phases you <b>cannot hurt them in at all</b>. The health bar goes cold and
+                  says why — usually because it has called something, and the ward holds until what it called is
+                  dead. Standing there hitting it does nothing. Turn around and deal with the adds.
+                </P>
 
                 <H>Dying</H>
                 <P>
@@ -184,7 +189,19 @@ export default function HelpPanel({ game }: { game: Game }) {
                 </P>
                 <P>
                   <b style={{ color: '#ff4f6e' }}>Mythic</b> is not a tier loot can roll into, and not something the
-                  crown&apos;s warrant can raise a thing to. Two weapons in the whole world wear it. You will know.
+                  crown&apos;s warrant can raise a thing to. A handful of weapons in the whole world wear it. You will
+                  know.
+                </P>
+                <P>
+                  The top tiers are <b>gated behind your level</b>. A legendary is effectively unavailable below level
+                  12 and does not reach its full drop weight until the mid forties, with Epic and Super Rare fading in
+                  the same way earlier. A legendary in your first hours would end the loot game before it started —
+                  nothing found for twenty levels could beat it. Magic Find still multiplies whatever the gate leaves,
+                  so a lucky character gets there sooner; it just cannot get there at level 3.
+                </P>
+                <P>
+                  A named relic&apos;s enchantments were chosen rather than rolled, so <b>the forge will not rebind
+                  them</b>. It says so instead of taking the rune.
                 </P>
 
                 <H>Who drops what</H>
@@ -235,7 +252,13 @@ export default function HelpPanel({ game }: { game: Game }) {
                 </P>
                 <P>
                   Ordinary chests refill after a while and the enemies in a cleared dungeon come back, so somewhere
-                  worth farming stays worth farming. Bosses and their hoards do not: kill it once and it is done.
+                  worth farming stays worth farming. Bosses do not come back on their own: kill one and it is done.
+                </P>
+                <P>
+                  If you want one back, ask King Jovan. He keeps a ledger of everything you have put down and will
+                  send people to reopen it for a fee — either the whole dungeon, boss and corridors and chests, or
+                  just the boss on its own, which is cheaper and leaves the rest of the place as you left it. What you
+                  already carried out stays carried out.
                 </P>
               </>
             ) : null}
@@ -270,6 +293,11 @@ export default function HelpPanel({ game }: { game: Game }) {
                   than the stall in your home square, and more of it. If you want something better to buy, walk
                   somewhere worse.
                 </P>
+                <P>
+                  Every shop draws a new window every few days, and the header tells you how long you have to wait.
+                  Part of the stock is fixed to what that merchant&apos;s own ground produces and part of it is rolled
+                  fresh, so the same counter is worth checking again and a visit can be lucky or unlucky.
+                </P>
 
                 <H>Doors worth opening</H>
                 <P>
@@ -280,9 +308,10 @@ export default function HelpPanel({ game }: { game: Game }) {
 
                 <H>Waystones</H>
                 <P>
-                  Every settlement and every dungeon mouth has a stone gate with a blue centre. Touch one to attune it,
-                  and from then on any gate carries you to any other, from the travel panel or by clicking a marker on
-                  the world map.
+                  Every settlement and every dungeon mouth has a ring of standing stones with a carving cut into the
+                  middle one. <b>Finding the place opens its gate</b> — you do not have to walk to the stones as well.
+                  From then on any gate carries you to any other, from the travel panel or by clicking a marker on the
+                  world map.
                 </P>
               </>
             ) : null}
@@ -291,22 +320,42 @@ export default function HelpPanel({ game }: { game: Game }) {
               <>
                 <H>Levels and skill points</H>
                 <P>
-                  Experience comes from fighting, finding places, and finishing bounties. Every level gives stats and a
-                  skill point. Each class has three talent branches and five abilities that unlock as you go — the last
-                  one at level 22, and it is worth waiting for.
+                  Experience comes from fighting, finding places, and finishing bounties. The cap is <b>level 75</b>,
+                  and getting there is meant to take a long time: a level costs roughly sixteen kills in the opening
+                  hour and settles at about eighty-five from the early twenties onward. Elites pay three times what
+                  ordinary enemies do and bosses seven and a half, so clearing a dungeon is worth a real slice of a
+                  level and grinding field trash is the slowest way to do anything.
                 </P>
                 <P>
-                  The game is built to be finished somewhere around level 34, at the Last Gate. There is content past
-                  it to level 40 — the stair under the gate keeps going down, and what is at the bottom is not
-                  level-appropriate for anybody. Each talent branch runs four tiers deep, which is more points than you
-                  will have, so a build is a choice about what to leave out.
+                  Every level pays a skill point, every third level pays two, and every tenth pays five. That is 120
+                  points by the cap, against trees that hold 162 — so <b>no build ever finishes one</b>. Each class has
+                  three talent branches seven tiers deep plus a shared Mastery branch, and five abilities that unlock
+                  as you go, the last at level 22.
+                </P>
+                <P>
+                  The world is laid out as a ladder: Ashvale to level 6, Thornhollow to 14, the Mire to 24, the Crag
+                  Reach to 36, Duneholt to 42, then the outer marches, the Jotunreach and the Cinderwastes, and finally
+                  the three deep marches — the Drowning Reach, the Stormreach and the Emberdeep, which runs to 75.
+                </P>
+                <P>
+                  A region&apos;s level band says when you are meant to be there. How dangerous it feels is a separate
+                  dial. <b>Thornhollow is gentle on purpose</b> — it is where you learn to dodge — but its bosses take
+                  their own multiplier and are among the hardest fights in the game. The Mire is a real step up, the
+                  Crag Reach harder again, and Duneholt is brutal. By the Emberdeep an ordinary blow takes over half
+                  your health.
                 </P>
 
                 <H>Changing your mind</H>
                 <P>
-                  For 100 gold you can become any other class, from the skills panel. Your stats and abilities change,
-                  you are handed that class&apos;s starting kit, and <b>every skill point you have ever spent is
-                  refunded</b>. There is no penalty and no cooldown — trying a build should be cheap.
+                  For 1,000 gold you can become any other class, from the skills panel. Your stats and abilities
+                  change, you are handed that class&apos;s starting kit, and <b>every skill point you have ever spent
+                  is refunded</b>. There is no cooldown and nothing is lost but the gold.
+                </P>
+                <P>
+                  What you were <i>born</i> as is a bigger question and costs accordingly. Orsolya kneels at a pool in
+                  the west wood, out past Thornhollow near the hermit&apos;s place, and for 10,000 gold will change
+                  your race and your face. You keep your level, your talents, your gear and everything anyone owes
+                  you. Nel in Mirefall will tell you how to find her.
                 </P>
 
                 <H>King Jovan</H>

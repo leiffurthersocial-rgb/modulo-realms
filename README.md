@@ -141,12 +141,19 @@ world, the rules and the art are unchanged; it simply costs less to show them.
 
 ## The game
 
-**The world.** One continuous 512×512-tile overworld (roughly 16,000×16,000 pixels) split
-into five regions — the central Ashvale Valley, the frozen Crag Reach to the north, the
-Sunken Mire east, Duneholt Reach south, and Thornhollow in the west. Roads, rivers and
-bridges connect five settlements, seven dungeons and a couple of dozen landmarks, camps and
+**The world.** One continuous 960×1088-tile overworld (roughly 30,700×34,800 pixels) split
+into twelve regions, laid out as a ladder from the central Ashvale Valley outward: Thornhollow
+west, the Sunken Mire east, the Crag Reach north and Duneholt Reach south, then the outer
+marches — the Gloaming, the Saltreach, the Jotunreach and the Cinderwastes — and finally the
+three deep marches: the Drowning Reach, the Stormreach and the Emberdeep. Roads, rivers and
+bridges connect nine settlements, nineteen dungeons and three dozen landmarks, camps and
 shrines. Stronger regions sit further from home, so the world gates itself by difficulty
 rather than by walls.
+
+A region's **level band** says when you are meant to be there; a separate **difficulty
+multiplier** says what it feels like once you are, and the two are different claims.
+Thornhollow is gentle on purpose — it is where a new character learns to dodge — while its
+bosses take their own multiplier and are among the hardest fights in the game.
 
 **Ashvale.** The handcrafted home town, laid out as a ring rather than a sprawl. Every
 building you can use — the forge, the trading post, the apothecary, the inn, the chapel and the
@@ -177,13 +184,22 @@ go where you like.
 (burning, poison, chill, stun, bleed) and knockback. Bosses run multi-phase fights with
 readable wind-ups, summons and arena-wide attacks.
 
-**Progression.** Experience from combat, quests, exploration and dungeon clears; levels grant
-stats and a skill point; each class has three talent branches and four abilities.
+**Progression.** Experience from combat, quests, exploration and dungeon clears, to a cap of
+**level 75**. The curve is written as *how many kills a level should cost* — the only unit a
+player actually feels — ramping from about sixteen in the opening hour to a flat eighty-five
+from the early twenties on. Levels pay one skill point, every third pays two and every tenth
+pays five: 120 by the cap, against class trees that hold 162, so no build ever finishes one.
+Each class has three talent branches seven tiers deep plus a shared Mastery branch, and five
+abilities.
 
-**Retraining.** Any class can become any other class for **100 gold**, from the skills panel.
+**Retraining.** Any class can become any other class for **1,000 gold**, from the skills panel.
 Retraining swaps your stat block and ability set, hands you that class's level-one kit, and
 **refunds every skill point you have ever spent** so you can rebuild from scratch. There is no
-penalty and no cooldown — trying a build should be cheap.
+cooldown and nothing is lost but the gold.
+
+**Being remade.** What you were *born* as is a bigger question. Orsolya kneels at a pool in
+the west wood and for **10,000 gold** will change your race and your face, keeping your level,
+talents, gear and reputation. Nel in Mirefall will tell you where to find her.
 
 **No gear restrictions.** Every class can equip every weapon, and there are no level
 requirements on anything. If you found it, you can swing it.
@@ -209,9 +225,12 @@ and buy something better.
 
 **Merchants scale with the ground they stand on.** What a shop stocks is set by the danger of
 its region and its distance from home, not by a fixed list. The stall in Ashvale sells
-level-5 commons; the cart parked at the mouth of the Barrow Crypt sells level-15 epics, and
-carries more slots besides. Stock also re-rolls as you level, so a merchant you outgrew is
-worth visiting again. If you want better gear to buy, walk somewhere worse.
+level-5 commons; the quartermaster in the Emberdeep sells level-70 epics, and carries more
+slots besides. Stock re-rolls as you level *and* turns over on its own clock — two to five
+days per shop, staggered so they do not all change on the same morning, with the countdown in
+the shop header. Part of the window is fixed to what that ground produces and part is rolled
+fresh, so a visit can be lucky or unlucky. If you want better gear to buy, walk somewhere
+worse.
 
 **King Jovan.** The king keeps court in the Ashvale moot hall, and he is worth the walk twice
 over. He runs **the Royal Armoury** — the best-stocked shop in the valley, sold at a loss
@@ -431,28 +450,48 @@ of the extension points below are wired into it. It holds:
 | `enemyHealthAt/DamageAt/DefenseAt/XpAt(level, role)` | The bestiary curves, by role |
 | `ENEMY_THREAT` | The only things not solved by a curve: how hard a hit lands, and what a kill pays |
 | `LEVEL_BANDS` | Which region is built for which levels |
-| `ENDGAME_LEVEL` | The level the game is built to be finished at |
+| `REGION_DIFFICULTY` / `REGION_BOSS_DIFFICULTY` | What a region *feels* like beyond what its band says — bosses take their own, so a starter region can still keep something frightening in its cellar |
+| `ENDGAME_LEVEL` / `MAX_CONTENT_LEVEL` | The level the game is built to be finished at, and the last level there is content for |
 
 This is what makes adding content safe rather than a guess. You never write a damage number,
-so you cannot accidentally author a level-13 rapier worth twice a level-13 maul. To check a
-change, run:
+so you cannot accidentally author a level-13 rapier worth twice a level-13 maul.
+
+Four scripts check the things that otherwise fail silently:
 
 ```bash
-npx tsx scripts/check-balance.ts
+npx tsx scripts/check-balance.ts    # every weapon, armour and enemy against its budget
+npx tsx scripts/check-content.ts    # references between data files that do not resolve
+npx tsx scripts/check-regions.ts    # what a fight in each region actually costs
+npx tsx scripts/measure-dps.ts      # what a real build actually puts out, for refitting
+npx tsx scripts/reprice-enemies.ts  # rewrites the bestiary's derived literals when a curve moves
 ```
 
-It prints every weapon, suit of armour and enemy as a multiple of its budget — and, for each
-enemy, how many seconds the fight it implies actually takes. Everything should read `x1.00`.
+`check-balance` prints every weapon, suit of armour and enemy as a multiple of its budget, and
+for each enemy how many seconds the fight it implies actually takes. Everything should read
+`x1.00`, except the named relics, which are allowed a stated 1.12x premium and nothing beyond
+it.
 
 **Two DPS curves, and they are not interchangeable.** `meleeDpsAt` is what a weapon's own
-damage number is priced against, so that sixty weapons stay comparable to each other.
-`playerDpsAt` is what the player really puts out, and it is a different shape: `attackPower()`
-is `weaponDamage * (1 + primaryStat * 0.022)`, and both of those grow with level, so real
-damage grows quadratically. Measured against a dummy, the real number is 1.6x the weapon curve
-at level 5, 6.7x at 17 and 37x at 34. Enemy health priced against the weapon curve is therefore
-correct at low level and meaningless at high level — which is exactly how a five-phase boss once
-ended up dying in three and a half seconds. Enemies are priced against `playerDpsAt` and
-`TIME_TO_KILL`; weapons are priced against `meleeDpsAt`. Do not mix them up.
+damage number is priced against, so that eighty weapons stay comparable to each other.
+`playerDpsAt` is what the player really puts out, and it is a different shape: real damage is
+weapon damage times a primary-stat multiplier times attack speed times a critical multiplier,
+and all four grow with level, so the product is steeper than quadratic. Enemy health priced
+against the weapon curve is therefore correct at low level and meaningless at high level —
+which is exactly how a five-phase boss once ended up dying in three and a half seconds.
+Enemies are priced against `playerDpsAt` and `TIME_TO_KILL`; weapons are priced against
+`meleeDpsAt`. Do not mix them up.
+
+`playerDpsAt` is a **fit, not a derivation**, and no formula written by hand from the other
+curves will land on it. `scripts/measure-dps.ts` builds an actual `Player` at each level,
+equips the best gear that level can hold, spends its talent points into damage and prints what
+comes out. Run it after touching weapons, attributes or talents, and refit.
+
+**Scaling is by curve ratio, never by a flat percentage.** Both an item up-levelled past its
+template and an enemy spawned above its authored level are re-priced by the *ratio of the
+relevant curve at the two levels*. The flat-percentage versions of both were bugs: a level-1
+sword dragged to level 75 came out at 10.6x what the curve pays an honest level-75 weapon,
+and a level-6 bandit put on a level-24 road came out at half what it needed. Getting this
+right is what lets one bestiary and one item table cover a seventy-five level game.
 
 ### Add an item
 
