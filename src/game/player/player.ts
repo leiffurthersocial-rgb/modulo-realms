@@ -46,7 +46,43 @@ export const WEAPON_STAT: Partial<Record<WeaponKind, 'strength' | 'dexterity' | 
   halberd: 'strength', warpick: 'strength',
 };
 
-export const xpToNext = (level: number): number => Math.round(64 * Math.pow(level, 1.48) + 40);
+/** The level there is no growing past. */
+export const MAX_LEVEL = 75;
+
+/**
+ * Experience for the next level.
+ *
+ * This is written as "how many ordinary kills should a level cost", not as a
+ * curve pulled out of the air, because the kill is the unit the player
+ * actually feels. An enemy of your own level pays `enemyXpAt` — very nearly
+ * `0.84 * level^2` once the threat multiplier is folded in — so multiplying
+ * that by a target kill count gives a requirement that means the same thing
+ * at level 3 and at level 70.
+ *
+ * The count ramps from about sixteen kills in the opening hour to a flat
+ * eighty-five from the early twenties on, and stays there for the remaining
+ * fifty levels. Elites pay three times and bosses seven and a half, so a
+ * dungeon run is worth a real slice of a level and grinding field trash is
+ * the slowest way to do anything — which is the point.
+ */
+export const xpToNext = (level: number): number => {
+  const ramp = Math.min(1, Math.pow(level / 24, 0.75));
+  const kills = 10 + 75 * ramp;
+  return Math.round(kills * (0.84 * level * level + 2.24 * level + 10));
+};
+
+/**
+ * Skill points for reaching a level. One a level is the floor; every third
+ * level pays a second, and every tenth pays three more on top. That puts a
+ * hundred and twenty points in a capped character's hands against a tree that
+ * holds a hundred and sixty-two, so no build ever buys everything.
+ */
+export function skillPointsFor(level: number): number {
+  let n = 1;
+  if (level % 3 === 0) n += 1;
+  if (level % 10 === 0) n += 3;
+  return n;
+}
 
 export interface PlayerInit {
   name: string;
@@ -269,11 +305,26 @@ export class Player implements Entity {
     return MAGIC_KINDS.has(this.weaponKind());
   }
 
+  /**
+   * What one swing is actually worth.
+   *
+   * The primary stat multiplier used to be a flat `1 + prim * 0.022`, and
+   * that single number is why a level-15 relic still erased a level-34 boss:
+   * weapon damage grows with level, the stat grows with level, and a flat
+   * coefficient multiplies the two into a quadratic that no fixed pool of
+   * enemy health survives. With the cap at 75 the stat runs to three hundred
+   * and the old form returned a 7.6x multiplier on top of the weapon.
+   *
+   * So the coefficient is halved AND the tail is bent: the first hundred
+   * points of a stat pay full rate, everything past that pays a third. A
+   * stat is still always worth taking, it just stops being the whole build.
+   */
   attackPower(): number {
     const s = this.stats();
     const weaponDmg = s.damage > 0 ? s.damage : 4 + this.level;
     const prim = s[this.primaryStat()];
-    return weaponDmg * (1 + prim * 0.022);
+    const scaled = Math.min(prim, 100) + Math.max(0, prim - 100) * 0.34;
+    return weaponDmg * (1 + scaled * 0.011);
   }
 
   attackInterval(): number {
@@ -311,16 +362,19 @@ export class Player implements Entity {
 
   addXp(amount: number): number {
     let levels = 0;
+    if (this.level >= MAX_LEVEL) { this.xp = 0; return 0; }
     this.xp += amount;
-    while (this.xp >= xpToNext(this.level)) {
+    while (this.level < MAX_LEVEL && this.xp >= xpToNext(this.level)) {
       this.xp -= xpToNext(this.level);
       this.level++;
-      this.skillPoints += 1;
+      this.skillPoints += skillPointsFor(this.level);
       levels++;
       this.hp = this.maxHp;
       this.mp = this.maxMp;
       this.sp = this.maxSp;
     }
+    // Nothing accrues past the cap, so the bar reads full rather than lying.
+    if (this.level >= MAX_LEVEL) this.xp = 0;
     return levels;
   }
 

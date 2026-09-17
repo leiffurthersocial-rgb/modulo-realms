@@ -58,6 +58,12 @@ export interface SpawnPoint {
   elite?: boolean;
   boss?: boolean;
   group?: number;
+  /**
+   * Which region's danger multiplier this spawn answers to. The overworld
+   * fills it from the region grid; a dungeon fills it from the location it
+   * hangs off, so an interior is as dangerous as the ground above it.
+   */
+  region?: string;
 }
 
 export interface MapChest {

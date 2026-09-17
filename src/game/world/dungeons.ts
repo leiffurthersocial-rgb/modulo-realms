@@ -191,7 +191,7 @@ export function generateDungeon(loc: LocationDef, seed: number): GameMap {
       map.spawns.push({
         id: `${spec.mapId}_boss`, enemy: bossId, x: c.x * TILE, y: c.y * TILE,
         level: spec.level + (r.kind === 'boss' ? 1 : 0), radius: 400, respawn: Infinity,
-        boss: r.kind === 'boss', elite: true,
+        boss: r.kind === 'boss', elite: true, region: loc.region,
       });
       map.chests.push({ id: `${spec.mapId}_bosschest`, x: c.x * TILE, y: (c.y + 4) * TILE, level: spec.level + 2, tier: 'boss' });
       return;
@@ -221,6 +221,7 @@ export function generateDungeon(loc: LocationDef, seed: number): GameMap {
         // Only the named things in the boss room stay dead.
         respawn: 540 + rng.range(0, 240),
         elite: rng.bool(0.08),
+        region: loc.region,
       });
     }
   });

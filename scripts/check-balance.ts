@@ -11,7 +11,7 @@
  * the rest of its region.
  */
 import { ALL_ENEMIES } from '../src/data/enemies';
-import { ARMOR, WEAPONS } from '../src/data/items';
+import { ARMOR, UNIQUES, WEAPONS } from '../src/data/items';
 import {
   armorDefenseAt, enemyDamageAt, enemyHealthAt, enemyXpAt, playerDpsAt,
   weaponDps, type EnemyRole,
@@ -24,10 +24,16 @@ const flag = (ratio: number, lo = 0.7, hi = 1.35) => {
 };
 
 console.log('\n=== weapons (dps / budget) ===');
-for (const w of WEAPONS) {
+// The uniques are the ones worth watching: they are written by hand rather
+// than solved by W(), so they are the only weapons that CAN drift.
+const UNIQUE_IDS = new Set(UNIQUES.map((u) => u.id));
+for (const w of [...WEAPONS, ...UNIQUES.filter((u) => u.weaponKind)]) {
   const dps = (w.stats.damage ?? 0) * (w.stats.attackSpeed ?? 1);
   const r = dps / weaponDps(w.weaponKind!, w.level, w.rarity);
-  console.log(`${w.id.padEnd(22)} lv${String(w.level).padStart(2)} ${(w.weaponKind ?? '').padEnd(10)} dps=${dps.toFixed(1).padStart(6)}  x${r.toFixed(2)}${flag(r, 0.9, 1.12)}`);
+  // A generated weapon must read 1.00; a named relic is allowed its stated
+  // 1.12 premium and nothing beyond it.
+  const band: [number, number] = UNIQUE_IDS.has(w.id) ? [1.05, 1.2] : [0.9, 1.12];
+  console.log(`${w.id.padEnd(22)} lv${String(w.level).padStart(2)} ${(w.weaponKind ?? '').padEnd(10)} dps=${dps.toFixed(1).padStart(6)}  x${r.toFixed(2)}${flag(r, band[0], band[1])}`);
 }
 
 console.log('\n=== armour (defense / curve) ===');

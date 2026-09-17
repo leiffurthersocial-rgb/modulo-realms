@@ -816,7 +816,8 @@ canvas.world {
 
 /* skills */
 
-.skill-branches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.skill-branches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 1080px) { .skill-branches { grid-template-columns: repeat(2, 1fr); } }
 .branch-title {
   font-family: var(--font-display); font-size: 13px; letter-spacing: 0.14em;
   text-align: center; color: var(--gold); text-transform: uppercase; margin-bottom: 10px;
@@ -1247,3 +1248,13 @@ canvas.world {
   .touch-btn.small img { width: 24px; height: 24px; }
   .touch-cd { font-size: 13px; }
 }
+
+/* A boss in an immune phase reads as protected at a glance: the bar goes cold
+   and says why, so nobody spends the window swinging at a wall. */
+.boss-bar.warded .bar { box-shadow: 0 0 14px rgba(143, 208, 240, 0.55); border-color: #8fd0f0; }
+.boss-bar.warded .fill { filter: saturate(0.35) brightness(0.8); }
+.boss-ward {
+  margin-top: 5px; text-align: center; font-size: 11.5px; letter-spacing: 0.1em;
+  color: #8fd0f0; text-transform: uppercase; animation: wardPulse 1.1s ease-in-out infinite;
+}
+@keyframes wardPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }

@@ -557,12 +557,45 @@ export class Game implements WorldCtx {
     this.projectiles.push(makeProjectile(spec));
   }
 
-  summon(enemyId: string, x: number, y: number, level: number, lifetime = Infinity, friendly = false): void {
+  summon(enemyId: string, x: number, y: number, level: number, lifetime = Infinity, friendly = false, power = 1): void {
     const open = findOpenNear(this.map, x, y, 12, 8);
     const e = new Enemy(enemyId, open.x, open.y, Math.max(1, level), { friendly });
     e.lifetime = lifetime;
+    // A summoned ally is an extension of the caster, so the caster's ability
+    // power is what it hits with. Without this a thrall was whatever the
+    // bestiary said and nothing the player did ever improved it.
+    if (power !== 1) {
+      e.damage *= power;
+      e.maxHp = Math.round(e.maxHp * Math.min(2.5, power));
+      e.hp = e.maxHp;
+    }
     this.enemies.push(e);
     this.fx.spawn(open.x, open.y, 18, friendly ? PAL.frost : PAL.arcaneLit, { speed: 120, life: 0.6, size: 3, gravity: -40 });
+  }
+
+  /**
+   * What answers when the Necromancer calls. The dead you can raise get
+   * better as you do — a level-70 necromancer pulling up the same two village
+   * skeletons as a level-4 one is the single clearest way an ability can stop
+   * mattering without ever being nerfed.
+   */
+  private thrallFor(level: number, legion: boolean): string {
+    const ladder: Array<[number, string]> = [
+      [1, 'skeleton'],
+      [10, 'skeleton_archer'],
+      [18, 'revenant_knight'],
+      [28, 'ice_revenant'],
+      [38, 'bone_colossus'],
+      [52, 'jotun_thrall'],
+    ];
+    let pick = ladder[0][1];
+    for (const [need, id] of ladder) if (level >= need) pick = id;
+    // The Standing Legion reaches one rung further than Raise Thrall does.
+    if (legion) {
+      const idx = ladder.findIndex(([, id]) => id === pick);
+      pick = ladder[Math.min(ladder.length - 1, idx + 1)][1];
+    }
+    return pick;
   }
 
   /* ---------------- aiming ---------------- */
@@ -655,6 +688,19 @@ export class Game implements WorldCtx {
   damageEnemy(target: Entity, amount: number, opts: DamageOpts = {}): void {
     const e = target as Enemy;
     if (e.dead) return;
+    // An immune phase is absolute: nothing lands, no matter what is swinging.
+    // Saying so on the boss rather than silently eating the hit is the whole
+    // point — a player who cannot tell the difference between "warded" and
+    // "my weapon is broken" will just keep hitting it.
+    if (e.warded) {
+      if (!opts.noProc && this.now - e.wardShown > 1.1) {
+        e.wardShown = this.now;
+        this.floatText(e.x, e.y - e.radius * 1.6, e.immuneLabel || 'Immune', '#8fd0f0', 13);
+        this.fx.ring(e.x, e.y, e.radius * 2.2, '#8fd0f0');
+        audio.play('ui', 0.3);
+      }
+      return;
+    }
     const def = e.defense;
     let dmg = amount * (100 / (100 + Math.max(0, def)));
     // undead take extra holy damage, plants burn, constructs resist poison
@@ -1421,7 +1467,18 @@ export class Game implements WorldCtx {
         break;
       }
       case 'heal': {
-        const heal = power * 0.9 + p.maxHp * 0.12;
+        // A heal must be a share of the health bar, never a multiple of
+        // attack power. Tied to damage it scaled with the weapon and the
+        // primary stat and the talents all at once, which is how Mend ended
+        // up restoring forty thousand health: more than any boss in the game
+        // could remove, so the Paladin simply could not lose a fight.
+        //
+        // As a fraction it is worth exactly as much at level 3 as at level
+        // 75 — which is the only way "scales with progression" can mean
+        // anything for a heal. Ability power still improves it, and the cap
+        // stops that from becoming the old problem in a new hat.
+        const frac = Math.min(0.62, 0.3 * (1 + stats.abilityPower / 260));
+        const heal = p.maxHp * frac;
         p.hp = Math.min(p.maxHp, p.hp + heal);
         this.floatText(p.x, p.y - 40, `+${Math.round(heal)}`, '#6fbf5a', 15);
         this.fx.spawn(p.x, p.y, 26, PAL.holy, { speed: 90, life: 0.8, size: 3, gravity: -110 });
@@ -1429,18 +1486,30 @@ export class Game implements WorldCtx {
         break;
       }
       case 'shield': {
-        p.shield = power * 3.2;
+        // Same reasoning as the heal above: a share of the bar, not a
+        // multiple of the weapon.
+        p.shield = p.maxHp * Math.min(0.7, 0.34 * (1 + stats.abilityPower / 240));
         p.shieldUntil = this.now + (ab.duration ?? 10);
         this.fx.ring(p.x, p.y, 60, ab.color);
         this.floatText(p.x, p.y - 44, `Shield ${Math.round(p.shield)}`, ab.color, 13);
         break;
       }
       case 'summon': {
+        // Two plain skeletons at the player's level was the whole of Raise
+        // Thrall at every level of the game, which is why the Necromancer's
+        // second ability felt like nothing next to a Paladin's. A thrall now
+        // scales twice over: WHAT gets raised climbs with the caster, and how
+        // hard it hits rides the caster's ability power like every other
+        // ability in the game.
         const n = ab.count ?? 2;
+        const id = this.thrallFor(p.level, ab.id === 'legion');
+        const lv = Math.max(1, Math.round(p.level + (ab.id === 'legion' ? 2 : 0)));
+        const boost = 1 + stats.abilityPower / 100;
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2;
-          this.summon('skeleton', p.x + Math.cos(a) * 50, p.y + Math.sin(a) * 50, Math.max(1, p.level - 1), ab.duration ?? 20, true);
+          this.summon(id, p.x + Math.cos(a) * 54, p.y + Math.sin(a) * 54, lv, ab.duration ?? 20, true, boost * ab.power);
         }
+        this.fx.ring(p.x, p.y, 80, ab.color);
         break;
       }
     }
@@ -1556,14 +1625,14 @@ export class Game implements WorldCtx {
         this.fx.ring(tipX, tipY, 90, PAL.ice);
         audio.play('swing', 0.7);
         this.shake(6);
-        hit(1.6);
+        hit(1.25);
         // and the return, a beat later
         window.setTimeout(() => {
           if (this.screen !== 'playing') return;
           this.fx.telegraph(p.x, p.y, range, 0.12, PAL.ice, 'line', aim);
           this.fx.spawn(p.x, p.y, 20, PAL.frost, { speed: 150, life: 0.5, size: 3 });
           audio.play('hit', 0.6);
-          hit(1.2);
+          hit(0.9);
           this.touch();
         }, 420);
         break;
@@ -1584,7 +1653,7 @@ export class Game implements WorldCtx {
           if (e.dead || e.friendly) continue;
           const d = dist(p.x, p.y, e.x, e.y);
           if (d > reach + e.radius) continue;
-          const roll = this.rollDamage(base * 1.5);
+          const roll = this.rollDamage(base * 1.25);
           this.damageEnemy(e, roll.dmg, { element: 'fire', crit: roll.crit, fromX: p.x, fromY: p.y });
           applyStatus(e, 'burn', base * 0.22, 6, PAL.flame, this.now);
           this.applyHitEffects(e, roll.dmg, roll.crit);
@@ -3153,7 +3222,10 @@ export class Game implements WorldCtx {
           const ox = i === 0 ? 0 : (Math.random() - 0.5) * 90;
           const oy = i === 0 ? 0 : (Math.random() - 0.5) * 90;
           const pos = findOpenNear(this.map, sp.x + ox, sp.y + oy, 12, 8);
-          const e = new Enemy(sp.enemy, pos.x, pos.y, sp.level, { elite: sp.elite, boss: sp.boss, spawnId: sp.id });
+          const e = new Enemy(sp.enemy, pos.x, pos.y, sp.level, {
+            elite: sp.elite, boss: sp.boss, spawnId: sp.id,
+            region: sp.region ?? (this.map.id === 'overworld' ? this.regionIdAt(Math.floor(sp.x / TILE), Math.floor(sp.y / TILE)) : undefined),
+          });
           list.push(e);
           this.enemies.push(e);
         }

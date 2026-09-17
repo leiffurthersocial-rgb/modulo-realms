@@ -85,13 +85,16 @@ export default function Hud({ game }: { game: Game }) {
       </div>
 
       {game.bossTarget && !game.bossTarget.dead ? (
-        <div className="boss-bar">
+        <div className={`boss-bar${game.bossTarget.warded ? ' warded' : ''}`}>
           <div className="bname">{game.bossTarget.def.name}</div>
           <div className="btitle">{game.bossTarget.def.boss?.title}</div>
           <div className="bar">
             <div className="fill" style={{ width: `${Math.max(0, (game.bossTarget.hp / game.bossTarget.maxHp) * 100)}%` }} />
             <span className="label">{Math.ceil(game.bossTarget.hp)} / {game.bossTarget.maxHp}</span>
           </div>
+          {game.bossTarget.warded ? (
+            <div className="boss-ward">{game.bossTarget.immuneLabel || 'Immune'}</div>
+          ) : null}
           <div className="boss-phases">
             {game.bossTarget.def.boss?.phases.map((_, i) => (
               <span key={i} className={i <= game.bossTarget!.phase ? 'on' : ''} />

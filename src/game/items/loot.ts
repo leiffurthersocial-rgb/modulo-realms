@@ -1,4 +1,5 @@
 import { RNG } from '../core/rng';
+import { meleeDpsAt } from '../../data/balance';
 import { DROPPABLE, REGION_RELICS, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
 import { candidateEnchants } from './enchants';
 import { EFFECTS } from './effects';
@@ -58,24 +59,75 @@ const RARITY_WEIGHTS: Record<Rarity, number> = {
   mythic: 0,
 };
 
-export function rollRarity(rng: RNG, magicFind = 0, luckBias = 0): Rarity {
+/**
+ * How much of its weight each rarity is allowed to keep, at the level the roll
+ * is being made at.
+ *
+ * A legendary in the first hours is not a lucky drop, it is the end of the
+ * loot game: nothing found for the next twenty levels can beat it, so the
+ * whole middle of the game stops paying out. Epic and legendary are therefore
+ * taken almost entirely off the table early and faded in over the run —
+ * legendary is effectively unavailable below level 12 and does not reach its
+ * full weight until 45.
+ *
+ * Magic find still multiplies whatever survives this, so a lucky character
+ * with a good artifact gets there sooner. It just cannot get there at level 3.
+ */
+function levelGate(rarity: Rarity, level: number): number {
+  if (rarity === 'legendary') return Math.max(0, Math.min(1, (level - 12) / 33));
+  if (rarity === 'epic') return Math.max(0.02, Math.min(1, (level - 6) / 20));
+  if (rarity === 'superRare') return Math.max(0.12, Math.min(1, (level - 2) / 10));
+  return 1;
+}
+
+export function rollRarity(rng: RNG, magicFind = 0, luckBias = 0, level = 99): Rarity {
   const bonus = 1 + magicFind / 100 + luckBias;
-  const weights = ROLLABLE_RARITIES.map((r, i) => RARITY_WEIGHTS[r] * (i === 0 ? 1 : Math.pow(bonus, i * 0.9)));
+  const weights = ROLLABLE_RARITIES.map((r, i) => (
+    RARITY_WEIGHTS[r] * (i === 0 ? 1 : Math.pow(bonus, i * 0.9)) * levelGate(r, level)
+  ));
   return rng.weighted(ROLLABLE_RARITIES, weights);
 }
 
+/**
+ * Re-price a template's stats for the level and rarity it actually rolled at.
+ *
+ * Two bugs lived here, and together they were most of why damage ran away.
+ *
+ * The first was double-counted rarity. `W()` in items.ts already solves a
+ * weapon's damage through `RARITY_POWER`, so a template authored as legendary
+ * has its rarity baked into the number — and then this multiplied by
+ * `RARITY_MULT[rarity]` again, handing that weapon its rarity bonus twice
+ * over. Only the STEP from the template's own rarity is applied now, so an
+ * ordinary blade rolled up to legendary still gains, and a relic authored as
+ * legendary is priced exactly once.
+ *
+ * The second was the level scale. It was `1 + (level - templateLevel) * 0.13`,
+ * a share of the template's own numbers and unbounded — which meant a level-1
+ * sword dragged up to level 75 came out at 10.6x, far past what the linear
+ * weapon curve pays an honestly authored level-75 weapon. Scaling by the RATIO
+ * OF THE CURVE at the two levels makes an up-levelled item worth exactly what
+ * a weapon written for that level is worth, which is the whole point of having
+ * a curve.
+ */
 function scaleStats(template: ItemTemplate, level: number, rarity: Rarity): Item['stats'] {
-  const mult = RARITY_MULT[rarity];
-  const lvlScale = 1 + Math.max(0, level - template.level) * 0.13;
+  const step = RARITY_MULT[rarity] / RARITY_MULT[template.rarity];
+  const from = Math.max(1, template.level);
+  const dmgScale = meleeDpsAt(level) / meleeDpsAt(from);
+  const defScale = (3 + level * 2.1) / (3 + from * 2.1);
   const out: Item['stats'] = {};
   for (const [k, v] of Object.entries(template.stats) as Array<[StatKey, number]>) {
     if (v === undefined) continue;
     if (k === 'attackSpeed' || k === 'range') {
       out[k] = v;
-    } else if (k === 'damage' || k === 'defense' || k === 'maxHealth' || k === 'maxMana' || k === 'maxStamina') {
-      out[k] = Math.max(1, Math.round(v * lvlScale * mult));
+    } else if (k === 'damage') {
+      out[k] = Math.max(1, Math.round(v * dmgScale * step));
+    } else if (k === 'defense' || k === 'maxHealth' || k === 'maxMana' || k === 'maxStamina') {
+      out[k] = Math.max(1, Math.round(v * defScale * step));
     } else {
-      out[k] = Math.round(v * Math.min(2.2, lvlScale) * mult * 10) / 10;
+      // Bonus attributes are flat-ish on purpose: they are the flavour of a
+      // piece, not its budget, and letting them ride the damage curve is how
+      // a single ring ends up worth more than the weapon.
+      out[k] = Math.round(v * Math.min(2.2, defScale) * step * 10) / 10;
     }
   }
   return out;
@@ -196,7 +248,7 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
  * only appear from a roll made inside their own region.
  */
 export function rollLoot(level: number, rng: RNG, magicFind = 0, luckBias = 0, region?: string): Item {
-  const rarity = rollRarity(rng, magicFind, luckBias);
+  const rarity = rollRarity(rng, magicFind, luckBias, level);
 
   if (rarity === 'legendary' && region) {
     const relics = REGION_RELICS.filter((t) => t.regions!.includes(region as 'north') && level >= t.level - 3);

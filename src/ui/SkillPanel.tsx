@@ -18,7 +18,7 @@ export default function SkillPanel({ game }: { game: Game }) {
     const prevTierPoints = c.skills
       .filter((n) => n.branch === node.branch && n.tier < node.tier)
       .reduce((sum, n) => sum + (p.skills[n.id] ?? 0), 0);
-    if (node.tier > 1 && prevTierPoints < (node.tier - 1) * 2) return;
+    if (node.tier > 1 && prevTierPoints < (node.tier - 1) * 3) return;
     p.skills[id] = cur + 1;
     p.skillPoints--;
     game.playSound('levelup', 0.5);
@@ -118,7 +118,7 @@ export default function SkillPanel({ game }: { game: Game }) {
                   const prevTierPoints = c.skills
                     .filter((n) => n.branch === node.branch && n.tier < node.tier)
                     .reduce((sum, n) => sum + (p.skills[n.id] ?? 0), 0);
-                  const unlocked = node.tier === 1 || prevTierPoints >= (node.tier - 1) * 2;
+                  const unlocked = node.tier === 1 || prevTierPoints >= (node.tier - 1) * 3;
                   const maxed = cur >= node.max;
                   const canBuy = unlocked && !maxed && p.skillPoints > 0;
                   return (
@@ -133,7 +133,7 @@ export default function SkillPanel({ game }: { game: Game }) {
                       <div className="sn-desc">{node.desc}</div>
                       {!unlocked ? (
                         <div className="sn-desc" style={{ color: 'var(--danger)' }}>
-                          Requires {(node.tier - 1) * 2} points in earlier {branch} talents.
+                          Requires {(node.tier - 1) * 3} points in earlier {branch} talents.
                         </div>
                       ) : null}
                       <button className="btn small sn-buy" disabled={!canBuy} onClick={() => spend(node.id)}>

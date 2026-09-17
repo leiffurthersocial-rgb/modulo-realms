@@ -1,5 +1,5 @@
-import { ENEMY_THREAT } from '../../data/balance';
-import { ENEMY_BY_ID, type BossAttack, type EnemyDef } from '../../data/enemies';
+import { ENEMY_THREAT, REGION_BOSS_DIFFICULTY, REGION_DIFFICULTY } from '../../data/balance';
+import { ENEMY_BY_ID, type BossAttack, type BossPhase, type EnemyDef } from '../../data/enemies';
 import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
 import type { WorldCtx } from '../core/world';
 import { boxHitsTerrain } from '../world/map';
@@ -54,10 +54,20 @@ export class Enemy implements Entity {
   lifetime = Infinity;
   friendly = false;
   bossCooldowns: Record<string, number> = {};
+  /** The danger multiplier of the region it was spawned in. */
+  regionMul = 1;
+  /**
+   * Immune-phase state. `immuneUntil` is the hard ceiling; when a phase warded
+   * itself behind adds, `immuneAdds` holds them and the ward drops the moment
+   * they are all down, whichever comes first.
+   */
+  immuneUntil = 0;
+  immuneAdds: Entity[] = [];
+  immuneLabel = '';
   hurtTime = 0;
   stuckTimer = 0;
 
-  constructor(defId: string, x: number, y: number, level: number, opts: { elite?: boolean; boss?: boolean; spawnId?: string; friendly?: boolean } = {}) {
+  constructor(defId: string, x: number, y: number, level: number, opts: { elite?: boolean; boss?: boolean; spawnId?: string; friendly?: boolean; region?: string } = {}) {
     const def = ENEMY_BY_ID[defId] ?? ENEMY_BY_ID.wolf;
     this.def = def;
     this.level = Math.max(1, level);
@@ -71,6 +81,15 @@ export class Enemy implements Entity {
     this.isBoss = !!opts.boss || !!def.boss;
     this.friendly = !!opts.friendly;
 
+    // Where it stands is part of what it is. A bog crawler and a Cinderwastes
+    // crawler are the same creature on paper and not the same fight, and
+    // bosses take their own multiplier so that a starter region can still
+    // keep something frightening at the bottom of it.
+    const regionKey = opts.region ?? def.region ?? 'central';
+    this.regionMul = this.isBoss
+      ? (REGION_BOSS_DIFFICULTY[regionKey] ?? 1)
+      : (REGION_DIFFICULTY[regionKey] ?? 1);
+
     const lvScale = 1 + Math.max(0, this.level - def.level) * 0.17;
     // An enemy the data already calls elite is priced as one. Only an
     // ordinary enemy promoted to elite by a spawn roll gets the multiplier —
@@ -78,9 +97,9 @@ export class Enemy implements Entity {
     // a boss's health bar.
     const promoted = this.elite && !this.isBoss && !def.elite;
     const threat = ENEMY_THREAT;
-    this.maxHp = Math.round(def.health * lvScale * (promoted ? 2.6 : 1));
+    this.maxHp = Math.round(def.health * lvScale * this.regionMul * (promoted ? 2.6 : 1));
     this.hp = this.maxHp;
-    this.damage = def.damage * lvScale * (promoted ? 1.3 : 1) * threat.damage;
+    this.damage = def.damage * lvScale * this.regionMul * (promoted ? 1.3 : 1) * threat.damage;
     this.defense = def.defense * (1 + Math.max(0, this.level - def.level) * 0.1);
     this.xp = Math.round(def.xp * lvScale * (promoted ? 2.2 : this.elite ? 1 : 1) * threat.xp);
     this.attackCd = 0.4 + Math.random() * 0.6;
@@ -204,6 +223,7 @@ export class Enemy implements Entity {
 
   private updateBoss(ctx: WorldCtx): void {
     const boss = this.def.boss!;
+    this.updateWard(ctx);
     const frac = this.hp / this.maxHp;
     while (this.phase < boss.phases.length - 1 && frac <= boss.phases[this.phase + 1].at) {
       this.phase++;
@@ -213,6 +233,7 @@ export class Enemy implements Entity {
       ctx.ringAt(this.x, this.y, 260, '#f6bf5d');
       ctx.particles(this.x, this.y, 46, '#f6bf5d', { speed: 210, life: 0.8, size: 4 });
       ctx.playSound('boss_phase', 0.6);
+      if (ph.immune) this.beginWard(ctx, ph.immune);
     }
 
     for (const k of Object.keys(this.bossCooldowns)) this.bossCooldowns[k] -= ctx.dt;
@@ -265,6 +286,56 @@ export class Enemy implements Entity {
     else {
       this.anim = 'idle';
       this.dir = dirFromVector(p.x - this.x, p.y - this.y, this.dir);
+    }
+  }
+
+  /**
+   * Put the ward up. With adds, the things it calls are remembered so the
+   * ward can watch them; the timer is then only a ceiling, because an add
+   * that wanders into a corner must not be able to stall the fight forever.
+   */
+  private beginWard(ctx: WorldCtx, spec: NonNullable<BossPhase['immune']>): void {
+    this.immuneUntil = ctx.now + spec.seconds;
+    this.immuneLabel = spec.label ?? (spec.summon ? 'Warded — kill the adds' : 'Warded');
+    this.immuneAdds = [];
+    if (spec.summon) {
+      const n = spec.count ?? 3;
+      const before = ctx.enemies.length;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        ctx.summon(spec.summon, this.x + Math.cos(a) * 110, this.y + Math.sin(a) * 110, this.level);
+      }
+      this.immuneAdds = ctx.enemies.slice(before);
+    }
+    ctx.ringAt(this.x, this.y, 200, '#8fd0f0');
+    ctx.particles(this.x, this.y, 40, '#8fd0f0', { speed: 170, life: 0.9, size: 3 });
+    ctx.floatText(this.x, this.y - this.radius * 2.8, this.immuneLabel, '#8fd0f0', 14);
+    ctx.playSound('boss_windup', 0.55);
+  }
+
+  /** True while nothing can hurt it. */
+  get warded(): boolean {
+    return this.immuneUntil > 0;
+  }
+
+  private updateWard(ctx: WorldCtx): void {
+    if (this.immuneUntil <= 0) return;
+    const addsLeft = this.immuneAdds.filter((a) => !a.dead).length;
+    const timedOut = ctx.now >= this.immuneUntil;
+    if (this.immuneAdds.length ? (addsLeft === 0 || timedOut) : timedOut) {
+      this.immuneUntil = 0;
+      this.immuneAdds = [];
+      this.immuneLabel = '';
+      ctx.ringAt(this.x, this.y, 240, '#f6bf5d');
+      ctx.particles(this.x, this.y, 36, '#f6bf5d', { speed: 200, life: 0.7, size: 3 });
+      ctx.floatText(this.x, this.y - this.radius * 2.6, 'The ward breaks', '#f6bf5d', 14);
+      ctx.playSound('boss_phase', 0.5);
+      return;
+    }
+    // a steady shimmer, so it reads as protected rather than as broken
+    if (Math.random() < 0.28) {
+      const a = Math.random() * Math.PI * 2;
+      ctx.particles(this.x + Math.cos(a) * this.radius * 1.5, this.y + Math.sin(a) * this.radius * 1.5, 1, '#8fd0f0', { speed: 30, life: 0.5, size: 2 });
     }
   }
 
