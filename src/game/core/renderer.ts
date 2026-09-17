@@ -574,7 +574,10 @@ export function render(game: Game): void {
   // interaction prompt and world-space text
   game.fx.drawText(g);
   if (game.interact) {
-    const label = `[${game.input.keyLabel('interact')}] ${game.interact.label}`;
+    // No key to name when there is no keyboard — the USE button says it.
+    const label = game.input.touchMode
+      ? `[USE] ${game.interact.label}`
+      : `[${game.input.keyLabel('interact')}] ${game.interact.label}`;
     g.save();
     g.font = 'bold 11px "Trebuchet MS", system-ui, sans-serif';
     const w = g.measureText(label).width + 14;

@@ -58,7 +58,39 @@ export class Input {
   mouseIdle = 99;
   hasMouse = false;
 
+  /**
+   * Touch input, written by the on-screen controls. It is kept apart from the
+   * keyboard sets rather than faking key codes, so a finger on the stick and a
+   * finger on a button are simply two independent facts and neither can clear
+   * the other.
+   */
+  private virtualDown = new Set<ActionName>();
+  private virtualPressed = new Set<ActionName>();
+  /** Analog stick vector, already clamped to length 1. Null when untouched. */
+  stick: Vec2 | null = null;
+  /**
+   * True while the on-screen controls are up. Touches then belong to the
+   * controls, so a tap on the world does not also swing the weapon.
+   */
+  touchMode = false;
+
   private listeners: Array<[EventTarget, string, EventListenerOrEventListenerObject]> = [];
+
+  /** Called by the on-screen controls when a button goes down or comes up. */
+  setVirtual(action: ActionName, down: boolean): void {
+    if (down) {
+      if (!this.virtualDown.has(action)) this.virtualPressed.add(action);
+      this.virtualDown.add(action);
+    } else {
+      this.virtualDown.delete(action);
+    }
+  }
+
+  /** Release everything the on-screen controls were holding. */
+  clearVirtual(): void {
+    this.virtualDown.clear();
+    this.stick = null;
+  }
 
   attach(canvas: HTMLCanvasElement): void {
     const add = (t: EventTarget, type: string, fn: EventListenerOrEventListenerObject, opts?: AddEventListenerOptions) => {
@@ -97,6 +129,10 @@ export class Input {
     });
     add(canvas, 'mousedown', (e) => {
       const ev = e as MouseEvent;
+      // With the on-screen controls up, the world is a view, not a button:
+      // the browser synthesises a click from every tap, and without this every
+      // tap on the scenery also swings the weapon.
+      if (this.touchMode) return;
       if (ev.button < 3) {
         this.mouseDown[ev.button] = true;
         this.mousePressed[ev.button] = true;
@@ -118,6 +154,7 @@ export class Input {
 
   isDown(action: ActionName): boolean {
     if (this.uiCapture) return false;
+    if (this.virtualDown.has(action)) return true;
     for (const code of this.bindings[action]) if (this.down.has(code)) return true;
     return false;
   }
@@ -125,6 +162,7 @@ export class Input {
   /** True on the frame the action went down. Works even while UI has capture (for panel toggles). */
   wasPressed(action: ActionName, ignoreCapture = false): boolean {
     if (this.uiCapture && !ignoreCapture) return false;
+    if (this.virtualPressed.has(action)) return true;
     for (const code of this.bindings[action]) if (this.pressed.has(code)) return true;
     return false;
   }
@@ -134,8 +172,11 @@ export class Input {
     return false;
   }
 
-  /** Normalised movement vector from the four direction actions. */
+  /** Normalised movement vector from the four direction actions, or the stick. */
   moveVector(): Vec2 {
+    // The stick is analog: a light push walks, a full push runs. Ignoring the
+    // magnitude is the single thing that makes a virtual stick feel wrong.
+    if (this.stick && !this.uiCapture) return { x: this.stick.x, y: this.stick.y };
     let x = 0;
     let y = 0;
     if (this.isDown('left')) x -= 1;
@@ -157,6 +198,7 @@ export class Input {
   endFrame(): void {
     this.pressed.clear();
     this.released.clear();
+    this.virtualPressed.clear();
     this.mousePressed = [false, false, false];
     this.wheel = 0;
   }

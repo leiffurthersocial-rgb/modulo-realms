@@ -60,6 +60,14 @@ export default function HelpPanel({ game }: { game: Game }) {
                   Everything in this game can be played from the keyboard alone, which is what makes it comfortable on
                   a tablet with a keyboard case. A mouse works if you have one, but nothing needs it.
                 </P>
+                <P>
+                  It also plays by touch. On a phone or a tablet the on-screen controls come up by themselves — a
+                  thumbstick on the left and the buttons on the right — and you can turn them on or off at any time
+                  under <b>Settings &rarr; Controls</b>. The stick is analog, so a light push walks and a full push
+                  runs, and it recentres wherever your thumb lands rather than making you find the middle of it. You
+                  can hold the stick and hammer a button at the same time; they are separate fingers and the game
+                  treats them as separate.
+                </P>
 
                 <H>Staying alive</H>
                 <P>

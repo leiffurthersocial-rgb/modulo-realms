@@ -226,7 +226,20 @@ export class Game implements WorldCtx {
    * cut, and ambient weather stops. The world, the rules and the art are
    * unchanged — it only spends less to show them.
    */
-  settings = { master: 0.8, music: 0.4, sfx: 0.65, uiScale: 1, showDamage: true, batterySaver: false };
+  /**
+   * `touchControls` starts on wherever the primary input is a finger, so a
+   * phone or a tablet is playable the moment it loads rather than after a trip
+   * to the settings panel. It is a plain toggle after that, either way.
+   */
+  settings = {
+    master: 0.8,
+    music: 0.4,
+    sfx: 0.65,
+    uiScale: 1,
+    showDamage: true,
+    batterySaver: false,
+    touchControls: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
+  };
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;

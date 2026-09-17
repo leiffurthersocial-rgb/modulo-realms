@@ -62,7 +62,8 @@ Saves live in the visitor's own `localStorage`, so there is no backend and no da
 ## Controls
 
 The game is built to be **fully playable with a keyboard alone** — no mouse required, which
-also makes it comfortable on an iPad with a keyboard case.
+also makes it comfortable on an iPad with a keyboard case. It is also **fully playable by
+touch**: see [On-screen controls](#on-screen-controls) below.
 
 **Aiming is automatic.** You never point at anything. Attacks, spells and abilities lock onto
 the nearest enemy, projectiles you fire curve toward whatever they are closest to, and
@@ -82,6 +83,33 @@ shows what you are locked onto. A mouse still works if you want it, but nothing 
 | `1` `2` `3` `4` | Class abilities |
 | `Shift` | Dodge roll (brief invulnerability, costs stamina) |
 | `E` | Interact: talk, open, enter, use a waystone |
+
+### On-screen controls
+
+On a device whose primary input is a finger (`matchMedia('(pointer: coarse)')`) the on-screen
+controls come up automatically; everywhere else they are off. Either way they are a toggle
+under **Settings → Controls**, and keyboard and mouse keep working alongside them.
+
+A thumbstick sits bottom-left and the buttons bottom-right: the five class abilities on the top
+row, then the weapon art / artifact / potion / off-hand, then USE, ROLL, HEAVY and a large
+ATTACK. Bag, map and pause sit beside the minimap.
+
+Three details are what make a virtual pad feel right rather than merely present, and all three
+are deliberate here:
+
+- **The stick is analog.** A light push walks, a full push runs. `Input.moveVector()` returns
+  the stick's magnitude rather than a normalised direction.
+- **It recentres under the thumb that grabbed it**, so you never have to look down to find the
+  middle of it.
+- **Every control tracks its own pointer id** and uses `setPointerCapture`, so the stick and a
+  button are genuinely independent — running while holding attack and tapping a potion is three
+  fingers and three separate facts. Nothing synthesises key events; the controls write straight
+  into `Input` through `setVirtual`, which `isDown` and `wasPressed` read alongside the keyboard.
+
+`touch-action: none` is set on the page and on every control: without it the browser spends
+300ms deciding whether a press was a scroll, and a drag across the world becomes a page scroll.
+While the pad is up, `Input.touchMode` suppresses synthesised mouse buttons, so a tap on the
+scenery does not also swing the weapon.
 
 ### Menus
 

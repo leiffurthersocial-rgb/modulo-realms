@@ -22,6 +22,7 @@ import ForgePanel from './ui/ForgePanel';
 import PausePanel from './ui/PausePanel';
 import HelpPanel from './ui/HelpPanel';
 import LootPanel from './ui/LootPanel';
+import TouchControls from './ui/TouchControls';
 import SettingsPanel from './ui/SettingsPanel';
 import DeathScreen from './ui/DeathScreen';
 
@@ -154,9 +155,14 @@ function UiLayer({ game }: { game: Game }) {
     );
   }
 
+  // `touchMode` on the input stops a tap on the scenery also swinging the
+  // weapon, and the class hides the keyboard hint and the desktop ability bar.
+  game.input.touchMode = game.settings.touchControls;
+
   return (
-    <div className="overlay">
+    <div className={`overlay${game.settings.touchControls ? ' touch-on' : ''}`}>
       <Hud game={game} />
+      {game.settings.touchControls ? <TouchControls game={game} /> : null}
       {game.dialogue ? <DialoguePanel game={game} /> : null}
       {game.panel === 'inventory' ? <InventoryPanel game={game} /> : null}
       {game.panel === 'character' ? <CharacterPanel game={game} /> : null}

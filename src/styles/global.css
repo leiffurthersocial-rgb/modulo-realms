@@ -36,7 +36,11 @@
 
 html, body, #root {
   height: 100%;
-  touch-action: manipulation;
+  /* `none`, not `manipulation`: a drag across the world must never become a
+     page scroll or a pinch-zoom, and the double-tap-to-zoom delay makes every
+     on-screen button feel broken. */
+  touch-action: none;
+  overscroll-behavior: none;
   margin: 0;
   overflow: hidden;
   background: #07060b;
@@ -1137,3 +1141,109 @@ canvas.world {
   gap: 10px; margin-bottom: 18px;
 }
 .retrain-grid .pick-card:disabled { cursor: default; }
+
+/* ---------------- on-screen controls ---------------- */
+
+/*
+ * The whole layer is pointer-transparent except the controls themselves, so a
+ * tap between the stick and the buttons still reaches the world. `touch-action:
+ * none` is on every interactive piece: without it the browser spends 300ms
+ * deciding whether a press was a scroll, and the pad feels broken rather than
+ * slow.
+ */
+.touch-layer { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.touch-layer * { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+.touch-left { position: absolute; left: 20px; bottom: 20px; pointer-events: auto; }
+.touch-stick {
+  position: relative; width: 160px; height: 160px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle, rgba(30, 24, 40, 0.5), rgba(12, 9, 18, 0.32));
+  border: 1px solid rgba(232, 194, 122, 0.22);
+  transition: border-color 0.12s, background 0.12s;
+}
+.touch-stick.active { border-color: rgba(232, 194, 122, 0.55); background: radial-gradient(circle, rgba(44, 34, 58, 0.62), rgba(12, 9, 18, 0.4)); }
+.touch-stick-ring {
+  position: absolute; width: 116px; height: 116px; border-radius: 50%;
+  border: 1px dashed rgba(232, 194, 122, 0.18);
+}
+.touch-stick-knob {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(180deg, rgba(86, 70, 108, 0.92), rgba(30, 24, 40, 0.92));
+  border: 1px solid rgba(232, 194, 122, 0.5);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
+}
+
+.touch-right { position: absolute; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 9px; align-items: flex-end; }
+.touch-row { display: flex; gap: 9px; align-items: flex-end; pointer-events: none; }
+.touch-row.main { align-items: center; }
+/* Alongside the minimap rather than under it: on a landscape phone the screen
+   is only ~400px tall and the right-hand button stack reaches most of the way
+   up it. */
+.touch-menus { position: absolute; right: 178px; top: 14px; display: flex; gap: 7px; }
+
+.touch-btn {
+  pointer-events: auto; position: relative;
+  display: grid; place-items: center;
+  width: 62px; height: 62px; border-radius: 50%;
+  background: linear-gradient(180deg, rgba(44, 34, 58, 0.86), rgba(18, 14, 26, 0.86));
+  border: 1px solid rgba(232, 194, 122, 0.34);
+  color: var(--parchment); font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.06em; cursor: pointer;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5);
+  transition: transform 0.06s, border-color 0.1s, background 0.1s;
+}
+.touch-btn img { width: 34px; height: 34px; image-rendering: pixelated; pointer-events: none; }
+.touch-btn .touch-btn-label { pointer-events: none; }
+.touch-btn.held { transform: scale(0.93); border-color: var(--gold); background: linear-gradient(180deg, rgba(70, 54, 90, 0.92), rgba(28, 22, 38, 0.92)); }
+.touch-btn.off { opacity: 0.32; }
+.touch-btn.big { width: 108px; height: 108px; font-size: 12.5px; border-color: rgba(232, 118, 58, 0.55); }
+.touch-btn.big img { width: 46px; height: 46px; }
+.touch-btn.med { width: 74px; height: 74px; }
+.touch-btn.wide { width: 74px; height: 74px; }
+.touch-btn.small { width: 56px; height: 56px; }
+.touch-btn.small img { width: 30px; height: 30px; }
+.touch-btn.tiny { width: 48px; height: 48px; border-radius: 6px; font-size: 10px; }
+.touch-btn.relic { border-color: rgba(255, 79, 110, 0.55); }
+.touch-cd {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  border-radius: 50%; background: rgba(8, 6, 12, 0.66);
+  font-size: 15px; color: var(--parchment); pointer-events: none;
+}
+.touch-btn.tiny .touch-cd { border-radius: 6px; }
+
+/* The keyboard hint and the desktop ability bar are noise once the pad is up. */
+.touch-on .hud-hint, .touch-on .hud-abilities { display: none; }
+.touch-on .quest-tracker { top: 178px; }
+/* The left rail has a thumbstick under it now. */
+.touch-on .toasts { max-height: calc(100% - 380px); width: 236px; }
+
+/*
+ * A landscape phone is about 360px tall, and three rows of buttons plus a
+ * thumbstick is most of that. Everything shrinks, the journal gets out of the
+ * way (it is one tap away on the BAG row), and the vitals panel scales down
+ * from its own corner rather than being redesigned.
+ */
+@media (max-height: 560px) {
+  .touch-on .quest-tracker { display: none; }
+  .touch-on .hud-left { transform: scale(0.78); transform-origin: top left; }
+  .touch-on .toasts { top: 128px; max-height: calc(100% - 300px); width: 210px; }
+  .touch-on .toast { padding: 5px 9px; }
+  .touch-on .toast .t-sub { display: none; }
+  .touch-menus { right: 172px; }
+  .touch-btn.tiny { width: 42px; height: 42px; font-size: 9.5px; }
+  .touch-left { left: 14px; bottom: 12px; }
+  .touch-right { right: 12px; bottom: 12px; gap: 7px; }
+  .touch-row { gap: 7px; }
+  .touch-stick { width: 132px; height: 132px; }
+  .touch-stick-ring { width: 96px; height: 96px; }
+  .touch-stick-knob { width: 54px; height: 54px; }
+  .touch-btn { width: 50px; height: 50px; font-size: 10px; }
+  .touch-btn img { width: 28px; height: 28px; }
+  .touch-btn.big { width: 84px; height: 84px; font-size: 11px; }
+  .touch-btn.big img { width: 38px; height: 38px; }
+  .touch-btn.med, .touch-btn.wide { width: 58px; height: 58px; }
+  .touch-btn.small { width: 44px; height: 44px; }
+  .touch-btn.small img { width: 24px; height: 24px; }
+  .touch-cd { font-size: 13px; }
+}

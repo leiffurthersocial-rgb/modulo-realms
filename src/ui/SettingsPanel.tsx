@@ -63,6 +63,23 @@ export default function SettingsPanel({ game, onClose }: { game: Game; onClose: 
           </div>
 
           <div className="section-h">Controls</div>
+          <div className="setting-row">
+            <label htmlFor="touch">On-screen controls</label>
+            <input
+              id="touch"
+              type="checkbox"
+              checked={s.touchControls}
+              onChange={(e) => set({ touchControls: e.target.checked })}
+              style={{ accentColor: 'var(--gold)', width: 18, height: 18 }}
+            />
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6, margin: '-4px 0 12px' }}>
+            A thumbstick and buttons for playing by touch. On by default on a phone or tablet.
+            The stick is analog — a light push walks, a full push runs — and it recentres wherever
+            your thumb lands, so you never have to look for it. Keyboard and mouse keep working
+            either way.
+          </div>
+
           <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.85, columns: 2 }}>
             {(Object.keys(DEFAULT_BINDINGS) as Array<keyof typeof DEFAULT_BINDINGS>).map((k) => (
               <div key={k}>

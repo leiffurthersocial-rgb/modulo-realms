@@ -230,6 +230,7 @@ export interface StoredSettings {
   uiScale: number;
   showDamage: boolean;
   batterySaver?: boolean;
+  touchControls?: boolean;
 }
 
 export function loadSettings(): StoredSettings | null {
