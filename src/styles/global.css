@@ -139,6 +139,10 @@ canvas.world {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn.small { padding: 5px 10px; font-size: 11.5px; }
 
+/* extra header actions ride next to the close button without disturbing the
+   title/subtitle spacing of every other panel */
+.panel-title .title-actions { display: flex; align-items: center; gap: 10px; }
+
 .close-x {
   background: none;
   border: none;

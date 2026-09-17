@@ -45,6 +45,15 @@ export interface Pickup {
   item: Item | null;
   gold: number;
   life: number;
+  /**
+   * Set on anything the player put down by hand. While it is set the item is
+   * inert — no magnet, no collecting — and it clears the first time the player
+   * is properly clear of it. Without this the pickup magnet sucks a dropped
+   * item straight back in and dropping does nothing at all. A timer would not
+   * do: the bag pauses the world but not the clock, so it would expire while
+   * the player is still standing in the menu.
+   */
+  needsRelease?: boolean;
 }
 
 export interface ChestEntity {
@@ -849,7 +858,10 @@ export class Game implements WorldCtx {
 
   /* ---------------- pickups ---------------- */
 
-  dropPickup(x: number, y: number, item: Item | null, gold: number): void {
+  /** How far the player must get from a dropped item before it can be retrieved. */
+  readonly dropReleaseDist = 96;
+
+  dropPickup(x: number, y: number, item: Item | null, gold: number, byHand = false): void {
     if (!item && gold <= 0) return;
     // A good drop announces itself the instant it hits the ground, not when
     // you happen to walk over it.
@@ -875,6 +887,7 @@ export class Game implements WorldCtx {
       vy: Math.sin(a) * 40,
       item, gold,
       life: 180,
+      needsRelease: byHand || undefined,
     });
   }
 
@@ -1515,8 +1528,78 @@ export class Game implements WorldCtx {
   dropItem(uid: string): void {
     const item = removeItem(this.player.inventory, uid, 999);
     if (!item) return;
-    this.dropPickup(this.player.x, this.player.y + 12, item, 0);
+    // thrown clear of the player, and inert long enough to walk away from
+    const a = this.aim + Math.PI * (0.75 + Math.random() * 0.5);
+    this.dropPickup(this.player.x + Math.cos(a) * 34, this.player.y + 12 + Math.sin(a) * 18, item, 0, true);
+    this.toast(`Dropped ${item.name}`, 'Step away and it will stay put.', PAL.fog, item.icon);
+    audio.play('ui', 0.5);
     this.touch();
+  }
+
+  /**
+   * What a merchant would pay, times this. Scrapping something in the field
+   * is convenience, not commerce: you get roughly half what the same item is
+   * worth over a counter, so clearing junk on the road is always an option
+   * and hauling the good stuff back to a shop is always worth the walk.
+   */
+  readonly scrapRate = 0.5;
+
+  /** Gold a quick sell would pay for this item, whole stack included. */
+  scrapValue(item: Item): number {
+    return Math.max(1, Math.round(sellValue(item, 1) * this.scrapRate));
+  }
+
+  /** Sell straight out of the pack, no merchant required. */
+  scrapItem(uid: string): boolean {
+    const p = this.player;
+    const held = p.inventory.find((i) => i.uid === uid);
+    if (!held) return false;
+    if (held.type === 'quest') {
+      this.toast('Not for sale', 'Quest items stay in the pack.', '#d9553f');
+      return false;
+    }
+    const paid = this.scrapValue(held);
+    const item = removeItem(p.inventory, uid, 999);
+    if (!item) return false;
+    p.gold += paid;
+    this.floatText(p.x, p.y - 40, `+${paid}g`, PAL.goldLit, 13);
+    this.toast(`Sold ${item.name}`, `${paid} gold — half of what a merchant pays.`, PAL.gold, 'gold');
+    audio.play('gold', 0.55);
+    this.touch();
+    return true;
+  }
+
+  /**
+   * "Junk" is common and rare gear sitting in the pack. Anything SuperRare or
+   * better, anything equipped, and every potion, material and quest item is
+   * left alone — clearing the bag should never be the thing that loses you a
+   * drop you meant to keep.
+   */
+  junkInPack(): Item[] {
+    return this.player.inventory.filter(
+      (i) => (i.type === 'weapon' || i.type === 'armor' || i.type === 'accessory')
+        && (i.rarity === 'common' || i.rarity === 'rare'),
+    );
+  }
+
+  /** Sell every piece of junk at once. Returns what it cleared and earned. */
+  scrapJunk(): { count: number; gold: number } {
+    const junk = this.junkInPack();
+    if (!junk.length) {
+      this.toast('Nothing to sell', 'No common or rare gear in the pack.', PAL.fog);
+      return { count: 0, gold: 0 };
+    }
+    let gold = 0;
+    for (const it of junk) {
+      gold += this.scrapValue(it);
+      removeItem(this.player.inventory, it.uid, 999);
+    }
+    this.player.gold += gold;
+    this.floatText(this.player.x, this.player.y - 40, `+${gold}g`, PAL.goldLit, 15);
+    this.toast(`Sold ${junk.length} pieces`, `${gold} gold. SuperRare and better were kept.`, PAL.gold, 'gold');
+    audio.play('gold', 0.7);
+    this.touch();
+    return { count: junk.length, gold };
   }
 
   moveToStorage(uid: string): void {
@@ -2673,10 +2756,13 @@ export class Game implements WorldCtx {
   private updateProjectiles(dt: number): void {
     for (const pr of this.projectiles) {
       if (pr.dead) continue;
-      // friendly shots gently home, so auto-aim stays true even if the target moves
+      // Friendly shots correct slightly, so auto-aim stays true against a
+      // target that steps aside. The window is deliberately short: over a
+      // 500-pixel flight a wide homing radius turns every arrow into a guided
+      // missile that curves across the field at whatever it passes.
       if (pr.friendly && (pr.homing ?? 1) > 0) {
         let best: Enemy | null = null;
-        let bestD = 340;
+        let bestD = 150;
         for (const e of this.enemies) {
           if (e.dead || e.friendly || pr.hits.has(e.id)) continue;
           const d = dist(pr.x, pr.y, e.x, e.y);
@@ -2685,7 +2771,7 @@ export class Game implements WorldCtx {
         if (best) {
           const want = angleTo(pr.x, pr.y, best.x, best.y - best.radius * 0.3);
           let delta = ((want - pr.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-          const turn = Math.min(Math.abs(delta), 5.5 * (pr.homing ?? 1) * dt) * Math.sign(delta);
+          const turn = Math.min(Math.abs(delta), 3.2 * (pr.homing ?? 1) * dt) * Math.sign(delta);
           pr.angle += turn;
           pr.vx = Math.cos(pr.angle) * pr.speed;
           pr.vy = Math.sin(pr.angle) * pr.speed;
@@ -2781,6 +2867,12 @@ export class Game implements WorldCtx {
         if (it.z <= 0) { it.z = 0; it.vz = 0; }
       }
       const d = dist(it.x, it.y, p.x, p.y);
+      // an item you put down by hand neither magnetises nor collects until
+      // you have actually walked away from it
+      if (it.needsRelease) {
+        if (d > this.dropReleaseDist) it.needsRelease = undefined;
+        continue;
+      }
       if (d < 78) {
         const pull = 260 * dt * (1 - d / 78 + 0.35);
         const a = angleTo(it.x, it.y, p.x, p.y);

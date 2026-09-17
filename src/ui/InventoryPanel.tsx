@@ -24,6 +24,8 @@ export default function InventoryPanel({ game }: { game: Game }) {
   const stats = p.stats();
 
   const items = p.inventory.filter((i) => filter === 'all' || i.type === filter);
+  const junk = game.junkInPack();
+  const junkGold = junk.reduce((a, i) => a + game.scrapValue(i), 0);
   const sel = p.inventory.find((i) => i.uid === selected) ?? null;
   const compare = sel?.slot ? p.equipment[sel.slot] : null;
 
@@ -33,7 +35,17 @@ export default function InventoryPanel({ game }: { game: Game }) {
         <div className="panel-title">
           <span>Pack</span>
           <span className="sub">{p.inventory.length}/40 slots &middot; {p.gold} gold</span>
-          <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
+          <span className="title-actions">
+            <button
+              className="btn small"
+              disabled={!junk.length}
+              title="Sell every common and rare piece of gear. Anything SuperRare or better is kept."
+              onClick={() => { game.scrapJunk(); setSelected(null); }}
+            >
+              {junk.length ? <>Sell junk &middot; {junk.length} for {junkGold}g</> : 'No junk'}
+            </button>
+            <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
+          </span>
         </div>
 
         <div className="inv-layout">
@@ -100,6 +112,15 @@ export default function InventoryPanel({ game }: { game: Game }) {
                     ) : null}
                     {sel.consume ? (
                       <button className="btn small" onClick={() => { p.quickItem = sel.defId; game.touch(); }}>Bind to Q</button>
+                    ) : null}
+                    {sel.type !== 'quest' ? (
+                      <button
+                        className="btn small"
+                        title="Sell without a merchant, for half what a shop would pay"
+                        onClick={() => { game.scrapItem(sel.uid); setSelected(null); }}
+                      >
+                        Sell &middot; {game.scrapValue(sel)}g
+                      </button>
                     ) : null}
                     {sel.type !== 'quest' ? (
                       <button className="btn small danger" onClick={() => { game.dropItem(sel.uid); setSelected(null); }}>Drop</button>

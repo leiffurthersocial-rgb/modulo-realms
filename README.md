@@ -183,6 +183,13 @@ anything you carry and he has it remade **one rarity grade finer**, with an extr
 slot and fresh rolls. It is the only way to push gear you chose up to Legendary instead of
 waiting for the drop you wanted.
 
+**Selling and dropping.** Anything in the pack can be sold on the spot for **half what a merchant
+would pay** — convenience, not commerce, so clearing junk on the road is always an option and
+hauling the good pieces back to a shop is always worth the walk. **Sell junk** clears every common
+and rare piece of gear in one press and never touches anything SuperRare or better, or your
+potions, materials and quest items. Dropping throws an item clear of you and leaves it inert until
+you have walked away from it, so the pickup magnet cannot suck it straight back in.
+
 **Saving.** The game autosaves on a timer and at transitions, and always on quitting to the
 title screen. Continue from the title screen picks up where you left off.
 
@@ -203,7 +210,14 @@ Each kind carries its own reach, swing rate and **swing arc**: a greatsword, gre
 scythe cuts a wide sweep through a rank, while a dagger or a rapier is a thrust that only touches
 what it is pointed at. Bows, crossbows and casting weapons fire a projectile whose flight is
 exactly the weapon's listed range — auto-aim never locks onto something further than the shot can
-actually reach.
+actually reach, and a shot crosses the whole visible screen.
+
+**Every weapon is priced off one DPS budget**, so no kind is quietly the right answer. A weapon's
+damage is solved from its own attack speed against a target set by its level and rarity, which is
+why a maul hits for three times a rapier's swing and lands a third as often. Melee is the yardstick
+at 1.0; a **sweeping** kind takes 0.92 of it and gets the rank it cuts through instead; a **thrust**
+takes 1.05 for being single-target. **Ranged pays for its reach at 0.70**, and **magic sits at
+0.78** because its bolts splash. Standing in danger is what you get paid for.
 
 ### Slots
 

@@ -76,7 +76,9 @@ function baseTerrain(ctx: GenCtx) {
         }
         case REGION_EAST: {
           if (e + rim * 0.5 > 0.76) tile = T.MOUNTAIN;
-          else if (e < 0.4 && m > 0.46) tile = T.SWAMP_WATER;
+          // the mire is meant to be wet, but standing bog is impassable, so
+          // it is kept to genuinely low, genuinely damp ground
+          else if (e < 0.33 && m > 0.58) tile = T.SWAMP_WATER;
           else if (m > 0.58) tile = T.SWAMP_GROUND;
           else if (m < 0.32) tile = T.MUD;
           else tile = T.SWAMP_GROUND;
@@ -101,8 +103,12 @@ function baseTerrain(ctx: GenCtx) {
         }
         default: {
           if (e + rim * 0.5 > 0.8) tile = T.MOUNTAIN;
-          else if (e < 0.32) tile = T.WATER;
-          else if (e < 0.35) tile = T.SAND;
+          // The home valley is where the player spends the first ten levels
+          // and is the one region that must never generate as a lake district.
+          // Standing water needs genuinely low ground; the rivers and the two
+          // placed lakes supply all the water this region needs.
+          else if (e < 0.235) tile = T.WATER;
+          else if (e < 0.26) tile = T.SAND;
           else if (m > 0.68) tile = T.GRASS_DARK;
           else if (m > 0.655) tile = T.FLOWERS;
           else if (m > 0.6) tile = T.TALL_GRASS;

@@ -148,7 +148,7 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
   // own front door off from the square. Ground is filled solid out to the lane
   // and the lake edge is feathered beyond it, so a river still runs past the
   // town without running through the doorsteps.
-  drainFor(map, CX, CY, 34, 46);
+  drainFor(map, CX, CY, 48, 66);
 
   // A tight paved square with a short spoke out to each service door. Paving
   // the whole ring turned the town into one grey slab; this way the stone
