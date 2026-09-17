@@ -4,7 +4,7 @@ export type ActionName =
   | 'up' | 'down' | 'left' | 'right'
   | 'attack' | 'heavy' | 'offhand' | 'artifact' | 'potion'
   | 'interact' | 'inventory' | 'map' | 'quests' | 'character' | 'skills'
-  | 'pause' | 'dash' | 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'debug' | 'minimap' | 'travel';
+  | 'pause' | 'dash' | 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'slot5' | 'debug' | 'minimap' | 'travel';
 
 export const DEFAULT_BINDINGS: Record<ActionName, string[]> = {
   up: ['KeyW', 'ArrowUp'],
@@ -28,6 +28,7 @@ export const DEFAULT_BINDINGS: Record<ActionName, string[]> = {
   slot2: ['Digit2'],
   slot3: ['Digit3'],
   slot4: ['Digit4'],
+  slot5: ['Digit5'],
   debug: ['F3'],
   minimap: ['KeyN'],
   travel: ['KeyT'],

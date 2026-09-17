@@ -102,7 +102,7 @@ export default function HelpPanel({ game }: { game: Game }) {
                   [key('heavy'), 'Heavy attack — slower, much harder, and it costs stamina'],
                   [key('offhand'), 'Off-hand: hold to block with a shield, tap to use a tome or brand. With nothing in that hand it drinks a potion'],
                   [key('artifact'), "Your artifact's power, if you have one equipped"],
-                  ['1 2 3 4', 'Your four class abilities, unlocked as you level'],
+                  ['1 2 3 4 5', 'Your five class abilities, unlocked as you level — the last at 22'],
                 ]} />
 
                 <H>Melee and ranged are a real choice</H>
@@ -191,6 +191,16 @@ export default function HelpPanel({ game }: { game: Game }) {
                   into any of it — the world gates itself by what lives there, not by walls.
                 </P>
                 <P>
+                  North of the Crag Reach the map keeps going. Past the Frostmarch the ground turns to glacier and the
+                  Jotunreach begins: one inhabited hold, four ways underground, and a level band that starts where
+                  everything else in the world ends. Ask the clanmother in Northwatch what the door at the top of the
+                  world is for. She will tell you, eventually.
+                </P>
+                <P>
+                  Nothing born on the glacier cares about cold. Frost weapons are most of what drops up there and they
+                  are the wrong answer against the giants — bring fire north.
+                </P>
+                <P>
                   Merchants follow the same rule. A cart parked at the mouth of a deadly dungeon sells far better gear
                   than the stall in your home square, and more of it. If you want something better to buy, walk
                   somewhere worse.
@@ -217,7 +227,12 @@ export default function HelpPanel({ game }: { game: Game }) {
                 <H>Levels and skill points</H>
                 <P>
                   Experience comes from fighting, finding places, and finishing bounties. Every level gives stats and a
-                  skill point. Each class has three talent branches and four abilities that unlock as you go.
+                  skill point. Each class has three talent branches and five abilities that unlock as you go — the last
+                  one at level 22, and it is worth waiting for.
+                </P>
+                <P>
+                  The game is built to be finished somewhere around level 34. Each talent branch runs four tiers deep,
+                  which is more points than you will have, so a build is a choice about what to leave out.
                 </P>
 
                 <H>Changing your mind</H>

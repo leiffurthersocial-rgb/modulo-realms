@@ -11,34 +11,41 @@ const KIND_COLOR: Record<string, string> = {
 
 export default function MapPanel({ game }: { game: Game }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [size, setSize] = useState(560);
   const world = game.maps.get('overworld')!;
+  // The world is taller than it is wide, so the sheet is drawn to the map's
+  // own aspect rather than to a square. Everything below positions in
+  // percentages of this box, so it follows whatever shape the world takes.
+  const [size, setSize] = useState({ w: 440, h: 605 });
   const inWorld = game.map.id === 'overworld';
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const src = getMinimap(world, 1);
-    const s = Math.min(window.innerHeight - 260, window.innerWidth - 420, 620);
-    setSize(s);
-    canvas.width = s;
-    canvas.height = s;
+    const aspect = world.w / world.h;
+    const maxH = Math.min(window.innerHeight - 260, 660);
+    const maxW = Math.min(window.innerWidth - 420, 660);
+    const h = Math.min(maxH, maxW / aspect);
+    const w = h * aspect;
+    setSize({ w, h });
+    canvas.width = w;
+    canvas.height = h;
     const g = canvas.getContext('2d')!;
     g.imageSmoothingEnabled = false;
     g.fillStyle = '#07060b';
-    g.fillRect(0, 0, s, s);
-    g.drawImage(src, 0, 0, s, s);
+    g.fillRect(0, 0, w, h);
+    g.drawImage(src, 0, 0, w, h);
     // fog over undiscovered ground
     g.save();
     g.globalCompositeOperation = 'source-atop';
     g.fillStyle = 'rgba(8,7,14,0.55)';
-    g.fillRect(0, 0, s, s);
+    g.fillRect(0, 0, w, h);
     g.restore();
     for (const loc of LOCATIONS) {
       if (!game.player.discovered.has(loc.id)) continue;
-      const x = (loc.tx / world.w) * s;
-      const y = (loc.ty / world.h) * s;
-      const r = ((loc.radius ?? 12) / world.w) * s * 3.4;
+      const x = (loc.tx / world.w) * w;
+      const y = (loc.ty / world.h) * h;
+      const r = ((loc.radius ?? 12) / world.w) * w * 3.4;
       const grad = g.createRadialGradient(x, y, 0, x, y, r);
       grad.addColorStop(0, 'rgba(255,240,210,0.22)');
       grad.addColorStop(1, 'rgba(255,240,210,0)');
@@ -67,7 +74,7 @@ export default function MapPanel({ game }: { game: Game }) {
         </div>
         <div className="map-panel">
           <div className="map-canvas-wrap" style={{ padding: 16 }}>
-            <div style={{ position: 'relative', width: size, height: size }}>
+            <div style={{ position: 'relative', width: size.w, height: size.h }}>
               <canvas ref={ref} style={{ position: 'absolute', inset: 0, border: '1px solid var(--edge)' }} />
               {LOCATIONS.filter((l) => game.player.discovered.has(l.id)).map((l) => {
                 const pos = toPct(l.tx, l.ty);

@@ -21,6 +21,10 @@ const THEMES: Record<DungeonSpec['theme'], Theme> = {
   tomb: { floor: T.SAND_FLOOR, wall: T.SAND_WALL, accent: T.RUNE_FLOOR, props: ['coffin', 'pillar', 'rubble', 'bone_pile', 'crate', 'statue'], torch: 'brazier', torchColor: '#f6bf5d', darkness: 0.8, music: 'dungeon' },
   spire: { floor: T.TOWER_FLOOR, wall: T.TOWER_WALL, accent: T.RUNE_FLOOR, props: ['bookshelf', 'crystal', 'obelisk', 'dungeon_pillar', 'alchemy_table', 'rubble'], torch: 'crystal', torchColor: '#9578e8', darkness: 0.82, music: 'dungeon' },
   mine: { floor: T.CAVE_FLOOR, wall: T.CAVE_WALL, accent: T.GRAVEL, props: ['ore_vein', 'stalagmite', 'crate', 'rubble', 'rock_big', 'mushroom_cluster'], torch: 'torch', torchColor: '#e8763a', darkness: 0.88, music: 'dungeon' },
+  // The glacier interiors. ICE_FLOOR/ICE_WALL already existed in the tileset
+  // and had never been used by anything — adding a theme is one line here.
+  glacier: { floor: T.ICE_FLOOR, wall: T.ICE_WALL, accent: T.RUNE_FLOOR, props: ['crystal', 'stalagmite', 'rubble', 'rock_big', 'obelisk', 'bone_pile'], torch: 'crystal', torchColor: '#6fd0e8', darkness: 0.7, music: 'dungeon' },
+  barrow: { floor: T.CRYPT_FLOOR, wall: T.ICE_WALL, accent: T.RUNE_FLOOR, props: ['coffin', 'gravestone', 'bone_pile', 'dungeon_pillar', 'obelisk', 'skull_none'], torch: 'brazier', torchColor: '#6fd0e8', darkness: 0.84, music: 'dungeon' },
 };
 
 interface Room {

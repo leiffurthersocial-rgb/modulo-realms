@@ -380,13 +380,41 @@ rate; lighting is a single composited offscreen buffer.
 
 ## Extending the game
 
+### The balance curves — read this first
+
+`src/data/balance.ts` is the single source of truth for how strong anything is, and almost all
+of the extension points below are wired into it. It holds:
+
+| Export | What it decides |
+| --- | --- |
+| `meleeDpsAt(level)` | The damage-per-second every weapon in the game is priced against |
+| `CLASS_POWER` / `SHAPE_POWER` | What ranged and magic pay for reach, and what a sweeping weapon pays for its arc |
+| `weaponDamage(kind, level, rarity, speed)` | Damage per swing, solved from the above |
+| `armorDefenseAt(level, rarity)` | The armour curve |
+| `enemyHealthAt/DamageAt/DefenseAt/XpAt(level, role)` | The bestiary curves, by role |
+| `LEVEL_BANDS` | Which region is built for which levels |
+| `ENDGAME_LEVEL` | The level the game is built to be finished at |
+
+This is what makes adding content safe rather than a guess. You never write a damage number,
+so you cannot accidentally author a level-13 rapier worth twice a level-13 maul. To check a
+change, run:
+
+```bash
+npx tsx scripts/check-balance.ts
+```
+
+It prints every weapon, suit of armour and enemy as a multiple of its budget, and flags
+anything out of band. Weapons and armour should all read `x1.00`; enemies are hand-written and
+are allowed to wander, within reason.
+
 ### Add an item
 
 `src/data/items.ts`. Use the `W` (weapon), `A` (armour) or `ART` (artifact) helpers, or write
 the object out for anything unusual:
 
 ```ts
-W('sword_ember', 'Emberbrand', 'sword', 9, 24, 1.3, 52, {
+// id, name, kind, LEVEL, attacks per second, reach in pixels
+W('sword_ember', 'Emberbrand', 'sword', 9, 1.3, 52, {
   metal: PAL.flame,
   glow: PAL.ember,
   rarity: 'superRare',
@@ -394,6 +422,14 @@ W('sword_ember', 'Emberbrand', 'sword', 9, 24, 1.3, 52, {
   fixedEnchants: [{ id: 'fire_aspect', level: 1 }],
 })
 ```
+
+There is deliberately no damage argument — it is solved from the level, the rarity and the
+swing speed. Armour works the same way: `A(id, name, level, weight, look, extra)`, where
+`weight` is one of `ROBE`, `LIGHT`, `MAIL` or `PLATE`.
+
+One trap worth knowing: in both helpers `...extra` is spread **before** `stats`. Spread after,
+an `extra.stats` object replaces the whole merged block and silently strips the speed, reach
+and damage off the item.
 
 Anything not marked `noDrop` joins the random loot tables automatically; add `regions: ['north']`
 to lock it to one region.
@@ -409,9 +445,28 @@ read it in `Game.applyHitEffects`, `Game.killEnemy` or `Game.damagePlayer` with
 ### Add an enemy
 
 `src/data/enemies.ts`. Humanoids reuse the character generator via `look`; everything else
-picks a `creature` kind and palette. Bosses add a `boss` block with phases and telegraphed
-attacks. Then reference the id from a region spawn table in `worldgen.ts` or a dungeon's
-`enemies` list in `src/data/locations.ts`.
+picks a `creature` kind and palette. Decide its level and its **role** — `skirmisher`,
+`standard`, `brute`, `elite` or `boss` — and take its health, damage, defense and xp from the
+curves rather than inventing them:
+
+```ts
+// a level-24 brute
+health: enemyHealthAt(24, 'brute'),   // 1317
+damage: enemyDamageAt(24, 'brute'),   // 78
+defense: enemyDefenseAt(24, 'brute'), // 58
+xp: enemyXpAt(24, 'brute'),           // 562
+```
+
+Then reference the id from a region spawn table in `worldgen.ts` or a dungeon's `enemies` list
+in `src/data/locations.ts`, and run `check-balance.ts`.
+
+Bosses add a `boss` block: `phases` (each with the health fraction that triggers it, a speed
+and damage multiplier, a shout and an optional arena hazard) and `attacks` (each with a
+`shape` — `circle`, `cone`, `line`, `ring`, `projectile`, `summon`, `dash` or `rain` — a
+telegraph `windup`, a `cooldown`, a `power` multiplier, and an optional `phase` it unlocks at).
+Everything about a boss fight is data; `src/game/entities/enemy.ts` reads it and does not need
+touching. Aldrhrim at the Last Gate is five phases and eleven attacks and is still only a data
+entry.
 
 ### Add an NPC
 
@@ -443,7 +498,33 @@ is the contract that tells the player which doors are worth trying.
 
 `src/data/locations.ts`. A `dungeon` block gives it a generated interior — theme, room count,
 enemy list, optional boss and miniboss — and `worldgen.ts` will place its entrance, braziers,
-signpost and waystone automatically.
+signpost and waystone automatically. Add a road to it in `generateOverworld`'s `road(...)` list
+so it joins the network, and `ensureConnectivity` guarantees the player can physically walk
+there whatever the noise generated.
+
+New dungeon themes are one line in `THEMES` in `src/game/world/dungeons.ts`: floor tile, wall
+tile, prop list, light source and darkness.
+
+### Add a region
+
+Six steps, all data:
+
+1. `src/data/balance.ts` — add the region and its level band to `LEVEL_BANDS`, and raise
+   `ENDGAME_LEVEL` if it extends the game.
+2. `src/data/locations.ts` — add it to `RegionId` and to `REGIONS` with the next free `index`.
+   The `index` must match the `REGION_*` constant you add in step 3.
+3. `src/game/world/worldgen.ts` — add `export const REGION_YOURS = <index>`, return it from
+   `regionAt` for the ground it owns, give it a `case` in `baseTerrain` (its biome), in
+   `scatterProps` (its scenery) and in `regionGround` (what water is filled in with), and add
+   a `REGION_SPAWNS` entry.
+4. `src/data/locations.ts` again — place its settlements, dungeons, camps and landmarks.
+5. `src/game/world/worldgen.ts` — one `road(...)` line in, and a few onward.
+6. `src/data/npcs.ts` — somebody who lives there, and somebody further south who hints at it.
+
+The Jotunreach (`deepnorth`) was added exactly this way and is worth reading as a worked
+example. Note that the world is 512 tiles wide and 704 tall — it grew northward rather than
+outward, so it is not square, and anything that draws the whole map reads `map.w`/`map.h`
+rather than assuming one number.
 
 ---
 

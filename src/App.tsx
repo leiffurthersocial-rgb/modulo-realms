@@ -4,6 +4,7 @@ import { render } from './game/core/renderer';
 import { audio } from './game/audio/audio';
 import { TILES } from './game/world/tiles';
 import { ALL_TEMPLATES } from './data/items';
+import { LOCATIONS } from './data/locations';
 import { hasSave, loadGame, loadSettings, saveGame, saveSettings } from './game/save/save';
 import TitleScreen from './ui/TitleScreen';
 import CharacterCreation from './ui/CharacterCreation';
@@ -79,6 +80,8 @@ export default function App() {
     // the tile table too, so a smoke test can walk the map without guessing ids
     (window as unknown as { moduloTiles: typeof TILES }).moduloTiles = TILES;
     (window as unknown as { moduloTemplates: typeof ALL_TEMPLATES }).moduloTemplates = ALL_TEMPLATES;
+    // and the location table, so a test can assert every named place is reachable
+    (window as unknown as { moduloLocations: typeof LOCATIONS }).moduloLocations = LOCATIONS;
 
     setGame(g);
     return () => {

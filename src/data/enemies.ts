@@ -336,6 +336,150 @@ export const ENEMIES: EnemyDef[] = [
     drops: [{ item: 'q_ice_core', chance: 1 }, { item: 'mat_crystal', chance: 1, min: 2, max: 4 }],
     lootChance: 1, lootBias: 0.6, tags: ['construct'],
   },
+
+  /* ---------------------------------------------------------------- */
+  /* The Jotunreach — levels 20 to 30                                  */
+  /*                                                                   */
+  /* Every line below was priced off enemyHealthAt/enemyDamageAt in    */
+  /* balance.ts for the level and role written in its comment, which   */
+  /* is what keeps a whole new region in step with a bestiary written  */
+  /* twenty levels earlier. `npx tsx scripts/check-balance.ts` proves  */
+  /* it and will say so the moment it stops being true.                */
+  /* ---------------------------------------------------------------- */
+  {
+    // lv20 skirmisher: hunts in fours, faster than you, made of nothing much
+    id: 'rime_stalker', name: 'Rime Stalker', kind: 'creature', creature: { kind: 'wolf', palette: 'rimewolf', glow: PAL.frost }, scale: 1.3,
+    level: 20, health: 387, damage: 59, defense: 17, speed: 122, xp: 332, gold: [18, 44], radius: 17,
+    sight: 440, attackRange: 42, attackCooldown: 1.15, windup: 0.26, pack: true, element: 'frost',
+    drops: [{ item: 'mat_leather', chance: 0.5, min: 2, max: 4 }, { item: 'mat_glacier_shard', chance: 0.18 }],
+    lootChance: 0.3, tags: ['beast'],
+  },
+  {
+    // lv21 standard: the clans that walked north and did not come back
+    id: 'ice_revenant', name: 'Rimewalker', kind: 'humanoid',
+    look: humanLook({
+      skin: PAL.skinUndead, hair: PAL.frost, hairStyle: 'long', beard: 'full', shirt: '#3f4a58', pants: '#2a323e',
+      armor: 'heavy', armorColor: '#5a6a7a', armorTrim: PAL.frost, helmet: 'horned', eyes: PAL.frost, bulk: 1.1,
+      weapon: { kind: 'axe', metal: PAL.ironLit, grip: PAL.woodDark, glow: PAL.frost },
+    }),
+    level: 21, health: 677, damage: 62, defense: 32, speed: 70, xp: 382, gold: [22, 55], radius: 16,
+    sight: 360, attackRange: 54, attackCooldown: 1.9, windup: 0.48, element: 'frost',
+    drops: [{ item: 'mat_essence', chance: 0.35 }, { item: 'potion_health_l', chance: 0.25 }, { item: 'mat_glacier_shard', chance: 0.2 }],
+    lootChance: 0.45, lootBias: 0.3, tags: ['undead'],
+  },
+  {
+    // lv22 skirmisher: keeps its distance and makes the ground cold
+    id: 'winter_shade', name: 'Winter Shade', kind: 'creature', creature: { kind: 'wraith', palette: 'wintershade', glow: PAL.frost }, scale: 1.25,
+    level: 22, health: 454, damage: 64, defense: 18, speed: 96, xp: 395, gold: [20, 52], radius: 15,
+    sight: 460, attackRange: 330, attackCooldown: 1.9, windup: 0.5, element: 'frost', flee: 0.12,
+    ranged: { speed: 300, element: 'frost', color: PAL.frost, radius: 36, count: 2, arc: 0.35 },
+    drops: [{ item: 'mat_essence', chance: 0.4 }, { item: 'potion_mana_m', chance: 0.3 }],
+    lootChance: 0.35, tags: ['undead'],
+  },
+  {
+    // lv22 standard: lives under the ice and comes up through it
+    id: 'glacier_wyrm', name: 'Glacier Wyrm', kind: 'creature', creature: { kind: 'serpent', palette: 'glacierwyrm', glow: PAL.ice }, scale: 1.5,
+    level: 22, health: 732, damage: 64, defense: 33, speed: 88, xp: 416, gold: [24, 58], radius: 19,
+    sight: 400, attackRange: 50, attackCooldown: 1.5, windup: 0.34, element: 'frost',
+    drops: [{ item: 'mat_leather', chance: 0.6, min: 2, max: 4 }, { item: 'mat_glacier_shard', chance: 0.25 }],
+    lootChance: 0.35, tags: ['beast'],
+  },
+  {
+    // lv23 standard: white-painted hunters who got here first and stayed
+    id: 'pale_hunter', name: 'Pale Hunter', kind: 'humanoid',
+    look: humanLook({
+      skin: '#e8e0d4', hair: PAL.white, hairStyle: 'ponytail', shirt: '#c6d4e0', pants: '#8f9aa8',
+      armor: 'light', armorColor: '#c6d4e0', armorTrim: PAL.frost, helmet: 'hood', eyes: PAL.frost,
+      weapon: { kind: 'bow', metal: PAL.bone, grip: PAL.cloth },
+    }),
+    level: 23, health: 790, damage: 67, defense: 35, speed: 94, xp: 452, gold: [26, 62], radius: 14,
+    sight: 520, attackRange: 400, attackCooldown: 1.7, windup: 0.46, faction: 'bandits',
+    ranged: { speed: 420, element: 'physical', color: PAL.bone, radius: 22 },
+    drops: [{ item: 'potion_health_xl', chance: 0.25 }, { item: 'mat_leather', chance: 0.4, min: 2, max: 3 }],
+    lootChance: 0.5, lootBias: 0.3, tags: ['humanoid'],
+  },
+  {
+    // lv24 brute: half again your height, and it swings like it
+    id: 'jotun_thrall', name: 'Jotun Thrall', kind: 'humanoid',
+    look: humanLook({
+      skin: '#9fb0be', hair: '#6b7684', hairStyle: 'long', beard: 'long', shirt: '#4a5a68', pants: '#3a4654',
+      armor: 'heavy', armorColor: '#6b7684', armorTrim: PAL.ice, bulk: 1.5, height: 1.2, eyes: PAL.frost,
+      weapon: { kind: 'greataxe', metal: PAL.ironLit, grip: PAL.woodDark },
+    }),
+    scale: 1.45,
+    level: 24, health: 1317, damage: 78, defense: 58, speed: 62, xp: 562, gold: [40, 95], radius: 22,
+    sight: 380, attackRange: 70, attackCooldown: 2.4, windup: 0.72, element: 'frost',
+    drops: [{ item: 'mat_jotun_ingot', chance: 0.3 }, { item: 'potion_health_xl', chance: 0.3 }],
+    lootChance: 0.55, lootBias: 0.4, tags: ['giant'],
+  },
+  {
+    // lv25 skirmisher: the people who decided the winter was right
+    id: 'herald_winter', name: 'Herald of the Long Winter', kind: 'humanoid',
+    look: humanLook({
+      skin: PAL.skin1, hair: PAL.white, hairStyle: 'bald', shirt: '#2a3c4e', pants: '#1b2a38',
+      armor: 'robe', armorColor: '#2a3c4e', armorTrim: PAL.ice, helmet: 'wizard', eyes: PAL.frost, glow: PAL.frost,
+      cape: '#1b2a38', weapon: { kind: 'staff', metal: PAL.ice, grip: PAL.bone, glow: PAL.frost },
+    }),
+    level: 25, health: 565, damage: 73, defense: 21, speed: 74, xp: 501, gold: [34, 80], radius: 14,
+    sight: 440, attackRange: 360, attackCooldown: 2.1, windup: 0.58, element: 'frost', faction: 'arcane',
+    ranged: { speed: 280, element: 'frost', color: PAL.ice, radius: 44, count: 3, arc: 0.45 },
+    drops: [{ item: 'mat_essence', chance: 0.5 }, { item: 'mat_glacier_shard', chance: 0.3 }, { item: 'q_relic_shard', chance: 0.2 }],
+    lootChance: 0.55, lootBias: 0.4, tags: ['humanoid'],
+  },
+  {
+    // lv26 brute: the glacier learned to stand up
+    id: 'glass_golem', name: 'Glass Golem', kind: 'creature', creature: { kind: 'golem', palette: 'icegolem', glow: PAL.frost }, scale: 1.8,
+    level: 26, health: 1512, damage: 84, defense: 62, speed: 52, xp: 653, gold: [44, 105], radius: 25,
+    sight: 360, attackRange: 66, attackCooldown: 2.5, windup: 0.8, element: 'frost',
+    drops: [{ item: 'mat_glacier_shard', chance: 0.6, min: 1, max: 3 }, { item: 'mat_jotun_ingot', chance: 0.25 }],
+    lootChance: 0.6, lootBias: 0.5, tags: ['construct'],
+  },
+  {
+    // lv28 brute: the thing the thralls were made in the image of
+    id: 'frost_giant', name: 'Frost Giant', kind: 'humanoid',
+    look: humanLook({
+      skin: '#8fa8ba', hair: PAL.white, hairStyle: 'long', beard: 'long', shirt: '#3a4a5a', pants: '#2a3644',
+      armor: 'heavy', armorColor: '#7d8ea0', armorTrim: PAL.white, helmet: 'horned', bulk: 1.6, height: 1.3,
+      eyes: PAL.frost, cape: '#c6d4e0', weapon: { kind: 'hammer', metal: PAL.rockPale, grip: PAL.woodDark, glow: PAL.frost },
+    }),
+    scale: 1.8,
+    level: 28, health: 1721, damage: 90, defense: 67, speed: 60, xp: 751, gold: [60, 140], radius: 27,
+    sight: 420, attackRange: 84, attackCooldown: 2.6, windup: 0.85, element: 'frost',
+    drops: [{ item: 'mat_jotun_ingot', chance: 0.5, min: 1, max: 2 }, { item: 'elixir_grand', chance: 0.3 }],
+    lootChance: 0.7, lootBias: 0.6, tags: ['giant'],
+  },
+  {
+    // lv29 brute: a barrow's worth of clan dead, stacked and standing
+    id: 'bone_colossus', name: 'Bone Colossus', kind: 'creature', creature: { kind: 'golem', palette: 'bonewrought', glow: PAL.frost }, scale: 2,
+    level: 29, health: 1831, damage: 93, defense: 70, speed: 50, xp: 802, gold: [66, 150], radius: 28,
+    sight: 380, attackRange: 76, attackCooldown: 2.7, windup: 0.9, element: 'shadow',
+    drops: [{ item: 'mat_bone', chance: 1, min: 3, max: 6 }, { item: 'mat_greater_rune', chance: 0.25 }],
+    lootChance: 0.7, lootBias: 0.6, tags: ['undead', 'construct'],
+  },
+
+  /* --- northern elites --- */
+  {
+    id: 'mini_wintercaller', name: 'The Wintercaller', kind: 'humanoid', elite: true,
+    look: humanLook({
+      skin: PAL.skinUndead, hair: PAL.ice, hairStyle: 'long', shirt: '#22303e', pants: '#1a242e',
+      armor: 'robe', armorColor: '#22303e', armorTrim: PAL.white, helmet: 'crown', eyes: PAL.white, glow: PAL.ice,
+      cape: '#cfe0ec', weapon: { kind: 'orb', metal: PAL.ice, grip: PAL.bone, glow: PAL.frost },
+    }),
+    scale: 1.5,
+    level: 24, health: 2719, damage: 70, defense: 65, speed: 68, xp: 1467, gold: [180, 340], radius: 20,
+    sight: 480, attackRange: 380, attackCooldown: 1.9, windup: 0.55, element: 'frost',
+    ranged: { speed: 300, element: 'frost', color: PAL.ice, radius: 46, count: 4, arc: 0.7 },
+    drops: [{ item: 'mat_glacier_shard', chance: 1, min: 2, max: 4 }, { item: 'potion_health_xl', chance: 1, min: 2, max: 3 }],
+    lootChance: 1, lootBias: 0.8, tags: ['undead'],
+  },
+  {
+    id: 'mini_glacier_maw', name: 'Glacier Maw', kind: 'creature', elite: true,
+    creature: { kind: 'crawler', palette: 'glaciermaw', glow: PAL.frost }, scale: 2.2,
+    level: 28, health: 3553, damage: 81, defense: 76, speed: 82, xp: 1959, gold: [240, 430], radius: 26,
+    sight: 440, attackRange: 70, attackCooldown: 1.8, windup: 0.5, element: 'frost',
+    drops: [{ item: 'mat_jotun_ingot', chance: 1, min: 2, max: 3 }, { item: 'elixir_grand', chance: 1, min: 1, max: 2 }],
+    lootChance: 1, lootBias: 0.9, tags: ['beast'],
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -469,6 +613,154 @@ export const BOSSES: EnemyDef[] = [
         { id: 'nova', name: 'Absolute Zero', shape: 'ring', windup: 1.5, cooldown: 13, power: 3.2, radius: 320, element: 'frost', color: PAL.white },
         { id: 'thralls', name: 'Frozen Court', shape: 'summon', windup: 1.1, cooldown: 18, power: 0, count: 3, element: 'frost', color: PAL.ice, summon: 'revenant_knight', phase: 1 },
         { id: 'blink', name: 'Fold Space', shape: 'dash', windup: 0.4, cooldown: 6, power: 1.2, range: 340, element: 'arcane', color: PAL.arcaneLit, phase: 1 },
+      ],
+    },
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* The road north                                                    */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'boss_march_warden', name: 'Hjalmar the Unbroken', kind: 'humanoid',
+    look: humanLook({
+      skin: '#c8b8a4', hair: '#8f8778', hairStyle: 'long', beard: 'long', shirt: '#4a4450', pants: '#33303c',
+      armor: 'heavy', armorColor: '#5a6a7a', armorTrim: PAL.gold, helmet: 'horned', bulk: 1.35, height: 1.1,
+      eyes: PAL.flameLit, cape: '#6a2f28',
+      weapon: { kind: 'greataxe', metal: PAL.steel, grip: PAL.woodDark },
+    }),
+    scale: 2.2,
+    level: 19, health: 3600, damage: 62, defense: 44, speed: 80, xp: 2380, gold: [420, 720], radius: 26,
+    sight: 520, attackRange: 84, attackCooldown: 1.9, windup: 0.55, faction: 'northern',
+    drops: [{ item: 'potion_health_xl', chance: 1, min: 2, max: 4 }, { item: 'mat_glacier_shard', chance: 1, min: 2, max: 3 }],
+    lootChance: 1, lootBias: 1.2, tags: ['humanoid'],
+    boss: {
+      title: 'Last Captain of the Frostmarch',
+      uniqueDrop: 'art_winter_horn',
+      phases: [
+        { at: 1, name: 'The Watch', speed: 1, damage: 1, line: 'The march holds. It has held for ninety years and it holds today.' },
+        { at: 0.6, name: 'The Breach', speed: 1.2, damage: 1.25, line: 'You came up the road. Nothing has come up the road in a long time.' },
+        { at: 0.25, name: 'The Last Order', speed: 1.45, damage: 1.5, line: 'Then I will hold it alone. As I have. AS I HAVE.', hazard: 'frost' },
+      ],
+      attacks: [
+        { id: 'cleave', name: 'Broadaxe Sweep', shape: 'cone', windup: 0.6, cooldown: 4, power: 1.5, radius: 180, element: 'physical', color: PAL.steel },
+        { id: 'charge', name: 'Shield Rush', shape: 'dash', windup: 0.5, cooldown: 7, power: 1.6, range: 380, element: 'physical', color: PAL.ironLit },
+        { id: 'stomp', name: 'Ground Break', shape: 'ring', windup: 1.1, cooldown: 11, power: 2.2, radius: 250, element: 'physical', color: PAL.rockPale },
+        { id: 'levy', name: 'Call the Levy', shape: 'summon', windup: 1, cooldown: 20, power: 0, count: 3, element: 'frost', color: PAL.frost, summon: 'ice_revenant', phase: 1 },
+        { id: 'volley', name: 'Signal Volley', shape: 'rain', windup: 1.2, cooldown: 13, power: 1.5, count: 6, radius: 78, element: 'physical', color: PAL.bone, phase: 2 },
+      ],
+    },
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* The Jotunreach                                                    */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'boss_riven_choir', name: 'The Riven Choir', kind: 'creature',
+    creature: { kind: 'wraith', palette: 'wintershade', glow: PAL.ice }, scale: 2.5,
+    level: 24, health: 5350, damage: 80, defense: 55, speed: 74, xp: 3670, gold: [560, 940], radius: 26,
+    sight: 620, attackRange: 420, attackCooldown: 1.9, windup: 0.55, element: 'frost',
+    ranged: { speed: 300, element: 'frost', color: PAL.ice, radius: 44, count: 3, arc: 0.5 },
+    drops: [{ item: 'elixir_grand', chance: 1, min: 2, max: 3 }, { item: 'mat_greater_rune', chance: 1 }],
+    lootChance: 1, lootBias: 1.3, tags: ['undead'],
+    boss: {
+      title: 'What Is Left Singing in the Riven Cathedral',
+      uniqueDrop: 'art_glacier_heart',
+      phases: [
+        { at: 1, name: 'Plainsong', speed: 1, damage: 1, line: 'We were forty. We are one. Sit, and we will teach you the part you sing.' },
+        { at: 0.62, name: 'Descant', speed: 1.25, damage: 1.3, line: 'You are singing it wrong.', hazard: 'frost' },
+        { at: 0.28, name: 'Silence', speed: 1.5, damage: 1.6, line: 'THEN WE WILL SING OVER YOU.', hazard: 'frost' },
+      ],
+      attacks: [
+        { id: 'chord', name: 'Chord', shape: 'projectile', windup: 0.55, cooldown: 3, power: 1.3, count: 7, range: 640, element: 'frost', color: PAL.ice },
+        { id: 'antiphon', name: 'Antiphon', shape: 'line', windup: 1, cooldown: 8, power: 2.1, range: 620, element: 'frost', color: PAL.white },
+        { id: 'chorus', name: 'Full Chorus', shape: 'ring', windup: 1.4, cooldown: 12, power: 2.6, radius: 340, element: 'frost', color: PAL.frost, phase: 1 },
+        { id: 'voices', name: 'The Other Voices', shape: 'summon', windup: 1.1, cooldown: 19, power: 0, count: 4, element: 'frost', color: PAL.ice, summon: 'winter_shade', phase: 1 },
+        { id: 'hail', name: 'Hailfall', shape: 'rain', windup: 1.2, cooldown: 10, power: 1.7, count: 9, radius: 82, element: 'frost', color: PAL.white, phase: 2 },
+      ],
+    },
+  },
+  {
+    id: 'boss_jotun_king', name: 'Bekkr, the Barrow-Jotun', kind: 'humanoid',
+    look: humanLook({
+      skin: '#8fa8ba', hair: PAL.white, hairStyle: 'long', beard: 'long', shirt: '#2f3c48', pants: '#232d38',
+      armor: 'heavy', armorColor: '#8f9aa8', armorTrim: PAL.gold, helmet: 'crown', bulk: 1.7, height: 1.35,
+      eyes: PAL.frost, glow: PAL.frost, cape: '#4a5a6a',
+      weapon: { kind: 'greataxe', metal: '#bcd8e8', grip: PAL.woodDark, glow: PAL.frost },
+    }),
+    scale: 2.6,
+    level: 28, health: 7000, damage: 93, defense: 66, speed: 66, xp: 4900, gold: [820, 1350], radius: 30,
+    sight: 560, attackRange: 96, attackCooldown: 2.2, windup: 0.7, element: 'frost',
+    drops: [{ item: 'mat_jotun_ingot', chance: 1, min: 3, max: 5 }, { item: 'elixir_grand', chance: 1, min: 2, max: 3 }],
+    lootChance: 1, lootBias: 1.4, tags: ['giant'],
+    boss: {
+      title: 'King Under the Long Barrow',
+      uniqueDrop: 'unique_jotunbane',
+      phases: [
+        { at: 1, name: 'Waking', speed: 1, damage: 1, line: 'Small thing. Loud thing. You have woken a tired king.' },
+        { at: 0.7, name: 'Standing', speed: 1.18, damage: 1.22, line: 'Ah. You meant it.' },
+        { at: 0.4, name: 'Wrath', speed: 1.35, damage: 1.45, line: 'I buried my own axe so I would never do this again.', hazard: 'frost' },
+        { at: 0.15, name: 'The Old Way', speed: 1.6, damage: 1.7, line: 'THEN WE DO IT THE OLD WAY.', hazard: 'frost' },
+      ],
+      attacks: [
+        { id: 'sweep', name: 'Barrow Sweep', shape: 'cone', windup: 0.7, cooldown: 4.5, power: 1.6, radius: 230, element: 'physical', color: PAL.ironLit },
+        { id: 'quake', name: 'Barrowquake', shape: 'ring', windup: 1.3, cooldown: 10, power: 2.4, radius: 360, element: 'physical', color: PAL.rockPale },
+        { id: 'hurl', name: 'Hurled Cairn', shape: 'projectile', windup: 0.9, cooldown: 6, power: 1.9, count: 3, range: 620, element: 'physical', color: PAL.rock },
+        { id: 'stride', name: 'Long Stride', shape: 'dash', windup: 0.5, cooldown: 8, power: 1.7, range: 460, element: 'frost', color: PAL.frost, phase: 1 },
+        { id: 'honour', name: 'Honour Guard', shape: 'summon', windup: 1.2, cooldown: 22, power: 0, count: 3, element: 'frost', color: PAL.ice, summon: 'jotun_thrall', phase: 2 },
+        { id: 'calving', name: 'Calving', shape: 'rain', windup: 1.4, cooldown: 11, power: 2, count: 10, radius: 86, element: 'frost', color: PAL.ice, phase: 2 },
+      ],
+    },
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* The Last Gate                                                     */
+  /*                                                                   */
+  /* The end of the game. Five phases, eleven attacks, and the only    */
+  /* enemy in the world drawn at three times a person's height.        */
+  /* Everything the northern clans will not say out loud is this.      */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'boss_winter_jarl', name: 'Aldrhrim, the Winter That Walks', kind: 'humanoid',
+    look: humanLook({
+      skin: '#cfe0ec', hair: PAL.white, hairStyle: 'long', beard: 'long', shirt: '#1b2a38', pants: '#141d28',
+      armor: 'heavy', armorColor: '#9fc4d8', armorTrim: PAL.white, helmet: 'crown', bulk: 1.8, height: 1.4,
+      eyes: PAL.white, glow: PAL.frost, cape: '#e6f4fb',
+      weapon: { kind: 'greatsword', metal: '#e6f4fb', grip: PAL.bone, glow: PAL.frost },
+    }),
+    scale: 3.1,
+    level: 32, health: 9000, damage: 105, defense: 82, speed: 72, xp: 6300, gold: [1600, 2600], radius: 38,
+    sight: 720, attackRange: 120, attackCooldown: 2.1, windup: 0.65, element: 'frost',
+    ranged: { speed: 320, element: 'frost', color: PAL.white, radius: 52 },
+    drops: [
+      { item: 'unique_winters_edge', chance: 1 },
+      { item: 'armor_gatekeeper', chance: 1 },
+      { item: 'elixir_grand', chance: 1, min: 4, max: 6 },
+      { item: 'mat_greater_rune', chance: 1, min: 2, max: 4 },
+    ],
+    lootChance: 1, lootBias: 2, tags: ['giant', 'undead'],
+    boss: {
+      title: 'What the Jotunreach Was Built To Keep In',
+      arenaMusic: true,
+      uniqueDrop: 'art_last_gate',
+      phases: [
+        { at: 1, name: 'The Gate', speed: 1, damage: 1, line: 'You walked a very long way to be told no.' },
+        { at: 0.8, name: 'The Cold', speed: 1.15, damage: 1.2, line: 'The clans put a door here. A door. Against me.', hazard: 'frost' },
+        { at: 0.55, name: 'The Walk', speed: 1.35, damage: 1.4, line: 'I have been walking south for four hundred years. You are in the way of a season.', hazard: 'frost' },
+        { at: 0.3, name: 'The Long Night', speed: 1.55, damage: 1.65, line: 'Ashvale. I remember when it had another name. I will remember this one too.', hazard: 'frost' },
+        { at: 0.1, name: 'Winter', speed: 1.85, damage: 2, line: 'THEN LET IT BE WINTER EVERYWHERE.', hazard: 'frost' },
+      ],
+      attacks: [
+        { id: 'edge', name: "Winter's Edge", shape: 'cone', windup: 0.65, cooldown: 4, power: 1.5, radius: 280, element: 'frost', color: PAL.white },
+        { id: 'glacier', name: 'Glacier Step', shape: 'dash', windup: 0.45, cooldown: 7, power: 1.8, range: 540, element: 'frost', color: PAL.ice },
+        { id: 'shards', name: 'Splinter', shape: 'projectile', windup: 0.6, cooldown: 3.2, power: 1.3, count: 9, range: 700, element: 'frost', color: PAL.frost },
+        { id: 'wall', name: 'The Gate Closes', shape: 'line', windup: 1.1, cooldown: 9, power: 2.2, range: 700, element: 'frost', color: PAL.ice, phase: 1 },
+        { id: 'nova', name: 'Killing Frost', shape: 'ring', windup: 1.5, cooldown: 12, power: 2.8, radius: 400, element: 'frost', color: PAL.white, phase: 1 },
+        { id: 'thralls', name: 'The Long March', shape: 'summon', windup: 1.2, cooldown: 24, power: 0, count: 3, element: 'frost', color: PAL.ice, summon: 'jotun_thrall', phase: 2 },
+        { id: 'blizzard', name: 'The Long Night', shape: 'rain', windup: 1.3, cooldown: 10, power: 2, count: 12, radius: 92, element: 'frost', color: PAL.ice, phase: 2 },
+        { id: 'stomp', name: 'Break the Floor', shape: 'circle', windup: 1, cooldown: 7, power: 2.1, radius: 240, element: 'physical', color: PAL.rockPale, phase: 2 },
+        { id: 'heralds', name: 'The Choir Follows', shape: 'summon', windup: 1.1, cooldown: 26, power: 0, count: 4, element: 'frost', color: PAL.frost, summon: 'winter_shade', phase: 3 },
+        { id: 'winter', name: 'Everywhere', shape: 'ring', windup: 1.8, cooldown: 15, power: 3.6, radius: 560, element: 'frost', color: PAL.white, phase: 4 },
+        { id: 'hunt', name: 'The Season Turns', shape: 'rain', windup: 0.9, cooldown: 6, power: 2.2, count: 14, radius: 96, element: 'frost', color: PAL.white, phase: 4 },
       ],
     },
   },

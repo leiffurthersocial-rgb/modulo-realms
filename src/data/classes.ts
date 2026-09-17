@@ -93,6 +93,7 @@ export const CLASSES: ClassDef[] = [
       { id: 'warcry', name: 'War Cry', desc: 'Roar to gain 30% damage and 20% damage reduction for 8s.', shape: 'buff', level: 4, mana: 0, stamina: 30, cooldown: 18, power: 0, duration: 8, element: 'physical', color: '#f6bf5d', icon: 'shield' },
       { id: 'charge', name: 'Shield Charge', desc: 'Barrel forward, knocking back and damaging everything you touch.', shape: 'dash', level: 8, mana: 0, stamina: 26, cooldown: 9, power: 1.8, range: 210, element: 'physical', color: '#c3cad6', icon: 'shield' },
       { id: 'earthshatter', name: 'Earthshatter', desc: 'Slam the ground for heavy damage and a brief stun.', shape: 'nova', level: 14, mana: 10, stamina: 35, cooldown: 16, power: 2.8, radius: 120, element: 'physical', color: '#b2703b', icon: 'hammer' },
+      { id: 'ruin', name: 'Ruin', desc: 'Bring the weapon down with everything you have. Enormous damage in a wide ring, and it staggers whatever survives.', shape: 'nova', level: 22, mana: 20, stamina: 55, cooldown: 26, power: 5.2, radius: 190, element: 'physical', color: '#b5462f', icon: 'greataxe' },
     ],
     skills: [
       skill('Power', 1, 'w_pow1', 'Brutal Strength', '+3 Strength per point.', { strength: 3 }),
@@ -104,6 +105,9 @@ export const CLASSES: ClassDef[] = [
       skill('Berserker', 1, 'w_ber1', 'Bloodthirst', '+3% life steal per point.', { lifesteal: 3 }),
       skill('Berserker', 2, 'w_ber2', 'Reckless', '+8% ability power, +4% move speed per point.', { abilityPower: 8, moveSpeed: 4 }),
       skill('Berserker', 3, 'w_ber3', 'Unending Rage', '-10% cooldowns per point.', { cooldownReduction: 10 }, 2),
+      skill('Power', 4, 'w_pow4', 'Warmaster', '+5 Strength and +6% crit damage per point.', { strength: 5, critDamage: 6 }, 2),
+      skill('Defense', 4, 'w_def4', 'Mountain', '+12 Defense and +60 health per point.', { defense: 12, maxHealth: 60 }, 2),
+      skill('Berserker', 4, 'w_ber4', 'Nothing Left', '+5% life steal and +10% ability power per point.', { lifesteal: 5, abilityPower: 10 }, 2),
     ],
   },
   {
@@ -124,6 +128,7 @@ export const CLASSES: ClassDef[] = [
       { id: 'roll', name: 'Tumble', desc: 'Roll a short distance, briefly untouchable.', shape: 'dash', level: 3, mana: 0, stamina: 22, cooldown: 6, power: 0, range: 190, element: 'physical', color: '#d8cfc4', icon: 'boots' },
       { id: 'thorntrap', name: 'Thorn Trap', desc: 'Place a snare that roots and bleeds anything that steps in it.', shape: 'ground', level: 7, mana: 12, stamina: 18, cooldown: 12, power: 1.4, radius: 70, duration: 9, element: 'poison', color: '#8fbf4a', icon: 'mat_herb' },
       { id: 'rain', name: 'Arrow Rain', desc: 'Call a storm of arrows onto the marked ground.', shape: 'ground', level: 13, mana: 25, stamina: 25, cooldown: 17, power: 2.4, radius: 130, duration: 4, element: 'physical', color: '#67974a', icon: 'crossbow' },
+      { id: 'volleystorm', name: 'Killing Field', desc: 'Empty the quiver: twelve arrows in a fan, every one of them aimed.', shape: 'multishot', level: 22, mana: 20, stamina: 50, cooldown: 24, power: 1.5, count: 12, range: 560, element: 'physical', color: '#87b45c', icon: 'bow' },
     ],
     skills: [
       skill('Bow', 1, 'r_bow1', 'Steady Aim', '+3 Dexterity per point.', { dexterity: 3 }),
@@ -135,6 +140,9 @@ export const CLASSES: ClassDef[] = [
       skill('Mobility', 1, 'r_mob1', 'Light Step', '+4% move speed per point.', { moveSpeed: 4 }),
       skill('Mobility', 2, 'r_mob2', 'Endurance', '+20 stamina and +2 stamina regen per point.', { maxStamina: 20, staminaRegen: 2 }),
       skill('Mobility', 3, 'r_mob3', 'Windrunner', '+8% move speed and +15 health per point.', { moveSpeed: 8, maxHealth: 15 }, 2),
+      skill('Bow', 4, 'r_bow4', 'One Breath', '+5 Dexterity and +10% crit damage per point.', { dexterity: 5, critDamage: 10 }, 2),
+      skill('Traps', 4, 'r_trp4', 'Field Master', '-12% cooldowns and +10% magic find per point.', { cooldownReduction: 12, magicFind: 10 }, 2),
+      skill('Mobility', 4, 'r_mob4', 'Never Cornered', '+10% move speed and +30 stamina per point.', { moveSpeed: 10, maxStamina: 30 }, 2),
     ],
   },
   {
@@ -155,6 +163,7 @@ export const CLASSES: ClassDef[] = [
       { id: 'frostnova', name: 'Frost Nova', desc: 'A ring of ice that damages and slows everything nearby.', shape: 'nova', level: 5, mana: 28, stamina: 0, cooldown: 10, power: 1.5, radius: 130, duration: 4, element: 'frost', color: '#6fd0e8', icon: 'mat_crystal' },
       { id: 'arcaneward', name: 'Arcane Ward', desc: 'A shield that absorbs damage for 10s.', shape: 'shield', level: 9, mana: 30, stamina: 0, cooldown: 20, power: 3, duration: 10, element: 'arcane', color: '#9578e8', icon: 'ring' },
       { id: 'meteor', name: 'Cinderfall', desc: 'Call down a burning stone at the cursor.', shape: 'ground', level: 15, mana: 55, stamina: 0, cooldown: 18, power: 3.4, radius: 120, duration: 2, element: 'fire', color: '#b5462f', icon: 'bomb' },
+      { id: 'supernova', name: 'Remainder Zero', desc: 'Collapse a point of the Modulo. Everything inside the radius is simply taken out of the equation.', shape: 'ground', level: 22, mana: 90, stamina: 0, cooldown: 30, power: 6, radius: 180, duration: 3, element: 'arcane', color: '#9578e8', icon: 'mat_crystal' },
     ],
     skills: [
       skill('Fire', 1, 'm_fir1', 'Kindling', '+3 Intelligence per point.', { intelligence: 3 }),
@@ -166,6 +175,9 @@ export const CLASSES: ClassDef[] = [
       skill('Arcane', 1, 'm_arc1', 'Quick Casting', '-10% cooldowns per point.', { cooldownReduction: 10 }),
       skill('Arcane', 2, 'm_arc2', 'Leyline Tap', '+2% life steal and +2 mana regen per point.', { lifesteal: 2, manaRegen: 2 }),
       skill('Arcane', 3, 'm_arc3', 'Modulo Insight', '+12% ability power and +10% magic find per point.', { abilityPower: 12, magicFind: 10 }, 2),
+      skill('Fire', 4, 'm_fir4', 'Long Burn', '+14% ability power and +6% crit chance per point.', { abilityPower: 14, critChance: 6 }, 2),
+      skill('Ice', 4, 'm_ice4', 'Absolute Cold', '+8 Defense and +40 max mana per point.', { defense: 8, maxMana: 40 }, 2),
+      skill('Arcane', 4, 'm_arc4', 'The Whole Equation', '+5 Intelligence and +4 mana regen per point.', { intelligence: 5, manaRegen: 4 }, 2),
     ],
   },
   {
@@ -186,6 +198,7 @@ export const CLASSES: ClassDef[] = [
       { id: 'fanofknives', name: 'Fan of Knives', desc: 'Throw daggers in every direction.', shape: 'multishot', level: 4, mana: 0, stamina: 24, cooldown: 8, power: 0.9, count: 8, range: 300, element: 'physical', color: '#c3cad6', icon: 'dagger' },
       { id: 'venom', name: 'Coat Blades', desc: 'Your strikes poison for 12s and gain 25% crit chance.', shape: 'buff', level: 8, mana: 15, stamina: 20, cooldown: 20, power: 0, duration: 12, element: 'poison', color: '#8fbf4a', icon: 'potion_stamina' },
       { id: 'assassinate', name: 'Assassinate', desc: 'A single devastating strike that always crits.', shape: 'melee_arc', level: 13, mana: 20, stamina: 35, cooldown: 14, power: 3.6, radius: 70, element: 'shadow', color: '#8e2131', icon: 'skull' },
+      { id: 'deathmark', name: 'Death Mark', desc: 'Vanish, and reappear behind everything nearby in turn, once each. Every strike is a critical.', shape: 'dash', level: 22, mana: 30, stamina: 50, cooldown: 28, power: 5, range: 340, element: 'shadow', color: '#8e2131', icon: 'skull' },
     ],
     skills: [
       skill('Critical', 1, 'g_cri1', 'Precision', '+4% crit chance per point.', { critChance: 4 }),
@@ -197,6 +210,9 @@ export const CLASSES: ClassDef[] = [
       skill('Poison', 1, 'g_poi1', 'Toxins', '+8% ability power per point.', { abilityPower: 8 }),
       skill('Poison', 2, 'g_poi2', 'Leech Venom', '+3% life steal per point.', { lifesteal: 3 }),
       skill('Poison', 3, 'g_poi3', 'Swift Blades', '+8% attack speed and -8% cooldowns per point.', { attackSpeed: 8, cooldownReduction: 8 }, 2),
+      skill('Critical', 4, 'g_cri4', 'No Second Strike', '+6% crit chance and +18% crit damage per point.', { critChance: 6, critDamage: 18 }, 2),
+      skill('Stealth', 4, 'g_ste4', 'Unseen', '+8% move speed and +6 Defense per point.', { moveSpeed: 8, defense: 6 }, 2),
+      skill('Poison', 4, 'g_poi4', 'Old Poison', '+5% life steal and +10% attack speed per point.', { lifesteal: 5, attackSpeed: 10 }, 2),
     ],
   },
   {
@@ -217,6 +233,7 @@ export const CLASSES: ClassDef[] = [
       { id: 'mend', name: 'Mend', desc: 'Restore a chunk of your health instantly.', shape: 'heal', level: 3, mana: 30, stamina: 0, cooldown: 14, power: 2.2, element: 'holy', color: '#f6bf5d', icon: 'potion_health' },
       { id: 'consecrate', name: 'Consecration', desc: 'Hallow the ground, burning undead that stand on it.', shape: 'ground', level: 8, mana: 34, stamina: 10, cooldown: 15, power: 1.3, radius: 130, duration: 8, element: 'holy', color: '#f0c95c', icon: 'rune' },
       { id: 'aegis', name: 'Aegis of Dawn', desc: 'A radiant shield that absorbs damage and blinds attackers.', shape: 'shield', level: 14, mana: 40, stamina: 0, cooldown: 24, power: 4, duration: 12, element: 'holy', color: '#ffe9a8', icon: 'shield' },
+      { id: 'judgement', name: 'Judgement', desc: 'Call down the dawn: heavy holy damage in a wide ring, and it heals you for a share of everything it burns.', shape: 'nova', level: 22, mana: 70, stamina: 30, cooldown: 26, power: 5, radius: 200, element: 'holy', color: '#ffe9a8', icon: 'hammer' },
     ],
     skills: [
       skill('Faith', 1, 'p_fai1', 'Devotion', '+3 Intelligence and +15 mana per point.', { intelligence: 3, maxMana: 15 }),
@@ -228,6 +245,9 @@ export const CLASSES: ClassDef[] = [
       skill('Retribution', 1, 'p_ret1', 'Zeal', '+2 Strength and +5% attack speed per point.', { strength: 2, attackSpeed: 5 }),
       skill('Retribution', 2, 'p_ret2', 'Righteous Fury', '+4% crit chance and +8% crit damage per point.', { critChance: 4, critDamage: 8 }),
       skill('Retribution', 3, 'p_ret3', "Dawn's Edge", '+3 Strength and +10% ability power per point.', { strength: 3, abilityPower: 10 }, 2),
+      skill('Faith', 4, 'p_fai4', 'Unfailing', '+5 Intelligence and +14% ability power per point.', { intelligence: 5, abilityPower: 14 }, 2),
+      skill('Protection', 4, 'p_pro4', 'The Wall Holds', '+12 Defense and +50 health per point.', { defense: 12, maxHealth: 50 }, 2),
+      skill('Retribution', 4, 'p_ret4', 'Dawnbringer', '+4 Strength and +8% attack speed per point.', { strength: 4, attackSpeed: 8 }, 2),
     ],
   },
   {
@@ -248,6 +268,7 @@ export const CLASSES: ClassDef[] = [
       { id: 'raise', name: 'Raise Thrall', desc: 'Summon two skeletal servants to fight for 20s.', shape: 'summon', level: 4, mana: 35, stamina: 0, cooldown: 22, power: 1, count: 2, duration: 20, element: 'shadow', color: '#d8cfc4', icon: 'mat_bone' },
       { id: 'drain', name: 'Life Siphon', desc: 'Drain nearby enemies, healing for part of the damage.', shape: 'nova', level: 8, mana: 30, stamina: 0, cooldown: 11, power: 1.6, radius: 140, element: 'shadow', color: '#8e2131', icon: 'mat_essence' },
       { id: 'plague', name: 'Rotfield', desc: 'A creeping blight that poisons the ground for 10s.', shape: 'ground', level: 14, mana: 48, stamina: 0, cooldown: 19, power: 2.2, radius: 140, duration: 10, element: 'poison', color: '#5f7a3a', icon: 'potion_stamina' },
+      { id: 'legion', name: 'The Standing Legion', desc: 'Raise six thralls at once, and they are the strongest things you have killed lately.', shape: 'summon', level: 22, mana: 80, stamina: 0, cooldown: 34, power: 1.4, count: 6, duration: 26, element: 'shadow', color: '#5b43a8', icon: 'skull' },
     ],
     skills: [
       skill('Death', 1, 'n_dea1', 'Grave Study', '+3 Intelligence per point.', { intelligence: 3 }),
@@ -259,6 +280,9 @@ export const CLASSES: ClassDef[] = [
       skill('Blight', 1, 'n_bli1', 'Virulence', '+5% crit chance per point.', { critChance: 5 }),
       skill('Blight', 2, 'n_bli2', 'Creeping Rot', '+6% attack speed and +8% crit damage per point.', { attackSpeed: 6, critDamage: 8 }),
       skill('Blight', 3, 'n_bli3', 'Grim Fortune', '+12% magic find per point.', { magicFind: 12 }, 2),
+      skill('Death', 4, 'n_dea4', 'The Long Count', '+5 Intelligence and +6% life steal per point.', { intelligence: 5, lifesteal: 6 }, 2),
+      skill('Summoning', 4, 'n_sum4', 'Standing Army', '+40 max mana and +40 health per point.', { maxMana: 40, maxHealth: 40 }, 2),
+      skill('Blight', 4, 'n_bli4', 'Everything Rots', '+14% ability power and +10% crit damage per point.', { abilityPower: 14, critDamage: 10 }, 2),
     ],
   },
 ];

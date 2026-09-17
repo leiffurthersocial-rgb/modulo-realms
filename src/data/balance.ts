@@ -85,3 +85,43 @@ export const LEVEL_BANDS: Array<{ region: string; from: number; to: number; note
 
 /** The level the game is built to be finished at. */
 export const ENDGAME_LEVEL = 34;
+
+/* ------------------------------------------------------------------ */
+/* Enemies                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What a thing is for, which is the only dial worth having. A skirmisher dies
+ * fast and hurts you for approaching; a brute soaks a whole fight; an elite is
+ * a named obstacle in a corridor; a boss is the room.
+ */
+export type EnemyRole = 'skirmisher' | 'standard' | 'brute' | 'elite' | 'boss';
+
+const ROLE_HEALTH: Record<EnemyRole, number> = {
+  skirmisher: 0.62, standard: 1, brute: 1.55, elite: 3.2, boss: 7,
+};
+const ROLE_DEFENSE: Record<EnemyRole, number> = {
+  skirmisher: 0.55, standard: 1, brute: 1.6, elite: 1.8, boss: 1.7,
+};
+const ROLE_XP: Record<EnemyRole, number> = {
+  skirmisher: 0.95, standard: 1, brute: 1.15, elite: 3, boss: 7.5,
+};
+
+/**
+ * These three curves are descriptions of the bestiary that already existed
+ * rather than a new rule imposed on it — every enemy written before this
+ * table sits within about 15% of it. They are here so the next fifty do too:
+ * a new enemy declares its level and its role, and its numbers follow.
+ * `scripts/check-balance.ts` prints the deviation for every enemy in the game.
+ */
+export const enemyHealthAt = (level: number, role: EnemyRole = 'standard'): number =>
+  Math.round((24 + level * level * 1.1 + level * 8) * ROLE_HEALTH[role]);
+
+export const enemyDamageAt = (level: number, role: EnemyRole = 'standard'): number =>
+  Math.round((5 + level * 2.7) * (role === 'brute' ? 1.12 : role === 'boss' ? 1.15 : 1));
+
+export const enemyDefenseAt = (level: number, role: EnemyRole = 'standard'): number =>
+  Math.max(0, Math.round(level * 1.5 * ROLE_DEFENSE[role]));
+
+export const enemyXpAt = (level: number, role: EnemyRole = 'standard'): number =>
+  Math.round((9 + level * level * 0.75 + level * 2) * ROLE_XP[role]);

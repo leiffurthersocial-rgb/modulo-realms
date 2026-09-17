@@ -3,6 +3,7 @@ import type { IconKind } from '../game/art/icons';
 import type { WeaponKind } from '../game/art/weaponart';
 import type { ClassId } from './classes';
 import type { ArmorLook, ConsumeEffect, EquipSlot, ItemType, Rarity, Stats } from '../game/items/types';
+import type { RegionId } from './locations';
 import { armorDefenseAt, weaponDamage } from './balance';
 
 export interface ItemTemplate {
@@ -31,7 +32,7 @@ export interface ItemTemplate {
   /** Excluded from random loot tables. */
   noDrop?: boolean;
   /** Only rolls as loot inside these regions. */
-  regions?: Array<'central' | 'north' | 'east' | 'south' | 'west'>;
+  regions?: RegionId[];
 }
 
 /**
@@ -176,6 +177,33 @@ export const WEAPONS: ItemTemplate[] = [
   W('staff_dune', 'Sunstruck Staff', 'staff', 10, 1.02, 479, { metal: PAL.sand, glow: PAL.goldLit, rarity: 'rare', stats: { intelligence: 6, abilityPower: 12 } }),
   W('spear_mire', 'Bog Harpoon', 'spear', 6, 1.12, 78, { metal: PAL.rot, rarity: 'rare', stats: { dexterity: 3 } }),
   W('mace_crag', 'Cragwarden Mace', 'mace', 12, 1.05, 50, { metal: PAL.rockPale, rarity: 'rare', stats: { strength: 5, defense: 4 } }),
+
+  /* ---------------------------------------------------------------- */
+  /* The late game: the Frostmarch, and everything above it            */
+  /*                                                                   */
+  /* Levels 18 to 34. None of these numbers were chosen — every one is */
+  /* solved from balance.ts, so this whole block could be twice as     */
+  /* long without anything drifting out of line.                       */
+  /* ---------------------------------------------------------------- */
+  W('sword_jarl', 'Jarlsteel Longsword', 'sword', 19, 1.28, 54, { metal: PAL.steel, rarity: 'rare', stats: { strength: 6, critChance: 4 } }),
+  W('greatsword_glacier', 'Glacierbreak', 'greatsword', 22, 0.7, 68, { metal: '#bcd8e8', glow: PAL.frost, rarity: 'superRare', stats: { strength: 9, critDamage: 20 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+  W('greataxe_jotun', 'Jotunbane', 'greataxe', 25, 0.68, 66, { metal: PAL.ironLit, glow: PAL.frost, rarity: 'epic', stats: { strength: 12, maxHealth: 60 } }),
+  W('hammer_avalanche', 'Avalanche Maul', 'hammer', 27, 0.66, 62, { metal: PAL.rockPale, rarity: 'epic', stats: { strength: 14, critDamage: 30 }, fixedEnchants: [{ id: 'shockwave', level: 3 }] }),
+  W('halberd_gate', 'Gatewarden Halberd', 'halberd', 24, 0.8, 88, { metal: PAL.frost, glow: PAL.frost, rarity: 'superRare', stats: { strength: 9, defense: 8 }, fixedEnchants: [{ id: 'swirling', level: 2 }] }),
+  W('dagger_icefang', 'Icefang', 'dagger', 21, 2.15, 38, { metal: PAL.ice, glow: PAL.frost, rarity: 'superRare', stats: { critChance: 16, dexterity: 7 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+  W('rapier_pale', 'Pale Needle', 'rapier', 26, 2, 48, { metal: PAL.white, glow: PAL.frost, rarity: 'epic', stats: { critChance: 20, dexterity: 10, moveSpeed: 5 }, fixedEnchants: [{ id: 'piercing', level: 3 }] }),
+  W('spear_glacier', 'Glacier Pike', 'spear', 23, 1.08, 80, { metal: PAL.ice, rarity: 'rare', stats: { dexterity: 7, defense: 5 } }),
+  W('flail_wintertide', 'Wintertide Flail', 'flail', 28, 0.76, 58, { metal: '#8fc4dc', glow: PAL.frost, rarity: 'epic', stats: { strength: 13, critDamage: 35 }, fixedEnchants: [{ id: 'shockwave', level: 2 }] }),
+  W('claws_jotun', 'Rimeclaws', 'claws', 30, 2.35, 36, { metal: PAL.frost, glow: PAL.white, rarity: 'epic', stats: { critChance: 18, attackSpeed: 6, dexterity: 12 } }),
+  W('warpick_moraine', 'Moraine Pick', 'warpick', 20, 1.08, 48, { metal: PAL.rockPale, rarity: 'rare', stats: { critDamage: 45, strength: 6 } }),
+  W('scythe_longwinter', 'Scythe of the Long Winter', 'scythe', 29, 0.92, 66, { metal: PAL.bone, glow: PAL.frost, rarity: 'epic', stats: { intelligence: 12, lifesteal: 6 }, fixedEnchants: [{ id: 'freezing', level: 3 }] }),
+  W('bow_jotun', 'Jotunhorn Bow', 'bow', 20, 1.18, 600, { metal: PAL.bone, rarity: 'rare', stats: { dexterity: 7, critChance: 6 } }),
+  W('bow_whitewind', 'Whitewind Longbow', 'bow', 27, 1.22, 640, { metal: PAL.white, glow: PAL.frost, rarity: 'epic', stats: { dexterity: 12, critChance: 12, moveSpeed: 4 }, fixedEnchants: [{ id: 'multishot', level: 2 }] }),
+  W('crossbow_gate', 'Gatebreaker Arbalest', 'crossbow', 24, 0.82, 620, { metal: PAL.ironDark, glow: PAL.frost, rarity: 'superRare', stats: { critDamage: 55, dexterity: 8 }, fixedEnchants: [{ id: 'piercing', level: 3 }] }),
+  W('wand_hoarfrost', 'Hoarfrost Wand', 'wand', 19, 1.55, 420, { metal: PAL.frost, glow: PAL.ice, rarity: 'rare', stats: { intelligence: 7, abilityPower: 14 } }),
+  W('staff_glacier', 'Glacierheart Staff', 'staff', 22, 1, 530, { metal: PAL.ice, glow: PAL.frost, rarity: 'superRare', stats: { intelligence: 11, abilityPower: 22, maxMana: 55 }, fixedEnchants: [{ id: 'frost_focus', level: 2 }] }),
+  W('orb_longnight', 'Orb of the Long Night', 'orb', 26, 1.3, 500, { metal: PAL.arcaneDark, glow: PAL.arcaneLit, rarity: 'epic', stats: { intelligence: 15, abilityPower: 32, cooldownReduction: 10, lifesteal: 5 } }),
+  W('tome_jotun', 'Codex of the Jotunreach', 'tome', 30, 1.15, 520, { metal: PAL.bone, glow: PAL.frost, rarity: 'epic', stats: { intelligence: 18, abilityPower: 36, maxMana: 110 } }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -188,7 +216,7 @@ export const ARMOR: ItemTemplate[] = [
   A('armor_robe_apprentice', 'Apprentice Robe', 1, ROBE, robe(PAL.arcaneDark, PAL.frost, 'wizard'), { stats: { maxMana: 16, intelligence: 1 } }),
   A('armor_acolyte', 'Acolyte Vestments', 5, ROBE, robe('#3f4a6a', PAL.gold), { rarity: 'rare', stats: { maxMana: 30, intelligence: 3 } }),
   A('armor_mail', 'Mail Hauberk', 5, MAIL, heavy(PAL.iron, PAL.ironLit), { stats: { maxHealth: 22 } }),
-  A('armor_hunter', 'Hunter\'s Hide', 6, 14, light('#4a5a3a', PAL.leafLit, 'hood'), { rarity: 'rare', stats: { dexterity: 3, moveSpeed: 4 } }),
+  A('armor_hunter', 'Hunter\'s Hide', 6, LIGHT, light('#4a5a3a', PAL.leafLit, 'hood'), { rarity: 'rare', stats: { dexterity: 3, moveSpeed: 4 } }),
   A('armor_wolfhide', 'Wolfhide Mantle', 8, LIGHT, light('#6b6a74', PAL.cloth, 'hood', '#4a4955'), { rarity: 'rare', stats: { maxHealth: 28, moveSpeed: 3 } }),
   A('armor_guard', 'Valley Guard Plate', 9, PLATE, heavy(PAL.steel, PAL.gold, 'full', '#3a5a8a'), { rarity: 'rare', stats: { maxHealth: 40, moveSpeed: -2 } }),
   A('armor_shadow', 'Shadow Walker', 12, LIGHT, light('#241d2e', PAL.arcaneLit, 'hood', '#1a1626'), { rarity: 'epic', stats: { dexterity: 6, critChance: 6, moveSpeed: 8 }, fixedEnchants: [{ id: 'deflect', level: 1 }] }),
@@ -219,6 +247,21 @@ export const ARMOR: ItemTemplate[] = [
   A('armor_wardplate', 'Wardens Bulwark', 13, PLATE, heavy('#4a5a6a', PAL.frost, 'full', '#2a3a4a'), { rarity: 'superRare', stats: { maxHealth: 64, defense: 7, moveSpeed: -2 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
   A('armor_emberplate', 'Emberforge Plate', 15, PLATE, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 88, defense: 8, strength: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
   A('armor_tidecaller', 'Tidecaller Vestments', 14, ROBE, robe('#274a5e', PAL.frost, 'wizard', '#1a3242'), { rarity: 'epic', glow: PAL.frost, stats: { maxMana: 72, intelligence: 9, abilityPower: 16 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+
+  /* --- the Frostmarch and the Jotunreach --- */
+  A('armor_marchplate', 'Frostmarch Plate', 19, PLATE, heavy('#5a6a7a', PAL.steel, 'full', '#33404f'), { rarity: 'superRare', stats: { maxHealth: 110, defense: 9, moveSpeed: -2 } }),
+  A('armor_palehide', 'Pale Hunter Hide', 20, LIGHT, light('#8f9aa8', PAL.white, 'hood', '#6b7684'), { rarity: 'superRare', stats: { dexterity: 9, moveSpeed: 9, critChance: 6 } }),
+  A('armor_whitewalk', 'Whitewalker Kit', 22, LIGHT, light('#c6d4e0', PAL.frost, 'cap'), { rarity: 'epic', stats: { dexterity: 11, moveSpeed: 11, maxStamina: 60 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
+  A('armor_riven', 'Riven Choir Vestments', 24, ROBE, robe('#2a3c4e', PAL.ice, 'wizard', '#1b2a38'), { rarity: 'epic', glow: PAL.frost, stats: { maxMana: 120, intelligence: 13, abilityPower: 26 } }),
+  A('armor_jotunmail', 'Jotunmail', 26, MAIL, heavy('#7d8ea0', PAL.frost, 'horned', '#3a4a5a'), { rarity: 'epic', stats: { maxHealth: 150, strength: 10, defense: 8 } }),
+  A('armor_glacierguard', 'Glacierguard Plate', 28, PLATE, heavy('#9fc4d8', PAL.white, 'full', '#4a6a80'), { rarity: 'epic', glow: PAL.frost, stats: { maxHealth: 185, defense: 14, moveSpeed: -3 }, fixedEnchants: [{ id: 'thorns', level: 2 }] }),
+  A('armor_longwinter', 'Shroud of the Long Winter', 30, ROBE, robe('#1f2a38', PAL.frost, 'hood', '#141d28'), { rarity: 'legendary', glow: PAL.ice, stats: { maxMana: 180, intelligence: 18, abilityPower: 38, lifesteal: 6 }, effects: ['frostbite'] }),
+  A('armor_gatekeeper', "Gatekeeper's Harness", 32, PLATE, heavy('#cfe4f0', PAL.holy, 'crown', '#6f9ab4'), {
+    rarity: 'legendary', glow: PAL.white, noDrop: true,
+    stats: { maxHealth: 260, defense: 20, strength: 14, moveSpeed: -2 },
+    effects: ['frostbite', 'soulbind'],
+    desc: 'Whatever wore this stood at the gate until the gate outlasted it.',
+  }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -238,6 +281,10 @@ export const OFFHANDS: ItemTemplate[] = [
   { id: 'shield_crag', name: 'Clanhold Bulwark', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: PAL.ironDark, accent: PAL.copper, rarity: 'epic', level: 16, value: 1050, stats: { defense: 44, maxHealth: 85, moveSpeed: -4 }, fixedEnchants: [{ id: 'shockwave', level: 1 }] },
   { id: 'orb_off', name: 'Focusing Lens', type: 'armor', slot: 'offHand', icon: 'orb', weaponKind: 'orb', metal: PAL.frost, glow: PAL.frost, rarity: 'rare', level: 7, value: 200, stats: { abilityPower: 9, maxMana: 30 } },
   { id: 'orb_dark', name: 'Nightglass Lens', type: 'armor', slot: 'offHand', icon: 'orb', weaponKind: 'orb', metal: PAL.arcaneDark, glow: PAL.arcaneLit, rarity: 'epic', level: 14, value: 760, stats: { abilityPower: 20, maxMana: 65, cooldownReduction: 6 } },
+  { id: 'shield_march', name: 'Frostmarch Wall', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: '#5a6a7a', accent: PAL.steel, rarity: 'superRare', level: 19, value: 1400, stats: { defense: 52, maxHealth: 110, moveSpeed: -4 } },
+  { id: 'orb_hoar', name: 'Hoarfrost Lens', type: 'armor', slot: 'offHand', icon: 'orb', weaponKind: 'orb', metal: PAL.ice, glow: PAL.frost, rarity: 'epic', level: 22, value: 1600, stats: { abilityPower: 30, maxMana: 100, cooldownReduction: 8 } },
+  { id: 'shield_jotun', name: 'Jotun Doorplank', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: '#7d8ea0', accent: PAL.frost, glow: PAL.frost, rarity: 'epic', level: 26, value: 2300, stats: { defense: 72, maxHealth: 170, moveSpeed: -5 }, fixedEnchants: [{ id: 'thorns', level: 3 }], desc: 'A door, to something that used a mountain for a house.' },
+  { id: 'tome_glacier', name: 'The Glacier Testament', type: 'armor', slot: 'offHand', icon: 'tome', weaponKind: 'tome', metal: PAL.white, glow: PAL.ice, rarity: 'legendary', level: 29, value: 3400, stats: { maxMana: 190, intelligence: 16, abilityPower: 34, cooldownReduction: 12 } },
   { id: 'lantern_off', name: 'Wayfarer Lantern', type: 'armor', slot: 'offHand', icon: 'lantern', metal: PAL.iron, glow: PAL.goldLit, rarity: 'rare', level: 6, value: 180, stats: { magicFind: 8, maxHealth: 14 }, desc: 'Burns whale oil and something the apothecary will not name.' },
 ];
 
@@ -290,6 +337,18 @@ export const ARTIFACTS: ItemTemplate[] = [
     { maxHealth: 90, defense: 10, strength: 6, magicFind: 12 },
     { id: 'rally', name: "King's Rally", cooldown: 38, desc: 'A rallying cry: heals you and empowers your strikes.' },
     { metal: PAL.gold, accent: PAL.holy, glow: PAL.holy, noDrop: true, desc: 'Given, not found. Jovan gives a great many things away.' }),
+
+  /* --- the far north --- */
+  ART('art_winter_horn', 'Horn of the Long Winter', 'horn', 20, 'epic', 1500, { maxHealth: 120, defense: 9 },
+    { id: 'rally', name: 'Sound the Winter', cooldown: 32, desc: 'A note that heals you and freezes everything that hears it.' },
+    { metal: PAL.bone, accent: PAL.frost, glow: PAL.frost }),
+  ART('art_glacier_heart', 'Heart of the Glacier', 'mat_crystal', 26, 'epic', 2400, { intelligence: 14, abilityPower: 26, defense: 8 },
+    { id: 'fire_nova', name: 'Calving', cooldown: 26, desc: 'The ground splits in a ring of ice around you.' },
+    { metal: PAL.ice, glow: PAL.frost }),
+  ART('art_last_gate', 'Key of the Last Gate', 'key', 32, 'legendary', 5200,
+    { maxHealth: 160, strength: 12, intelligence: 12, dexterity: 12, abilityPower: 30, cooldownReduction: 15, magicFind: 25 },
+    { id: 'time_fold', name: 'Hold the Gate', cooldown: 42, desc: 'Stops time inside the whole arena, and you alone keep walking.' },
+    { metal: PAL.white, accent: PAL.holy, glow: PAL.frost, noDrop: true, effects: ['spiritcall', 'flowstate', 'frostbite'], desc: 'It was never a key. It was what the gate was holding shut.' }),
 
   /* --- artifacts with their own icon art --- */
   ART('art_rally_horn', 'Horn of the Old Levy', 'horn', 6, 'rare', 300, { maxHealth: 30, defense: 3 },
@@ -369,6 +428,33 @@ export const UNIQUES: ItemTemplate[] = [
     noDrop: true, regions: ['north'],
     desc: 'Chained to the bone. They burn whoever holds them, and they do not care whose bone it is.',
   },
+
+  /* --- the Jotunreach relics --- */
+  {
+    id: 'unique_jotunbane', name: "Jotunbane, the Gravecutter", type: 'weapon', slot: 'mainHand', icon: 'greataxe', weaponKind: 'greataxe',
+    metal: '#bcd8e8', accent: PAL.white, glow: PAL.frost, rarity: 'legendary', level: 27, value: 7800,
+    stats: { damage: 156, attackSpeed: 0.66, range: 68, strength: 20, critDamage: 45, maxHealth: 120 },
+    effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'swirling', level: 2 }],
+    noDrop: true, regions: ['deepnorth'],
+    desc: 'The barrow-jotun buried it with himself, which tells you what he thought of it.',
+  },
+  {
+    id: 'unique_whitecrown', name: 'Whitecrown', type: 'weapon', slot: 'mainHand', icon: 'staff', weaponKind: 'staff',
+    metal: PAL.white, accent: PAL.ice, glow: PAL.frost, rarity: 'legendary', level: 29, value: 8400,
+    stats: { damage: 92, attackSpeed: 1, range: 560, intelligence: 22, abilityPower: 44, maxMana: 150, cooldownReduction: 12 },
+    effects: ['frostbite', 'spiritcall'], fixedEnchants: [{ id: 'frost_focus', level: 3 }, { id: 'ember_focus', level: 2 }],
+    noDrop: true, regions: ['deepnorth'],
+    desc: 'Cut from the ceiling of a cathedral that sings when the wind is wrong.',
+  },
+  {
+    id: 'unique_winters_edge', name: "Winter's Edge", type: 'weapon', slot: 'mainHand', icon: 'greatsword', weaponKind: 'greatsword',
+    metal: '#e6f4fb', accent: PAL.white, glow: PAL.frost, rarity: 'legendary', level: 34, value: 12000,
+    stats: { damage: 186, attackSpeed: 0.72, range: 74, strength: 26, critChance: 12, critDamage: 60, lifesteal: 6 },
+    effects: ['frostbite', 'earthshaker', 'flowstate'],
+    fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'swirling', level: 3 }, { id: 'committed', level: 2 }],
+    noDrop: true,
+    desc: 'Aldrhrim did not carry a sword. This is the piece of him that was shaped like one.',
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -385,6 +471,7 @@ export const CONSUMABLES: ItemTemplate[] = [
   { id: 'potion_might', name: 'Draught of Might', type: 'consumable', icon: 'potion_buff', rarity: 'rare', level: 4, value: 85, stats: {}, stackable: true, consume: { buff: { stat: 'strength', amount: 8, duration: 120, name: 'Might' } }, desc: '+8 Strength for two minutes.' },
   { id: 'potion_swift', name: 'Draught of Swiftness', type: 'consumable', icon: 'potion_buff', metal: PAL.grassPale, rarity: 'rare', level: 4, value: 85, stats: {}, stackable: true, consume: { buff: { stat: 'moveSpeed', amount: 18, duration: 120, name: 'Swiftness' } }, desc: '+18 Movement Speed for two minutes.' },
   { id: 'potion_focus', name: 'Draught of Focus', type: 'consumable', icon: 'potion_buff', metal: PAL.arcaneLit, rarity: 'rare', level: 6, value: 95, stats: {}, stackable: true, consume: { buff: { stat: 'abilityPower', amount: 20, duration: 120, name: 'Focus' } }, desc: '+20% Ability Power for two minutes.' },
+  { id: 'potion_health_xl', name: 'Jotunblood Draught', type: 'consumable', icon: 'potion_health', metal: PAL.frost, rarity: 'epic', level: 20, value: 320, stats: {}, stackable: true, consume: { healthPct: 0.8 }, desc: 'Restores 80% of maximum health.' },
   { id: 'elixir_grand', name: 'Grand Elixir', type: 'consumable', icon: 'elixir', rarity: 'epic', level: 14, value: 400, stats: {}, stackable: true, consume: { healthPct: 1, mana: 400, stamina: 400 }, desc: 'Restores everything. Tastes like a struck bell.' },
   { id: 'antidote', name: 'Antidote', type: 'consumable', icon: 'potion_stamina', metal: PAL.toxic, rarity: 'common', level: 3, value: 35, stats: {}, stackable: true, consume: { cure: true, health: 20 }, desc: 'Cures poison and burning.' },
   { id: 'food_bread', name: 'Trail Bread', type: 'consumable', icon: 'food_bread', rarity: 'common', level: 1, value: 8, stats: {}, stackable: true, consume: { health: 18, stamina: 30 } },
@@ -406,6 +493,9 @@ export const MATERIALS: ItemTemplate[] = [
   { id: 'mat_gem_ruby', name: 'Cut Ruby', type: 'material', icon: 'gem', metal: PAL.blood, rarity: 'superRare', level: 8, value: 200, stats: {}, stackable: true },
   { id: 'mat_gem_sapphire', name: 'Cut Sapphire', type: 'material', icon: 'gem', metal: PAL.water, rarity: 'superRare', level: 8, value: 200, stats: {}, stackable: true },
   { id: 'mat_rune', name: 'Binding Rune', type: 'material', icon: 'rune', metal: PAL.arcane, rarity: 'epic', level: 10, value: 320, stats: {}, stackable: true, desc: 'Used at an anvil to re-roll an enchantment.' },
+  { id: 'mat_glacier_shard', name: 'Glacier Shard', type: 'material', icon: 'mat_crystal', metal: PAL.ice, rarity: 'epic', level: 20, value: 420, stats: {}, stackable: true, desc: 'It does not melt. It has been tried.' },
+  { id: 'mat_jotun_ingot', name: 'Jotunsteel Ingot', type: 'material', icon: 'mat_ingot', metal: '#bcd8e8', rarity: 'epic', level: 26, value: 680, stats: {}, stackable: true },
+  { id: 'mat_greater_rune', name: 'Greater Binding Rune', type: 'material', icon: 'rune', metal: PAL.frost, rarity: 'legendary', level: 28, value: 950, stats: {}, stackable: true, desc: 'Does what a binding rune does, to things a binding rune will not hold.' },
 ];
 
 export const QUEST_ITEMS: ItemTemplate[] = [
@@ -418,6 +508,7 @@ export const QUEST_ITEMS: ItemTemplate[] = [
   { id: 'q_missing_ring', name: "Maren's Wedding Ring", type: 'quest', icon: 'ring', metal: PAL.gold, rarity: 'common', level: 1, value: 0, stats: {}, noDrop: true },
   { id: 'q_bandit_orders', name: 'Cutter Marching Orders', type: 'quest', icon: 'scroll', rarity: 'common', level: 1, value: 0, stats: {}, noDrop: true },
   { id: 'q_ice_core', name: 'Frozen Core', type: 'quest', icon: 'mat_crystal', metal: PAL.frost, rarity: 'superRare', level: 1, value: 0, stats: {}, noDrop: true },
+  { id: 'q_gate_sigil', name: 'Sigil of the Last Gate', type: 'quest', icon: 'rune', metal: PAL.frost, rarity: 'legendary', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Warm, in a place where nothing is.' },
   { id: 'q_kings_letter', name: "King Jovan's Letter", type: 'quest', icon: 'scroll', metal: PAL.gold, rarity: 'rare', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Sealed in gold wax, and written by hand.' },
 ];
 

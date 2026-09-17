@@ -398,6 +398,14 @@ export const CREATURE_PALETTES: Record<string, Pick<CreatureStyle, 'primary' | '
   boar: { primary: '#6a4f3a', secondary: '#4a3526', accent: PAL.cloth, eye: PAL.ember },
   crawler: { primary: '#7d8a6a', secondary: '#4f5a41', accent: PAL.rot, eye: PAL.toxic },
   serpent: { primary: '#4a7a4e', secondary: '#2f5233', accent: PAL.toxic, eye: PAL.flameLit },
+
+  /* --- the Jotunreach --- */
+  rimewolf: { primary: '#e2ecf4', secondary: '#b3c6d6', accent: PAL.white, eye: '#4f9ce8' },
+  glacierwyrm: { primary: '#6fa8c4', secondary: '#3f6f8c', accent: PAL.ice, eye: PAL.white },
+  wintershade: { primary: '#cfe0ec', secondary: '#7f96ab', accent: PAL.white, eye: PAL.frost },
+  icegolem: { primary: '#9fc4d8', secondary: '#5f8ba4', accent: PAL.white, eye: PAL.frost },
+  bonewrought: { primary: PAL.bone, secondary: '#8e8778', accent: PAL.frost, eye: PAL.frost },
+  glaciermaw: { primary: '#bcd8e8', secondary: '#6f9ab4', accent: PAL.blood, eye: PAL.blood },
 };
 
 export function creatureStyle(kind: CreatureKind, paletteKey: string, scale = 1, glow?: string | null): CreatureStyle {

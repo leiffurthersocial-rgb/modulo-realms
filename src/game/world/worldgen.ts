@@ -2,6 +2,7 @@ import { RNG, fbm, ridge } from '../core/rng';
 import {
   LOCATIONS, LOCATION_BY_ID, VILLAGE_TX, VILLAGE_TY, WORLD_H, WORLD_W, type LocationDef,
 } from '../../data/locations';
+import { ENDGAME_LEVEL } from '../../data/balance';
 import { T, isSolid } from './tiles';
 import { TILE } from './tiles';
 import { buildPropGrid, createMap, getTile, setTile, type GameMap, type PropInstance } from './map';
@@ -13,19 +14,31 @@ export const REGION_NORTH = 1;
 export const REGION_EAST = 2;
 export const REGION_SOUTH = 3;
 export const REGION_WEST = 4;
+export const REGION_DEEPNORTH = 5;
 
 const CX = VILLAGE_TX;
 const CY = VILLAGE_TY;
 
+/**
+ * The latitude above which the Crag Reach gives way to the Jotunreach. The
+ * deep north is a band rather than a quadrant: once you are far enough up the
+ * map there is nothing else, which is what makes walking there feel like an
+ * expedition instead of a border crossing.
+ */
+const DEEPNORTH_Y = 200;
+
 /** Which region a tile belongs to, with a noisy boundary so it never looks like a pie chart. */
 function regionAt(tx: number, ty: number, seed: number): number {
   // Two octaves of domain warp: a broad one that bends whole borders and a
-  // finer one that frays their edges, so the five regions never read as a pie
-  // chart even across a 512-tile map.
+  // finer one that frays their edges, so the six regions never read as a pie
+  // chart even across a map this size.
   const warpX = (fbm(tx * 0.007, ty * 0.007, seed + 11) - 0.5) * 96
     + (fbm(tx * 0.028, ty * 0.028, seed + 41) - 0.5) * 26;
   const warpY = (fbm(tx * 0.007, ty * 0.007, seed + 29) - 0.5) * 96
     + (fbm(tx * 0.028, ty * 0.028, seed + 59) - 0.5) * 26;
+  // The glacier's southern edge is a ragged line, not a latitude.
+  const iceEdge = DEEPNORTH_Y + (fbm(tx * 0.013, 0.5, seed + 97, 3) - 0.5) * 46;
+  if (ty + warpY * 0.5 < iceEdge) return REGION_DEEPNORTH;
   const dx = tx + warpX - CX;
   const dy = ty + warpY - CY;
   const d = Math.hypot(dx, dy);
@@ -64,6 +77,19 @@ function baseTerrain(ctx: GenCtx) {
 
       let tile: number;
       switch (reg) {
+        case REGION_DEEPNORTH: {
+          // Glacier. Bare ice where the sheet is thick, wind-packed snow over
+          // most of it, moraine gravel where it has ground the rock down, and
+          // crags that wall whole valleys off. It is meant to read as a place
+          // that was never meant to be crossed.
+          const eD = e + rim * 0.55;
+          if (eD > 0.8) tile = T.SNOW_ROCK;
+          else if (eD > 0.74) tile = T.MOUNTAIN;
+          else if (m > 0.66) tile = T.ICE;
+          else if (m < 0.3) tile = T.GRAVEL;
+          else tile = T.SNOW;
+          break;
+        }
         case REGION_NORTH: {
           const eN = e + rim * 0.5;
           if (eN > 0.88) tile = T.SNOW_ROCK;
@@ -227,6 +253,16 @@ function scatterProps(ctx: GenCtx) {
       const r = rng.next();
 
       switch (reg) {
+        case REGION_DEEPNORTH: {
+          // Almost nothing grows up here, and that emptiness is the point: the
+          // Jotunreach should read as a place the world stopped decorating.
+          if (r < 0.014) propAt(map, tx, ty, 'rock_snow', { cw: 22, ch: 12 });
+          else if (r < 0.022 && tile === T.ICE) propAt(map, tx, ty, 'crystal');
+          else if (r < 0.03) propAt(map, tx, ty, 'shrub_dead');
+          else if (forest > 0.68 && r < 0.05) propAt(map, tx, ty, 'tree_pine_snow', { cw: 12, ch: 8 });
+          else if (r < 0.036) propAt(map, tx, ty, 'bone_pile');
+          break;
+        }
         case REGION_NORTH: {
           const density = tile === T.SNOW ? 0.05 : 0.07;
           if (forest > 0.56 && r < density * 2.4) propAt(map, tx, ty, rng.bool(0.75) ? 'tree_pine_snow' : 'tree_pine', { cw: 12, ch: 8 });
@@ -307,7 +343,9 @@ function buildCamp(ctx: GenCtx, loc: LocationDef) {
   const { map, rng } = ctx;
   const { tx, ty } = loc;
   clearArea(map, tx, ty, 9, undefined);
-  const ground = loc.region === 'south' ? T.SAND : loc.region === 'north' ? T.GRAVEL : T.DIRT;
+  const ground = loc.region === 'south' ? T.SAND
+    : loc.region === 'deepnorth' ? T.SNOW
+    : loc.region === 'north' ? T.GRAVEL : T.DIRT;
   for (let y = ty - 7; y <= ty + 7; y++) {
     for (let x = tx - 7; x <= tx + 7; x++) {
       if (Math.hypot(x - tx, y - ty) <= 7 && !isRoadish(getTile(map, x, y))) setTile(map, x, y, ground);
@@ -389,6 +427,7 @@ function buildLandmark(ctx: GenCtx, loc: LocationDef) {
 function regionGround(ctx: GenCtx, tx: number, ty: number): number {
   switch (ctx.regions[ty * WORLD_W + tx]) {
     case REGION_NORTH: return T.SNOW;
+    case REGION_DEEPNORTH: return T.SNOW;
     case REGION_EAST: return T.SWAMP_GROUND;
     case REGION_SOUTH: return T.DESERT_SAND;
     case REGION_WEST: return T.GRASS_DARK;
@@ -465,6 +504,18 @@ const REGION_SPAWNS: Record<number, Array<{ id: string; weight: number; level: [
     { id: 'sandgolem', weight: 3, level: [11, 14] },
     { id: 'crawler', weight: 3, level: [6, 10] },
   ],
+  [REGION_DEEPNORTH]: [
+    { id: 'rime_stalker', weight: 9, level: [20, 25] },
+    { id: 'ice_revenant', weight: 8, level: [21, 27] },
+    { id: 'glacier_wyrm', weight: 7, level: [22, 27] },
+    { id: 'winter_shade', weight: 6, level: [22, 28] },
+    { id: 'pale_hunter', weight: 5, level: [23, 28] },
+    { id: 'jotun_thrall', weight: 4, level: [24, 30] },
+    { id: 'herald_winter', weight: 3, level: [25, 30] },
+    { id: 'glass_golem', weight: 3, level: [26, 31] },
+    { id: 'frost_giant', weight: 2, level: [28, 33] },
+    { id: 'bone_colossus', weight: 1, level: [29, 34] },
+  ],
   [REGION_WEST]: [
     { id: 'spider', weight: 8, level: [4, 8] },
     { id: 'wisp', weight: 8, level: [5, 10] },
@@ -516,7 +567,9 @@ function placeSpawns(ctx: GenCtx) {
 
   // camp garrisons
   for (const loc of LOCATIONS.filter((l) => l.kind === 'camp')) {
-    const roster = loc.id === 'crag_camp'
+    const roster = loc.id === 'thrall_camp'
+      ? ['jotun_thrall', 'ice_revenant', 'ice_revenant', 'herald_winter']
+      : loc.id === 'crag_camp'
       ? ['orc_raider', 'orc_raider', 'direwolf']
       : loc.id === 'goblin_warren'
         ? ['goblin', 'goblin', 'goblin', 'goblin_shaman']
@@ -561,7 +614,10 @@ function placeTreasure(ctx: GenCtx) {
       id: `wchest${i}`,
       x: tx * TILE + TILE / 2,
       y: ty * TILE + TILE,
-      level: Math.max(1, Math.min(18, Math.round(d / 14))),
+      // Distance from home IS the difficulty curve, so a chest at the top
+      // of the map is a level-30 chest. The old cap of 18 was the old edge
+      // of the world; ENDGAME_LEVEL moves with the content.
+      level: Math.max(1, Math.min(ENDGAME_LEVEL, Math.round(d / 15))),
       tier: rng.bool(0.25) ? 'large' : 'small',
     });
   }
@@ -670,7 +726,7 @@ function ensureConnectivity(ctx: GenCtx, locationsOnly = false): void {
               // rock is tunnelled through and water is filled in: both are
               // solid, and a corridor that stops at a riverbank is no corridor
               if (t === T.MOUNTAIN || t === T.CLIFF || t === T.SNOW_ROCK) {
-                map.tiles[ni] = ctx.regions[ni] === REGION_NORTH ? T.SNOW : T.GRAVEL;
+                map.tiles[ni] = ctx.regions[ni] === REGION_NORTH || ctx.regions[ni] === REGION_DEEPNORTH ? T.SNOW : T.GRAVEL;
               } else if (t === T.WATER || t === T.DEEP_WATER || t === T.SWAMP_WATER) {
                 map.tiles[ni] = T.BRIDGE;
               }
@@ -740,7 +796,7 @@ function ensureConnectivity(ctx: GenCtx, locationsOnly = false): void {
         const ny = loc.ty + oy;
         if (nx < 4 || ny < 4 || nx >= W - 4 || ny >= H - 4) continue;
         const ni = ny * W + nx;
-        if (isSolid(map.tiles[ni])) map.tiles[ni] = ctx.regions[ni] === REGION_NORTH ? T.SNOW : T.GRAVEL;
+        if (isSolid(map.tiles[ni])) map.tiles[ni] = ctx.regions[ni] === REGION_NORTH || ctx.regions[ni] === REGION_DEEPNORTH ? T.SNOW : T.GRAVEL;
         pad.push(ni);
       }
     }
@@ -787,10 +843,10 @@ export function generateOverworld(seed: number): GameMap {
   // water features
   carveLake(ctx, CX + 51, CY - 35, 17);
   carveLake(ctx, CX - 74, CY + 62, 14);
-  carveRiver(ctx, 235, 40, 285, 200, 3.6);
-  carveRiver(ctx, 285, 200, 400, 285, 4);
-  carveRiver(ctx, 160, 280, 80, 400, 3.2);
-  carveRiver(ctx, 300, 330, 210, 430, 3);
+  carveRiver(ctx, 235, 232, 285, 392, 3.6);
+  carveRiver(ctx, 285, 392, 400, 477, 4);
+  carveRiver(ctx, 160, 472, 80, 592, 3.2);
+  carveRiver(ctx, 300, 522, 210, 622, 3);
 
   // roads between every settlement and the capital, then on to the dungeons
   const towns = LOCATIONS.filter((l) => l.kind === 'village' || l.kind === 'town');
@@ -819,6 +875,18 @@ export function generateOverworld(seed: number): GameMap {
   road('mirefall', 'ironroot_mine');
   road('mirefall', 'drowned_shrine');
   road('mirefall', 'watchers_ring');
+  road('northwatch', 'frostmarch_hold');
+  // The one road into the Jotunreach, and then the trail through it. Every
+  // new region only needs this much wiring: a road in, and a road onward.
+  road('frostmarch_hold', 'vardhold');
+  road('vardhold', 'glass_hollow');
+  road('vardhold', 'riven_cathedral');
+  road('vardhold', 'ice_fields');
+  road('vardhold', 'thrall_camp');
+  road('thrall_camp', 'jotun_barrow');
+  road('riven_cathedral', 'white_stair');
+  road('white_stair', 'the_last_gate');
+  road('jotun_barrow', 'cairn_of_names');
   road('ashvale', 'whisperwell');
   road('ashvale', 'ember_falls');
   road('ashvale', 'old_bridge');

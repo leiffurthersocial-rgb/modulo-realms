@@ -600,6 +600,13 @@ export class Game implements WorldCtx {
     if (opts.element === 'fire' && tags.includes('plant')) dmg *= 1.4;
     if (opts.element === 'poison' && (tags.includes('construct') || tags.includes('undead'))) dmg *= 0.4;
     if (opts.element === 'frost' && tags.includes('ooze')) dmg *= 1.3;
+    // Nothing born on the glacier is impressed by cold. The whole Jotunreach
+    // drops frost gear, and the whole Jotunreach shrugs it off — which is the
+    // one place in the game where the loot you just found is the wrong answer.
+    if (tags.includes('giant')) {
+      if (opts.element === 'frost') dmg *= 0.55;
+      if (opts.element === 'fire') dmg *= 1.45;
+    }
     dmg = Math.max(1, dmg);
 
     e.hp -= dmg;
@@ -2623,7 +2630,7 @@ export class Game implements WorldCtx {
     if (this.input.wasPressed('offhand') && !hasShield) this.useOffhand();
     if (this.input.wasPressed('artifact')) this.useArtifact();
     if (this.input.wasPressed('potion')) this.useQuickItem();
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < p.classDef.abilities.length; i++) {
       if (this.input.wasPressed(`slot${i + 1}` as 'slot1')) this.useAbility(i);
     }
     p.artifactCooldown = Math.max(0, p.artifactCooldown - dt);
