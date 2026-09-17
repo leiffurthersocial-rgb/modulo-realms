@@ -229,6 +229,24 @@ export const WEAPONS: ItemTemplate[] = [
   W('crossbow_quotient', 'Quotient', 'crossbow', 38, 0.8, 660, { metal: PAL.arcaneDark, glow: PAL.arcane, rarity: 'legendary', stats: { critDamage: 80, dexterity: 18 }, fixedEnchants: [{ id: 'chain_reaction', level: 3 }] }),
   W('staff_modulo', 'The Modulo, Entire', 'staff', 38, 1, 580, { metal: PAL.arcane, glow: PAL.white, rarity: 'legendary', stats: { intelligence: 26, abilityPower: 52, maxMana: 180, cooldownReduction: 14 }, fixedEnchants: [{ id: 'void_strike', level: 3 }] }),
   W('orb_irrational', 'The Irrational', 'orb', 37, 1.28, 540, { metal: PAL.white, glow: PAL.arcaneLit, rarity: 'legendary', stats: { intelligence: 24, abilityPower: 48, lifesteal: 8 }, fixedEnchants: [{ id: 'soul_siphon', level: 3 }] }),
+
+  /* --- the deep marches: levels 52 to 75 --- */
+  W('sword_drowned', 'Drowned Longsword', 'sword', 53, 1.26, 54, { metal: '#6f9ab4', rarity: 'rare', stats: { strength: 8, maxHealth: 60 } }),
+  W('spear_fen', 'Fenreed Spear', 'spear', 55, 1.18, 74, { metal: '#4a7a6a', rarity: 'rare', stats: { dexterity: 9 } }),
+  W('staff_silt', 'Siltbound Stave', 'staff', 56, 0.96, 520, { metal: '#38505a', glow: '#8fd0f0', rarity: 'superRare', stats: { intelligence: 12, abilityPower: 16 } }),
+  W('greataxe_mire', 'Mirebreaker', 'greataxe', 58, 0.64, 70, { metal: '#243330', rarity: 'superRare', stats: { strength: 13, critDamage: 24 } }),
+  W('bow_reed', 'Blackreed Bow', 'bow', 59, 1.12, 560, { metal: '#1c2a26', rarity: 'superRare', stats: { dexterity: 12, critChance: 7 } }),
+  W('dagger_undertow', 'Undertow', 'dagger', 61, 2.0, 40, { metal: '#6f9ab4', glow: PAL.foam, rarity: 'epic', stats: { dexterity: 14, critChance: 11 } }),
+  W('halberd_storm', 'Stormward Halberd', 'halberd', 62, 0.82, 82, { metal: '#5a5480', glow: '#b9b0ff', rarity: 'epic', stats: { strength: 14, defense: 8 } }),
+  W('wand_fork', 'Forked Wand', 'wand', 63, 1.5, 460, { metal: '#9a8fe8', glow: '#e0dcff', rarity: 'epic', stats: { intelligence: 15, cooldownReduction: 8 } }),
+  W('greatsword_glasswalk', 'Glasswalk Greatblade', 'greatsword', 65, 0.7, 76, { metal: '#7f8fb4', glow: '#c9d2ee', rarity: 'epic', stats: { strength: 16, critDamage: 32 } }),
+  W('crossbow_thunder', 'Thunderlatch', 'crossbow', 66, 0.86, 620, { metal: '#4b4470', glow: '#b9b0ff', rarity: 'epic', stats: { dexterity: 16, critDamage: 30 } }),
+  W('scythe_stormwake', 'Stormwake Scythe', 'scythe', 67, 1.0, 84, { metal: '#2e2a48', glow: '#9a8fe8', rarity: 'epic', stats: { intelligence: 17, abilityPower: 22 } }),
+  W('mace_ember', 'Emberfall Mace', 'mace', 68, 1.06, 58, { metal: '#8a2a18', glow: PAL.flameLit, rarity: 'epic', stats: { strength: 17, maxHealth: 120 } }),
+  W('axe_cinder', 'Cindercleaver', 'axe', 70, 0.98, 60, { metal: '#6a2016', glow: PAL.flame, rarity: 'epic', stats: { strength: 18, critChance: 8 } }),
+  W('tome_deep', 'The Deep Ledger', 'tome', 71, 1.1, 480, { metal: '#3a1210', glow: PAL.ember, rarity: 'epic', stats: { intelligence: 19, abilityPower: 26 } }),
+  W('claws_emberjaw', 'Emberjaw Talons', 'claws', 72, 2.2, 100, { metal: '#4a1a14', glow: PAL.flameLit, rarity: 'epic', stats: { dexterity: 19, critChance: 12 } }),
+  W('hammer_floor', 'Underfloor Maul', 'hammer', 74, 0.62, 66, { metal: '#330d08', glow: PAL.flame, rarity: 'epic', stats: { strength: 21, critDamage: 40 } }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -298,6 +316,16 @@ export const ARMOR: ItemTemplate[] = [
     effects: ['frostbite', 'soulbind'],
     desc: 'Whatever wore this stood at the gate until the gate outlasted it.',
   }),
+
+  /* --- the deep marches --- */
+  A('armor_fenweave', 'Fenweave Shroud', 54, ROBE, robe('#243330', '#5a8a6a', 'hood', '#1c2a26'), { rarity: 'superRare', stats: { maxMana: 180, intelligence: 14, abilityPower: 20 } }),
+  A('armor_drowned', 'Drowned Legion Plate', 57, PLATE, heavy('#38505a', PAL.foam, 'full', '#1c2b33'), { rarity: 'epic', stats: { maxHealth: 320, defense: 16, moveSpeed: -3 } }),
+  A('armor_reedstep', 'Reedstep Leathers', 59, LIGHT, light('#1c2a26', '#8fd0f0', 'hood', '#101a18'), { rarity: 'epic', stats: { dexterity: 15, moveSpeed: 11, maxStamina: 90 } }),
+  A('armor_stormward', 'Stormward Harness', 63, PLATE, heavy('#4b4470', '#b9b0ff', 'horned', '#2e2a48'), { rarity: 'epic', glow: '#b9b0ff', stats: { maxHealth: 360, defense: 20 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
+  A('armor_glasscloak', 'Glasswalker Cloak', 66, LIGHT, light('#7f8fb4', '#c9d2ee', 'hood', '#454f6e'), { rarity: 'epic', stats: { dexterity: 18, critChance: 9, moveSpeed: 12 } }),
+  A('armor_stormrobe', 'Robe of the Open Sky', 68, ROBE, robe('#2e2a48', '#e0dcff', 'circlet', '#4b4470'), { rarity: 'epic', glow: '#9a8fe8', stats: { maxMana: 280, intelligence: 20, abilityPower: 32 } }),
+  A('armor_emberplate', 'Emberwrought Plate', 71, PLATE, heavy('#3a1210', PAL.flameLit, 'full', '#1c0806'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 460, defense: 26, strength: 12, moveSpeed: -4 }, fixedEnchants: [{ id: 'thorns', level: 2 }] }),
+  A('armor_underfloor', 'What the Floor Wore', 74, MAIL, heavy('#330d08', PAL.flame, 'horned', '#4a1a14'), { rarity: 'legendary', glow: PAL.flameLit, stats: { maxHealth: 520, defense: 28, strength: 15, critDamage: 30 }, effects: ['thorns', 'earthshaker'], desc: 'Scale, and not from anything that had a name.' }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -423,6 +451,16 @@ export const ARTIFACTS: ItemTemplate[] = [
   ART('art_emberdrum', 'Emberforge Drum', 'drum', 10, 'superRare', 620, { strength: 5, attackSpeed: 4 },
     { id: 'fire_nova', name: 'Beat the Forge', cooldown: 24, desc: 'A pounding rhythm that sets the ground alight around you.' },
     { metal: PAL.wood, accent: PAL.ember, glow: PAL.ember }),
+
+  ART('art_tide_glass', 'Tideglass Lens', 'mat_crystal', 56, 'epic', 5200, { intelligence: 14, abilityPower: 18 },
+    { id: 'ward', name: 'Undertow', cooldown: 34, desc: 'Water closes over you, absorbing a great deal of damage.' },
+    { metal: '#6f9ab4', glow: PAL.foam }),
+  ART('art_storm_ring', 'The Open Sky', 'ring', 64, 'epic', 6400, { critChance: 8, moveSpeed: 6 },
+    { id: 'fire_nova', name: 'Ground Strike', cooldown: 28, desc: 'Calls the weather down in a ring around you.' },
+    { metal: '#9a8fe8', glow: '#e0dcff' }),
+  ART('art_ember_heart', 'A Piece of the Floor', 'amulet', 72, 'legendary', 9800, { strength: 16, maxHealth: 260, defense: 12 },
+    { id: 'frenzy', name: 'Draw Breath', cooldown: 42, desc: 'You burn from the inside for ten seconds, and everything you touch does too.' },
+    { metal: '#330d08', glow: PAL.flameLit }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -546,6 +584,38 @@ export const UNIQUES: ItemTemplate[] = [
     fixedEnchants: [{ id: 'sharpness', level: 3 }, { id: 'critical_hit', level: 3 }, { id: 'committed', level: 3 }], noReroll: true,
     noDrop: true,
     desc: 'The smallest thing that will not divide into anything else. It is very sharp about it.',
+  },
+
+  /* --- the three at the bottom of the deep marches --- */
+  {
+    id: 'unique_drowned_crown', name: 'The Crown She Waited In', type: 'weapon', slot: 'mainHand', icon: 'staff', weaponKind: 'staff',
+    metal: '#38505a', accent: PAL.foam, glow: '#8fd0f0', rarity: 'legendary', level: 60, value: 16000,
+    stats: { damage: 130, attackSpeed: 1.0, range: 540, intelligence: 30, abilityPower: 52, maxMana: 240, cooldownReduction: 14 },
+    effects: ['frostbite', 'spiritcall'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'frost_focus', level: 3 }], noReroll: true,
+    noDrop: true, regions: ['sunkenwest'],
+    desc: 'She was told to wait for the water and she did. This is what she was holding.',
+  },
+  {
+    id: 'unique_storm_throne', name: 'The Standing Rod', type: 'weapon', slot: 'mainHand', icon: 'spear', weaponKind: 'spear',
+    metal: '#5a5480', accent: '#e0dcff', glow: '#b9b0ff', rarity: 'legendary', level: 67, value: 19000,
+    stats: { damage: 132, attackSpeed: 1.45, range: 86, dexterity: 28, strength: 20, critChance: 14, critDamage: 48 },
+    effects: ['stormcaller', 'echo'], fixedEnchants: [{ id: 'shockwave', level: 3 }, { id: 'swirling', level: 2 }], noReroll: true,
+    noDrop: true, regions: ['stormeast'],
+    desc: 'Driven into the flats to give the lightning somewhere to go. It has been going there a very long time.',
+  },
+  {
+    id: 'unique_floor_of_world', name: 'Underfloor', type: 'weapon', slot: 'mainHand', icon: 'greataxe', weaponKind: 'greataxe',
+    metal: '#330d08', accent: PAL.flameLit, glow: PAL.flame, rarity: 'mythic', level: 74, value: 32000,
+    stats: { damage: 335, attackSpeed: 0.6, range: 82, strength: 38, critDamage: 70, maxHealth: 320, lifesteal: 7 },
+    effects: ['burning_edge', 'earthshaker', 'flowstate'],
+    fixedEnchants: [{ id: 'fire_aspect', level: 3 }, { id: 'swirling', level: 3 }, { id: 'committed', level: 2 }], noReroll: true,
+    weaponPower: {
+      id: 'underfloor_open', name: 'Open It',
+      cooldown: 20,
+      desc: 'Put it through the ground. The floor gives way in a long wedge ahead of you, and what is under the floor is still lit.',
+    },
+    noDrop: true,
+    desc: 'It was never a weapon. It is a piece of the thing the Cinderwastes are lying on, and it is the right shape by accident.',
   },
 ];
 

@@ -725,6 +725,217 @@ export const ENEMIES: EnemyDef[] = [
     drops: [{ item: 'mat_jotun_ingot', chance: 1, min: 2, max: 3 }, { item: 'elixir_grand', chance: 1, min: 1, max: 2 }],
     lootChance: 1, lootBias: 0.9, tags: ['beast'],
   },
+
+  /* ---------------------------------------------------------------- */
+  /* The deep marches — levels 52 to 75                                */
+  /*                                                                   */
+  /* Every line here was priced off enemyHealthAt/enemyDamageAt for     */
+  /* the level and role in its comment, the same as the Jotunreach     */
+  /* above it. `npx tsx scripts/check-balance.ts` proves it, and       */
+  /* `scripts/reprice-enemies.ts` puts it back when a curve moves.     */
+  /*                                                                   */
+  /* On top of these numbers each one takes its region multiplier at   */
+  /* spawn time, so a Drowning Reach standard is 2.2x what is written  */
+  /* and an Emberdeep one is 2.8x.                                     */
+  /* ---------------------------------------------------------------- */
+
+  /* --- The Drowning Reach --- */
+  {
+    // lv53 skirmisher: hunts the shallows in fours and does not surface first
+    id: 'drowned_hound', name: 'Drowned Hound', kind: 'creature', creature: { kind: 'wolf', palette: 'drownedwolf', glow: '#8fd0f0' }, scale: 1.3,
+    role: 'skirmisher', region: 'sunkenwest',
+    level: 53, health: 3320, damage: 148, defense: 44, speed: 128, xp: 2111, gold: [40, 92], radius: 17,
+    sight: 470, attackRange: 42, attackCooldown: 1.1, windup: 0.24, pack: true, element: 'frost',
+    drops: [{ item: 'mat_leather', chance: 0.5, min: 2, max: 4 }, { item: 'mat_essence', chance: 0.35 }],
+    lootChance: 0.16, tags: ['beast'],
+  },
+  {
+    // lv54 skirmisher: the fen keeps what it takes, and some of it walks
+    id: 'fen_shade', name: 'Fen Shade', kind: 'creature', creature: { kind: 'wraith', palette: 'drownedthing', glow: PAL.foam }, scale: 1.2,
+    role: 'skirmisher', region: 'sunkenwest',
+    level: 54, health: 3440, damage: 151, defense: 45, speed: 116, xp: 2189, gold: [44, 100], radius: 16,
+    sight: 500, attackRange: 46, attackCooldown: 1.3, windup: 0.3, element: 'shadow',
+    drops: [{ item: 'mat_essence', chance: 0.6, min: 1, max: 3 }],
+    lootChance: 0.18, tags: ['undead'],
+  },
+  {
+    // lv55 standard: spins across standing water, which is not a thing spiders do
+    id: 'fen_weaver', name: 'Fen Weaver', kind: 'creature', creature: { kind: 'spider', palette: 'fenspider', glow: PAL.toxic }, scale: 1.45,
+    role: 'standard', region: 'sunkenwest',
+    level: 55, health: 4973, damage: 154, defense: 83, speed: 96, xp: 2388, gold: [48, 108], radius: 19,
+    sight: 460, attackRange: 44, attackCooldown: 1.5, windup: 0.34, element: 'poison',
+    ranged: { speed: 300, element: 'poison', color: PAL.toxic, radius: 26 },
+    drops: [{ item: 'mat_essence', chance: 0.5, min: 1, max: 3 }, { item: 'antidote', chance: 0.3 }],
+    lootChance: 0.2, tags: ['beast'],
+  },
+  {
+    // lv57 brute: an oak that went under fifty years ago and is still growing
+    id: 'sunken_treant', name: 'Sunken Treant', kind: 'creature', creature: { kind: 'treant', palette: 'sunkentreant', glow: '#8fd0f0' }, scale: 2.1,
+    role: 'brute', region: 'sunkenwest',
+    level: 57, health: 7738, damage: 178, defense: 137, speed: 52, xp: 2944, gold: [70, 150], radius: 27,
+    sight: 440, attackRange: 76, attackCooldown: 2.4, windup: 0.7, element: 'poison',
+    drops: [{ item: 'mat_herb', chance: 0.7, min: 2, max: 5 }, { item: 'mat_essence', chance: 0.4 }],
+    lootChance: 0.3, lootBias: 0.5, tags: ['plant'],
+  },
+  {
+    // lv59 standard: whatever was walking here when the water came
+    id: 'the_drowned', name: 'The Drowned', kind: 'humanoid',
+    look: humanLook({ skin: '#7e9aa2', hair: '#2b3f42', helmet: 'none', armorColor: '#38505a', armorTrim: PAL.foam, weapon: { kind: 'spear', metal: '#6f9ab4', grip: '#233033' } }),
+    role: 'standard', region: 'sunkenwest',
+    level: 59, health: 5654, damage: 164, defense: 89, speed: 82, xp: 2738, gold: [56, 124], radius: 14,
+    sight: 470, attackRange: 56, attackCooldown: 1.7, windup: 0.42, element: 'frost',
+    drops: [{ item: 'mat_essence', chance: 0.45 }, { item: 'mat_steel_ingot', chance: 0.3 }],
+    lootChance: 0.24, tags: ['undead'],
+  },
+  {
+    // lv61 brute: silt and roots packed into the shape of something upright
+    id: 'mire_colossus', name: 'Mire Colossus', kind: 'creature', creature: { kind: 'golem', palette: 'sunkentreant', glow: '#4a7a6a' }, scale: 2.2,
+    role: 'brute', region: 'sunkenwest',
+    level: 61, health: 8711, damage: 190, defense: 146, speed: 50, xp: 3360, gold: [84, 176], radius: 29,
+    sight: 420, attackRange: 78, attackCooldown: 2.5, windup: 0.78, element: 'physical',
+    drops: [{ item: 'mat_essence', chance: 0.6, min: 2, max: 4 }, { item: 'mat_crystal', chance: 0.35 }],
+    lootChance: 0.34, lootBias: 0.6, tags: ['construct'],
+  },
+
+  /* --- The Stormreach --- */
+  {
+    // lv59 skirmisher: the sky here discharges into things, and some stay lit
+    id: 'storm_wisp', name: 'Storm Wisp', kind: 'creature', creature: { kind: 'wisp', palette: 'stormwisp', glow: '#b9b0ff' }, scale: 1.2,
+    role: 'skirmisher', region: 'stormeast',
+    level: 59, health: 4098, damage: 164, defense: 49, speed: 134, xp: 2601, gold: [54, 118], radius: 14,
+    sight: 520, attackRange: 300, attackCooldown: 1.5, windup: 0.32, element: 'arcane',
+    ranged: { speed: 420, element: 'arcane', color: '#b9b0ff', radius: 24 },
+    drops: [{ item: 'mat_essence', chance: 0.6, min: 1, max: 3 }, { item: 'mat_crystal', chance: 0.3 }],
+    lootChance: 0.2, tags: ['spirit'],
+  },
+  {
+    // lv62 brute: iron left standing in the open long enough to be struck
+    id: 'thunder_wrought', name: 'Thunderwrought', kind: 'creature', creature: { kind: 'golem', palette: 'thunderwrought', glow: '#b9b0ff' }, scale: 2.15,
+    role: 'brute', region: 'stormeast',
+    level: 62, health: 8935, damage: 193, defense: 149, speed: 58, xp: 3468, gold: [92, 190], radius: 29,
+    sight: 450, attackRange: 80, attackCooldown: 2.3, windup: 0.72, element: 'arcane',
+    drops: [{ item: 'mat_crystal', chance: 0.6, min: 2, max: 4 }, { item: 'mat_steel_ingot', chance: 0.4 }],
+    lootChance: 0.34, lootBias: 0.7, tags: ['construct'],
+  },
+  {
+    // lv64 standard: rides the discharge along the flats, faster than the sound
+    id: 'storm_serpent', name: 'Storm Serpent', kind: 'creature', creature: { kind: 'serpent', palette: 'stormserpent', glow: '#9a8fe8' }, scale: 1.7,
+    role: 'standard', region: 'stormeast',
+    level: 64, health: 6578, damage: 178, defense: 96, speed: 118, xp: 3209, gold: [66, 142], radius: 20,
+    sight: 500, attackRange: 52, attackCooldown: 1.4, windup: 0.3, element: 'arcane',
+    drops: [{ item: 'mat_essence', chance: 0.5, min: 1, max: 3 }, { item: 'mat_crystal', chance: 0.35 }],
+    lootChance: 0.24, tags: ['beast'],
+  },
+  {
+    // lv66 standard: hunts by the light it throws, which is a poor way to hide
+    id: 'glass_hunter', name: 'Glass Hunter', kind: 'creature', creature: { kind: 'wolf', palette: 'glasswolf', glow: '#c9d2ee' }, scale: 1.45,
+    role: 'standard', region: 'stormeast',
+    level: 66, health: 6958, damage: 183, defense: 99, speed: 126, xp: 3408, gold: [70, 150], radius: 18,
+    sight: 520, attackRange: 46, attackCooldown: 1.2, windup: 0.26, pack: true, element: 'arcane',
+    drops: [{ item: 'mat_crystal', chance: 0.5, min: 1, max: 3 }, { item: 'mat_leather', chance: 0.4, min: 2, max: 4 }],
+    lootChance: 0.26, tags: ['beast'],
+  },
+  {
+    // lv67 standard: brings the weather down on you on purpose
+    id: 'stormcaller', name: 'Stormcaller', kind: 'humanoid',
+    look: humanLook({ skin: PAL.skin4, hair: '#e0dcff', hairStyle: 'long', helmet: 'hood', armor: 'robe', armorColor: '#4b4470', armorTrim: '#b9b0ff', cape: '#2e2a48', weapon: { kind: 'staff', metal: '#9a8fe8', grip: '#241f3c', glow: '#b9b0ff' } }),
+    role: 'standard', region: 'stormeast',
+    level: 67, health: 7134, damage: 186, defense: 101, speed: 84, xp: 3510, gold: [88, 180], radius: 14,
+    sight: 560, attackRange: 360, attackCooldown: 2.1, windup: 0.6, element: 'arcane',
+    ranged: { speed: 380, element: 'arcane', color: '#b9b0ff', radius: 40, count: 3, arc: 0.5 },
+    drops: [{ item: 'mat_crystal', chance: 0.55, min: 1, max: 3 }, { item: 'mat_rune', chance: 0.3 }],
+    lootChance: 0.32, lootBias: 0.8, tags: ['humanoid'],
+  },
+
+  /* --- The Emberdeep --- */
+  {
+    // lv66 skirmisher: the part of a person the heat did not take
+    id: 'ember_shade', name: 'Ember Shade', kind: 'creature', creature: { kind: 'wraith', palette: 'cinderwisp', glow: PAL.flameLit }, scale: 1.25,
+    role: 'skirmisher', region: 'emberdeep',
+    level: 66, health: 5138, damage: 183, defense: 54, speed: 130, xp: 3238, gold: [72, 156], radius: 16,
+    sight: 520, attackRange: 48, attackCooldown: 1.15, windup: 0.26, element: 'fire',
+    drops: [{ item: 'mat_essence', chance: 0.6, min: 2, max: 4 }],
+    lootChance: 0.22, tags: ['undead'],
+  },
+  {
+    // lv65 brute: slag that cooled around something and kept its shape
+    id: 'ember_wrought', name: 'Emberwrought', kind: 'creature', creature: { kind: 'golem', palette: 'emberwrought', glow: PAL.flameLit }, scale: 2.25,
+    role: 'brute', region: 'emberdeep',
+    level: 65, health: 9695, damage: 202, defense: 156, speed: 54, xp: 3804, gold: [104, 210], radius: 30,
+    sight: 440, attackRange: 82, attackCooldown: 2.4, windup: 0.76, element: 'fire',
+    drops: [{ item: 'mat_crystal', chance: 0.6, min: 2, max: 5 }, { item: 'mat_steel_ingot', chance: 0.45 }],
+    lootChance: 0.36, lootBias: 0.7, tags: ['construct'],
+  },
+  {
+    // lv67 standard: the ash scorpion's larger cousin, and it lives down here
+    id: 'deep_scorpion', name: 'Deep Scorpion', kind: 'creature', creature: { kind: 'scorpion', palette: 'deepscorpion', glow: PAL.ember }, scale: 1.8,
+    role: 'standard', region: 'emberdeep',
+    level: 67, health: 7134, damage: 186, defense: 101, speed: 104, xp: 3510, gold: [74, 158], radius: 21,
+    sight: 480, attackRange: 56, attackCooldown: 1.5, windup: 0.34, element: 'poison',
+    drops: [{ item: 'antidote', chance: 0.5, min: 1, max: 3 }, { item: 'mat_gem_ruby', chance: 0.3 }],
+    lootChance: 0.26, tags: ['beast'],
+  },
+  {
+    // lv69 standard: swims the ash the way an eel swims silt
+    id: 'molten_serpent', name: 'Molten Serpent', kind: 'creature', creature: { kind: 'serpent', palette: 'moltenserpent', glow: PAL.flameLit }, scale: 1.8,
+    role: 'standard', region: 'emberdeep',
+    level: 69, health: 7528, damage: 191, defense: 104, speed: 112, xp: 3718, gold: [80, 168], radius: 21,
+    sight: 500, attackRange: 54, attackCooldown: 1.35, windup: 0.3, element: 'fire',
+    ranged: { speed: 340, element: 'fire', color: PAL.flame, radius: 30 },
+    drops: [{ item: 'mat_essence', chance: 0.55, min: 2, max: 4 }, { item: 'mat_gem_ruby', chance: 0.32 }],
+    lootChance: 0.28, tags: ['beast'],
+  },
+  {
+    // lv71 standard: a Cutter who went down the Caldera and came back up
+    id: 'ash_revenant', name: 'Ash Revenant', kind: 'humanoid',
+    look: humanLook({ skin: '#6a4a40', hair: '#2a1410', helmet: 'full', armorColor: '#3a1210', armorTrim: PAL.flameLit, cape: '#4a1a14', weapon: { kind: 'greatsword', metal: '#8a2a18', grip: '#240c09', glow: PAL.ember } }),
+    role: 'standard', region: 'emberdeep',
+    level: 71, health: 7932, damage: 197, defense: 107, speed: 88, xp: 3932, gold: [96, 198], radius: 15,
+    sight: 500, attackRange: 62, attackCooldown: 1.8, windup: 0.46, element: 'fire',
+    drops: [{ item: 'mat_steel_ingot', chance: 0.5, min: 1, max: 3 }, { item: 'mat_rune', chance: 0.3 }],
+    lootChance: 0.34, lootBias: 0.8, tags: ['undead'],
+  },
+  {
+    // lv73 brute: the biggest thing that walks, and it walks slowly
+    id: 'cinder_colossus', name: 'Cinder Colossus', kind: 'creature', creature: { kind: 'golem', palette: 'cindermaw', glow: PAL.flame }, scale: 2.6,
+    role: 'brute', region: 'emberdeep',
+    level: 73, health: 11834, damage: 226, defense: 175, speed: 48, xp: 4775, gold: [130, 260], radius: 33,
+    sight: 460, attackRange: 88, attackCooldown: 2.6, windup: 0.84, element: 'fire',
+    drops: [{ item: 'mat_crystal', chance: 0.7, min: 3, max: 6 }, { item: 'mat_rune', chance: 0.4 }],
+    lootChance: 0.42, lootBias: 0.9, tags: ['construct'],
+  },
+
+  /* --- named things in the corridors --- */
+  {
+    // lv58 elite: the Drowning Reach's own brood mother, and larger
+    id: 'mini_fenmother', name: 'The Fen Mother', kind: 'creature', creature: { kind: 'spider', palette: 'fenspider', glow: PAL.toxic }, scale: 2.2,
+    role: 'elite', region: 'sunkenwest', elite: true,
+    level: 58, health: 19420, damage: 162, defense: 157, speed: 82, xp: 7944, gold: [280, 480], radius: 27,
+    sight: 540, attackRange: 62, attackCooldown: 1.7, windup: 0.42, element: 'poison',
+    ranged: { speed: 320, element: 'poison', color: PAL.toxic, radius: 34, count: 3, arc: 0.6 },
+    drops: [{ item: 'mat_essence', chance: 1, min: 3, max: 6 }, { item: 'mat_rune', chance: 0.5 }],
+    lootChance: 1, lootBias: 1.1, tags: ['beast'],
+  },
+  {
+    // lv65 elite: stands in the open and waits to be struck, on purpose
+    id: 'mini_stormherald', name: 'The Storm Herald', kind: 'humanoid',
+    look: humanLook({ skin: PAL.skin5, hair: '#e0dcff', hairStyle: 'long', beard: 'full', helmet: 'circlet', armor: 'robe', armorColor: '#2e2a48', armorTrim: '#b9b0ff', cape: '#4b4470', height: 1.1, bulk: 1.1, weapon: { kind: 'staff', metal: '#b9b0ff', grip: '#241f3c', glow: '#e0dcff' } }),
+    role: 'elite', region: 'stormeast', elite: true,
+    level: 65, health: 23518, damage: 181, defense: 176, speed: 78, xp: 9923, gold: [340, 560], radius: 16,
+    sight: 600, attackRange: 380, attackCooldown: 1.9, windup: 0.55, element: 'arcane',
+    ranged: { speed: 400, element: 'arcane', color: '#b9b0ff', radius: 44, count: 4, arc: 0.7 },
+    drops: [{ item: 'mat_crystal', chance: 1, min: 3, max: 6 }, { item: 'mat_rune', chance: 0.6 }],
+    lootChance: 1, lootBias: 1.15, tags: ['humanoid'],
+  },
+  {
+    // lv72 elite: it is mostly mouth and it is not subtle about it
+    id: 'mini_emberjaw', name: 'Emberjaw', kind: 'creature', creature: { kind: 'crawler', palette: 'cindermaw', glow: PAL.flameLit }, scale: 2.4,
+    role: 'elite', region: 'emberdeep', elite: true,
+    level: 72, health: 28029, damage: 199, defense: 194, speed: 96, xp: 12123, gold: [420, 700], radius: 30,
+    sight: 560, attackRange: 74, attackCooldown: 1.6, windup: 0.4, element: 'fire',
+    drops: [{ item: 'mat_crystal', chance: 1, min: 4, max: 8 }, { item: 'mat_rune', chance: 0.7 }],
+    lootChance: 1, lootBias: 1.2, tags: ['beast'],
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -1244,6 +1455,95 @@ export const BOSSES: EnemyDef[] = [
         { id: 'heralds', name: 'The Others', shape: 'summon', windup: 1.1, cooldown: 24, power: 0, count: 5, element: 'frost', color: PAL.frost, summon: 'herald_winter', phase: 3 },
         { id: 'zero', name: 'Remainder Zero', shape: 'ring', windup: 2, cooldown: 16, power: 4.2, radius: 700, element: 'shadow', color: PAL.arcaneDark, phase: 4, lifeTax: 0.42 },
         { id: 'count', name: 'Keep Counting', shape: 'rain', windup: 0.8, cooldown: 5, power: 2.4, count: 18, radius: 104, element: 'arcane', color: PAL.arcaneLit, phase: 5, lifeTax: 0.06 },
+      ],
+    },
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* The three at the bottom of the deep marches                       */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'boss_drowned_court', name: 'She Who Waited For The Water', kind: 'creature',
+    creature: { kind: 'treant', palette: 'sunkentreant', glow: '#8fd0f0' }, scale: 2.9,
+    role: 'boss', region: 'sunkenwest',
+    level: 60, health: 59583, damage: 192, defense: 153, speed: 54, xp: 21218, gold: [1400, 2400], radius: 34,
+    sight: 620, attackRange: 92, attackCooldown: 2.3, windup: 0.7, element: 'frost',
+    drops: [{ item: 'mat_essence', chance: 1, min: 6, max: 12 }, { item: 'mat_rune', chance: 1, min: 2, max: 4 }],
+    lootChance: 1, lootBias: 1.3, tags: ['plant'],
+    boss: {
+      title: 'Rooted Under the Sunken Hall',
+      uniqueDrop: 'unique_drowned_crown',
+      hitCap: 0.014,
+      enrageAfter: 200, enrageRate: 0.02,
+      phases: [
+        { at: 1, name: 'Patient', speed: 1, damage: 1, line: 'I was told the water would come. I waited. It came.' },
+        { at: 0.7, name: 'Rising', speed: 1.12, damage: 1.2, line: 'It is still coming.', hazard: 'frost', immune: { seconds: 16, summon: 'the_drowned', count: 4, label: 'The court stands — kill the drowned' } },
+        { at: 0.4, name: 'Full Tide', speed: 1.24, damage: 1.45, line: 'Everything I knew is under it and so are you.', hazard: 'frost' },
+        { at: 0.15, name: 'Undertow', speed: 1.35, damage: 1.7, line: 'STAY. EVERYTHING ELSE DID.', hazard: 'frost', immune: { seconds: 12, summon: 'fen_shade', count: 5, label: 'The fen answers — break the shades' } },
+      ],
+      attacks: [
+        { id: 'bough', name: 'Drowned Bough', shape: 'cone', windup: 0.75, cooldown: 4.2, power: 1.8, radius: 190, element: 'physical', color: '#1c2a26' },
+        { id: 'surge', name: 'Tidal Surge', shape: 'ring', windup: 1.1, cooldown: 9, power: 1.7, radius: 280, element: 'frost', color: PAL.foam, lifeTax: 0.07 },
+        { id: 'silt', name: 'Silt Fall', shape: 'rain', windup: 1.2, cooldown: 10, power: 1.5, count: 6, radius: 80, element: 'poison', color: '#4a7a6a' },
+        { id: 'roots', name: 'Grasping Roots', shape: 'circle', windup: 0.9, cooldown: 7, power: 2, radius: 160, element: 'poison', color: '#243330', phase: 1 },
+        { id: 'call', name: 'Call the Court', shape: 'summon', windup: 1.3, cooldown: 22, power: 0, count: 3, element: 'frost', color: '#6f9ab4', summon: 'the_drowned', phase: 2 },
+      ],
+    },
+  },
+  {
+    id: 'boss_storm_throne', name: 'What Sits in the Weather', kind: 'creature',
+    creature: { kind: 'wisp', palette: 'stormwisp', glow: '#e0dcff' }, scale: 2.8,
+    role: 'boss', region: 'stormeast',
+    level: 67, health: 71809, damage: 214, defense: 171, speed: 92, xp: 26323, gold: [1800, 3000], radius: 30,
+    sight: 680, attackRange: 400, attackCooldown: 2, windup: 0.6, element: 'arcane',
+    drops: [{ item: 'mat_crystal', chance: 1, min: 6, max: 12 }, { item: 'mat_rune', chance: 1, min: 2, max: 5 }],
+    lootChance: 1, lootBias: 1.35, tags: ['spirit'],
+    boss: {
+      title: 'Enthroned Where The Sky Does Not Clear',
+      uniqueDrop: 'unique_storm_throne',
+      hitCap: 0.012,
+      enrageAfter: 190, enrageRate: 0.024,
+      phases: [
+        { at: 1, name: 'Gathering', speed: 1, damage: 1, line: 'You are standing in the open. Everything here learns that once.' },
+        { at: 0.72, name: 'Breaking', speed: 1.15, damage: 1.22, line: '', immune: { seconds: 14, summon: 'thunder_wrought', count: 3, label: 'Earthed through the wrought — break them' } },
+        { at: 0.45, name: 'Overhead', speed: 1.3, damage: 1.5, line: 'It has been overhead the whole time.' },
+        { at: 0.2, name: 'Ground Strike', speed: 1.45, damage: 1.8, line: 'DOWN.', immune: { seconds: 11, label: 'Between strikes — nothing lands' } },
+      ],
+      attacks: [
+        { id: 'bolt', name: 'Fork', shape: 'projectile', windup: 0.55, cooldown: 3, power: 1.5, count: 5, range: 540, element: 'arcane', color: '#b9b0ff' },
+        { id: 'strike', name: 'Ground Strike', shape: 'rain', windup: 0.9, cooldown: 7.5, power: 1.9, count: 7, radius: 74, element: 'arcane', color: '#e0dcff' },
+        { id: 'sheet', name: 'Sheet Lightning', shape: 'ring', windup: 1.2, cooldown: 11, power: 1.8, radius: 300, element: 'arcane', color: '#9a8fe8', lifeTax: 0.08 },
+        { id: 'walk', name: 'The Storm Walks', shape: 'dash', windup: 0.7, cooldown: 8, power: 2.1, range: 420, element: 'arcane', color: '#c9d2ee', phase: 1 },
+        { id: 'herald', name: 'Call a Herald', shape: 'summon', windup: 1.3, cooldown: 24, power: 0, count: 2, element: 'arcane', color: '#b9b0ff', summon: 'storm_wisp', phase: 2 },
+      ],
+    },
+  },
+  {
+    id: 'boss_emberdeep', name: 'The Floor of the World', kind: 'creature',
+    creature: { kind: 'crawler', palette: 'cindermaw', glow: PAL.flameLit }, scale: 3.3,
+    role: 'boss', region: 'emberdeep',
+    level: 74, health: 84968, damage: 236, defense: 189, speed: 76, xp: 31980, gold: [2600, 4200], radius: 38,
+    sight: 700, attackRange: 110, attackCooldown: 2.1, windup: 0.66, element: 'fire',
+    drops: [{ item: 'mat_crystal', chance: 1, min: 8, max: 16 }, { item: 'mat_rune', chance: 1, min: 3, max: 6 }],
+    lootChance: 1, lootBias: 1.45, tags: ['construct'],
+    boss: {
+      title: 'What the Cinderwastes Are Lying On',
+      uniqueDrop: 'unique_floor_of_world',
+      hitCap: 0.009,
+      enrageAfter: 210, enrageRate: 0.026,
+      phases: [
+        { at: 1, name: 'Banked', speed: 1, damage: 1, line: 'You have been walking on me for weeks.' },
+        { at: 0.78, name: 'Drawing Breath', speed: 1.1, damage: 1.2, line: '', hazard: 'fire', immune: { seconds: 15, summon: 'ember_wrought', count: 3, label: 'Banked deep — break the wrought' } },
+        { at: 0.55, name: 'Open', speed: 1.22, damage: 1.45, line: 'The ash was warm. This is what it was warm from.', hazard: 'fire' },
+        { at: 0.3, name: 'Full Draw', speed: 1.36, damage: 1.75, line: '', hazard: 'fire', immune: { seconds: 13, summon: 'cinder_colossus', count: 2, label: 'Shielded — put down the colossi' } },
+        { at: 0.1, name: 'Nothing Left Under', speed: 1.5, damage: 2.1, line: 'THERE IS NOTHING UNDER ME. THERE IS NOTHING UNDER YOU.', hazard: 'fire' },
+      ],
+      attacks: [
+        { id: 'maw', name: 'Open the Floor', shape: 'circle', windup: 0.8, cooldown: 3.6, power: 2, radius: 190, element: 'fire', color: PAL.flame },
+        { id: 'vent', name: 'Vent', shape: 'rain', windup: 1, cooldown: 7, power: 1.8, count: 8, radius: 86, element: 'fire', color: PAL.flameLit },
+        { id: 'collapse', name: 'Collapse', shape: 'ring', windup: 1.3, cooldown: 11, power: 2, radius: 340, element: 'fire', color: PAL.ember, lifeTax: 0.09 },
+        { id: 'surge', name: 'Ash Surge', shape: 'dash', windup: 0.75, cooldown: 8.5, power: 2.3, range: 460, element: 'fire', color: '#8a2a18', phase: 1 },
+        { id: 'swarm', name: 'What Lives In It', shape: 'summon', windup: 1.4, cooldown: 26, power: 0, count: 4, element: 'fire', color: PAL.ember, summon: 'ember_shade', phase: 2 },
       ],
     },
   },

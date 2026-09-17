@@ -203,8 +203,11 @@ const ROLE_XP: Record<EnemyRole, number> = {
  * the stated fight lengths correspondingly faster, which is the spread the
  * whole system is built around.
  *
- * Current fit: level 5 ≈ 18, level 22 ≈ 180, level 34 ≈ 447, level 56 ≈ 1355,
- * level 75 ≈ 2668.
+ * Current fit, measured against real builds with content in place to level
+ * 75: it sits within 10% of the typical build from level 22 up (196 measured
+ * against 180 at 22, 1187 against 1355 at 56, 2494 against 2668 at 75) and
+ * deliberately a little under it below that, so the opening hours are brisker
+ * than the stated fight lengths rather than slower.
  */
 export const playerDpsAt = (level: number): number =>
   10 + 0.3 * level * level + 0.0023 * level * level * level;

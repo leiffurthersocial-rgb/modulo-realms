@@ -1,4 +1,7 @@
-import { ENEMY_THREAT, REGION_BOSS_DIFFICULTY, REGION_DIFFICULTY } from '../../data/balance';
+import {
+  ENEMY_THREAT, REGION_BOSS_DIFFICULTY, REGION_DIFFICULTY,
+  enemyDamageAt, enemyHealthAt, enemyXpAt,
+} from '../../data/balance';
 import { ENEMY_BY_ID, type BossAttack, type BossPhase, type EnemyDef } from '../../data/enemies';
 import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
 import type { WorldCtx } from '../core/world';
@@ -56,6 +59,8 @@ export class Enemy implements Entity {
   bossCooldowns: Record<string, number> = {};
   /** The danger multiplier of the region it was spawned in. */
   regionMul = 1;
+  /** The same, softened, for what it hits for. See the constructor. */
+  regionDmgMul = 1;
   /**
    * Immune-phase state. `immuneUntil` is the hard ceiling; when a phase warded
    * itself behind adds, `immuneAdds` holds them and the ward drops the moment
@@ -89,19 +94,49 @@ export class Enemy implements Entity {
     this.regionMul = this.isBoss
       ? (REGION_BOSS_DIFFICULTY[regionKey] ?? 1)
       : (REGION_DIFFICULTY[regionKey] ?? 1);
+    /**
+     * A region's danger applies in full to how long a thing takes to kill, and
+     * only partly to how hard it hits.
+     *
+     * Applied whole to both, the Emberdeep's 2.8 put an ordinary blow at 77%
+     * of a well-armoured character's health — every trash mob a one-shot, and
+     * a fight you lose to the first thing you did not see rather than to the
+     * fight. Health is the honest place to spend difficulty: it makes an
+     * encounter long and demanding without making it random. Damage still
+     * climbs, just at a rate that leaves room to make one mistake.
+     */
+    this.regionDmgMul = 1 + (this.regionMul - 1) * 0.6;
 
-    const lvScale = 1 + Math.max(0, this.level - def.level) * 0.17;
+    /**
+     * Spawning an enemy above its authored level used to multiply its numbers
+     * by `1 + 0.17 per level`, a flat share of what the bestiary wrote down.
+     * The health curve is nothing like flat — it is quadratic in level,
+     * because the player's damage is — so a level-6 bandit put on a level-24
+     * road came out at four times its book value when it needed eight, and
+     * every re-used enemy got quietly weaker the further from home it was
+     * placed.
+     *
+     * Scaling by the RATIO OF THE CURVE at the two levels makes the bestiary's
+     * numbers a shape and the level the dial: any enemy can now be spawned at
+     * any level and be worth exactly what an enemy authored for that level is
+     * worth. That is what lets one bestiary cover a seventy-five level game.
+     */
+    const role = def.role;
+    const from = Math.max(1, def.level);
+    const hpScale = enemyHealthAt(this.level, role) / enemyHealthAt(from, role);
+    const dmgScale = enemyDamageAt(this.level, role) / enemyDamageAt(from, role);
+    const xpScale = enemyXpAt(this.level, role) / enemyXpAt(from, role);
     // An enemy the data already calls elite is priced as one. Only an
     // ordinary enemy promoted to elite by a spawn roll gets the multiplier —
     // applying it to a named miniboss counted its eliteness twice and gave it
     // a boss's health bar.
     const promoted = this.elite && !this.isBoss && !def.elite;
     const threat = ENEMY_THREAT;
-    this.maxHp = Math.round(def.health * lvScale * this.regionMul * (promoted ? 2.6 : 1));
+    this.maxHp = Math.round(def.health * hpScale * this.regionMul * (promoted ? 2.6 : 1));
     this.hp = this.maxHp;
-    this.damage = def.damage * lvScale * this.regionMul * (promoted ? 1.3 : 1) * threat.damage;
-    this.defense = def.defense * (1 + Math.max(0, this.level - def.level) * 0.1);
-    this.xp = Math.round(def.xp * lvScale * (promoted ? 2.2 : this.elite ? 1 : 1) * threat.xp);
+    this.damage = def.damage * dmgScale * this.regionDmgMul * (promoted ? 1.3 : 1) * threat.damage;
+    this.defense = def.defense * (this.level / from);
+    this.xp = Math.round(def.xp * xpScale * (promoted ? 2.2 : 1) * threat.xp);
     this.attackCd = 0.4 + Math.random() * 0.6;
   }
 

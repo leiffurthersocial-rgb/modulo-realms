@@ -18,6 +18,9 @@ export const REGION_DEEPNORTH = 5;
 export const REGION_FARWEST = 6;
 export const REGION_FAREAST = 7;
 export const REGION_FARSOUTH = 8;
+export const REGION_SUNKENWEST = 9;
+export const REGION_STORMEAST = 10;
+export const REGION_EMBERDEEP = 11;
 
 const CX = VILLAGE_TX;
 const CY = VILLAGE_TY;
@@ -35,9 +38,18 @@ const DEEPNORTH_Y = 200;
  * quadrants: cross one of these lines and there is nothing on the other side
  * but the march, which is what makes the edge of the map feel like an edge.
  */
-const FARWEST_X = 150;
-const FAREAST_X = 620;
+const FARWEST_X = 246;
+const FAREAST_X = 716;
 const FARSOUTH_Y = 690;
+
+/**
+ * The deep marches, outside the outer ones. Same idea one step further out:
+ * past these lines the world is nothing but the march, and the walk to reach
+ * one is most of what makes it feel like the end of the map.
+ */
+const SUNKENWEST_X = 140;
+const STORMEAST_X = 828;
+const EMBERDEEP_Y = 918;
 
 /** Which region a tile belongs to, with a noisy boundary so it never looks like a pie chart. */
 function regionAt(tx: number, ty: number, seed: number): number {
@@ -49,6 +61,14 @@ function regionAt(tx: number, ty: number, seed: number): number {
   const warpY = (fbm(tx * 0.007, ty * 0.007, seed + 29) - 0.5) * 96
     + (fbm(tx * 0.028, ty * 0.028, seed + 59) - 0.5) * 26;
   // Every march's inner edge is a ragged line, not a coordinate.
+  // The deep marches are tested before everything else, so they own the
+  // corners outright rather than being carved out of a neighbour.
+  const emberEdge = EMBERDEEP_Y + (fbm(tx * 0.011, 0.5, seed + 181, 3) - 0.5) * 52;
+  if (ty + warpY * 0.5 > emberEdge) return REGION_EMBERDEEP;
+  const swEdge = SUNKENWEST_X + (fbm(0.5, ty * 0.011, seed + 193, 3) - 0.5) * 48;
+  if (tx + warpX * 0.5 < swEdge) return REGION_SUNKENWEST;
+  const seEdge = STORMEAST_X + (fbm(0.5, ty * 0.011, seed + 211, 3) - 0.5) * 48;
+  if (tx + warpX * 0.5 > seEdge) return REGION_STORMEAST;
   const iceEdge = DEEPNORTH_Y + (fbm(tx * 0.013, 0.5, seed + 97, 3) - 0.5) * 46;
   if (ty + warpY * 0.5 < iceEdge) return REGION_DEEPNORTH;
   const wEdge = FARWEST_X + (fbm(0.5, ty * 0.013, seed + 131, 3) - 0.5) * 44;
@@ -95,6 +115,43 @@ function baseTerrain(ctx: GenCtx) {
 
       let tile: number;
       switch (reg) {
+        case REGION_SUNKENWEST: {
+          // The Drowning Reach. The Gloaming runs out into black water that
+          // is still rising: more water than land, reed flats where it is
+          // shallow, and drowned wood standing in it that never fell over.
+          const eSW = e + rim * 0.5;
+          if (eSW > 0.82) tile = T.CLIFF;
+          else if (e < 0.42) tile = T.SWAMP_WATER;
+          else if (e < 0.48) tile = T.MUD;
+          else if (m > 0.6) tile = T.GRASS_DARK;
+          else tile = m > 0.42 ? T.TALL_GRASS : T.MUD;
+          break;
+        }
+        case REGION_STORMEAST: {
+          // The Stormreach. Past the salt the sky stops clearing. Bare flat
+          // struck to glass in patches, gravel where it has been broken up
+          // again, and standing water that never quite dries.
+          const eSE = e + rim * 0.5;
+          if (eSE > 0.8) tile = T.MOUNTAIN;
+          else if (eSE > 0.7) tile = T.STONE_GROUND;
+          else if (e < 0.31) tile = T.WATER;
+          else if (m > 0.64) tile = T.GRAVEL;
+          else if (m < 0.36) tile = T.STONE_GROUND;
+          else tile = T.SAND;
+          break;
+        }
+        case REGION_EMBERDEEP: {
+          // The Emberdeep: the floor of the world. Ash over rock over
+          // something that is still hot, and the ground is broken enough that
+          // most routes through it are single file.
+          const eED = e + rim * 0.5;
+          if (eED > 0.72) tile = T.MOUNTAIN;
+          else if (eED > 0.6) tile = T.DESERT_ROCK;
+          else if (m > 0.66) tile = T.GRAVEL;
+          else if (m < 0.3) tile = T.STONE_GROUND;
+          else tile = T.ASH_GROUND;
+          break;
+        }
         case REGION_FARWEST: {
           // The Gloaming. The canopy closes over entirely: dark ground, deep
           // moss, standing water in the hollows, and cliffs where the old
@@ -429,9 +486,10 @@ function buildCamp(ctx: GenCtx, loc: LocationDef) {
   const { tx, ty } = loc;
   clearArea(map, tx, ty, 9, undefined);
   const ground = loc.region === 'south' ? T.SAND
-    : loc.region === 'farsouth' ? T.ASH_GROUND
-    : loc.region === 'fareast' ? T.SAND
+    : loc.region === 'farsouth' || loc.region === 'emberdeep' ? T.ASH_GROUND
+    : loc.region === 'fareast' || loc.region === 'stormeast' ? T.SAND
     : loc.region === 'deepnorth' ? T.SNOW
+    : loc.region === 'sunkenwest' ? T.MUD
     : loc.region === 'north' ? T.GRAVEL : T.DIRT;
   for (let y = ty - 7; y <= ty + 7; y++) {
     for (let x = tx - 7; x <= tx + 7; x++) {
@@ -518,6 +576,9 @@ function regionGround(ctx: GenCtx, tx: number, ty: number): number {
     case REGION_FARWEST: return T.GRASS_DARK;
     case REGION_FAREAST: return T.SAND;
     case REGION_FARSOUTH: return T.ASH_GROUND;
+    case REGION_SUNKENWEST: return T.MUD;
+    case REGION_STORMEAST: return T.SAND;
+    case REGION_EMBERDEEP: return T.ASH_GROUND;
     case REGION_EAST: return T.SWAMP_GROUND;
     case REGION_SOUTH: return T.DESERT_SAND;
     case REGION_WEST: return T.GRASS_DARK;
@@ -564,79 +625,104 @@ function buildDungeonEntrance(ctx: GenCtx, loc: LocationDef) {
 const REGION_SPAWNS: Record<number, Array<{ id: string; weight: number; level: [number, number] }>> = {
   [REGION_CENTRAL]: [
     { id: 'wolf', weight: 10, level: [1, 4] },
-    { id: 'slime', weight: 8, level: [1, 3] },
+    { id: 'slime', weight: 8, level: [2, 5] },
     { id: 'goblin', weight: 7, level: [2, 5] },
-    { id: 'spider', weight: 6, level: [1, 4] },
-    { id: 'boar', weight: 5, level: [2, 5] },
-    { id: 'bandit', weight: 4, level: [3, 6] },
+    { id: 'spider', weight: 6, level: [3, 6] },
+    { id: 'boar', weight: 5, level: [3, 6] },
+    { id: 'bandit', weight: 4, level: [4, 6] },
   ],
   [REGION_NORTH]: [
-    { id: 'frostwolf', weight: 9, level: [10, 15] },
-    { id: 'orc_raider', weight: 8, level: [9, 15] },
-    { id: 'direwolf', weight: 6, level: [8, 12] },
-    { id: 'wraith', weight: 5, level: [10, 15] },
-    { id: 'golem', weight: 4, level: [11, 16] },
-    { id: 'revenant_knight', weight: 2, level: [13, 17] },
+    { id: 'frostwolf', weight: 9, level: [22, 28] },
+    { id: 'orc_raider', weight: 8, level: [24, 30] },
+    { id: 'direwolf', weight: 6, level: [25, 31] },
+    { id: 'wraith', weight: 5, level: [27, 33] },
+    { id: 'golem', weight: 4, level: [29, 35] },
+    { id: 'revenant_knight', weight: 2, level: [30, 36] },
   ],
   [REGION_EAST]: [
-    { id: 'venomspider', weight: 9, level: [6, 11] },
-    { id: 'toxicslime', weight: 8, level: [6, 10] },
-    { id: 'serpent', weight: 7, level: [6, 11] },
-    { id: 'crawler', weight: 6, level: [5, 9] },
-    { id: 'goblin_shaman', weight: 4, level: [6, 10] },
-    { id: 'wisp', weight: 4, level: [5, 9] },
+    { id: 'venomspider', weight: 9, level: [12, 17] },
+    { id: 'toxicslime', weight: 8, level: [13, 18] },
+    { id: 'serpent', weight: 7, level: [15, 20] },
+    { id: 'crawler', weight: 6, level: [16, 21] },
+    { id: 'goblin_shaman', weight: 4, level: [18, 23] },
+    { id: 'wisp', weight: 4, level: [19, 24] },
   ],
   [REGION_SOUTH]: [
-    { id: 'bandit', weight: 9, level: [6, 11] },
-    { id: 'bandit_archer', weight: 8, level: [7, 12] },
-    { id: 'scorpion', weight: 8, level: [7, 12] },
-    { id: 'bandit_brute', weight: 5, level: [8, 13] },
-    { id: 'sandgolem', weight: 3, level: [11, 14] },
-    { id: 'crawler', weight: 3, level: [6, 10] },
+    { id: 'bandit', weight: 9, level: [26, 33] },
+    { id: 'bandit_archer', weight: 8, level: [28, 35] },
+    { id: 'scorpion', weight: 8, level: [30, 37] },
+    { id: 'bandit_brute', weight: 5, level: [32, 39] },
+    { id: 'sandgolem', weight: 3, level: [33, 40] },
+    { id: 'crawler', weight: 3, level: [35, 42] },
   ],
   [REGION_FARWEST]: [
-    { id: 'gloam_stalker', weight: 9, level: [16, 22] },
-    { id: 'gloam_weaver', weight: 8, level: [18, 24] },
-    { id: 'venomspider', weight: 5, level: [16, 21] },
-    { id: 'hollow_treant', weight: 5, level: [21, 26] },
-    { id: 'court_exile', weight: 4, level: [23, 26] },
-    { id: 'wisp', weight: 3, level: [16, 20] },
+    { id: 'gloam_stalker', weight: 9, level: [30, 34] },
+    { id: 'gloam_weaver', weight: 8, level: [31, 35] },
+    { id: 'venomspider', weight: 5, level: [32, 36] },
+    { id: 'hollow_treant', weight: 5, level: [34, 38] },
+    { id: 'court_exile', weight: 4, level: [35, 39] },
+    { id: 'wisp', weight: 3, level: [36, 40] },
   ],
   [REGION_FAREAST]: [
-    { id: 'brine_crawler', weight: 9, level: [18, 24] },
-    { id: 'salt_wraith', weight: 8, level: [20, 26] },
-    { id: 'drowned_legionary', weight: 7, level: [22, 27] },
-    { id: 'salt_colossus', weight: 4, level: [25, 28] },
-    { id: 'serpent', weight: 3, level: [18, 22] },
-    { id: 'wraith', weight: 3, level: [18, 23] },
+    { id: 'brine_crawler', weight: 9, level: [38, 42] },
+    { id: 'salt_wraith', weight: 8, level: [39, 43] },
+    { id: 'drowned_legionary', weight: 7, level: [40, 44] },
+    { id: 'salt_colossus', weight: 4, level: [42, 46] },
+    { id: 'serpent', weight: 3, level: [43, 47] },
+    { id: 'wraith', weight: 3, level: [44, 48] },
   ],
   [REGION_FARSOUTH]: [
-    { id: 'ash_scorpion', weight: 9, level: [21, 27] },
-    { id: 'cinder_wisp', weight: 8, level: [20, 26] },
-    { id: 'ash_serpent', weight: 6, level: [24, 30] },
-    { id: 'cutter_warlord', weight: 5, level: [26, 31] },
-    { id: 'magma_golem', weight: 3, level: [29, 32] },
-    { id: 'bandit_brute', weight: 3, level: [20, 25] },
+    { id: 'ash_scorpion', weight: 9, level: [48, 53] },
+    { id: 'cinder_wisp', weight: 8, level: [49, 54] },
+    { id: 'ash_serpent', weight: 6, level: [51, 56] },
+    { id: 'cutter_warlord', weight: 5, level: [52, 57] },
+    { id: 'magma_golem', weight: 3, level: [54, 59] },
+    { id: 'bandit_brute', weight: 3, level: [55, 60] },
   ],
   [REGION_DEEPNORTH]: [
-    { id: 'rime_stalker', weight: 9, level: [20, 25] },
-    { id: 'ice_revenant', weight: 8, level: [21, 27] },
-    { id: 'glacier_wyrm', weight: 7, level: [22, 27] },
-    { id: 'winter_shade', weight: 6, level: [22, 28] },
-    { id: 'pale_hunter', weight: 5, level: [23, 28] },
-    { id: 'jotun_thrall', weight: 4, level: [24, 30] },
-    { id: 'herald_winter', weight: 3, level: [25, 30] },
-    { id: 'glass_golem', weight: 3, level: [26, 31] },
-    { id: 'frost_giant', weight: 2, level: [28, 33] },
-    { id: 'bone_colossus', weight: 1, level: [29, 38] },
+    { id: 'rime_stalker', weight: 9, level: [42, 47] },
+    { id: 'ice_revenant', weight: 8, level: [43, 48] },
+    { id: 'glacier_wyrm', weight: 7, level: [44, 49] },
+    { id: 'winter_shade', weight: 6, level: [45, 50] },
+    { id: 'pale_hunter', weight: 5, level: [45, 50] },
+    { id: 'jotun_thrall', weight: 4, level: [46, 51] },
+    { id: 'herald_winter', weight: 3, level: [47, 52] },
+    { id: 'glass_golem', weight: 3, level: [48, 53] },
+    { id: 'frost_giant', weight: 2, level: [49, 54] },
+    { id: 'bone_colossus', weight: 1, level: [50, 54] },
   ],
   [REGION_WEST]: [
     { id: 'spider', weight: 8, level: [4, 8] },
-    { id: 'wisp', weight: 8, level: [5, 10] },
-    { id: 'sapling', weight: 7, level: [7, 12] },
-    { id: 'direwolf', weight: 6, level: [6, 11] },
-    { id: 'venomspider', weight: 4, level: [8, 12] },
-    { id: 'emberwisp', weight: 3, level: [10, 13] },
+    { id: 'wisp', weight: 8, level: [5, 9] },
+    { id: 'sapling', weight: 7, level: [6, 10] },
+    { id: 'direwolf', weight: 6, level: [8, 12] },
+    { id: 'venomspider', weight: 4, level: [9, 13] },
+    { id: 'emberwisp', weight: 3, level: [10, 14] },
+  ],
+
+  [REGION_SUNKENWEST]: [
+    { id: 'drowned_hound', weight: 9, level: [52, 57] },
+    { id: 'fen_shade', weight: 8, level: [53, 58] },
+    { id: 'fen_weaver', weight: 7, level: [54, 60] },
+    { id: 'sunken_treant', weight: 5, level: [56, 61] },
+    { id: 'the_drowned', weight: 5, level: [57, 62] },
+    { id: 'mire_colossus', weight: 3, level: [59, 62] },
+  ],
+  [REGION_STORMEAST]: [
+    { id: 'storm_wisp', weight: 9, level: [58, 63] },
+    { id: 'glass_hunter', weight: 8, level: [59, 65] },
+    { id: 'storm_serpent', weight: 7, level: [61, 66] },
+    { id: 'thunder_wrought', weight: 5, level: [62, 67] },
+    { id: 'stormcaller', weight: 4, level: [63, 68] },
+    { id: 'salt_colossus', weight: 2, level: [60, 66] },
+  ],
+  [REGION_EMBERDEEP]: [
+    { id: 'ember_shade', weight: 9, level: [64, 69] },
+    { id: 'deep_scorpion', weight: 8, level: [65, 71] },
+    { id: 'molten_serpent', weight: 7, level: [66, 72] },
+    { id: 'ember_wrought', weight: 5, level: [67, 73] },
+    { id: 'ash_revenant', weight: 4, level: [69, 74] },
+    { id: 'cinder_colossus', weight: 3, level: [71, 75] },
   ],
 };
 
@@ -1023,6 +1109,23 @@ export function generateOverworld(seed: number): GameMap {
   road('cinderhold', 'ashfall_barrow');
   road('cinderhold', 'cutter_stronghold');
   road('the_caldera', 'glass_flats');
+  // the deep marches: one road out of each outer-march town, then onward
+  road('duskhold', 'reedwatch');
+  road('reedwatch', 'blackreed_warren');
+  road('reedwatch', 'the_sunken_hall');
+  road('reedwatch', 'the_shallows');
+  road('the_sunken_hall', 'drowned_orchard');
+  road('saltwatch', 'lastmast');
+  road('lastmast', 'the_standing_rod');
+  road('lastmast', 'glass_run');
+  road('lastmast', 'fulgurite_field');
+  road('the_standing_rod', 'the_earthing');
+  road('cinderhold', 'the_banking');
+  road('the_banking', 'the_underfloor');
+  road('the_banking', 'slagworks');
+  road('the_banking', 'ash_terraces');
+  road('slagworks', 'the_long_vent');
+
   road('ashvale', 'whisperwell');
   road('ashvale', 'ember_falls');
   road('ashvale', 'old_bridge');

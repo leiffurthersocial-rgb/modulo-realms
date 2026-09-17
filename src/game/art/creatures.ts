@@ -418,6 +418,20 @@ export const CREATURE_PALETTES: Record<string, Pick<CreatureStyle, 'primary' | '
   ashscorpion: { primary: '#6a3a2a', secondary: '#3a1d14', accent: PAL.flame, eye: PAL.flameLit },
   magmagolem: { primary: '#5a2418', secondary: '#2e120b', accent: PAL.flame, eye: PAL.flameLit },
   ashserpent: { primary: '#7a3a2a', secondary: '#45201a', accent: PAL.flameLit, eye: PAL.ember },
+
+  /* --- the deep marches: the Drowning Reach, the Stormreach, the Emberdeep --- */
+  drownedwolf: { primary: '#2b3f42', secondary: '#16242a', accent: '#6f9ab4', eye: '#8fd0f0' },
+  fenspider: { primary: '#243330', secondary: '#101a18', accent: '#5a8a6a', eye: PAL.toxic },
+  sunkentreant: { primary: '#1c2a26', secondary: '#0c1412', accent: '#4a7a6a', eye: '#8fd0f0' },
+  drownedthing: { primary: '#38505a', secondary: '#1c2b33', accent: PAL.foam, eye: PAL.foam },
+  stormwisp: { primary: '#9a8fe8', secondary: '#4b4470', accent: '#e0dcff', eye: PAL.white },
+  thunderwrought: { primary: '#5a5480', secondary: '#2e2a48', accent: '#b9b0ff', eye: '#e0dcff' },
+  stormserpent: { primary: '#4b4470', secondary: '#241f3c', accent: '#9a8fe8', eye: '#e0dcff' },
+  glasswolf: { primary: '#7f8fb4', secondary: '#454f6e', accent: '#c9d2ee', eye: '#b9b0ff' },
+  emberwrought: { primary: '#3a1210', secondary: '#1c0806', accent: PAL.flameLit, eye: PAL.flameLit },
+  deepscorpion: { primary: '#4a1a14', secondary: '#240c09', accent: PAL.ember, eye: PAL.flame },
+  moltenserpent: { primary: '#8a2a18', secondary: '#4a120a', accent: PAL.flameLit, eye: PAL.white },
+  cindermaw: { primary: '#6a2016', secondary: '#330d08', accent: PAL.flame, eye: PAL.flameLit },
 };
 
 export function creatureStyle(kind: CreatureKind, paletteKey: string, scale = 1, glow?: string | null): CreatureStyle {

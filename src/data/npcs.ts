@@ -95,35 +95,35 @@ interface TraderSpec {
  */
 const TRADER_SPECS: TraderSpec[] = [
   { id: 'trader_dvalin', name: 'Dvalin Hearthspark', title: 'Wandering Smith', personality: 'Loud, delighted by his own work, impossible to insult.',
-    tx: 393, ty: 454, where: 'Ashvale', level: 4, hair: '#b5462f', coat: '#6a4436',
+    tx: 489, ty: 454, where: 'Ashvale', level: 4, hair: '#b5462f', coat: '#6a4436',
     line: '"You came to the right cart. My brother will tell you otherwise. My brother is wrong about most things."',
     stock: ['sword_steel', 'axe_iron', 'bow_yew', 'armor_leather', 'shield_iron', 'potion_health_m', 'mat_iron_ingot'] },
   { id: 'trader_regin', name: 'Regin Coalbraid', title: 'Wandering Smith', personality: 'Dry, precise, keeps a running tally of his brother\'s errors.',
-    tx: 385, ty: 312, where: 'Northwatch', level: 11, hair: '#4a3324', coat: '#3f4a6a',
+    tx: 481, ty: 312, where: 'Northwatch', level: 11, hair: '#4a3324', coat: '#3f4a6a',
     line: '"Whatever Dvalin sold you, I can fix it. My cousin went up past the Frostmarch to try the same trade and I have stopped expecting the letter."',
     stock: ['greatsword_crag', 'hammer_stone', 'armor_frostguard', 'shield_tower', 'art_iron_hide', 'potion_health_l', 'mat_steel_ingot'] },
   { id: 'trader_volund', name: 'Volund Deepvein', title: 'Wandering Smith', personality: 'Soft-spoken, deeply superstitious about the water.',
-    tx: 532, ty: 460, where: 'Mirefall', level: 8, hair: '#8a6a3a', coat: '#4a5a3a',
+    tx: 628, ty: 460, where: 'Mirefall', level: 8, hair: '#8a6a3a', coat: '#4a5a3a',
     line: '"Do not put anything I sell you in the water. I mean that as a smith and as a man who has seen things."',
     stock: ['scythe_grave', 'dagger_shadow', 'armor_wolfhide', 'tome_off', 'art_death_cap', 'antidote', 'mat_essence'] },
   { id: 'trader_fafnar', name: 'Fafnar Saltgrin', title: 'Wandering Smith', personality: 'Relentlessly cheerful about extremely bad odds.',
-    tx: 396, ty: 588, where: 'Duneholt', level: 10, hair: '#d8cfc4', coat: '#a3823f',
+    tx: 492, ty: 588, where: 'Duneholt', level: 10, hair: '#d8cfc4', coat: '#a3823f',
     line: '"Cutters took my last cart. I built a better one. That is how it goes, and I have very good carts now."',
     stock: ['spear_pike', 'crossbow_iron', 'armor_scout', 'art_swift_boots', 'art_ember_totem', 'potion_might', 'mat_gem_ruby'] },
   { id: 'trader_otrys', name: 'Otrys Greenanvil', title: 'Wandering Smith', personality: 'Patient, elvish-trained, mildly embarrassed about it.',
-    tx: 244, ty: 447, where: 'Thornhollow', level: 9, hair: '#5b9247', coat: '#2d4a2f',
+    tx: 340, ty: 447, where: 'Thornhollow', level: 9, hair: '#5b9247', coat: '#2d4a2f',
     line: '"The Court let me build a forge in their wood. They watch it the way you would watch a fire in a library."',
     stock: ['bow_court', 'staff_ember', 'armor_hunter', 'armor_acolyte', 'art_wolf_fang', 'potion_focus', 'mat_crystal'] },
   { id: 'trader_brynja', name: 'Brynja Ashgrid', title: 'Wandering Smith', personality: 'Terse. Sets up wherever the digging is worst.',
-    tx: 484, ty: 407, where: 'Ironroot Mine', level: 7, hair: '#2a2029', coat: '#5a5060',
+    tx: 580, ty: 407, where: 'Ironroot Mine', level: 7, hair: '#2a2029', coat: '#5a5060',
     line: '"Mine mouth is a good pitch. People come out needing everything and carrying money they did not have going in."',
     stock: ['crossbow_heavy', 'mace_iron', 'armor_mail', 'torch_off', 'art_healing_sigil', 'potion_health_m', 'mat_rune'] },
   { id: 'trader_orin', name: 'Orin Gravehand', title: 'Wandering Smith', personality: 'Unbothered by the crypt. Slightly bothered by his family.',
-    tx: 289, ty: 553, where: 'the Barrow Crypt', level: 13, hair: '#d8cfc4', coat: '#2f3346',
+    tx: 385, ty: 553, where: 'the Barrow Crypt', level: 13, hair: '#d8cfc4', coat: '#2f3346',
     line: '"Somebody has to sell torches to people who walk into tombs. It may as well be the one who is not afraid of them."',
     stock: ['greatsword_grave', 'sword_frost', 'armor_barrow', 'shield_barrow', 'art_harvester', 'elixir_grand', 'mat_rune'] },
   { id: 'trader_nidi', name: 'Nidi Lastanvil', title: 'Wandering Smith', personality: 'The youngest. Went furthest. Will not discuss why.',
-    tx: 390, ty: 50, where: 'the Last Gate', level: 30, hair: PAL.white, coat: '#3a4654',
+    tx: 486, ty: 50, where: 'the Last Gate', level: 30, hair: PAL.white, coat: '#3a4654',
     line: '"Six brothers took the easy pitches. I took the last one. Nobody walks past me twice, so I price for one visit."',
     stock: ['greataxe_jotun', 'bow_whitewind', 'orb_longnight', 'armor_glacierguard', 'shield_jotun', 'art_glacier_heart', 'potion_health_xl', 'mat_greater_rune'] },
 ];
@@ -173,7 +173,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'elder_hanne', name: 'Elder Hanne', title: 'Elder of Ashvale', race: 'human', faction: 'alliance',
     personality: 'Dry, unhurried, has already thought of the thing you are about to say.',
-    map: 'overworld', tx: 371, ty: 457,
+    map: 'overworld', tx: 467, ty: 457,
     look: look({ hair: '#d8cfc4', hairStyle: 'braid', shirt: '#4a5a7a', pants: '#3b3346', armor: 'robe', armorColor: '#4a5a7a', armorTrim: PAL.gold }),
     quests: ['tutorial'],
     schedule: dayJob(371, 457, 371, 457, 397, 457),
@@ -200,7 +200,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'smith_corin', name: 'Corin Emberhand', title: 'Blacksmith', race: 'dwarf', faction: 'guild',
     personality: 'Blunt, fair, secretly proud of every blade he sells.',
-    map: 'overworld', tx: 373, ty: 443,
+    map: 'overworld', tx: 469, ty: 443,
     look: look({ skin: PAL.skin3, hair: '#b5462f', hairStyle: 'short', beard: 'long', height: 0.86, bulk: 1.18, shirt: '#6a4436', pants: '#3a2f28', armor: 'light', armorColor: '#5a4436', weapon: { kind: 'hammer', metal: PAL.iron, grip: PAL.woodDark } }),
     schedule: dayJob(373, 443, 370, 445, 397, 457),
     wander: 26,
@@ -235,7 +235,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'merchant_pell', name: 'Pell', title: 'General Merchant', race: 'human', faction: 'alliance',
     personality: 'Cheerful, exhausting, would sell you your own boots.',
-    map: 'overworld', tx: 384, ty: 441,
+    map: 'overworld', tx: 480, ty: 441,
     look: look({ hair: '#8a6a3a', hairStyle: 'ponytail', shirt: '#7a5a3a', pants: '#4a3a2a', armor: 'light', armorColor: '#8a6a4a' }),
     schedule: dayJob(384, 441, 384, 441, 397, 457),
     wander: 20,
@@ -293,7 +293,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'alchemist_sable', name: 'Sable Quill', title: 'Apothecary', race: 'elf', faction: 'arcane',
     personality: 'Precise, faintly amused by everyone, including herself.',
-    map: 'overworld', tx: 395, ty: 443,
+    map: 'overworld', tx: 491, ty: 443,
     look: look({ skin: PAL.skinElf, hair: '#9578e8', hairStyle: 'long', ears: 'elf', eyes: '#2f6f93', shirt: '#4a3a6a', pants: '#2b1f4d', armor: 'robe', armorColor: '#4a3a6a', armorTrim: PAL.frost }),
     schedule: dayJob(395, 443, 395, 443, 397, 457),
     wander: 22,
@@ -348,7 +348,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'hunter_kesh', name: 'Kesh', title: 'Hunter', race: 'beastfolk', faction: 'forest',
     personality: 'Quiet, watchful, more comfortable outside town than in it.',
-    map: 'overworld', tx: 390, ty: 451,
+    map: 'overworld', tx: 486, ty: 451,
     look: look({ skin: PAL.skinBeast, hair: '#a3823f', hairStyle: 'ponytail', ears: 'beast', eyes: PAL.gold, shirt: '#3f6a4a', pants: '#4a3324', armor: 'light', armorColor: '#4a5a3a', helmet: 'hood', weapon: { kind: 'bow', metal: PAL.wood, grip: PAL.woodDark } }),
     schedule: dayJob(390, 451, 390, 451, 397, 457),
     wander: 30,
@@ -368,7 +368,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'fence_rook', name: 'Rook', title: 'Dealer in Lost Property', race: 'human', faction: 'bandits',
     personality: 'Soft-spoken, entirely transactional.',
-    map: 'overworld', tx: 376, ty: 460,
+    map: 'overworld', tx: 472, ty: 460,
     look: look({ hair: '#2a2029', hairStyle: 'short', shirt: '#3b3346', pants: '#241d2e', armor: 'light', armorColor: '#33304a', helmet: 'hood', weapon: { kind: 'dagger', metal: PAL.iron, grip: PAL.woodDark } }),
     wander: 8,
     shop: {
@@ -396,7 +396,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'clanmother_greta', name: 'Clanmother Greta', title: 'Clanmother of Northwatch', race: 'orc', faction: 'northern',
     personality: 'Imposing, fair, measures people by what they finish.',
-    map: 'overworld', tx: 381, ty: 309,
+    map: 'overworld', tx: 477, ty: 309,
     look: look({ skin: PAL.skinOrc, hair: '#d8cfc4', hairStyle: 'braid', tusks: true, height: 1.12, bulk: 1.25, eyes: PAL.ember, armor: 'heavy', armorColor: '#5a5060', armorTrim: PAL.copper, cape: '#8fc4dc', weapon: { kind: 'greataxe', metal: PAL.ironLit, grip: PAL.woodDark } }),
     wander: 20,
     greeting: [
@@ -432,7 +432,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'smith_haldor', name: 'Haldor Stonefist', title: 'Clan Smith', race: 'dwarf', faction: 'northern',
     personality: 'Terse. Exceptionally good at exactly one thing.',
-    map: 'overworld', tx: 376, ty: 315,
+    map: 'overworld', tx: 472, ty: 315,
     look: look({ skin: PAL.skin3, hair: '#4a3324', beard: 'full', height: 0.86, bulk: 1.2, shirt: '#4a5a6a', pants: '#3a2f28', armor: 'light', armorColor: '#5a5060', weapon: { kind: 'hammer', metal: PAL.steel, grip: PAL.woodDark } }),
     wander: 14,
     shop: {
@@ -459,7 +459,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'trader_yss', name: 'Yss', title: 'Mire Trader', race: 'beastfolk', faction: 'alliance',
     personality: 'Careful, superstitious, counts everything twice.',
-    map: 'overworld', tx: 528, ty: 467,
+    map: 'overworld', tx: 624, ty: 467,
     look: look({ skin: '#8a6a4a', hair: '#2a2029', hairStyle: 'wild', ears: 'beast', eyes: PAL.toxic, shirt: '#4a5a3a', pants: '#3a3a2a', armor: 'light', armorColor: '#5a6a4a', helmet: 'hood' }),
     wander: 16,
     shop: {
@@ -477,7 +477,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'witch_nel', name: 'Nel of the Reeds', title: 'Bog Witch', race: 'human', faction: 'arcane',
     personality: 'Cryptic on purpose, warm underneath it.',
-    map: 'overworld', tx: 533, ty: 471,
+    map: 'overworld', tx: 629, ty: 471,
     look: look({ skin: PAL.skin3, hair: '#5f7a3a', hairStyle: 'long', shirt: '#3a4a2a', pants: '#2b361f', armor: 'robe', armorColor: '#3a4a2a', helmet: 'hood', eyes: PAL.toxic, weapon: { kind: 'staff', metal: PAL.wood, grip: PAL.woodDark, glow: PAL.toxic } }),
     wander: 12,
     services: ['heal'],
@@ -493,7 +493,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'warden_ysolde', name: 'Warden Ysolde', title: 'Warden of the Forest Court', race: 'elf', faction: 'forest',
     personality: 'Formal, grieving, holds the Court to a standard it no longer meets.',
-    map: 'overworld', tx: 240, ty: 445,
+    map: 'overworld', tx: 336, ty: 445,
     look: look({ skin: PAL.skinElf, hair: '#e8c27a', hairStyle: 'long', ears: 'elf', eyes: '#2f6f93', shirt: '#2d4a2f', pants: '#1e3324', armor: 'light', armorColor: '#3c6b39', armorTrim: PAL.leafLit, cape: '#25412a', helmet: 'circlet', weapon: { kind: 'bow', metal: PAL.leafLit, grip: PAL.woodDark } }),
     wander: 18,
     greeting: [
@@ -513,7 +513,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'quartermaster_lirien', name: 'Lirien', title: 'Court Quartermaster', race: 'elf', faction: 'forest',
     personality: 'Efficient, bone-dry, keeps a ledger of favours.',
-    map: 'overworld', tx: 245, ty: 440,
+    map: 'overworld', tx: 341, ty: 440,
     look: look({ skin: PAL.skinElf, hair: '#d8cfc4', hairStyle: 'ponytail', ears: 'elf', shirt: '#3c6b39', pants: '#25412a', armor: 'light', armorColor: '#4a7a42' }),
     wander: 14,
     shop: {
@@ -532,7 +532,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'dwarf_brigga', name: 'Brigga Ashvein', title: 'Guild Factor', race: 'dwarf', faction: 'guild',
     personality: 'Sharp, funny, ruthless about margins.',
-    map: 'overworld', tx: 392, ty: 595,
+    map: 'overworld', tx: 488, ty: 595,
     look: look({ skin: PAL.skin2, hair: '#b5462f', hairStyle: 'braid', beard: 'none', height: 0.86, bulk: 1.15, shirt: '#8a6a3a', pants: '#4a3a2a', armor: 'light', armorColor: '#a3823f', armorTrim: PAL.gold }),
     wander: 16,
     shop: {
@@ -553,7 +553,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'tusya', name: 'Tusya', title: 'Duellist', race: 'human', faction: 'alliance',
     personality: 'Courteous to the point of being unnerving. Has never once started a fight.',
-    map: 'overworld', tx: 408, ty: 776,
+    map: 'overworld', tx: 504, ty: 776,
     look: look({
       skin: PAL.skin6, hair: '#141014', hairStyle: 'braid', beard: 'stubble', eyes: '#5a3a24',
       shirt: '#2a2630', pants: '#1c1922', boots: '#241f18', belt: '#241f18',
@@ -609,7 +609,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'warden_sigrun', name: 'Sigrun Barwarden', title: 'Keeper of the Last Gate', race: 'human', faction: 'northern',
     personality: 'Exhausted, entirely without ceremony, has not been surprised in thirty years.',
-    map: 'overworld', tx: 376, ty: 202,
+    map: 'overworld', tx: 472, ty: 202,
     look: look({ skin: '#c8b8a4', hair: '#d8cfc4', hairStyle: 'braid', eyes: PAL.frost, shirt: '#3a4654', pants: '#2a323e', armor: 'heavy', armorColor: '#5a6a7a', armorTrim: PAL.frost, helmet: 'cap', cape: '#c6d4e0', weapon: { kind: 'halberd', metal: PAL.steel, grip: PAL.woodDark } }),
     wander: 16,
     services: ['inn', 'heal', 'storage'],
@@ -643,7 +643,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'trader_ingr', name: 'Ingr Coldhold', title: 'Vardhold Quartermaster', race: 'dwarf', faction: 'northern',
     personality: 'Cheerful in a way that has clearly become a survival strategy.',
-    map: 'overworld', tx: 380, ty: 208,
+    map: 'overworld', tx: 476, ty: 208,
     look: look({ skin: PAL.skin3, hair: '#8f8778', hairStyle: 'braid', beard: 'long', height: 0.86, bulk: 1.2, shirt: '#4a5a68', pants: '#33404f', armor: 'light', armorColor: '#5a6a7a', armorTrim: PAL.frost }),
     wander: 12,
     shop: {

@@ -17,15 +17,25 @@ import { Player } from '../src/game/player/player';
 import { makeItem } from '../src/game/items/loot';
 import { skillPointsFor } from '../src/game/player/player';
 import type { ItemTemplate } from '../src/data/items';
+import type { Item } from '../src/game/items/types';
 
-/** The best thing of a kind this class could plausibly be holding at `level`. */
-function bestFor(pool: ItemTemplate[], level: number, ok: (t: ItemTemplate) => boolean): ItemTemplate | undefined {
+/**
+ * The best thing of a kind this class could plausibly be holding at `level`.
+ *
+ * It ranks candidates by what they are worth AFTER being scaled to the
+ * player's level, not by the numbers written on the template. Ranking by the
+ * template made the measurement jump around: an item's printed damage is for
+ * its own level, so a level-74 weapon always looked better than a level-58 one
+ * even when the player was 60 and could only up-scale the latter. Scaling
+ * first is what the game actually does with a drop.
+ */
+function bestFor(pool: ItemTemplate[], level: number, ok: (t: ItemTemplate) => boolean): Item | undefined {
   const usable = pool.filter((t) => t.level <= level && ok(t));
   if (!usable.length) return undefined;
-  return usable.sort((a, b) => {
-    const da = (a.stats.damage ?? 0) * (a.stats.attackSpeed ?? 1) + (a.stats.defense ?? 0) * 2;
-    const db = (b.stats.damage ?? 0) * (b.stats.attackSpeed ?? 1) + (b.stats.defense ?? 0) * 2;
-    return db - da;
+  const rolled = usable.map((t) => makeItem(t.id, { plain: true, level }));
+  return rolled.sort((a, b) => {
+    const worth = (i: Item) => (i.stats.damage ?? 0) * (i.stats.attackSpeed ?? 1) + (i.stats.defense ?? 0) * 2;
+    return worth(b) - worth(a);
   })[0];
 }
 
@@ -41,9 +51,9 @@ function build(clsId: string, level: number, greedy: boolean): Player {
   const w = bestFor([...WEAPONS, ...UNIQUES], level, (t) => !!t.weaponKind && c.weapons.includes(t.weaponKind));
   const a = bestFor(ARMOR, level, () => true);
   const acc = bestFor(ARTIFACTS, level, () => true);
-  if (w) p.equipment.mainHand = makeItem(w.id, { plain: true, level });
-  if (a) p.equipment.armor = makeItem(a.id, { plain: true, level });
-  if (acc) p.equipment.accessory = makeItem(acc.id, { plain: true, level });
+  if (w) p.equipment.mainHand = w;
+  if (a) p.equipment.armor = a;
+  if (acc) p.equipment.accessory = acc;
 
   // Spend everything on whatever raises damage most, which is the build the
   // curve has to survive — not the average one.
