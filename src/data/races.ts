@@ -34,7 +34,7 @@ export const RACES: RaceDef[] = [
     rep: { alliance: 25, northern: 5, forest: 0, guild: 5, arcane: 0, bandits: -5 },
     perk: 'Well Connected — merchants offer 8% better prices.',
     perkId: 'haggler',
-    look: { skins: [PAL.skin1, PAL.skin2, PAL.skin3, PAL.skin4], hairs: ['#4a3324', '#2a2029', '#8a6a3a', '#b5462f'], ears: 'human', height: 1, bulk: 1 },
+    look: { skins: [PAL.skin1, PAL.skin2, PAL.skin3, PAL.skin4, PAL.skin5, PAL.skin6], hairs: ['#4a3324', '#2a2029', '#8a6a3a', '#b5462f', '#1a1418'], ears: 'human', height: 1, bulk: 1 },
   },
   {
     id: 'elf',
@@ -54,7 +54,7 @@ export const RACES: RaceDef[] = [
     rep: { guild: 35, northern: 15, alliance: 10, forest: -10, arcane: -5, bandits: -10 },
     perk: 'Forge-Born — equipment repairs and upgrades cost 20% less.',
     perkId: 'forgeborn',
-    look: { skins: [PAL.skin2, PAL.skin1, PAL.skin3], hairs: ['#b5462f', '#8a6a3a', '#d8cfc4', '#4a3324'], ears: 'human', height: 0.86, bulk: 1.18 },
+    look: { skins: [PAL.skin2, PAL.skin1, PAL.skin3, PAL.skin5], hairs: ['#b5462f', '#8a6a3a', '#d8cfc4', '#4a3324'], ears: 'human', height: 0.86, bulk: 1.18 },
   },
   {
     id: 'orc',
@@ -74,7 +74,7 @@ export const RACES: RaceDef[] = [
     rep: { forest: 20, northern: 10, alliance: -5, bandits: 0, guild: -5, arcane: -5 },
     perk: 'Pathfinder — 10% movement speed and dashes cost less stamina.',
     perkId: 'pathfinder',
-    look: { skins: [PAL.skinBeast, '#c9a06a', '#8a6a4a', '#d8cfc4'], hairs: ['#6b4b34', '#c9a86b', '#2a2029', '#a3823f'], ears: 'beast', height: 0.98, bulk: 1.02, eyes: '#d9a441' },
+    look: { skins: [PAL.skinBeast, '#c9a06a', '#8a6a4a', '#d8cfc4', PAL.skin5], hairs: ['#6b4b34', '#c9a86b', '#2a2029', '#a3823f'], ears: 'beast', height: 0.98, bulk: 1.02, eyes: '#d9a441' },
   },
   {
     id: 'revenant',

@@ -48,6 +48,13 @@ export interface NpcDef {
   services?: Array<'inn' | 'heal' | 'train' | 'storage'>;
   /** Hostile to some races, but never refuses essential services. */
   dislikes?: RaceId[];
+  /**
+   * Someone who will fight you if you ask. Accepting turns this NPC into the
+   * named enemy on the spot; beating them sets `wonFlag` and they are not
+   * here any more. Losing costs you nothing but the walk back — they will
+   * take the rematch.
+   */
+  duel?: { enemy: string; wonFlag: string };
 }
 
 const look = (o: Partial<Look>): Look => ({
@@ -540,6 +547,62 @@ export const NPCS: NpcDef[] = [
     ],
     topics: [{ text: 'Why fund an expedition now?', to: 'why' }],
     nodes: [{ id: 'why', text: ['"Because the tomb opened by itself, and things that open by themselves are cheaper to loot than to explain."'] }],
+  },
+
+  /* ------------------------------ Cinderhold ------------------------------ */
+  {
+    id: 'tusya', name: 'Tusya', title: 'Duellist', race: 'human', faction: 'alliance',
+    personality: 'Courteous to the point of being unnerving. Has never once started a fight.',
+    map: 'overworld', tx: 408, ty: 776,
+    look: look({
+      skin: PAL.skin6, hair: '#141014', hairStyle: 'braid', beard: 'stubble', eyes: '#5a3a24',
+      shirt: '#2a2630', pants: '#1c1922', boots: '#241f18', belt: '#241f18',
+      armor: 'light', armorColor: '#3a3444', armorTrim: PAL.gold, cape: '#6a2f28',
+      height: 1.06, bulk: 1.04,
+      weapon: { kind: 'rapier', metal: '#e8e0d4', grip: '#33231a', glow: PAL.goldLit },
+    }),
+    wander: 20,
+    duel: { enemy: 'duelist_tusya', wonFlag: 'beat_tusya' },
+    greeting: [
+      { cond: { flag: 'beat_tusya' }, lines: [
+        'He is sitting on the wall with his sleeves rolled up, and he stands when he sees you.',
+        '"There you are. The one who won — I have been telling people, and they do not believe me."',
+        '"Keep the sword. I have never been able to hold on to anything I lost fairly."',
+      ] },
+      { cond: { minLevel: 25 }, lines: [
+        'A tall man sits on the low wall outside Cinderhold, sharpening a sword that does not need it.',
+        'He looks up, and looks at how you are standing, and something in him gets interested.',
+        '"You carry that like someone who has used it. Good afternoon."',
+      ] },
+      { lines: [
+        'A tall man sits on the low wall outside Cinderhold, sharpening a sword that does not need it.',
+        '"Good afternoon. You are a long way from anywhere pleasant."',
+      ] },
+    ],
+    topics: [
+      { text: 'What are you doing out here?', to: 'here' },
+      { text: 'Who taught you?', to: 'taught' },
+      { text: 'I challenge you to a duel.', cond: { notFlag: 'beat_tusya' }, to: 'duel' },
+    ],
+    nodes: [
+      { id: 'here', text: [
+        '"Waiting, mostly. Cinderhold lets me sit on their wall and I do not ask them for anything else."',
+        '"People come south eventually. The good ones always do — there is nothing down here but heat and trouble, so the only reason to walk this far is that you are looking for something difficult."',
+        '"I am the difficult thing. It saves everyone time if I sit where I can be found."',
+      ] },
+      { id: 'taught', text: [
+        '"A woman in Duneholt who is dead now, and then thirty years of being wrong about things."',
+        '"I have never drawn first. Not once. It is not a rule, it is just that I have never needed to — if you are good enough, the other person always goes first."',
+      ] },
+      { id: 'duel', text: [
+        'He stops sharpening.',
+        '"You are sure. All right. Understand what you are asking for: I will not go easy, and I will not stop because you are losing."',
+        '"If you put me down, the sword is yours. If I put you down, you walk it off and come back whenever you like. I am not going anywhere."',
+      ], choices: [
+        { text: 'I am sure. Draw.', actions: [{ type: 'attack' }] },
+        { text: 'Another day.', to: '__root' },
+      ] },
+    ],
   },
 
   /* ------------------------------ Vardhold ------------------------------ */

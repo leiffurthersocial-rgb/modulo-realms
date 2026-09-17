@@ -137,8 +137,15 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
       if (a.suffix && !suffixName) suffixName = a.name;
       else if (!a.suffix && !prefixName) prefixName = a.name;
     }
-    if (prefixName) name = `${prefixName} ${name}`;
-    if (suffixName) name = `${name} ${suffixName}`;
+    // A named relic keeps its name. Random affixes exist to make the
+    // hundredth Iron Sword distinguishable from the ninety-ninth; hanging
+    // "Savage ... of the Fox" on the sword a person handed you after losing a
+    // duel to you throws away the only thing that made it that sword. The
+    // template's OWN rarity is the test, not the rolled one, so an ordinary
+    // blade rolled up to legendary still gets its affixes.
+    const named = t.rarity === 'legendary' || t.rarity === 'mythic';
+    if (!named && prefixName) name = `${prefixName} ${name}`;
+    if (!named && suffixName) name = `${name} ${suffixName}`;
 
     const effectChance = { common: 0, rare: 0.1, superRare: 0.4, epic: 0.75, legendary: 1, mythic: 1 }[rarity];
     if (rng.bool(effectChance)) {

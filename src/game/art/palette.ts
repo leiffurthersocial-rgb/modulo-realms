@@ -89,6 +89,8 @@ export const PAL = {
   skin2: '#c98d63',
   skin3: '#9c6444',
   skin4: '#6f4530',
+  skin5: '#4a2c1e',
+  skin6: '#33201a',
   skinElf: '#f0d6c0',
   skinOrc: '#7d9a5c',
   skinBeast: '#b98a55',

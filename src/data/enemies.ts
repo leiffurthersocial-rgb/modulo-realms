@@ -1017,6 +1017,54 @@ export const BOSSES: EnemyDef[] = [
   },
 
   /* ---------------------------------------------------------------- */
+  /* Duellists                                                         */
+  /*                                                                   */
+  /* Not monsters. People who agreed to a fight, and are better at it  */
+  /* than you. They are only ever spawned by a duel being accepted —   */
+  /* they are in no spawn table and behind no door.                    */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'duelist_tusya', name: 'Tusya', kind: 'humanoid',
+    look: humanLook({
+      skin: PAL.skin6, hair: '#141014', hairStyle: 'braid', beard: 'stubble', eyes: '#5a3a24',
+      shirt: '#2a2630', pants: '#1c1922',
+      armor: 'light', armorColor: '#3a3444', armorTrim: PAL.gold, helmet: 'none',
+      cape: '#6a2f28', height: 1.06, bulk: 1.04,
+      weapon: { kind: 'rapier', metal: '#e8e0d4', grip: PAL.woodDark, glow: PAL.goldLit },
+    }),
+    scale: 1.35, role: 'boss',
+    level: 30, health: 32955, damage: 99, defense: 77, speed: 122, xp: 5580, gold: [900, 1500], radius: 17,
+    sight: 720, attackRange: 62, attackCooldown: 1.1, windup: 0.26,
+    drops: [{ item: 'elixir_grand', chance: 1, min: 2, max: 4 }, { item: 'mat_greater_rune', chance: 1, min: 1, max: 2 }],
+    lootChance: 1, lootBias: 1.5, tags: ['humanoid'],
+    boss: {
+      title: 'Who Has Not Lost Yet',
+      arenaMusic: true,
+      uniqueDrop: 'unique_tusya',
+      // He is a person with a sword, not a mountain, so he does not soak — he
+      // is fast, he is relentless, and the cap is here so that a build cannot
+      // simply walk through the one fight in the game you asked for.
+      hitCap: 0.022,
+      enrageAfter: 100,
+      enrageRate: 0.03,
+      phases: [
+        { at: 1, name: 'Courtesy', speed: 1, damage: 1, line: '"Guard up. I do not start on people who are not ready."' },
+        { at: 0.72, name: 'Interest', speed: 1.2, damage: 1.2, line: '"Ah. Good. You have done this before."' },
+        { at: 0.45, name: 'Effort', speed: 1.42, damage: 1.45, line: '"Now I have to think. Thank you for that."' },
+        { at: 0.18, name: 'Everything', speed: 1.7, damage: 1.75, line: '"No more courtesy. Come on."' },
+      ],
+      attacks: [
+        { id: 'riposte', name: 'Riposte', shape: 'cone', windup: 0.32, cooldown: 2.4, power: 1.5, radius: 150, element: 'physical', color: '#e8e0d4' },
+        { id: 'lunge', name: 'Lunge', shape: 'dash', windup: 0.28, cooldown: 4, power: 1.8, range: 420, element: 'physical', color: PAL.goldLit },
+        { id: 'flurry', name: 'Flurry', shape: 'projectile', windup: 0.4, cooldown: 3.2, power: 0.9, count: 5, range: 420, element: 'physical', color: '#e8e0d4' },
+        { id: 'circle', name: 'Circle Him', shape: 'ring', windup: 0.9, cooldown: 9, power: 2.2, radius: 230, element: 'physical', color: PAL.gold, phase: 1 },
+        { id: 'measure', name: "Taking Your Measure", shape: 'line', windup: 0.7, cooldown: 7, power: 2.3, range: 520, element: 'physical', color: PAL.goldLit, phase: 2, lifeTax: 0.1 },
+        { id: 'perfect', name: 'The Whole Of It', shape: 'cone', windup: 0.55, cooldown: 6, power: 2.8, radius: 260, element: 'physical', color: PAL.white, phase: 3, lifeTax: 0.14 },
+      ],
+    },
+  },
+
+  /* ---------------------------------------------------------------- */
   /* The outer marches                                                 */
   /* ---------------------------------------------------------------- */
   {

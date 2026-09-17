@@ -175,6 +175,8 @@ export class Game implements WorldCtx {
   chests: ChestEntity[] = [];
   /** Non-null while a chest's contents are on screen waiting to be taken. */
   loot: LootSession | null = null;
+  /** The id of the NPC currently fighting you, if a duel is under way. */
+  duelling: string | null = null;
   fx = new FxSystem();
   shopStock = new Map<string, Item[]>();
 
@@ -379,6 +381,9 @@ export class Game implements WorldCtx {
       opened: st.opened.has(c.id), fixed: c.fixed, gold: c.gold,
     }));
 
+    // A duel does not survive leaving the map — the duellist goes back to
+    // being someone sitting on a wall, and will take the rematch.
+    this.duelling = null;
     this.npcs = NPCS.filter((n) => n.map === id).map((n) => new NpcEntity(n));
     for (const n of this.npcs) n.updateSchedule(this.hour);
     this.updateMusic(true);
@@ -763,6 +768,16 @@ export class Game implements WorldCtx {
       this.dropPickup(e.x, e.y, rollLoot(Math.max(1, e.level), rng, mf, e.def.lootBias ?? 0, this.regionAtPlayer()), 0);
     }
     if (e.def.boss) {
+      // A duel won is a person beaten, not a dungeon cleared: they leave the
+      // board, their weapon is on the ground, and they have something to say
+      // about it the next time you pass.
+      if (this.duelling) {
+        const npc = NPC_BY_ID[this.duelling];
+        if (npc?.duel?.enemy === e.def.id) {
+          p.flags.add(npc.duel.wonFlag);
+          this.duelling = null;
+        }
+      }
       const unique = makeItem(e.def.boss.uniqueDrop, { level: e.level, rng });
       this.dropPickup(e.x, e.y, unique, 0);
       p.bossesKilled.add(e.def.id);
@@ -770,10 +785,13 @@ export class Game implements WorldCtx {
       this.bossTarget = null;
       this.updateMusic(true);
       this.shake(16);
-      // clearing the boss clears the dungeon
-      const st = this.mapState(this.map.id);
-      st.cleared = true;
-      for (const qid of this.quests.onClear(this.map.id)) this.questProgressToast(qid);
+      // clearing the boss clears the dungeon — but a duel in a field does not
+      // clear the overworld
+      if (this.map.kind === 'dungeon' || this.map.kind === 'cave') {
+        const st = this.mapState(this.map.id);
+        st.cleared = true;
+        for (const qid of this.quests.onClear(this.map.id)) this.questProgressToast(qid);
+      }
     }
 
     // on-kill enchantments
@@ -825,6 +843,43 @@ export class Game implements WorldCtx {
     }
     void opts;
     this.checkDungeonCleared();
+    this.touch();
+  }
+
+  /**
+   * Accepting a challenge. The person you were talking to stops being an NPC
+   * and becomes the fight, standing exactly where they were standing, and the
+   * boss bar comes up because that is what this is.
+   *
+   * Nothing is lost by losing: the duellist is rebuilt from the NPC table the
+   * next time the map loads, so walking away and coming back offers the
+   * rematch. Winning sets their `wonFlag`, which takes them off the board for
+   * good and switches their greeting to the one they wrote for afterwards.
+   */
+  startDuel(npc: NpcDef | undefined): void {
+    const duel = npc?.duel;
+    if (!npc || !duel) return;
+    const ent = this.npcs.find((n) => n.def.id === npc.id);
+    const x = ent?.x ?? npc.tx * TILE;
+    const y = ent?.y ?? npc.ty * TILE;
+    this.npcs = this.npcs.filter((n) => n.def.id !== npc.id);
+    this.dialogue = null;
+    this.panel = null;
+
+    const def = ENEMY_BY_ID[duel.enemy];
+    const e = new Enemy(duel.enemy, x, y, def?.level ?? this.player.level, { boss: true });
+    e.state = 'chase';
+    e.alertTime = 999;
+    this.enemies.push(e);
+    this.bossTarget = e;
+    this.duelling = npc.id;
+
+    this.fx.ring(x, y, 120, PAL.goldLit);
+    this.flashScreen(PAL.goldLit, 0.25);
+    this.shake(8);
+    audio.play('boss_windup', 0.7);
+    this.toast(def?.name ?? npc.name, def?.boss?.title ?? 'A duel', '#f45b5b');
+    this.updateMusic(true);
     this.touch();
   }
 
@@ -2027,6 +2082,9 @@ export class Game implements WorldCtx {
             this.toast(`${a.amount > 0 ? '+' : ''}${a.amount} gold`, undefined, PAL.gold, 'gold');
             audio.play('gold', 0.6);
             break;
+          case 'attack':
+            this.startDuel(npc);
+            return;
           case 'goto':
             break;
           default:

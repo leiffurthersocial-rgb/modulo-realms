@@ -507,6 +507,15 @@ export const UNIQUES: ItemTemplate[] = [
     desc: 'Aldrhrim did not carry a sword. This is the piece of him that was shaped like one.',
   },
   {
+    id: 'unique_tusya', name: "Tusya's Answer", type: 'weapon', slot: 'mainHand', icon: 'rapier', weaponKind: 'rapier',
+    metal: '#e8e0d4', accent: PAL.gold, glow: PAL.goldLit, rarity: 'mythic', level: 30, value: 11000,
+    stats: { damage: 96, attackSpeed: 2.1, range: 50, dexterity: 22, strength: 10, critChance: 26, critDamage: 70, moveSpeed: 10 },
+    effects: ['swiftstep', 'flowstate'],
+    fixedEnchants: [{ id: 'critical_hit', level: 3 }, { id: 'piercing', level: 3 }, { id: 'committed', level: 3 }],
+    noDrop: true,
+    desc: 'He fought with it for thirty years and never once drew it first. Won honestly, or not at all.',
+  },
+  {
     id: 'unique_remainder', name: 'One', type: 'weapon', slot: 'mainHand', icon: 'sword', weaponKind: 'sword',
     metal: PAL.white, accent: PAL.arcaneLit, glow: PAL.arcane, rarity: 'mythic', level: 40, value: 20000,
     stats: { damage: 214, attackSpeed: 1.3, range: 58, strength: 24, intelligence: 24, dexterity: 24, critChance: 20, critDamage: 90, lifesteal: 10 },
