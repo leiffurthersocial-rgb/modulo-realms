@@ -1241,53 +1241,113 @@ GEN.magic_circle = () => {
 
 
 /** Standing stone gate with a slow blue vortex in the middle — the travel network. */
+/**
+ * A waystone is a thing the valley put up a very long time ago, so it should
+ * look like one. The old one was a glowing blue vortex under a lintel — a
+ * sci-fi portal, which read as modern next to every other prop in the game
+ * and made a fantasy world look like it had a teleporter in it.
+ *
+ * This is three leaning menhirs, weathered and lichened, with a carved face
+ * and runes cut into the rock. The only light is what has collected in the
+ * grooves of the carving: a slow amber pulse, the colour of the lamps and the
+ * shrine braziers rather than a screen. Nothing hovers and nothing spins.
+ */
 GEN.waystone = (rng) => {
   const frames: Px[] = [];
+  const STONE = '#6e6a63';
+  const STONE_LIT = '#8a857c';
+  const STONE_DARK = '#4a4741';
+  const MOSS = '#5a6b46';
+  const RUNE = '#d9a441';
+
   for (let f = 0; f < 8; f++) {
     const p = new Px(72, 88);
     const t = (f / 8) * Math.PI * 2;
-    groundShadow(p, 36, 84, 26, 8);
+    // Slow, shallow, and never off: an old carving catching the light, not a
+    // machine idling.
+    const glow = 0.45 + 0.3 * Math.sin(t);
+    groundShadow(p, 36, 84, 27, 8);
 
-    // rune-carved base
-    p.ellipse(36, 82, 24, 7, PAL.slate);
-    p.ellipse(36, 81, 21, 6, PAL.stone);
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      p.set(36 + Math.cos(a) * 18, 81 + Math.sin(a) * 5, withAlpha(PAL.frost, 0.7));
+    // trodden earth and a kerb of half-buried fieldstones
+    p.ellipse(36, 82, 25, 7, '#4a4034');
+    p.ellipse(36, 81, 21, 5, '#5a4e3f');
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      p.ellipse(36 + Math.cos(a) * 21, 81 + Math.sin(a) * 5.5, 4, 3, STONE_DARK);
     }
 
-    // vortex
-    const glow = 0.55 + 0.45 * Math.sin(t);
-    p.ellipse(36, 48, 21, 27, withAlpha('#1b3a63', 0.92));
-    for (let i = 5; i >= 1; i--) {
-      const r = i * 4;
-      p.ellipse(36 + Math.sin(t + i) * 1.5, 48, r, r * 1.3, withAlpha(i % 2 ? '#2f74c0' : '#4f9ce8', 0.32 + glow * 0.22));
-    }
-    p.ellipse(36, 48, 5, 7, withAlpha('#bfe4ff', 0.75 + glow * 0.25));
-    for (let i = 0; i < 14; i++) {
-      const a = t * 1.6 + (i / 14) * Math.PI * 2;
-      const rr = 8 + ((i * 3 + f * 2) % 14);
-      p.set(36 + Math.cos(a) * rr, 48 + Math.sin(a) * rr * 1.25, i % 3 === 0 ? '#bfe4ff' : '#4f9ce8');
-    }
-
-    // pillars and lintel
+    // The two flanking menhirs lean apart and taper hard toward the top, and
+    // each one is a different height. Straight parallel shafts read as
+    // columns — as architecture — and the whole point is that nobody built
+    // this, they dragged three rocks here and stood them up.
     for (const side of [-1, 1]) {
-      const x = 36 + side * 24 - 6;
-      p.fill(x, 16, 12, 66, PAL.slate);
-      p.fill(x + (side < 0 ? 1 : 7), 16, 4, 66, PAL.stone);
-      p.fill(x, 16, 12, 3, PAL.fog);
-      for (let i = 0; i < 6; i++) p.fill(x + 2, 24 + i * 10, 8, 1, shade(PAL.slate, 0.7));
-      for (let i = 0; i < 3; i++) p.set(x + 3 + (i % 3) * 2, 34 + i * 12, withAlpha('#4f9ce8', 0.5 + glow * 0.4));
+      const bx = 36 + side * 21;
+      const tall = side < 0 ? 54 : 49;
+      const lean = side * 5;
+      for (let row = 0; row < tall; row++) {
+        const y = 80 - row;
+        const k = row / tall;
+        // a wide, rough foot narrowing to a broken-looking crown
+        const w = 14 - k * k * 7 + Math.sin(row * 0.55 + side * 2) * 1.2;
+        const x = bx + lean * k * k - w / 2;
+        p.fill(x, y, w, 1, STONE);
+        p.fill(x + (side < 0 ? 0.5 : w - 2), y, 1.5, 1, STONE_LIT);
+        p.fill(x + (side < 0 ? w - 2 : 0.5), y, 1.5, 1, STONE_DARK);
+      }
+      // weathering: chips up the face, lichen collecting on the damp side
+      for (let i = 0; i < 18; i++) p.set(bx + rng.range(-5, 5), rng.range(34, 79), STONE_DARK);
+      for (let i = 0; i < 11; i++) p.set(bx + side * rng.range(2, 6), rng.range(60, 80), MOSS);
+      for (let i = 0; i < 5; i++) p.set(bx + rng.range(-4, 4), rng.range(70, 80), '#6d7c55');
+      // Cut strokes, not symbols: four short scores at an angle, the way a
+      // chisel leaves them, with the light pooled in the grooves.
+      for (let i = 0; i < 4; i++) {
+        const ry = 80 - tall + 8 + i * 9;
+        const rx = bx + lean * 0.4;
+        for (let j = 0; j < 5; j++) {
+          p.set(rx - 2 + j, ry - j * 0.6, withAlpha(RUNE, 0.3 + glow * 0.36));
+        }
+      }
     }
-    p.poly([[6, 18], [66, 18], [60, 6], [12, 6]], PAL.slate);
-    p.poly([[12, 6], [60, 6], [58, 9], [14, 9]], PAL.fog);
-    p.fill(30, 10, 12, 5, withAlpha('#4f9ce8', 0.4 + glow * 0.5));
-    for (let i = 0; i < 6; i++) p.set(rng.int(10, 62), rng.int(7, 17), PAL.stone);
 
-    p.ellipse(36, 50, 34, 34, withAlpha('#4f9ce8', 0.05 + glow * 0.05));
+    // The centre stone stands further back and taller, and its crown is
+    // deliberately broken and uneven — quarried and dressed by hand.
+    for (let row = 0; row < 50; row++) {
+      const y = 78 - row;
+      const k = row / 50;
+      // A gentle taper. Narrowing sharply near the top pinched the silhouette
+      // into a head and shoulders, which is not what a menhir looks like.
+      const w = 21 - k * 4;
+      const x = 36 - w / 2 + Math.sin(row * 0.18) * 1.1;
+      p.fill(x, y, w, 1, STONE);
+      p.fill(x + 1, y, 2, 1, STONE_LIT);
+      p.fill(x + w - 2, y, 1.5, 1, STONE_DARK);
+    }
+    // A chipped, sloping top cut into the shaft rather than sat on top of it,
+    // so the crown belongs to the same rock.
+    p.poly([[27, 29], [38, 25], [46, 30], [46, 34], [26, 34]], STONE);
+    p.poly([[27, 29], [38, 25], [43, 28], [28, 31]], STONE_LIT);
+    p.poly([[42, 26], [46, 30], [46, 35], [42, 33]], STONE_DARK);
+    for (let i = 0; i < 28; i++) p.set(36 + rng.range(-9, 9), rng.range(32, 74), STONE_DARK);
+    for (let i = 0; i < 10; i++) p.set(36 + rng.range(-9, 9), rng.range(62, 79), MOSS);
+
+    // the carved face: a ring and a bar, the valley's mark for a road that
+    // goes further than it looks
+    p.ellipse(36, 50, 10, 10, withAlpha(STONE_DARK, 0.85));
+    p.ellipse(36, 50, 7, 7, withAlpha(RUNE, 0.13 + glow * 0.15));
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      p.set(36 + Math.cos(a) * 8, 50 + Math.sin(a) * 8, withAlpha(RUNE, 0.4 + glow * 0.4));
+    }
+    p.fill(31, 49, 10, 1.5, withAlpha(RUNE, 0.45 + glow * 0.4));
+    p.fill(35, 44, 1.5, 12, withAlpha(RUNE, 0.35 + glow * 0.35));
+
+    // A low, warm wash on the ground in front, like firelight off stone.
+    p.ellipse(36, 74, 30, 12, withAlpha(RUNE, 0.035 + glow * 0.035));
     frames.push(p);
   }
-  return art(frames, 84, 9);
+  // Eight frames over nine seconds: slow enough that nothing about it reads
+  // as powered.
+  return art(frames, 84, 1.1);
 };
 
 

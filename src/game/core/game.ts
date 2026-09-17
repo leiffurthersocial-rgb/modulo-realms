@@ -2,7 +2,7 @@ import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ENEMY_BY_ID } from '../../data/enemies';
 import { TRASH_DROP_RATE, damageTaken } from '../../data/balance';
 import { TEMPLATE_BY_ID } from '../../data/items';
-import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
+import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
 import { FACTION_BY_ID } from '../../data/races';
@@ -3449,7 +3449,17 @@ export class Game implements WorldCtx {
         p.discovered.add(loc.id);
         const xp = 25 + (loc.level ?? 1) * 10;
         p.addXp(xp);
-        this.toast(`Discovered: ${loc.name}`, `${loc.desc}  (+${xp} XP)`, '#6fd0e8');
+        // Finding a place IS the work. Walking the last thirty metres to the
+        // stone and pressing use was a second, sillier gate on top of it, and
+        // the only thing it ever achieved was a long walk back to a landmark
+        // somebody had already stood in.
+        const gate = WAYSTONE_SITES.some((w) => w.id === loc.id) && !p.waystones.has(loc.id);
+        if (gate) p.waystones.add(loc.id);
+        this.toast(
+          `Discovered: ${loc.name}`,
+          `${loc.desc}  (+${xp} XP)${gate ? ' · gate open' : ''}`,
+          '#6fd0e8',
+        );
         audio.play('discover', 0.6);
         for (const qid of this.quests.onExplore(loc.id)) this.questProgressToast(qid);
         this.offerAutoQuests(loc.id);

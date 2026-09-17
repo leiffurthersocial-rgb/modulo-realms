@@ -35,6 +35,10 @@ export default function App() {
     const canvas = canvasRef.current!;
     const g = new Game(canvas);
     gameRef.current = g;
+    // A handle on the running game, for poking at it from the console and for
+    // driving it from a browser test. Vite strips this from a production
+    // build, so it never ships.
+    if (import.meta.env.DEV) (window as unknown as { game: Game }).game = g;
 
     const stored = loadSettings();
     if (stored) {
