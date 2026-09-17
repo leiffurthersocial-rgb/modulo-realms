@@ -61,6 +61,16 @@ export default function Hud({ game }: { game: Game }) {
               {p.skillPoints} skill point{p.skillPoints > 1 ? 's' : ''}
             </button>
           ) : null}
+          {game.bagFull ? (
+            <button
+              className="chip warn"
+              title="Your pack is full — loot on the ground will stay there. Sell or drop something."
+              onClick={() => game.setPanel('inventory')}
+            >
+              <span className="chip-dot" />
+              Pack full
+            </button>
+          ) : null}
           {p.buffs.map((b) => (
             <span className="chip effect" key={b.id} style={{ color: b.color, borderColor: `${b.color}66` }}>
               {b.name} <em>{Math.max(0, Math.ceil(b.until - game.now))}s</em>

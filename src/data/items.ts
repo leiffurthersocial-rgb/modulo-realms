@@ -3,6 +3,7 @@ import type { IconKind } from '../game/art/icons';
 import type { WeaponKind } from '../game/art/weaponart';
 import type { ClassId } from './classes';
 import type { ArmorLook, ConsumeEffect, EquipSlot, ItemType, Rarity, Stats } from '../game/items/types';
+import { armorDefenseAt, weaponDamage } from './balance';
 
 export interface ItemTemplate {
   id: string;
@@ -34,36 +35,59 @@ export interface ItemTemplate {
 }
 
 /**
+ * A weapon is authored by what it IS — kind, level, how fast it swings, how
+ * far it reaches — and its damage is solved from the shared DPS budget in
+ * `balance.ts`. There is deliberately no damage argument: hand-written damage
+ * is how a fast weapon quietly ends up worth twice a slow one of the same
+ * level.
+ *
  * `extra` is spread BEFORE `stats`, never after. Spread last, an `extra.stats`
  * object replaces the whole merged block rather than adding to it, which
- * silently stripped the damage, speed and range from every weapon below that
- * carries a bonus attribute — and the defense from every such armour.
+ * silently strips the speed and range from every weapon carrying a bonus
+ * attribute — and the defense from every such armour.
  */
 const W = (
-  id: string, name: string, kind: WeaponKind, level: number, damage: number, speed: number, range: number,
+  id: string, name: string, kind: WeaponKind, level: number, speed: number, range: number,
   extra: Partial<ItemTemplate> = {},
-): ItemTemplate => ({
-  id, name, type: 'weapon', slot: 'mainHand', icon: kind as IconKind, weaponKind: kind,
-  rarity: 'common', level, value: Math.round(20 + damage * 3.4 + level * 7),
-  metal: PAL.iron,
-  ...extra,
-  // The positional damage/speed/range also win over `extra.stats`, which only
-  // ever carries bonus attributes. On a weapon `attackSpeed` is the base swing
-  // rate and `range` the literal reach, so a "+6 speed" bonus written there
-  // would read as six swings a second.
-  stats: { ...(extra.stats ?? {}), damage, attackSpeed: speed, range },
-});
+): ItemTemplate => {
+  const rarity = extra.rarity ?? 'common';
+  const damage = weaponDamage(kind, level, rarity, speed);
+  return {
+    id, name, type: 'weapon', slot: 'mainHand', icon: kind as IconKind, weaponKind: kind,
+    rarity, level, value: Math.round(20 + damage * 3.4 + level * 7),
+    metal: PAL.iron,
+    ...extra,
+    // speed and range are the weapon's identity and always win over
+    // `extra.stats`, which only carries bonus attributes. On a weapon
+    // `attackSpeed` is the base swing rate, so a "+6 speed" bonus written
+    // there would read as six swings a second.
+    stats: { ...(extra.stats ?? {}), damage, attackSpeed: speed, range },
+  };
+};
 
+/**
+ * Armour is authored the same way as a weapon: level, rarity and a look. The
+ * defense comes from the shared curve, and `weight` is the one dial — plate
+ * buys more protection than a robe and pays for it in the bonus stats the
+ * caller writes.
+ */
 const A = (
-  id: string, name: string, level: number, defense: number, look: ArmorLook,
+  id: string, name: string, level: number, weight: number, look: ArmorLook,
   extra: Partial<ItemTemplate> = {},
-): ItemTemplate => ({
-  id, name, type: 'armor', slot: 'armor', icon: 'chest',
-  rarity: 'common', level, value: Math.round(24 + defense * 5.5 + level * 6),
-  metal: look.color, accent: look.trim, armorLook: look,
-  ...extra,
-  stats: { ...(extra.stats ?? {}), defense },
-});
+): ItemTemplate => {
+  const rarity = extra.rarity ?? 'common';
+  const defense = Math.max(1, Math.round(armorDefenseAt(level, rarity) * weight));
+  return {
+    id, name, type: 'armor', slot: 'armor', icon: 'chest',
+    rarity, level, value: Math.round(24 + defense * 5.5 + level * 6),
+    metal: look.color, accent: look.trim, armorLook: look,
+    ...extra,
+    stats: { ...(extra.stats ?? {}), defense },
+  };
+};
+
+/** How much protection a silhouette is worth, as a share of the armour curve. */
+const ROBE = 0.62, LIGHT = 0.82, MAIL = 1.15, PLATE = 1.4;
 
 const light = (color: string, trim?: string, helmet: ArmorLook['helmet'] = 'none', cape?: string | null): ArmorLook =>
   ({ style: 'light', helmet, color, trim, cape: cape ?? null });
@@ -78,80 +102,80 @@ const robe = (color: string, trim?: string, helmet: ArmorLook['helmet'] = 'hood'
 
 export const WEAPONS: ItemTemplate[] = [
   // blades
-  W('sword_worn', 'Notched Shortsword', 'sword', 1, 10, 1.35, 46, { desc: 'Somebody carried this a long way before you did.' }),
-  W('sword_iron', 'Iron Sword', 'sword', 2, 12, 1.3, 48),
-  W('sword_steel', 'Steel Longsword', 'sword', 6, 22, 1.25, 52, { metal: PAL.steel, stats: { strength: 2 } }),
-  W('sword_valley', 'Valley Guard Blade', 'sword', 11, 36, 1.28, 52, { metal: PAL.steel, rarity: 'rare', stats: { strength: 3, critChance: 3 } }),
-  W('sword_frost', 'Rimeglass Blade', 'sword', 16, 51, 1.3, 54, { metal: PAL.frost, glow: PAL.frost, rarity: 'superRare', stats: { intelligence: 4 }, fixedEnchants: [{ id: 'freezing', level: 1 }] }),
-  W('greatsword_iron', 'Iron Greatsword', 'greatsword', 5, 29, 0.78, 62, { stats: { strength: 2 } }),
-  W('greatsword_crag', 'Cragbreaker', 'greatsword', 12, 63, 0.72, 66, { metal: PAL.ironLit, rarity: 'rare', stats: { strength: 5, critDamage: 15 } }),
-  W('greatsword_grave', 'Gravewarden Greatblade', 'greatsword', 16, 87, 0.7, 68, { metal: PAL.slate, glow: PAL.arcane, rarity: 'superRare', stats: { strength: 7 } }),
+  W('sword_worn', 'Notched Shortsword', 'sword', 1, 1.35, 46, { desc: 'Somebody carried this a long way before you did.' }),
+  W('sword_iron', 'Iron Sword', 'sword', 2, 1.3, 48),
+  W('sword_steel', 'Steel Longsword', 'sword', 6, 1.25, 52, { metal: PAL.steel, stats: { strength: 2 } }),
+  W('sword_valley', 'Valley Guard Blade', 'sword', 11, 1.28, 52, { metal: PAL.steel, rarity: 'rare', stats: { strength: 3, critChance: 3 } }),
+  W('sword_frost', 'Rimeglass Blade', 'sword', 16, 1.3, 54, { metal: PAL.frost, glow: PAL.frost, rarity: 'superRare', stats: { intelligence: 4 }, fixedEnchants: [{ id: 'freezing', level: 1 }] }),
+  W('greatsword_iron', 'Iron Greatsword', 'greatsword', 5, 0.78, 62, { stats: { strength: 2 } }),
+  W('greatsword_crag', 'Cragbreaker', 'greatsword', 12, 0.72, 66, { metal: PAL.ironLit, rarity: 'rare', stats: { strength: 5, critDamage: 15 } }),
+  W('greatsword_grave', 'Gravewarden Greatblade', 'greatsword', 16, 0.7, 68, { metal: PAL.slate, glow: PAL.arcane, rarity: 'superRare', stats: { strength: 7 } }),
   // axes and blunt
-  W('axe_wood', "Woodcutter's Axe", 'axe', 1, 12, 1.05, 48, { desc: 'Meant for timber. It has stopped being fussy.' }),
-  W('axe_iron', 'Iron Battleaxe', 'axe', 4, 22, 0.98, 52),
-  W('greataxe_clan', 'Clanbreaker Axe', 'greataxe', 10, 56, 0.7, 64, { metal: PAL.ironLit, rarity: 'rare', stats: { strength: 4 } }),
-  W('hammer_iron', 'Iron Warhammer', 'hammer', 7, 40, 0.75, 56, { stats: { strength: 3 } }),
-  W('hammer_stone', 'Stonefall Maul', 'hammer', 13, 83, 0.68, 60, { metal: PAL.rockPale, rarity: 'superRare', stats: { strength: 6 }, fixedEnchants: [{ id: 'shockwave', level: 1 }] }),
-  W('mace_iron', 'Iron Mace', 'mace', 2, 14, 1.1, 46),
-  W('mace_dawn', 'Dawnward Mace', 'mace', 9, 38, 1.05, 48, { metal: PAL.gold, glow: PAL.holy, rarity: 'rare', stats: { intelligence: 3 }, classes: ['paladin'] }),
+  W('axe_wood', "Woodcutter's Axe", 'axe', 1, 1.05, 48, { desc: 'Meant for timber. It has stopped being fussy.' }),
+  W('axe_iron', 'Iron Battleaxe', 'axe', 4, 0.98, 52),
+  W('greataxe_clan', 'Clanbreaker Axe', 'greataxe', 10, 0.7, 64, { metal: PAL.ironLit, rarity: 'rare', stats: { strength: 4 } }),
+  W('hammer_iron', 'Iron Warhammer', 'hammer', 7, 0.75, 56, { stats: { strength: 3 } }),
+  W('hammer_stone', 'Stonefall Maul', 'hammer', 13, 0.68, 60, { metal: PAL.rockPale, rarity: 'superRare', stats: { strength: 6 }, fixedEnchants: [{ id: 'shockwave', level: 1 }] }),
+  W('mace_iron', 'Iron Mace', 'mace', 2, 1.1, 46),
+  W('mace_dawn', 'Dawnward Mace', 'mace', 9, 1.05, 48, { metal: PAL.gold, glow: PAL.holy, rarity: 'rare', stats: { intelligence: 3 }, classes: ['paladin'] }),
   // light blades
-  W('dagger_rusty', 'Rusted Dagger', 'dagger', 1, 6, 2.1, 34, { stats: { critChance: 4 } }),
-  W('dagger_iron', 'Iron Dagger', 'dagger', 2, 8, 2, 36, { stats: { critChance: 6 } }),
-  W('dagger_shadow', 'Shadowfang', 'dagger', 12, 26, 2.1, 38, { metal: PAL.arcaneLit, glow: PAL.arcaneDark, rarity: 'superRare', stats: { critChance: 12, dexterity: 4 }, fixedEnchants: [{ id: 'venomous', level: 2 }] }),
-  W('claws_beast', 'Bonebreaker Claws', 'claws', 6, 11, 2.3, 34, { metal: PAL.cloth, stats: { critChance: 8 } }),
-  W('spear_hunt', 'Hunting Spear', 'spear', 3, 17, 1.15, 70),
-  W('spear_pike', 'Guard Pike', 'spear', 9, 38, 1.1, 76, { metal: PAL.steel, rarity: 'rare', stats: { defense: 3 } }),
+  W('dagger_rusty', 'Rusted Dagger', 'dagger', 1, 2.1, 34, { stats: { critChance: 4 } }),
+  W('dagger_iron', 'Iron Dagger', 'dagger', 2, 2, 36, { stats: { critChance: 6 } }),
+  W('dagger_shadow', 'Shadowfang', 'dagger', 12, 2.1, 38, { metal: PAL.arcaneLit, glow: PAL.arcaneDark, rarity: 'superRare', stats: { critChance: 12, dexterity: 4 }, fixedEnchants: [{ id: 'venomous', level: 2 }] }),
+  W('claws_beast', 'Bonebreaker Claws', 'claws', 6, 2.3, 34, { metal: PAL.cloth, stats: { critChance: 8 } }),
+  W('spear_hunt', 'Hunting Spear', 'spear', 3, 1.15, 70),
+  W('spear_pike', 'Guard Pike', 'spear', 9, 1.1, 76, { metal: PAL.steel, rarity: 'rare', stats: { defense: 3 } }),
   // ranged
-  W('bow_hunting', 'Hunting Bow', 'bow', 1, 7, 1.25, 455, { metal: PAL.wood, desc: 'Well-used yew, restrung last spring.' }),
-  W('bow_yew', 'Yew Longbow', 'bow', 5, 15, 1.15, 524, { metal: PAL.woodLit, stats: { dexterity: 2 } }),
-  W('bow_court', 'Court Warden Bow', 'bow', 12, 31, 1.2, 580, { metal: PAL.leafLit, glow: PAL.leafLit, rarity: 'superRare', stats: { dexterity: 5, critChance: 6 }, fixedEnchants: [{ id: 'multishot', level: 1 }] }),
-  W('crossbow_iron', 'Iron Crossbow', 'crossbow', 7, 27, 0.8, 552, { stats: { critDamage: 20 } }),
-  W('crossbow_heavy', 'Barrow Repeater', 'crossbow', 14, 49, 0.85, 580, { metal: PAL.ironDark, rarity: 'superRare', stats: { critDamage: 30 }, fixedEnchants: [{ id: 'piercing', level: 2 }] }),
+  W('bow_hunting', 'Hunting Bow', 'bow', 1, 1.25, 455, { metal: PAL.wood, desc: 'Well-used yew, restrung last spring.' }),
+  W('bow_yew', 'Yew Longbow', 'bow', 5, 1.15, 524, { metal: PAL.woodLit, stats: { dexterity: 2 } }),
+  W('bow_court', 'Court Warden Bow', 'bow', 12, 1.2, 580, { metal: PAL.leafLit, glow: PAL.leafLit, rarity: 'superRare', stats: { dexterity: 5, critChance: 6 }, fixedEnchants: [{ id: 'multishot', level: 1 }] }),
+  W('crossbow_iron', 'Iron Crossbow', 'crossbow', 7, 0.8, 552, { stats: { critDamage: 20 } }),
+  W('crossbow_heavy', 'Barrow Repeater', 'crossbow', 14, 0.85, 580, { metal: PAL.ironDark, rarity: 'superRare', stats: { critDamage: 30 }, fixedEnchants: [{ id: 'piercing', level: 2 }] }),
   // magic
-  W('staff_apprentice', 'Apprentice Staff', 'staff', 1, 10, 1.05, 399, { metal: PAL.wood, glow: PAL.arcaneLit, stats: { intelligence: 2, maxMana: 10 } }),
-  W('staff_ember', 'Emberwood Staff', 'staff', 6, 21, 1, 452, { metal: PAL.wood, glow: PAL.flame, stats: { intelligence: 4, abilityPower: 8 } }),
-  W('staff_concord', 'Concord Spellstaff', 'staff', 13, 43, 1.02, 505, { metal: PAL.arcane, glow: PAL.arcaneLit, rarity: 'superRare', stats: { intelligence: 7, abilityPower: 14, maxMana: 30 } }),
-  W('wand_copper', 'Copper Wand', 'wand', 2, 8, 1.6, 372, { metal: PAL.copper, glow: PAL.frost, stats: { intelligence: 2 } }),
-  W('tome_lesser', 'Lesser Grimoire', 'tome', 4, 14, 1.2, 386, { metal: PAL.blood, glow: PAL.arcaneLit, stats: { intelligence: 3, maxMana: 15 } }),
-  W('scythe_bone', 'Bone Scythe', 'scythe', 1, 11, 1.05, 58, { metal: PAL.cloth, stats: { intelligence: 2 }, classes: ['necromancer'] }),
-  W('scythe_grave', 'Gravewarden Scythe', 'scythe', 10, 42, 0.95, 64, { metal: PAL.rot, glow: PAL.toxic, rarity: 'rare', stats: { intelligence: 5, lifesteal: 3 } }),
+  W('staff_apprentice', 'Apprentice Staff', 'staff', 1, 1.05, 399, { metal: PAL.wood, glow: PAL.arcaneLit, stats: { intelligence: 2, maxMana: 10 } }),
+  W('staff_ember', 'Emberwood Staff', 'staff', 6, 1, 452, { metal: PAL.wood, glow: PAL.flame, stats: { intelligence: 4, abilityPower: 8 } }),
+  W('staff_concord', 'Concord Spellstaff', 'staff', 13, 1.02, 505, { metal: PAL.arcane, glow: PAL.arcaneLit, rarity: 'superRare', stats: { intelligence: 7, abilityPower: 14, maxMana: 30 } }),
+  W('wand_copper', 'Copper Wand', 'wand', 2, 1.6, 372, { metal: PAL.copper, glow: PAL.frost, stats: { intelligence: 2 } }),
+  W('tome_lesser', 'Lesser Grimoire', 'tome', 4, 1.2, 386, { metal: PAL.blood, glow: PAL.arcaneLit, stats: { intelligence: 3, maxMana: 15 } }),
+  W('scythe_bone', 'Bone Scythe', 'scythe', 1, 1.05, 58, { metal: PAL.cloth, stats: { intelligence: 2 }, classes: ['necromancer'] }),
+  W('scythe_grave', 'Gravewarden Scythe', 'scythe', 10, 0.95, 64, { metal: PAL.rot, glow: PAL.toxic, rarity: 'rare', stats: { intelligence: 5, lifesteal: 3 } }),
 
   /* --- duelling blades: fast, precise, built around crit --- */
-  W('rapier_town', 'Town Guard Rapier', 'rapier', 3, 11, 1.85, 44, { metal: PAL.steel, stats: { critChance: 6, dexterity: 1 } }),
-  W('rapier_duellist', "Duellist's Needle", 'rapier', 8, 20, 1.9, 46, { metal: PAL.steel, rarity: 'rare', stats: { critChance: 11, dexterity: 4 } }),
-  W('rapier_court', 'Court Fencer', 'rapier', 13, 30, 1.95, 48, { metal: PAL.leafLit, glow: PAL.leafLit, rarity: 'superRare', stats: { critChance: 15, dexterity: 6, moveSpeed: 4 }, fixedEnchants: [{ id: 'piercing', level: 2 }] }),
-  W('rapier_mire', 'Mirefall Stinger', 'rapier', 10, 23, 2, 46, { metal: PAL.toxic, glow: PAL.toxic, rarity: 'rare', stats: { critChance: 9, dexterity: 4 }, fixedEnchants: [{ id: 'venomous', level: 1 }] }),
+  W('rapier_town', 'Town Guard Rapier', 'rapier', 3, 1.85, 44, { metal: PAL.steel, stats: { critChance: 6, dexterity: 1 } }),
+  W('rapier_duellist', "Duellist's Needle", 'rapier', 8, 1.9, 46, { metal: PAL.steel, rarity: 'rare', stats: { critChance: 11, dexterity: 4 } }),
+  W('rapier_court', 'Court Fencer', 'rapier', 13, 1.95, 48, { metal: PAL.leafLit, glow: PAL.leafLit, rarity: 'superRare', stats: { critChance: 15, dexterity: 6, moveSpeed: 4 }, fixedEnchants: [{ id: 'piercing', level: 2 }] }),
+  W('rapier_mire', 'Mirefall Stinger', 'rapier', 10, 2, 46, { metal: PAL.toxic, glow: PAL.toxic, rarity: 'rare', stats: { critChance: 9, dexterity: 4 }, fixedEnchants: [{ id: 'venomous', level: 1 }] }),
 
   /* --- flails: slow, heavy, they hit everything nearby --- */
-  W('flail_iron', 'Iron Flail', 'flail', 4, 23, 0.9, 54, { stats: { strength: 2 } }),
-  W('flail_morning', 'Morning Star', 'flail', 9, 44, 0.85, 56, { metal: PAL.ironLit, rarity: 'rare', stats: { strength: 4, critDamage: 18 } }),
-  W('flail_crag', 'Cragfall Flail', 'flail', 14, 72, 0.78, 58, { metal: PAL.rockPale, rarity: 'superRare', stats: { strength: 7, critDamage: 25 }, fixedEnchants: [{ id: 'shockwave', level: 2 }] }),
+  W('flail_iron', 'Iron Flail', 'flail', 4, 0.9, 54, { stats: { strength: 2 } }),
+  W('flail_morning', 'Morning Star', 'flail', 9, 0.85, 56, { metal: PAL.ironLit, rarity: 'rare', stats: { strength: 4, critDamage: 18 } }),
+  W('flail_crag', 'Cragfall Flail', 'flail', 14, 0.78, 58, { metal: PAL.rockPale, rarity: 'superRare', stats: { strength: 7, critDamage: 25 }, fixedEnchants: [{ id: 'shockwave', level: 2 }] }),
 
   /* --- polearms: reach, sweep, the front rank's weapon --- */
-  W('halberd_levy', 'Levy Halberd', 'halberd', 5, 25, 0.92, 78, { stats: { defense: 2 } }),
-  W('halberd_watch', 'Northwatch Halberd', 'halberd', 11, 48, 0.88, 82, { metal: PAL.steel, rarity: 'rare', stats: { strength: 4, defense: 4 } }),
-  W('halberd_reaper', 'Reaper of the Reach', 'halberd', 16, 75, 0.82, 86, { metal: PAL.frost, glow: PAL.frost, rarity: 'superRare', stats: { strength: 7, defense: 5 }, fixedEnchants: [{ id: 'swirling', level: 2 }] }),
+  W('halberd_levy', 'Levy Halberd', 'halberd', 5, 0.92, 78, { stats: { defense: 2 } }),
+  W('halberd_watch', 'Northwatch Halberd', 'halberd', 11, 0.88, 82, { metal: PAL.steel, rarity: 'rare', stats: { strength: 4, defense: 4 } }),
+  W('halberd_reaper', 'Reaper of the Reach', 'halberd', 16, 0.82, 86, { metal: PAL.frost, glow: PAL.frost, rarity: 'superRare', stats: { strength: 7, defense: 5 }, fixedEnchants: [{ id: 'swirling', level: 2 }] }),
 
   /* --- war picks: armour-breakers, punishing on a crit --- */
-  W('warpick_miner', "Miner's Pick", 'warpick', 2, 14, 1.15, 44, { metal: PAL.iron, desc: 'Meant for ore. It has stopped caring about the difference.' }),
-  W('warpick_guild', 'Guild War Pick', 'warpick', 7, 32, 1.1, 46, { metal: PAL.copper, rarity: 'rare', stats: { critDamage: 25, strength: 2 } }),
-  W('warpick_ironroot', 'Ironroot Beak', 'warpick', 13, 55, 1.08, 48, { metal: PAL.copper, glow: PAL.ember, rarity: 'superRare', stats: { critDamage: 40, critChance: 8, strength: 4 }, fixedEnchants: [{ id: 'piercing', level: 3 }] }),
+  W('warpick_miner', "Miner's Pick", 'warpick', 2, 1.15, 44, { metal: PAL.iron, desc: 'Meant for ore. It has stopped caring about the difference.' }),
+  W('warpick_guild', 'Guild War Pick', 'warpick', 7, 1.1, 46, { metal: PAL.copper, rarity: 'rare', stats: { critDamage: 25, strength: 2 } }),
+  W('warpick_ironroot', 'Ironroot Beak', 'warpick', 13, 1.08, 48, { metal: PAL.copper, glow: PAL.ember, rarity: 'superRare', stats: { critDamage: 40, critChance: 8, strength: 4 }, fixedEnchants: [{ id: 'piercing', level: 3 }] }),
 
   /* --- orbs: caster focuses that hover and strike at range --- */
-  W('orb_apprentice', 'Apprentice Orb', 'orb', 3, 10, 1.4, 386, { metal: PAL.frost, glow: PAL.frost, stats: { intelligence: 3, maxMana: 18 } }),
-  W('orb_ember', 'Emberglass Orb', 'orb', 8, 21, 1.35, 426, { metal: PAL.flame, glow: PAL.ember, rarity: 'rare', stats: { intelligence: 5, abilityPower: 12 }, fixedEnchants: [{ id: 'fire_aspect', level: 1 }] }),
-  W('orb_tide', 'Drowned Tidestone', 'orb', 11, 29, 1.32, 452, { metal: PAL.water, glow: PAL.frost, rarity: 'superRare', stats: { intelligence: 7, abilityPower: 16, maxMana: 40 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
-  W('orb_hollow', 'Hollow Light', 'orb', 15, 40, 1.3, 479, { metal: PAL.arcaneLit, glow: PAL.arcane, rarity: 'epic', stats: { intelligence: 10, abilityPower: 24, cooldownReduction: 8, lifesteal: 4 } }),
+  W('orb_apprentice', 'Apprentice Orb', 'orb', 3, 1.4, 386, { metal: PAL.frost, glow: PAL.frost, stats: { intelligence: 3, maxMana: 18 } }),
+  W('orb_ember', 'Emberglass Orb', 'orb', 8, 1.35, 426, { metal: PAL.flame, glow: PAL.ember, rarity: 'rare', stats: { intelligence: 5, abilityPower: 12 }, fixedEnchants: [{ id: 'fire_aspect', level: 1 }] }),
+  W('orb_tide', 'Drowned Tidestone', 'orb', 11, 1.32, 452, { metal: PAL.water, glow: PAL.frost, rarity: 'superRare', stats: { intelligence: 7, abilityPower: 16, maxMana: 40 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+  W('orb_hollow', 'Hollow Light', 'orb', 15, 1.3, 479, { metal: PAL.arcaneLit, glow: PAL.arcane, rarity: 'epic', stats: { intelligence: 10, abilityPower: 24, cooldownReduction: 8, lifesteal: 4 } }),
 
   /* --- a few more of the old kinds, to fill the mid-game --- */
-  W('sword_mire', 'Bogsteel Falchion', 'sword', 8, 28, 1.3, 50, { metal: PAL.swamp, rarity: 'rare', stats: { strength: 3, lifesteal: 2 } }),
-  W('greatsword_dune', 'Duneholt Cleaver', 'greatsword', 9, 49, 0.75, 64, { metal: PAL.sandDark, rarity: 'rare', stats: { strength: 4, maxHealth: 20 } }),
-  W('axe_cutter', 'Ash Cutter Hatchet', 'axe', 7, 26, 1.28, 50, { metal: PAL.ironDark, rarity: 'rare', stats: { critChance: 5 } }),
-  W('dagger_guild', 'Guild Shiv', 'dagger', 6, 14, 2.05, 36, { metal: PAL.copper, stats: { critChance: 9, magicFind: 4 } }),
-  W('bow_mire', 'Mirewood Recurve', 'bow', 8, 21, 1.2, 552, { metal: PAL.swampDark, rarity: 'rare', stats: { dexterity: 4, critChance: 4 } }),
-  W('staff_dune', 'Sunstruck Staff', 'staff', 10, 33, 1.02, 479, { metal: PAL.sand, glow: PAL.goldLit, rarity: 'rare', stats: { intelligence: 6, abilityPower: 12 } }),
-  W('spear_mire', 'Bog Harpoon', 'spear', 6, 28, 1.12, 78, { metal: PAL.rot, rarity: 'rare', stats: { dexterity: 3 } }),
-  W('mace_crag', 'Cragwarden Mace', 'mace', 12, 47, 1.05, 50, { metal: PAL.rockPale, rarity: 'rare', stats: { strength: 5, defense: 4 } }),
+  W('sword_mire', 'Bogsteel Falchion', 'sword', 8, 1.3, 50, { metal: PAL.swamp, rarity: 'rare', stats: { strength: 3, lifesteal: 2 } }),
+  W('greatsword_dune', 'Duneholt Cleaver', 'greatsword', 9, 0.75, 64, { metal: PAL.sandDark, rarity: 'rare', stats: { strength: 4, maxHealth: 20 } }),
+  W('axe_cutter', 'Ash Cutter Hatchet', 'axe', 7, 1.28, 50, { metal: PAL.ironDark, rarity: 'rare', stats: { critChance: 5 } }),
+  W('dagger_guild', 'Guild Shiv', 'dagger', 6, 2.05, 36, { metal: PAL.copper, stats: { critChance: 9, magicFind: 4 } }),
+  W('bow_mire', 'Mirewood Recurve', 'bow', 8, 1.2, 552, { metal: PAL.swampDark, rarity: 'rare', stats: { dexterity: 4, critChance: 4 } }),
+  W('staff_dune', 'Sunstruck Staff', 'staff', 10, 1.02, 479, { metal: PAL.sand, glow: PAL.goldLit, rarity: 'rare', stats: { intelligence: 6, abilityPower: 12 } }),
+  W('spear_mire', 'Bog Harpoon', 'spear', 6, 1.12, 78, { metal: PAL.rot, rarity: 'rare', stats: { dexterity: 3 } }),
+  W('mace_crag', 'Cragwarden Mace', 'mace', 12, 1.05, 50, { metal: PAL.rockPale, rarity: 'rare', stats: { strength: 5, defense: 4 } }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -159,27 +183,27 @@ export const WEAPONS: ItemTemplate[] = [
 /* ------------------------------------------------------------------ */
 
 export const ARMOR: ItemTemplate[] = [
-  A('armor_traveller', "Traveller's Garb", 1, 4, light('#5c5140', PAL.wood), { stats: { moveSpeed: 2 }, desc: 'Road dust, and a lot of it.' }),
-  A('armor_leather', 'Padded Leathers', 2, 7, light(PAL.clay, PAL.wood), { stats: { maxHealth: 10 } }),
-  A('armor_robe_apprentice', 'Apprentice Robe', 1, 4, robe(PAL.arcaneDark, PAL.frost, 'wizard'), { stats: { maxMana: 16, intelligence: 1 } }),
-  A('armor_acolyte', 'Acolyte Vestments', 5, 11, robe('#3f4a6a', PAL.gold), { rarity: 'rare', stats: { maxMana: 30, intelligence: 3 } }),
-  A('armor_mail', 'Mail Hauberk', 5, 15, heavy(PAL.iron, PAL.ironLit), { stats: { maxHealth: 22 } }),
+  A('armor_traveller', "Traveller's Garb", 1, LIGHT, light('#5c5140', PAL.wood), { stats: { moveSpeed: 2 }, desc: 'Road dust, and a lot of it.' }),
+  A('armor_leather', 'Padded Leathers', 2, LIGHT, light(PAL.clay, PAL.wood), { stats: { maxHealth: 10 } }),
+  A('armor_robe_apprentice', 'Apprentice Robe', 1, ROBE, robe(PAL.arcaneDark, PAL.frost, 'wizard'), { stats: { maxMana: 16, intelligence: 1 } }),
+  A('armor_acolyte', 'Acolyte Vestments', 5, ROBE, robe('#3f4a6a', PAL.gold), { rarity: 'rare', stats: { maxMana: 30, intelligence: 3 } }),
+  A('armor_mail', 'Mail Hauberk', 5, MAIL, heavy(PAL.iron, PAL.ironLit), { stats: { maxHealth: 22 } }),
   A('armor_hunter', 'Hunter\'s Hide', 6, 14, light('#4a5a3a', PAL.leafLit, 'hood'), { rarity: 'rare', stats: { dexterity: 3, moveSpeed: 4 } }),
-  A('armor_wolfhide', 'Wolfhide Mantle', 8, 19, light('#6b6a74', PAL.cloth, 'hood', '#4a4955'), { rarity: 'rare', stats: { maxHealth: 28, moveSpeed: 3 } }),
-  A('armor_guard', 'Valley Guard Plate', 9, 26, heavy(PAL.steel, PAL.gold, 'full', '#3a5a8a'), { rarity: 'rare', stats: { maxHealth: 40, moveSpeed: -2 } }),
-  A('armor_shadow', 'Shadow Walker', 12, 24, light('#241d2e', PAL.arcaneLit, 'hood', '#1a1626'), { rarity: 'epic', stats: { dexterity: 6, critChance: 6, moveSpeed: 8 }, fixedEnchants: [{ id: 'deflect', level: 1 }] }),
-  A('armor_barrow', 'Barrow Shroud', 13, 27, robe('#2f3346', PAL.frost, 'hood', '#22283a'), { rarity: 'epic', stats: { maxMana: 55, intelligence: 6, abilityPower: 10 } }),
-  A('armor_frostguard', 'Frostguard Mail', 14, 36, heavy('#6fa8c4', PAL.white, 'horned', '#2f4458'), { rarity: 'epic', stats: { maxHealth: 70, defense: 6 }, fixedEnchants: [{ id: 'thorns', level: 1 }] }),
-  A('armor_ironroot', 'Ironroot Plate', 15, 40, heavy(PAL.copper, PAL.gold, 'full'), { rarity: 'epic', stats: { maxHealth: 80, strength: 5, moveSpeed: -3 } }),
-  A('armor_concord', 'Concord Mantle', 11, 22, robe(PAL.arcane, PAL.frost, 'wizard', PAL.arcaneDark), { rarity: 'superRare', stats: { maxMana: 48, intelligence: 6, abilityPower: 10 } }),
-  A('armor_scout', 'Scoutmaster Kit', 7, 16, light(PAL.leaf, PAL.sandLit, 'cap'), { rarity: 'rare', stats: { moveSpeed: 9, dexterity: 3, maxStamina: 25 } }),
-  A('armor_duskforged', 'Duskforged Plate', 16, 52, heavy('#3a3648', PAL.ember, 'horned', '#2a1a1a'), {
+  A('armor_wolfhide', 'Wolfhide Mantle', 8, LIGHT, light('#6b6a74', PAL.cloth, 'hood', '#4a4955'), { rarity: 'rare', stats: { maxHealth: 28, moveSpeed: 3 } }),
+  A('armor_guard', 'Valley Guard Plate', 9, PLATE, heavy(PAL.steel, PAL.gold, 'full', '#3a5a8a'), { rarity: 'rare', stats: { maxHealth: 40, moveSpeed: -2 } }),
+  A('armor_shadow', 'Shadow Walker', 12, LIGHT, light('#241d2e', PAL.arcaneLit, 'hood', '#1a1626'), { rarity: 'epic', stats: { dexterity: 6, critChance: 6, moveSpeed: 8 }, fixedEnchants: [{ id: 'deflect', level: 1 }] }),
+  A('armor_barrow', 'Barrow Shroud', 13, ROBE, robe('#2f3346', PAL.frost, 'hood', '#22283a'), { rarity: 'epic', stats: { maxMana: 55, intelligence: 6, abilityPower: 10 } }),
+  A('armor_frostguard', 'Frostguard Mail', 14, PLATE, heavy('#6fa8c4', PAL.white, 'horned', '#2f4458'), { rarity: 'epic', stats: { maxHealth: 70, defense: 6 }, fixedEnchants: [{ id: 'thorns', level: 1 }] }),
+  A('armor_ironroot', 'Ironroot Plate', 15, PLATE, heavy(PAL.copper, PAL.gold, 'full'), { rarity: 'epic', stats: { maxHealth: 80, strength: 5, moveSpeed: -3 } }),
+  A('armor_concord', 'Concord Mantle', 11, ROBE, robe(PAL.arcane, PAL.frost, 'wizard', PAL.arcaneDark), { rarity: 'superRare', stats: { maxMana: 48, intelligence: 6, abilityPower: 10 } }),
+  A('armor_scout', 'Scoutmaster Kit', 7, LIGHT, light(PAL.leaf, PAL.sandLit, 'cap'), { rarity: 'rare', stats: { moveSpeed: 9, dexterity: 3, maxStamina: 25 } }),
+  A('armor_duskforged', 'Duskforged Plate', 16, PLATE, heavy('#3a3648', PAL.ember, 'horned', '#2a1a1a'), {
     rarity: 'legendary', glow: PAL.ember, noDrop: true,
     stats: { maxHealth: 130, defense: 10, strength: 7, moveSpeed: -2 },
     effects: ['thorns', 'earthshaker'],
     desc: 'Heavy as guilt, and about as easy to put down.',
   }),
-  A('armor_hollow_court', 'Mantle of the Hollow Court', 17, 44, robe('#2a2438', PAL.gold, 'crown', '#3a2a4a'), {
+  A('armor_hollow_court', 'Mantle of the Hollow Court', 17, ROBE, robe('#2a2438', PAL.gold, 'crown', '#3a2a4a'), {
     rarity: 'legendary', glow: PAL.arcaneLit, noDrop: true,
     stats: { maxMana: 90, intelligence: 12, abilityPower: 22, lifesteal: 5 },
     effects: ['vampiric', 'flowstate'],
@@ -187,14 +211,14 @@ export const ARMOR: ItemTemplate[] = [
   }),
 
   /* --- mid-game outfits, one per region, so travel changes how you dress --- */
-  A('armor_bogweave', 'Bogweave Coat', 7, 17, light(PAL.swamp, PAL.rot, 'hood'), { rarity: 'rare', stats: { maxHealth: 26, defense: 2 }, desc: 'Waxed against water that would rather be inside you.' }),
-  A('armor_sunveil', 'Sunveil Wrap', 8, 15, robe(PAL.sandLit, PAL.gold, 'hood'), { rarity: 'rare', stats: { maxMana: 34, intelligence: 4, moveSpeed: 3 } }),
-  A('armor_clanmail', 'Clanhold Ringmail', 10, 28, heavy(PAL.ironDark, PAL.copper, 'horned'), { rarity: 'rare', stats: { maxHealth: 46, strength: 3 } }),
-  A('armor_thornweave', 'Thornweave Habit', 9, 18, robe('#2d4a2f', PAL.leafLit, 'hood', '#1f3322'), { rarity: 'rare', stats: { maxMana: 38, abilityPower: 9, moveSpeed: 3 } }),
-  A('armor_cutter', 'Cutter Raid Harness', 11, 23, light('#5a3a2a', PAL.ember, 'cap'), { rarity: 'superRare', stats: { attackSpeed: 6, critChance: 5, moveSpeed: 5 } }),
-  A('armor_wardplate', 'Wardens Bulwark', 13, 34, heavy('#4a5a6a', PAL.frost, 'full', '#2a3a4a'), { rarity: 'superRare', stats: { maxHealth: 64, defense: 7, moveSpeed: -2 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
-  A('armor_emberplate', 'Emberforge Plate', 15, 44, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 88, defense: 8, strength: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
-  A('armor_tidecaller', 'Tidecaller Vestments', 14, 26, robe('#274a5e', PAL.frost, 'wizard', '#1a3242'), { rarity: 'epic', glow: PAL.frost, stats: { maxMana: 72, intelligence: 9, abilityPower: 16 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+  A('armor_bogweave', 'Bogweave Coat', 7, LIGHT, light(PAL.swamp, PAL.rot, 'hood'), { rarity: 'rare', stats: { maxHealth: 26, defense: 2 }, desc: 'Waxed against water that would rather be inside you.' }),
+  A('armor_sunveil', 'Sunveil Wrap', 8, ROBE, robe(PAL.sandLit, PAL.gold, 'hood'), { rarity: 'rare', stats: { maxMana: 34, intelligence: 4, moveSpeed: 3 } }),
+  A('armor_clanmail', 'Clanhold Ringmail', 10, MAIL, heavy(PAL.ironDark, PAL.copper, 'horned'), { rarity: 'rare', stats: { maxHealth: 46, strength: 3 } }),
+  A('armor_thornweave', 'Thornweave Habit', 9, ROBE, robe('#2d4a2f', PAL.leafLit, 'hood', '#1f3322'), { rarity: 'rare', stats: { maxMana: 38, abilityPower: 9, moveSpeed: 3 } }),
+  A('armor_cutter', 'Cutter Raid Harness', 11, LIGHT, light('#5a3a2a', PAL.ember, 'cap'), { rarity: 'superRare', stats: { attackSpeed: 6, critChance: 5, moveSpeed: 5 } }),
+  A('armor_wardplate', 'Wardens Bulwark', 13, PLATE, heavy('#4a5a6a', PAL.frost, 'full', '#2a3a4a'), { rarity: 'superRare', stats: { maxHealth: 64, defense: 7, moveSpeed: -2 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
+  A('armor_emberplate', 'Emberforge Plate', 15, PLATE, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 88, defense: 8, strength: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
+  A('armor_tidecaller', 'Tidecaller Vestments', 14, ROBE, robe('#274a5e', PAL.frost, 'wizard', '#1a3242'), { rarity: 'epic', glow: PAL.frost, stats: { maxMana: 72, intelligence: 9, abilityPower: 16 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
 ];
 
 /* ------------------------------------------------------------------ */

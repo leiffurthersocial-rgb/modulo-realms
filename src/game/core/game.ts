@@ -12,7 +12,7 @@ import { makeProjectile, type Projectile } from '../combat/projectiles';
 import { Enemy } from '../entities/enemy';
 import { NpcEntity } from '../entities/npcEntity';
 import { applyStatus, resetEntityIds, type Entity } from '../entities/entity';
-import { addItem, addTemplate, countItem, equip, removeByDefId, removeItem, unequip } from '../items/inventory';
+import { MAX_SLOTS, addItem, addTemplate, countItem, equip, removeByDefId, removeItem, unequip } from '../items/inventory';
 import { makeItem, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
@@ -1551,6 +1551,11 @@ export class Game implements WorldCtx {
    */
   readonly scrapRate = 0.5;
 
+  /** True while the pack cannot take another item. Drives the HUD marker. */
+  get bagFull(): boolean {
+    return this.player.inventory.length >= MAX_SLOTS;
+  }
+
   /** Gold a quick sell would pay for this item, whole stack included. */
   scrapValue(item: Item): number {
     return Math.max(1, Math.round(sellValue(item, 1) * this.scrapRate));
@@ -2894,8 +2899,11 @@ export class Game implements WorldCtx {
           audio.play('gold', 0.4);
         } else if (it.item) {
           if (!addItem(p.inventory, it.item)) {
-            this.toast('Bag full', 'Make room before picking that up.', '#e8763a');
-            it.life = 60;
+            // No toast here. The item stays under the magnet, so this fires
+            // every frame — it used to flash a banner in the middle of the
+            // screen continuously and allocate a toast per frame doing it.
+            // The HUD carries a standing "pack full" marker instead.
+            it.life = Math.max(it.life, 120);
             continue;
           }
           const rare = it.item.rarity !== 'common' && it.item.rarity !== 'rare';

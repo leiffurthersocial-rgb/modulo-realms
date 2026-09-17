@@ -1,5 +1,5 @@
 import { ENEMY_BY_ID, type BossAttack, type EnemyDef } from '../../data/enemies';
-import { angleTo, dirFromVector, dist, type Dir4 } from '../core/math';
+import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
 import type { WorldCtx } from '../core/world';
 import { boxHitsTerrain } from '../world/map';
 import { applyStatus, newEntityId, statusSpeedMul, type Entity, type StatusEffect } from './entity';
@@ -280,10 +280,7 @@ export class Enemy implements Entity {
       case 'cone': {
         const r = a.radius ?? 130;
         const d = dist(this.x, this.y, p.x, p.y);
-        const toP = angleTo(this.x, this.y, p.x, p.y);
-        let diff = Math.abs(((toP - angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        diff = Math.PI - diff;
-        if (d < r + p.radius && diff < 0.65) {
+        if (d < r + p.radius && angleBetween(angle, angleTo(this.x, this.y, p.x, p.y)) < 0.65) {
           ctx.damagePlayer(dmg, { element: a.element, fromX: this.x, fromY: this.y, knockback: 160, label: a.name });
         }
         ctx.particles(this.x + Math.cos(angle) * r * 0.5, this.y + Math.sin(angle) * r * 0.5, 22, a.color, { speed: 200, life: 0.45, size: 3, angle, spread: 1.2 });
