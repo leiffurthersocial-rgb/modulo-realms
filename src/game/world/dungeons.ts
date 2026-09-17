@@ -217,7 +217,9 @@ export function generateDungeon(loc: LocationDef, seed: number): GameMap {
         x: tx * TILE, y: ty * TILE,
         level: spec.level + Math.round(depth * 2) + rng.int(-1, 1),
         radius: 220,
-        respawn: Infinity,
+        // Dungeon rank-and-file comes back, the way the overworld always has.
+        // Only the named things in the boss room stay dead.
+        respawn: 540 + rng.range(0, 240),
         elite: rng.bool(0.08),
       });
     }

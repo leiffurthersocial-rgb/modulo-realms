@@ -417,8 +417,8 @@ export const UNIQUES: ItemTemplate[] = [
     metal: '#bcd8e8', accent: PAL.frost, glow: PAL.frost, rarity: 'legendary', level: 15, value: 4200,
     stats: { damage: 75, attackSpeed: 1.0, range: 58, strength: 12, critDamage: 25 },
     effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'committed', level: 2 }],
-    noDrop: true, regions: ['north'],
-    desc: 'Cold beyond cold, and it always comes back to the hand that threw it.',
+    noDrop: true, regions: ['north', 'deepnorth'],
+    desc: 'Cold beyond cold, and it always comes back to the hand that threw it. The clans brought it to the Last Gate once. It came back; they did not.',
   },
   {
     id: 'unique_chaos_blades', name: 'Blades of Chaos', type: 'weapon', slot: 'mainHand', icon: 'claws', weaponKind: 'claws',

@@ -125,3 +125,20 @@ export const enemyDefenseAt = (level: number, role: EnemyRole = 'standard'): num
 
 export const enemyXpAt = (level: number, role: EnemyRole = 'standard'): number =>
   Math.round((9 + level * level * 0.75 + level * 2) * ROLE_XP[role]);
+
+/**
+ * A single dial on how dangerous the world is, applied once where an enemy
+ * definition becomes a live enemy (`Enemy`'s constructor). The bestiary is
+ * authored against the curves above; this is the knob for tuning the whole
+ * game's difficulty without rewriting fifty data entries and without the
+ * balance report losing its meaning — `check-balance.ts` still measures the
+ * authored numbers against the authored curve.
+ *
+ * XP rises with the rest of it, so a harder fight is not just a longer one.
+ */
+export const ENEMY_THREAT = {
+  health: 1.18,
+  damage: 1.12,
+  defense: 1.1,
+  xp: 1.12,
+} as const;

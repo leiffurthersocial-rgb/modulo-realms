@@ -733,6 +733,10 @@ export const BOSSES: EnemyDef[] = [
     ranged: { speed: 320, element: 'frost', color: PAL.white, radius: 52 },
     drops: [
       { item: 'unique_winters_edge', chance: 1 },
+      // The Leviathan Axe was a northern relic nobody had a reliable way to
+      // find. It is the thing the clans failed to kill Aldrhrim with, so this
+      // is where it is: on the floor of the Last Gate, guaranteed.
+      { item: 'unique_leviathan', chance: 1 },
       { item: 'armor_gatekeeper', chance: 1 },
       { item: 'elixir_grand', chance: 1, min: 4, max: 6 },
       { item: 'mat_greater_rune', chance: 1, min: 2, max: 4 },

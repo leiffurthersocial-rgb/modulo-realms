@@ -147,6 +147,12 @@ export interface Item {
   questId?: string;
   /** Artifacts have an activated power used from the off-hand/artifact key. */
   artifact?: { id: string; name: string; cooldown: number; desc: string };
+  /**
+   * Marked by the player as something to keep. Bulk sells skip it, and it has
+   * its own tab in the pack. Nothing sets this automatically — the whole point
+   * is that it means "I decided", not "the game guessed".
+   */
+  important?: boolean;
 }
 
 export const isEquippable = (i: Item): boolean => i.type === 'weapon' || i.type === 'armor' || i.type === 'accessory';

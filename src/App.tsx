@@ -21,6 +21,7 @@ import TravelPanel from './ui/TravelPanel';
 import ForgePanel from './ui/ForgePanel';
 import PausePanel from './ui/PausePanel';
 import HelpPanel from './ui/HelpPanel';
+import LootPanel from './ui/LootPanel';
 import SettingsPanel from './ui/SettingsPanel';
 import DeathScreen from './ui/DeathScreen';
 
@@ -168,6 +169,7 @@ function UiLayer({ game }: { game: Game }) {
       {game.panel === 'forge' ? <ForgePanel game={game} /> : null}
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
       {game.panel === 'help' ? <HelpPanel game={game} /> : null}
+      {game.panel === 'loot' ? <LootPanel game={game} /> : null}
       {showSettings ? (
         <SettingsPanel
           game={game}

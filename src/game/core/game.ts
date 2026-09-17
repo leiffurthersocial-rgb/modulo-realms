@@ -31,7 +31,7 @@ import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -65,6 +65,16 @@ export interface ChestEntity {
   opened: boolean;
   fixed?: string[];
   gold?: number;
+}
+
+/** A container the player has opened and is taking things out of by hand. */
+export interface LootSession {
+  title: string;
+  sub?: string;
+  x: number;
+  y: number;
+  gold: number;
+  items: Item[];
 }
 
 export interface Toast {
@@ -108,9 +118,28 @@ export interface InteractTarget {
 interface MapState {
   opened: Set<string>;
   respawn: Record<string, number>;
+  /** Spawns that are gone for good: bosses, minibosses, named encounters. */
   killedSpawns: Set<string>;
+  /**
+   * Every spawn that has been put down at least once, whether or not it has
+   * since come back. The "dungeon cleared" line reads this rather than
+   * `killedSpawns`, so ordinary enemies repopulating a dungeon does not
+   * un-clear it, and does not fire the toast again on the second visit.
+   */
+  everKilled: Set<string>;
+  /** Game time each chest is allowed to restock at. */
+  chestRestock: Record<string, number>;
+  /** How many times each chest has restocked, so the re-roll is not a repeat. */
+  chestRolls: Record<string, number>;
   cleared: boolean;
 }
+
+/**
+ * How long the world takes to fill back in, in seconds of game time. Nothing
+ * is finite: walk away from a cleared wing, come back later and there is
+ * something in it again. Bosses are the exception — they stay dead.
+ */
+const CHEST_RESTOCK = 900;
 
 const ACTIVATE_DIST = 860;
 const DESPAWN_DIST = 1500;
@@ -140,6 +169,8 @@ export class Game implements WorldCtx {
   projectiles: Projectile[] = [];
   pickups: Pickup[] = [];
   chests: ChestEntity[] = [];
+  /** Non-null while a chest's contents are on screen waiting to be taken. */
+  loot: LootSession | null = null;
   fx = new FxSystem();
   shopStock = new Map<string, Item[]>();
 
@@ -223,6 +254,9 @@ export class Game implements WorldCtx {
   }
 
   setPanel(p: UiPanel): void {
+    // Leaving the loot menu by any route settles what is still in it, so a
+    // chest's contents can never be stranded by opening the pack over them.
+    if (p !== 'loot' && this.loot) this.abandonLoot();
     this.panel = p;
     this.dialogue = null;
     if (p !== 'shop') this.shop = null;
@@ -239,6 +273,7 @@ export class Game implements WorldCtx {
   }
 
   closeAll(): void {
+    if (this.loot) this.abandonLoot();
     this.panel = null;
     this.royalOpen = false;
     this.dialogue = null;
@@ -319,7 +354,7 @@ export class Game implements WorldCtx {
   mapState(id: string): MapState {
     let s = this.mapStates.get(id);
     if (!s) {
-      s = { opened: new Set(), respawn: {}, killedSpawns: new Set(), cleared: false };
+      s = { opened: new Set(), respawn: {}, killedSpawns: new Set(), everKilled: new Set(), chestRestock: {}, chestRolls: {}, cleared: false };
       this.mapStates.set(id, s);
     }
     return s;
@@ -741,6 +776,7 @@ export class Game implements WorldCtx {
       const st = this.mapState(this.map.id);
       const sp = this.map.spawns.find((s) => s.id === e.spawnId);
       if (sp) {
+        st.everKilled.add(sp.id);
         if (sp.respawn === Infinity) st.killedSpawns.add(sp.id);
         else st.respawn[sp.id] = this.now + sp.respawn;
       }
@@ -759,7 +795,7 @@ export class Game implements WorldCtx {
     if (this.map.kind !== 'dungeon' && this.map.kind !== 'cave') return;
     const st = this.mapState(this.map.id);
     if (st.cleared) return;
-    const remaining = this.map.spawns.filter((s) => !st.killedSpawns.has(s.id));
+    const remaining = this.map.spawns.filter((s) => !st.everKilled.has(s.id));
     if (remaining.length === 0) {
       st.cleared = true;
       this.player.clearedDungeons.add(this.map.id);
@@ -1596,9 +1632,59 @@ export class Game implements WorldCtx {
    */
   junkInPack(): Item[] {
     return this.player.inventory.filter(
-      (i) => (i.type === 'weapon' || i.type === 'armor' || i.type === 'accessory')
+      (i) => !i.important
+        && (i.type === 'weapon' || i.type === 'armor' || i.type === 'accessory')
         && (i.rarity === 'common' || i.rarity === 'rare'),
     );
+  }
+
+  /**
+   * Everything in the pack a bulk sell would take. Equipped gear is not in the
+   * pack at all, so "not equipped" is simply everything here — minus quest
+   * items, which are never sellable, and minus anything the player has marked
+   * Important. That mark is the only protection, which is why it is one click
+   * from the item card and has its own tab.
+   */
+  sellablePack(): Item[] {
+    return this.player.inventory.filter((i) => !i.important && i.type !== 'quest');
+  }
+
+  /** Items the player has flagged to keep. */
+  importantInPack(): Item[] {
+    return this.player.inventory.filter((i) => i.important);
+  }
+
+  toggleImportant(uid: string): void {
+    const it = this.player.inventory.find((i) => i.uid === uid);
+    if (!it) return;
+    it.important = !it.important;
+    audio.play('ui', 0.4);
+    this.touch();
+  }
+
+  /** Sell the whole pack except what is equipped, quest-bound or marked. */
+  sellAllUnequipped(): { count: number; gold: number } {
+    const list = this.sellablePack();
+    if (!list.length) {
+      this.toast('Nothing to sell', 'The pack is empty or everything in it is marked.', PAL.fog);
+      return { count: 0, gold: 0 };
+    }
+    let gold = 0;
+    for (const it of list) {
+      gold += this.scrapValue(it);
+      removeItem(this.player.inventory, it.uid, 999);
+    }
+    this.player.gold += gold;
+    this.floatText(this.player.x, this.player.y - 40, `+${gold}g`, PAL.goldLit, 15);
+    const kept = this.importantInPack().length;
+    this.toast(
+      `Sold ${list.length} items`,
+      kept ? `${gold} gold. ${kept} marked item${kept > 1 ? 's' : ''} kept.` : `${gold} gold.`,
+      PAL.gold, 'gold',
+    );
+    audio.play('gold', 0.7);
+    this.touch();
+    return { count: list.length, gold };
   }
 
   /** Sell every piece of junk at once. Returns what it cleared and earned. */
@@ -2156,29 +2242,108 @@ export class Game implements WorldCtx {
     this.shopStock.clear();
   }
 
+  /**
+   * Chests hand their contents to a menu rather than flinging them on the
+   * floor. A chest full of loot used to become a pile of pickups you had to
+   * walk over one at a time, and with a full pack half of it simply stayed
+   * on the ground behind you.
+   */
   private openChest(c: ChestEntity): void {
     if (c.opened) return;
+    const st = this.mapState(this.map.id);
     c.opened = true;
-    this.mapState(this.map.id).opened.add(c.id);
-    const rng = new RNG(`${this.seed}:${this.map.id}:${c.id}`);
+    st.opened.add(c.id);
+    // A restocked chest must not pay out the same item twice, so the roll
+    // number is part of the seed.
+    const roll = st.chestRolls[c.id] ?? 0;
+    st.chestRestock[c.id] = this.now + CHEST_RESTOCK;
+    const rng = new RNG(`${this.seed}:${this.map.id}:${c.id}:${roll}`);
     const mf = this.player.stats().magicFind;
     const rolls = c.tier === 'boss' ? 4 : c.tier === 'large' ? 2 : 1;
     const bias = c.tier === 'boss' ? 1.2 : c.tier === 'large' ? 0.4 : 0;
     const gold = c.gold ?? rng.int(8, 30) * (c.tier === 'boss' ? 8 : c.tier === 'large' ? 3 : 1) + c.level * 4;
-    this.dropPickup(c.x, c.y - 6, null, gold);
+
+    const items: Item[] = [];
     for (let i = 0; i < rolls; i++) {
-      this.dropPickup(c.x + rng.range(-10, 10), c.y - 6, rollLoot(c.level, rng, mf, bias, this.regionAtPlayer()), 0);
+      const it = rollLoot(c.level, rng, mf, bias, this.regionAtPlayer());
+      if (it) items.push(it);
     }
-    for (const f of c.fixed ?? []) this.dropPickup(c.x, c.y - 6, makeItem(f, { level: c.level, rng }), 0);
-    if (rng.bool(0.4)) this.dropPickup(c.x, c.y - 6, makeItem(rng.pick(['potion_health_s', 'potion_mana_s', 'food_bread', 'mat_herb', 'mat_iron_ore']), { qty: rng.int(1, 2), plain: true }), 0);
+    for (const f of c.fixed ?? []) items.push(makeItem(f, { level: c.level, rng }));
+    if (rng.bool(0.4)) {
+      items.push(makeItem(rng.pick(['potion_health_s', 'potion_mana_s', 'food_bread', 'mat_herb', 'mat_iron_ore']), { qty: rng.int(1, 2), plain: true }));
+    }
     // whisperwell hides the quest ring
     if (this.map.id === 'dungeon_whisper' && !this.player.flags.has('found_ring') && rng.bool(0.5)) {
       this.player.flags.add('found_ring');
-      this.dropPickup(c.x, c.y - 6, makeItem('q_missing_ring', { plain: true }), 0);
+      items.push(makeItem('q_missing_ring', { plain: true }));
     }
+
     this.fx.spawn(c.x, c.y - 10, 22, PAL.goldLit, { speed: 100, life: 0.8, size: 3, gravity: -40 });
     audio.play('loot', 0.7);
-    this.toast('Chest opened', undefined, PAL.goldLit);
+    this.loot = {
+      title: c.tier === 'boss' ? 'Hoard' : c.tier === 'large' ? 'Strongbox' : 'Chest',
+      sub: `Level ${c.level}`,
+      x: c.x, y: c.y - 6, gold, items,
+    };
+    this.panel = 'loot';
+    this.touch();
+  }
+
+  /** Take one thing out of the open container. Returns false if the pack is full. */
+  takeLoot(uid: string): boolean {
+    const l = this.loot;
+    if (!l) return false;
+    const i = l.items.findIndex((it) => it.uid === uid);
+    if (i < 0) return false;
+    if (!addItem(this.player.inventory, l.items[i])) {
+      this.toast('Bag full', 'Make room, or leave it and come back.', '#e8763a');
+      return false;
+    }
+    audio.play('loot', 0.5);
+    l.items.splice(i, 1);
+    this.touch();
+    return true;
+  }
+
+  takeLootGold(): void {
+    const l = this.loot;
+    if (!l || l.gold <= 0) return;
+    this.player.gold += l.gold;
+    this.floatText(this.player.x, this.player.y - 40, `+${l.gold}g`, PAL.goldLit, 13);
+    l.gold = 0;
+    audio.play('gold', 0.7);
+    this.touch();
+  }
+
+  /** Take everything that fits, in the order shown. */
+  takeAllLoot(): void {
+    const l = this.loot;
+    if (!l) return;
+    this.takeLootGold();
+    for (const it of [...l.items]) {
+      if (!this.takeLoot(it.uid)) break;
+    }
+    if (!l.items.length) this.closeLoot();
+    else this.touch();
+  }
+
+  /**
+   * Closing the menu with things still in it is not the same as throwing them
+   * away: whatever is left lands at the chest's feet, where it always used to,
+   * so nothing can be lost by pressing escape.
+   */
+  /** Put whatever is still in the open container back on the ground. */
+  private abandonLoot(): void {
+    const l = this.loot;
+    this.loot = null;
+    if (!l) return;
+    if (l.gold > 0) this.dropPickup(l.x, l.y, null, l.gold);
+    for (const it of l.items) this.dropPickup(l.x + (Math.random() - 0.5) * 22, l.y, it, 0);
+  }
+
+  closeLoot(): void {
+    this.abandonLoot();
+    if (this.panel === 'loot') this.panel = null;
     this.touch();
   }
 
@@ -2479,6 +2644,7 @@ export class Game implements WorldCtx {
 
     this.updatePlayer(dt);
     this.updateSpawns();
+    this.updateChests();
     for (const e of this.enemies) e.update(this);
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.updateNpcs(dt);
@@ -2714,6 +2880,30 @@ export class Game implements WorldCtx {
       if (x + hw > left && x - hw < right && y + hh > top && y - hh < bottom) return true;
     }
     return false;
+  }
+
+  /**
+   * A cleared wing fills back in. Chests you emptied a while ago are shut
+   * again with something new in them, so a dungeon is worth walking back
+   * into rather than being a place you visit exactly once.
+   */
+  private updateChests(): void {
+    const st = this.mapState(this.map.id);
+    for (const c of this.chests) {
+      if (!c.opened) continue;
+      // The boss hoard is part of the boss kill, and the boss does not come
+      // back, so neither does its chest.
+      if (c.tier === 'boss') continue;
+      const due = st.chestRestock[c.id];
+      if (due === undefined || due > this.now) continue;
+      // Not while the player is standing over it — a chest closing itself in
+      // front of you reads as a bug.
+      if (dist2(this.player.x, this.player.y, c.x, c.y) < 260 * 260) continue;
+      c.opened = false;
+      st.opened.delete(c.id);
+      delete st.chestRestock[c.id];
+      st.chestRolls[c.id] = (st.chestRolls[c.id] ?? 0) + 1;
+    }
   }
 
   private updateSpawns(): void {

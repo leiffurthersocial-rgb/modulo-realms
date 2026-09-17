@@ -167,10 +167,30 @@ export default function HelpPanel({ game }: { game: Game }) {
                 <H>Selling and dropping</H>
                 <P>
                   Anything in your pack can be sold on the spot for half what a merchant would pay — handy on the road,
-                  but the good pieces are still worth carrying to a shop. <b>Sell junk</b> in the pack clears every
-                  common and rare piece of gear in one press and never touches anything SuperRare or better, or your
-                  potions, materials and quest items. Dropping throws an item clear and leaves it on the ground until
-                  you walk away from it.
+                  but the good pieces are still worth carrying to a shop. Dropping throws an item clear and leaves it
+                  on the ground until you walk away from it.
+                </P>
+                <P>
+                  Two buttons clear the pack in one press. <b>Sell junk</b> takes only common and rare gear and never
+                  touches anything SuperRare or better, your potions, your materials or quest items. <b>Sell all</b>
+                  takes everything in the pack — equipped gear is not in the pack, so it is safe — and asks you to
+                  click twice before it does.
+                </P>
+                <P>
+                  The one thing that survives both is anything you have marked. Select an item and press
+                  <b> ☆ Mark</b> and it gets a star, its own <b>★ Important</b> tab, and immunity from every bulk sell.
+                  Nothing marks itself: it means you decided, not that the game guessed.
+                </P>
+
+                <H>Chests</H>
+                <P>
+                  Opening a chest lists what is inside rather than throwing it on the floor. Take things one at a time
+                  or take the lot; anything you leave behind lands at the chest&apos;s feet, so a full pack costs you
+                  nothing but a second trip.
+                </P>
+                <P>
+                  Ordinary chests refill after a while and the enemies in a cleared dungeon come back, so somewhere
+                  worth farming stays worth farming. Bosses and their hoards do not: kill it once and it is done.
                 </P>
               </>
             ) : null}

@@ -15,6 +15,10 @@ interface SavedMapState {
   opened: string[];
   respawn: Record<string, number>;
   killedSpawns: string[];
+  /** Absent in saves written before chests and enemies started coming back. */
+  everKilled?: string[];
+  chestRestock?: Record<string, number>;
+  chestRolls?: Record<string, number>;
   cleared: boolean;
 }
 
@@ -92,6 +96,9 @@ export function saveGame(game: Game): void {
       opened: [...st.opened],
       respawn: st.respawn,
       killedSpawns: [...st.killedSpawns],
+      everKilled: [...st.everKilled],
+      chestRestock: st.chestRestock,
+      chestRolls: st.chestRolls,
       cleared: st.cleared,
     };
   }
@@ -184,6 +191,11 @@ export function loadGame(game: Game): boolean {
       opened: new Set(st.opened),
       respawn: st.respawn ?? {},
       killedSpawns: new Set(st.killedSpawns),
+      // An older save has no `everKilled`; seeding it from `killedSpawns`
+      // keeps a dungeon that was already cleared reading as cleared.
+      everKilled: new Set(st.everKilled ?? st.killedSpawns),
+      chestRestock: st.chestRestock ?? {},
+      chestRolls: st.chestRolls ?? {},
       cleared: st.cleared,
     });
   }

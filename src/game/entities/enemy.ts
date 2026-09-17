@@ -1,3 +1,4 @@
+import { ENEMY_THREAT } from '../../data/balance';
 import { ENEMY_BY_ID, type BossAttack, type EnemyDef } from '../../data/enemies';
 import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
 import type { WorldCtx } from '../core/world';
@@ -68,11 +69,12 @@ export class Enemy implements Entity {
 
     const lvScale = 1 + Math.max(0, this.level - def.level) * 0.17;
     const eliteMul = this.elite && !this.isBoss ? 2.1 : 1;
-    this.maxHp = Math.round(def.health * lvScale * eliteMul);
+    const threat = ENEMY_THREAT;
+    this.maxHp = Math.round(def.health * lvScale * eliteMul * threat.health);
     this.hp = this.maxHp;
-    this.damage = def.damage * lvScale * (this.elite && !this.isBoss ? 1.3 : 1);
-    this.defense = def.defense * (1 + Math.max(0, this.level - def.level) * 0.1);
-    this.xp = Math.round(def.xp * lvScale * (this.elite ? 2.2 : 1));
+    this.damage = def.damage * lvScale * (this.elite && !this.isBoss ? 1.3 : 1) * threat.damage;
+    this.defense = def.defense * (1 + Math.max(0, this.level - def.level) * 0.1) * threat.defense;
+    this.xp = Math.round(def.xp * lvScale * (this.elite ? 2.2 : 1) * threat.xp);
     this.attackCd = 0.4 + Math.random() * 0.6;
   }
 
