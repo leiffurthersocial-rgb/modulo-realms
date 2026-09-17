@@ -13,7 +13,7 @@
 import { ALL_ENEMIES } from '../src/data/enemies';
 import { ARMOR, WEAPONS } from '../src/data/items';
 import {
-  armorDefenseAt, enemyDamageAt, enemyHealthAt, enemyXpAt,
+  armorDefenseAt, enemyDamageAt, enemyHealthAt, enemyXpAt, playerDpsAt,
   weaponDps, type EnemyRole,
 } from '../src/data/balance';
 
@@ -36,25 +36,22 @@ for (const a of ARMOR) {
   console.log(`${a.id.padEnd(22)} lv${String(a.level).padStart(2)} def=${String(a.stats.defense).padStart(3)}  x${r.toFixed(2)}${flag(r, 0.55, 1.5)}`);
 }
 
-/** Best guess at what an enemy is for, from the shape of its own numbers. */
-const roleOf = (hp: number, level: number): EnemyRole => {
-  const base = enemyHealthAt(level, 'standard');
-  const r = hp / base;
-  return r > 5 ? 'boss' : r > 2.4 ? 'elite' : r > 1.32 ? 'brute' : r < 0.8 ? 'skirmisher' : 'standard';
-};
-
-console.log('\n=== enemies (vs role budget) ===');
+console.log('\n=== enemies (vs role budget, and the fight it implies) ===');
 for (const e of [...ALL_ENEMIES].sort((a, b) => a.level - b.level)) {
-  const role = e.boss ? 'boss' : e.elite ? 'elite' : roleOf(e.health, e.level);
+  const role: EnemyRole = e.role;
   const hp = e.health / enemyHealthAt(e.level, role);
   const dmg = e.damage / enemyDamageAt(e.level, role);
   const xp = e.xp / enemyXpAt(e.level, role);
   // The first two levels are deliberately under budget: the slime and the bat
   // are what the game hands you before you know what a dodge roll is.
   const lo = e.level <= 2 ? 0.55 : 0.7;
+  // What this actually means at the table: seconds, for a player of its level
+  // with a reasonable build, after its own armour.
+  const seconds = e.health / (playerDpsAt(e.level) * (100 / (100 + e.defense)));
   console.log(
     `${e.id.padEnd(24)} lv${String(e.level).padStart(2)} ${role.padEnd(10)}` +
     ` hp x${hp.toFixed(2)} dmg x${dmg.toFixed(2)} xp x${xp.toFixed(2)}` +
+    `  ~${seconds.toFixed(0)}s` +
     flag(hp, lo) + flag(dmg, lo) + flag(xp, lo),
   );
 }

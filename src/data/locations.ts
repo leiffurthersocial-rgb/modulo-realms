@@ -135,6 +135,11 @@ export const LOCATIONS: LocationDef[] = [
     dungeon: { mapId: 'dungeon_barrow', theme: 'barrow', level: 28, rooms: 16, boss: 'boss_jotun_king', miniboss: 'mini_glacier_maw', enemies: ['jotun_thrall', 'bone_colossus', 'glass_golem', 'pale_hunter', 'frost_giant'], name: 'The Long Barrow' },
   },
   {
+    id: 'under_the_gate', name: 'Under the Gate', kind: 'dungeon', tx: 292, ty: 22, region: 'deepnorth', level: 38,
+    desc: 'The stair past the gate keeps going down. Nobody built the part at the bottom.',
+    dungeon: { mapId: 'dungeon_remainder', theme: 'glacier', level: 38, rooms: 18, boss: 'boss_remainder', miniboss: 'mini_glacier_maw', enemies: ['bone_colossus', 'frost_giant', 'herald_winter', 'glass_golem', 'jotun_thrall'], name: 'Under the Gate' },
+  },
+  {
     id: 'the_last_gate', name: 'The Last Gate', kind: 'dungeon', tx: 256, ty: 42, region: 'deepnorth', level: 32,
     desc: 'The clans built a door at the top of the world. Nobody will tell you what it was for.',
     dungeon: { mapId: 'dungeon_lastgate', theme: 'glacier', level: 32, rooms: 17, boss: 'boss_winter_jarl', miniboss: 'mini_glacier_maw', enemies: ['frost_giant', 'jotun_thrall', 'herald_winter', 'bone_colossus', 'winter_shade'], name: 'The Last Gate' },

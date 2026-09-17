@@ -383,10 +383,15 @@ export class Player implements Entity {
         ? (off.weaponKind === 'shield' ? 'shield' : off.weaponKind === 'tome' ? 'tome' : off.icon === 'torch_item' ? 'torch' : 'shield')
         : 'none',
       offhandColor: off?.iconMetal ?? PAL.iron,
-      glow: mh?.rarity === 'legendary' ? mh.glow ?? null : (armor?.rarity === 'legendary' ? armor.glow ?? null : null),
+      // A mythic relic glows on the character the way a legendary does.
+      glow: topTier(mh) ? mh!.glow ?? null : (topTier(armor) ? armor!.glow ?? null : null),
     };
   }
 }
+
+/** Legendary and Mythic gear is the gear that glows on the character. */
+const topTier = (i: Item | null | undefined): boolean =>
+  i?.rarity === 'legendary' || i?.rarity === 'mythic';
 
 function shadeHex(hex: string, amount: number): string {
   const n = parseInt(hex.slice(1), 16);

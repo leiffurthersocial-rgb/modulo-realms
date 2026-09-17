@@ -3,7 +3,7 @@ import { DROPPABLE, REGION_RELICS, TEMPLATE_BY_ID, type ItemTemplate } from '../
 import { candidateEnchants } from './enchants';
 import { EFFECTS } from './effects';
 import {
-  RARITY_AFFIXES, RARITY_ENCHANT_SLOTS, RARITY_MULT, RARITY_ORDER,
+  RARITY_AFFIXES, RARITY_ENCHANT_SLOTS, RARITY_MULT, RARITY_ORDER, ROLLABLE_RARITIES,
   type Item, type Rarity, type RolledEnchant, type StatKey,
 } from './types';
 
@@ -53,12 +53,15 @@ const SUFFIXES: Affix[] = [
 
 const RARITY_WEIGHTS: Record<Rarity, number> = {
   common: 100, rare: 42, superRare: 15, epic: 4.6, legendary: 0.9,
+  // Never rolled. Mythic is placed by hand, on named relics, and this zero is
+  // the guarantee: raise it and it becomes a drop tier like any other.
+  mythic: 0,
 };
 
 export function rollRarity(rng: RNG, magicFind = 0, luckBias = 0): Rarity {
   const bonus = 1 + magicFind / 100 + luckBias;
-  const weights = RARITY_ORDER.map((r, i) => RARITY_WEIGHTS[r] * (i === 0 ? 1 : Math.pow(bonus, i * 0.9)));
-  return rng.weighted(RARITY_ORDER, weights);
+  const weights = ROLLABLE_RARITIES.map((r, i) => RARITY_WEIGHTS[r] * (i === 0 ? 1 : Math.pow(bonus, i * 0.9)));
+  return rng.weighted(ROLLABLE_RARITIES, weights);
 }
 
 function scaleStats(template: ItemTemplate, level: number, rarity: Rarity): Item['stats'] {
@@ -137,7 +140,7 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     if (prefixName) name = `${prefixName} ${name}`;
     if (suffixName) name = `${name} ${suffixName}`;
 
-    const effectChance = { common: 0, rare: 0.1, superRare: 0.4, epic: 0.75, legendary: 1 }[rarity];
+    const effectChance = { common: 0, rare: 0.1, superRare: 0.4, epic: 0.75, legendary: 1, mythic: 1 }[rarity];
     if (rng.bool(effectChance)) {
       const pool = EFFECTS.filter((e) => e.minLevel <= level + 2 && !effects.includes(e.id));
       if (pool.length) effects.push(rng.pick(pool).id);
@@ -158,7 +161,7 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     icon: t.icon,
     iconMetal: t.metal,
     iconAccent: t.accent,
-    glow: t.glow ?? (rarity === 'legendary' ? '#f0c93c' : undefined),
+    glow: t.glow ?? (rarity === 'legendary' ? '#f0c93c' : rarity === 'mythic' ? '#ff4f6e' : undefined),
     rarity,
     level,
     value,
@@ -190,7 +193,10 @@ export function rollLoot(level: number, rng: RNG, magicFind = 0, luckBias = 0, r
   if (rarity === 'legendary' && region) {
     const relics = REGION_RELICS.filter((t) => t.regions!.includes(region as 'north') && level >= t.level - 3);
     if (relics.length && rng.bool(0.3)) {
-      return makeItem(rng.pick(relics).id, { level: Math.max(level, relics[0].level), rarity: 'legendary', rng });
+      const relic = rng.pick(relics);
+      // The relic's own rarity wins: a mythic relic does not come out of the
+      // ground demoted to legendary just because that is what the roll said.
+      return makeItem(relic.id, { level: Math.max(level, relic.level), rarity: relic.rarity, rng });
     }
   }
 

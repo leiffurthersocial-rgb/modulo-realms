@@ -41,11 +41,17 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
           <img src={itemIcon(item)} alt="" />
         </span>
         <div>
-          <div className="ic-name" style={{ color, textShadow: item.rarity === 'common' ? 'none' : `0 0 14px ${color}55` }}>
+          <div
+            className={`ic-name${item.rarity === 'mythic' ? ' mythic' : ''}`}
+            style={item.rarity === 'mythic' ? undefined : { color, textShadow: item.rarity === 'common' ? 'none' : `0 0 14px ${color}55` }}
+          >
             {item.name}
           </div>
           <div className="ic-meta">
-            <span className="rarity-pill" style={{ color, borderColor: `${color}66`, background: `${color}14` }}>
+            <span
+              className={`rarity-pill${item.rarity === 'mythic' ? ' mythic' : ''}`}
+              style={{ color, borderColor: `${color}66`, background: `${color}14` }}
+            >
               {RARITY_LABEL[item.rarity]}
             </span>
             <span>Level {item.level}</span>

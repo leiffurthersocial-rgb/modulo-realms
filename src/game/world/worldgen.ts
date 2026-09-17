@@ -2,7 +2,7 @@ import { RNG, fbm, ridge } from '../core/rng';
 import {
   LOCATIONS, LOCATION_BY_ID, VILLAGE_TX, VILLAGE_TY, WORLD_H, WORLD_W, type LocationDef,
 } from '../../data/locations';
-import { ENDGAME_LEVEL } from '../../data/balance';
+import { MAX_CONTENT_LEVEL } from '../../data/balance';
 import { T, isSolid } from './tiles';
 import { TILE } from './tiles';
 import { buildPropGrid, createMap, getTile, setTile, type GameMap, type PropInstance } from './map';
@@ -514,7 +514,7 @@ const REGION_SPAWNS: Record<number, Array<{ id: string; weight: number; level: [
     { id: 'herald_winter', weight: 3, level: [25, 30] },
     { id: 'glass_golem', weight: 3, level: [26, 31] },
     { id: 'frost_giant', weight: 2, level: [28, 33] },
-    { id: 'bone_colossus', weight: 1, level: [29, 34] },
+    { id: 'bone_colossus', weight: 1, level: [29, 38] },
   ],
   [REGION_WEST]: [
     { id: 'spider', weight: 8, level: [4, 8] },
@@ -616,8 +616,8 @@ function placeTreasure(ctx: GenCtx) {
       y: ty * TILE + TILE,
       // Distance from home IS the difficulty curve, so a chest at the top
       // of the map is a level-30 chest. The old cap of 18 was the old edge
-      // of the world; ENDGAME_LEVEL moves with the content.
-      level: Math.max(1, Math.min(ENDGAME_LEVEL, Math.round(d / 15))),
+      // of the world; MAX_CONTENT_LEVEL moves with the content.
+      level: Math.max(1, Math.min(MAX_CONTENT_LEVEL, Math.round(d / 15))),
       tier: rng.bool(0.25) ? 'large' : 'small',
     });
   }
@@ -886,6 +886,7 @@ export function generateOverworld(seed: number): GameMap {
   road('thrall_camp', 'jotun_barrow');
   road('riven_cathedral', 'white_stair');
   road('white_stair', 'the_last_gate');
+  road('the_last_gate', 'under_the_gate');
   road('jotun_barrow', 'cairn_of_names');
   road('ashvale', 'whisperwell');
   road('ashvale', 'ember_falls');

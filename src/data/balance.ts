@@ -25,6 +25,9 @@ export const RARITY_POWER: Record<Rarity, number> = {
   superRare: 1.18,
   epic: 1.26,
   legendary: 1.4,
+  // Mythic is not a tier anything rolls into — it is worn by a handful of
+  // hand-written relics, and it is meant to be the best thing in the game.
+  mythic: 1.55,
 };
 
 const RANGED_KINDS = new Set<WeaponKind>(['bow', 'crossbow']);
@@ -81,10 +84,18 @@ export const LEVEL_BANDS: Array<{ region: string; from: number; to: number; note
   { region: 'south', from: 9, to: 18, note: 'Duneholt Reach — red rock and the Ash Cutters' },
   { region: 'north', from: 12, to: 22, note: 'Crag Reach — the clans and the broken keeps' },
   { region: 'deepnorth', from: 22, to: 34, note: 'The Jotunreach — glacier, and what sleeps under it' },
+  { region: 'undergate', from: 34, to: 40, note: 'Under the Gate — the trial, and the thing the Modulo could not divide' },
 ];
 
-/** The level the game is built to be finished at. */
+/**
+ * The level the game is built to be finished at — the Last Gate. Everything
+ * past it is the trial underneath, which runs to 40 and is not meant to be
+ * survivable on the way out of the boss fight above it.
+ */
 export const ENDGAME_LEVEL = 34;
+
+/** The last level there is content for. */
+export const MAX_CONTENT_LEVEL = 40;
 
 /* ------------------------------------------------------------------ */
 /* Enemies                                                             */
@@ -97,7 +108,8 @@ export const ENDGAME_LEVEL = 34;
  */
 export type EnemyRole = 'skirmisher' | 'standard' | 'brute' | 'elite' | 'boss';
 
-const ROLE_HEALTH: Record<EnemyRole, number> = {
+/** Retained so the relative shape of the roles is stated in one place. */
+export const ROLE_HEALTH: Record<EnemyRole, number> = {
   skirmisher: 0.62, standard: 1, brute: 1.55, elite: 3.2, boss: 7,
 };
 const ROLE_DEFENSE: Record<EnemyRole, number> = {
@@ -108,37 +120,119 @@ const ROLE_XP: Record<EnemyRole, number> = {
 };
 
 /**
- * These three curves are descriptions of the bestiary that already existed
- * rather than a new rule imposed on it — every enemy written before this
- * table sits within about 15% of it. They are here so the next fifty do too:
- * a new enemy declares its level and its role, and its numbers follow.
+ * What the player actually kills things with — not what a weapon's tooltip
+ * says. This is the number the whole bestiary is priced against, and getting
+ * it wrong is how a five-phase boss died in three and a half seconds.
+ *
+ * The trap: `Player.attackPower()` is `weaponDamage * (1 + primaryStat *
+ * 0.022)`. Weapon damage grows with level and so does the primary stat, so
+ * real damage per swing grows QUADRATICALLY while `meleeDpsAt` above — the
+ * curve weapons are authored against — grows linearly. Measured against a
+ * dummy with an era-appropriate build, the real number is 1.6x the weapon
+ * curve at level 5, 6.7x at 17 and 37x at 34.
+ *
+ * So: weapons are still priced against `meleeDpsAt`, because that is what
+ * keeps weapons honest AGAINST EACH OTHER. Enemies are priced against this,
+ * because this is what they actually have to survive. The two curves answer
+ * different questions and must not be confused again.
+ *
+ * Fitted to measurements at levels 5, 10, 17, 22 and 28 (the level-34
+ * best-in-slot mythic build sits well above it, and is meant to).
+ */
+export const playerDpsAt = (level: number): number => 12 + 1.2 * level * level;
+
+/**
+ * How long a fight should last, in seconds, for a player of the right level
+ * with a reasonable build. This is the only honest way to state difficulty:
+ * a health number means nothing on its own, and a health number that does not
+ * move with the player's real damage means nothing at any level.
+ *
+ * A best-in-slot build clears these in roughly a third of the time; a badly
+ * geared one takes two or three times as long. That spread is the point.
+ */
+export const TIME_TO_KILL: Record<EnemyRole, number> = {
+  skirmisher: 2.4,
+  standard: 4,
+  brute: 7.5,
+  elite: 20,
+  boss: 55,
+};
+
+/**
+ * Enemy health, solved from what the player can actually put out. A new enemy
+ * declares its level and its role and its health follows, and it stays correct
+ * at every level because both sides of the equation are the same shape.
  * `scripts/check-balance.ts` prints the deviation for every enemy in the game.
  */
+export const enemyDefenseAt = (level: number, role: EnemyRole = 'standard'): number =>
+  Math.max(0, Math.round(level * 1.5 * ROLE_DEFENSE[role]));
+
 export const enemyHealthAt = (level: number, role: EnemyRole = 'standard'): number =>
-  Math.round((24 + level * level * 1.1 + level * 8) * ROLE_HEALTH[role]);
+  // Its own armour is part of how long it lives, so it is divided back out
+  // here. Otherwise a heavily armoured boss quietly runs twice its intended
+  // length while a lightly armoured one runs short, and neither number in the
+  // table means what it says.
+  Math.round(playerDpsAt(level) * TIME_TO_KILL[role] * (100 / (100 + enemyDefenseAt(level, role))));
 
 export const enemyDamageAt = (level: number, role: EnemyRole = 'standard'): number =>
   Math.round((5 + level * 2.7) * (role === 'brute' ? 1.12 : role === 'boss' ? 1.15 : 1));
-
-export const enemyDefenseAt = (level: number, role: EnemyRole = 'standard'): number =>
-  Math.max(0, Math.round(level * 1.5 * ROLE_DEFENSE[role]));
 
 export const enemyXpAt = (level: number, role: EnemyRole = 'standard'): number =>
   Math.round((9 + level * level * 0.75 + level * 2) * ROLE_XP[role]);
 
 /**
- * A single dial on how dangerous the world is, applied once where an enemy
- * definition becomes a live enemy (`Enemy`'s constructor). The bestiary is
- * authored against the curves above; this is the knob for tuning the whole
- * game's difficulty without rewriting fifty data entries and without the
- * balance report losing its meaning — `check-balance.ts` still measures the
- * authored numbers against the authored curve.
- *
- * XP rises with the rest of it, so a harder fight is not just a longer one.
+ * The two things that are NOT solved by the curves above. Health and defense
+ * are derived from TIME_TO_KILL, so there is nothing left to tune there —
+ * change the fight length instead. What remains is how hard a hit lands and
+ * what the kill pays, applied once in `Enemy`'s constructor.
  */
 export const ENEMY_THREAT = {
-  health: 1.18,
-  damage: 1.12,
-  defense: 1.1,
+  damage: 1.75,
   xp: 1.12,
 } as const;
+
+/**
+ * What the rank and file drop, as a share of what their definition says. The
+ * bestiary's own numbers are the *dungeon* rate: an elite or a boss pays them
+ * in full. An ordinary enemy is the thing you kill forty of on the way
+ * somewhere, and forty of anything filling the pack is what makes loot stop
+ * meaning something.
+ *
+ * `gear` scales the chance of a random weapon/armour roll; `material` scales
+ * the listed material and consumable drops. Quest items are never scaled —
+ * a bounty that wants nine pelts still wants nine pelts.
+ */
+export const TRASH_DROP_RATE = {
+  gear: 0.4,
+  material: 0.55,
+} as const;
+
+/* ------------------------------------------------------------------ */
+/* Armour                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Damage reduction has to be RELATIVE to how far along you are, or it stops
+ * being a stat and becomes an off switch.
+ *
+ * The old rule was `100 / (100 + defense)`, with a fixed 100. Defense grows
+ * with level, with gear and with talents — a level-40 build reaches about 635,
+ * which under that rule took 86% off every blow in the game. Standing in front
+ * of the final boss cost 9% of a health bar over half a minute, which is the
+ * other half of why nothing was dangerous.
+ *
+ * Dividing by a number that grows with the player keeps armour worth taking
+ * (it is always a real reduction, and more is always better) while making it
+ * impossible to out-scale damage entirely. The cap is the backstop.
+ */
+export const armorConstantAt = (level: number): number => 60 + 28 * level;
+
+/** Nothing reduces a hit by more than this, whatever you are wearing. */
+export const MAX_DAMAGE_REDUCTION = 0.75;
+
+/** The share of a blow that actually lands, for a player of this level. */
+export function damageTaken(defense: number, level: number): number {
+  const d = Math.max(0, defense);
+  const reduction = Math.min(MAX_DAMAGE_REDUCTION, d / (d + armorConstantAt(level)));
+  return 1 - reduction;
+}

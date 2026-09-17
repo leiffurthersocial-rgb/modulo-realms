@@ -36,6 +36,10 @@ export class Enemy implements Entity {
   targetY = 0;
   stateTime = 0;
   attackCd: number;
+  /** Seconds this boss has been in combat, for the enrage clock. */
+  fightTime = 0;
+  /** When the hit-cap notice last printed, so it explains rather than spams. */
+  wardShown = -99;
   windupTime = 0;
   windupAttack: BossAttack | null = null;
   elite: boolean;
@@ -68,13 +72,17 @@ export class Enemy implements Entity {
     this.friendly = !!opts.friendly;
 
     const lvScale = 1 + Math.max(0, this.level - def.level) * 0.17;
-    const eliteMul = this.elite && !this.isBoss ? 2.1 : 1;
+    // An enemy the data already calls elite is priced as one. Only an
+    // ordinary enemy promoted to elite by a spawn roll gets the multiplier —
+    // applying it to a named miniboss counted its eliteness twice and gave it
+    // a boss's health bar.
+    const promoted = this.elite && !this.isBoss && !def.elite;
     const threat = ENEMY_THREAT;
-    this.maxHp = Math.round(def.health * lvScale * eliteMul * threat.health);
+    this.maxHp = Math.round(def.health * lvScale * (promoted ? 2.6 : 1));
     this.hp = this.maxHp;
-    this.damage = def.damage * lvScale * (this.elite && !this.isBoss ? 1.3 : 1) * threat.damage;
-    this.defense = def.defense * (1 + Math.max(0, this.level - def.level) * 0.1) * threat.defense;
-    this.xp = Math.round(def.xp * lvScale * (this.elite ? 2.2 : 1) * threat.xp);
+    this.damage = def.damage * lvScale * (promoted ? 1.3 : 1) * threat.damage;
+    this.defense = def.defense * (1 + Math.max(0, this.level - def.level) * 0.1);
+    this.xp = Math.round(def.xp * lvScale * (promoted ? 2.2 : this.elite ? 1 : 1) * threat.xp);
     this.attackCd = 0.4 + Math.random() * 0.6;
   }
 
@@ -260,12 +268,23 @@ export class Enemy implements Entity {
     }
   }
 
+  /** How much harder it is hitting than when the fight started. */
+  get enrageMul(): number {
+    const boss = this.def.boss;
+    if (!boss?.enrageAfter) return 1;
+    const over = this.fightTime - boss.enrageAfter;
+    return over <= 0 ? 1 : 1 + over * (boss.enrageRate ?? 0.02);
+  }
+
   private resolveBossAttack(ctx: WorldCtx): void {
     const a = this.windupAttack!;
     const boss = this.def.boss!;
     const p = ctx.player;
-    const dmg = this.damage * a.power * boss.phases[this.phase].damage;
+    const dmg = this.damage * a.power * boss.phases[this.phase].damage * this.enrageMul;
     const angle = angleTo(this.x, this.y, p.x, p.y);
+    // Armour-ignoring bite, applied wherever the attack connects. A dodge
+    // roll still avoids it; nothing you wear reduces it.
+    const tax = a.lifeTax ? ctx.player.maxHp * a.lifeTax * this.enrageMul : 0;
 
     switch (a.shape) {
       case 'circle':
@@ -275,7 +294,7 @@ export class Enemy implements Entity {
         ctx.shake(a.shape === 'ring' ? 12 : 7);
         ctx.particles(this.x, this.y, 34, a.color, { speed: 240, life: 0.6, size: 4 });
         if (dist(this.x, this.y, p.x, p.y) < r + p.radius) {
-          ctx.damagePlayer(dmg, { element: a.element, fromX: this.x, fromY: this.y, knockback: 220, label: a.name });
+          ctx.damagePlayer(dmg + tax, { element: a.element, fromX: this.x, fromY: this.y, knockback: 220, label: a.name });
         }
         break;
       }
@@ -283,7 +302,7 @@ export class Enemy implements Entity {
         const r = a.radius ?? 130;
         const d = dist(this.x, this.y, p.x, p.y);
         if (d < r + p.radius && angleBetween(angle, angleTo(this.x, this.y, p.x, p.y)) < 0.65) {
-          ctx.damagePlayer(dmg, { element: a.element, fromX: this.x, fromY: this.y, knockback: 160, label: a.name });
+          ctx.damagePlayer(dmg + tax, { element: a.element, fromX: this.x, fromY: this.y, knockback: 160, label: a.name });
         }
         ctx.particles(this.x + Math.cos(angle) * r * 0.5, this.y + Math.sin(angle) * r * 0.5, 22, a.color, { speed: 200, life: 0.45, size: 3, angle, spread: 1.2 });
         ctx.shake(5);
@@ -297,7 +316,7 @@ export class Enemy implements Entity {
             x: this.x, y: this.y - this.radius * 0.6,
             angle: angle + off,
             speed: 260,
-            damage: dmg,
+            damage: dmg + tax,
             radius: 26,
             range: a.range ?? 500,
             element: a.element,
@@ -309,7 +328,13 @@ export class Enemy implements Entity {
         break;
       }
       case 'dash': {
-        const range = a.range ?? 300;
+        // A dash closes the gap; it does not jump over it. `a.range` is how
+        // far it CAN travel, not how far it always travels — unclamped, a
+        // boss standing next to you with a 620px dash lands 400px behind you
+        // and spends the next four seconds walking back, which makes it
+        // untouchable in melee rather than dangerous.
+        const reach = Math.max(this.radius + p.radius + 18, dist(this.x, this.y, p.x, p.y) - p.radius * 0.5);
+        const range = Math.min(a.range ?? 300, reach);
         const tx = this.x + Math.cos(angle) * range;
         const ty = this.y + Math.sin(angle) * range;
         if (!boxHitsTerrain(ctx.map, tx, ty, this.radius, this.radius * 0.6)) {
@@ -319,7 +344,7 @@ export class Enemy implements Entity {
           ctx.particles(this.x, this.y, 24, a.color, { speed: 150, life: 0.5, size: 4 });
         }
         if (dist(this.x, this.y, p.x, p.y) < 70) {
-          ctx.damagePlayer(dmg, { element: a.element, fromX: this.x, fromY: this.y, knockback: 200, label: a.name });
+          ctx.damagePlayer(dmg + tax, { element: a.element, fromX: this.x, fromY: this.y, knockback: 200, label: a.name });
         }
         ctx.shake(6);
         break;
@@ -331,7 +356,7 @@ export class Enemy implements Entity {
           ctx.ringAt(rx, ry, a.radius ?? 70, a.color);
           ctx.particles(rx, ry, 16, a.color, { speed: 170, life: 0.5, size: 3 });
           if (dist(rx, ry, p.x, p.y) < (a.radius ?? 70) + p.radius) {
-            ctx.damagePlayer(dmg * 0.7, { element: a.element, fromX: rx, fromY: ry, knockback: 90, label: a.name });
+            ctx.damagePlayer(dmg * 0.7 + tax, { element: a.element, fromX: rx, fromY: ry, knockback: 90, label: a.name });
           }
         }
         ctx.shake(7);
@@ -365,6 +390,8 @@ export class Enemy implements Entity {
     this.attackCd -= dt;
     this.alertTime = Math.max(0, this.alertTime - dt);
     this.animTime += dt;
+    // The enrage clock only runs once the fight has actually started.
+    if (this.isBoss && this.state !== 'idle' && this.state !== 'patrol') this.fightTime += dt;
     this.stuckTimer = Math.max(0, this.stuckTimer - dt * 0.35);
     if (this.lifetime !== Infinity) {
       this.lifetime -= dt;

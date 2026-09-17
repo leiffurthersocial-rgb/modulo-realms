@@ -1,5 +1,6 @@
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ENEMY_BY_ID } from '../../data/enemies';
+import { TRASH_DROP_RATE, damageTaken } from '../../data/balance';
 import { TEMPLATE_BY_ID } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
@@ -16,7 +17,7 @@ import { MAX_SLOTS, addItem, addTemplate, countItem, equip, removeByDefId, remov
 import { makeItem, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
-import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, type EquipSlot, type Item, type Rarity } from '../items/types';
+import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, RARITY_LABEL, type EquipSlot, type Item, type Rarity } from '../items/types';
 import { DEFAULT_SWING_ARC, Player, SWING_ARC, type PlayerInit } from '../player/player';
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
@@ -140,6 +141,9 @@ interface MapState {
  * something in it again. Bosses are the exception — they stay dead.
  */
 const CHEST_RESTOCK = 900;
+
+/** Seconds of invulnerability after taking a hit. See `damagePlayer`. */
+const PLAYER_IFRAMES = 0.28;
 
 const ACTIVATE_DIST = 860;
 const DESPAWN_DIST = 1500;
@@ -576,7 +580,13 @@ export class Game implements WorldCtx {
     let bestScore = Infinity;
     for (const e of this.enemies) {
       if (e.dead || e.friendly) continue;
-      const d = dist(p.x, p.y, e.x, e.y);
+      // Distance to the thing's EDGE, not its centre — the same measure the
+      // swing itself uses. Centre-to-centre made the lock impossible on
+      // anything large: a boss drawn at three times a person's height has a
+      // radius of 150px, so its middle is always further away than a sword's
+      // lock range and the auto-aim quietly gave up on precisely the fights
+      // the game promises you never have to aim in.
+      const d = Math.max(0, dist(p.x, p.y, e.x, e.y) - e.radius);
       if (d > lockRange) continue;
       // strongly prefer whatever is closest; facing is only a light tiebreak
       const off = angleBetween(this.aim, angleTo(p.x, p.y, e.x, e.y));
@@ -643,6 +653,25 @@ export class Game implements WorldCtx {
       if (opts.element === 'fire') dmg *= 1.45;
     }
     dmg = Math.max(1, dmg);
+
+    // Some fights are not allowed to be deleted. A boss with a hit cap takes
+    // at most this share of its health from any single blow, so no build,
+    // however absurd, can skip past the parts of the fight that make it one.
+    // Everything else about the player's damage still matters: the cap is on
+    // the blow, not on the swing rate, the crits or the abilities.
+    const cap = e.def.boss?.hitCap;
+    if (cap) {
+      const ceiling = e.maxHp * cap;
+      if (dmg > ceiling) {
+        dmg = ceiling;
+        // Say it often enough to be understood, rarely enough not to be a
+        // wall of text over a fifty-second fight.
+        if (!opts.noProc && this.now - e.wardShown > 2.5) {
+          e.wardShown = this.now;
+          this.floatText(e.x, e.y - e.radius * 1.4, 'Warded', PAL.frost, 11);
+        }
+      }
+    }
 
     e.hp -= dmg;
     e.flash = 1;
@@ -716,13 +745,21 @@ export class Game implements WorldCtx {
     gold = Math.round(gold * (1 + looting));
     if (p.hasEffect('goldtouch')) gold = Math.round(gold * 1.4);
     if (gold > 0) this.dropPickup(e.x, e.y, null, gold);
+    // Ordinary enemies drop a fraction of what their definition lists.
+    // Elites and bosses pay it in full — see TRASH_DROP_RATE.
+    const trash = !e.elite && !e.def.boss;
     for (const d of e.def.drops) {
-      if (rng.bool(d.chance)) {
+      const quest = TEMPLATE_BY_ID[d.item]?.type === 'quest';
+      const chance = trash && !quest ? d.chance * TRASH_DROP_RATE.material : d.chance;
+      if (rng.bool(chance)) {
         const qty = d.min !== undefined ? rng.int(d.min, d.max ?? d.min) : 1;
         if (qty > 0) this.dropPickup(e.x, e.y, makeItem(d.item, { qty, plain: true }), 0);
       }
     }
-    if (rng.bool(e.def.lootChance * (1 + looting) + mf / 300)) {
+    // Magic find is added after the cut rather than multiplied by it, so
+    // investing in it still visibly changes what a field kill pays.
+    const gearChance = e.def.lootChance * (trash ? TRASH_DROP_RATE.gear : 1);
+    if (rng.bool(gearChance * (1 + looting) + mf / 300)) {
       this.dropPickup(e.x, e.y, rollLoot(Math.max(1, e.level), rng, mf, e.def.lootBias ?? 0, this.regionAtPlayer()), 0);
     }
     if (e.def.boss) {
@@ -824,7 +861,7 @@ export class Game implements WorldCtx {
       return;
     }
 
-    let dmg = amount * (100 / (100 + Math.max(0, stats.defense)));
+    let dmg = amount * damageTaken(stats.defense, p.level);
     const lastStand = p.enchantPower('final_shout');
     if (lastStand > 0 && p.hp / p.maxHp < 0.25) dmg *= 1 - lastStand / 100;
     if (p.blocking && p.equipment.offHand?.weaponKind === 'shield' && p.sp > 0) {
@@ -850,7 +887,13 @@ export class Game implements WorldCtx {
       audio.play('hurt', 0.5);
       this.lastDamageTaken = this.now;
     }
-    p.invuln = 0.45;
+    // Invulnerability after a hit is what stops a single overlapping attack
+    // from chain-killing you. At 0.45s it was also a hard cap of about two
+    // hits a second no matter how many things were on you, which is why a
+    // pack of six was no more dangerous than one. Short enough now that being
+    // surrounded is genuinely worse than being in a duel, long enough that
+    // one hit still cannot become three.
+    p.invuln = PLAYER_IFRAMES;
 
     // thorns, from either a unique effect or the enchantment
     const thorns = (p.hasEffect('thorns') ? 25 : 0) + p.enchantPower('thorns');
@@ -917,14 +960,17 @@ export class Game implements WorldCtx {
     // you happen to walk over it.
     if (item && item.rarity !== 'common' && item.rarity !== 'rare') {
       const c = RARITY_COLOR[item.rarity];
-      this.fx.ring(x, y, item.rarity === 'legendary' ? 180 : 110, c);
-      this.fx.spawn(x, y, item.rarity === 'legendary' ? 46 : 24, c, { speed: 150, life: 1.1, size: 3, gravity: -70 });
-      audio.play('quest', item.rarity === 'legendary' ? 0.9 : 0.6);
-      if (item.rarity === 'legendary' || item.rarity === 'epic') {
-        this.flashScreen(c, item.rarity === 'legendary' ? 0.4 : 0.22);
-        this.freeze(item.rarity === 'legendary' ? 0.16 : 0.07);
-        this.shake(item.rarity === 'legendary' ? 14 : 7);
-        this.floatText(x, y - 54, item.rarity === 'legendary' ? 'LEGENDARY' : 'EPIC', c, item.rarity === 'legendary' ? 22 : 17);
+      const top = item.rarity === 'legendary' || item.rarity === 'mythic';
+      this.fx.ring(x, y, top ? 180 : 110, c);
+      this.fx.spawn(x, y, top ? 46 : 24, c, { speed: 150, life: 1.1, size: 3, gravity: -70 });
+      audio.play('quest', top ? 0.9 : 0.6);
+      if (top || item.rarity === 'epic') {
+        const mythic = item.rarity === 'mythic';
+        this.flashScreen(c, mythic ? 0.55 : top ? 0.4 : 0.22);
+        this.freeze(mythic ? 0.22 : top ? 0.16 : 0.07);
+        this.shake(mythic ? 20 : top ? 14 : 7);
+        this.floatText(x, y - 54, RARITY_LABEL[item.rarity].toUpperCase(), c, mythic ? 26 : top ? 22 : 17);
+        if (mythic) this.fx.ring(x, y, 260, c);
       }
     }
     const a = Math.random() * Math.PI * 2;
@@ -1557,7 +1603,7 @@ export class Game implements WorldCtx {
       this.toast('Bag full', 'Some loot was left behind.', '#e8763a');
       return;
     }
-    this.toast(`+ ${item.name}${qty > 1 ? ` x${qty}` : ''}`, undefined, PAL.cloth, item.icon);
+    this.toast(`+ ${item.name}${qty > 1 ? ` x${qty}` : ''}`, undefined, RARITY_COLOR[item.rarity], item.icon);
   }
 
   equipItem(uid: string): void {
@@ -2497,6 +2543,8 @@ export class Game implements WorldCtx {
 
   /** Can this item still be raised, and is there a warrant to spend on it? */
   canElevate(item: Item): { ok: boolean; reason?: string; next?: Rarity } {
+    // Deliberately not RARITY_ORDER: the crown can raise a thing to
+    // Legendary and no further. Mythic is not in its gift.
     const order: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary'];
     const i = order.indexOf(item.rarity);
     if (i < 0 || i === order.length - 1) return { ok: false, reason: 'Already as fine as the crown can make it.' };
@@ -2531,7 +2579,7 @@ export class Game implements WorldCtx {
     this.flashScreen(color, 0.3);
     this.shake(8);
     audio.play('levelup', 0.9);
-    this.toast(`${item.name} is elevated`, `Raised to ${item.rarity} by royal warrant.`, color, item.icon);
+    this.toast(`${item.name} is elevated`, `Raised to ${RARITY_LABEL[item.rarity]} by royal warrant.`, color, item.icon);
     this.touch();
     return true;
   }
@@ -3103,12 +3151,16 @@ export class Game implements WorldCtx {
             it.life = Math.max(it.life, 120);
             continue;
           }
+          // Picking something up says what it is in its own colour. It used
+          // to be the same gold for everything above Rare, which threw away
+          // the one piece of information the player actually wanted.
+          const colour = RARITY_COLOR[it.item.rarity];
           const rare = it.item.rarity !== 'common' && it.item.rarity !== 'rare';
-          this.floatText(p.x, p.y - 40, it.item.name, rare ? '#f0a93c' : PAL.cloth, rare ? 14 : 12);
+          this.floatText(p.x, p.y - 40, it.item.name, colour, rare ? 14 : 12);
           audio.play('loot', rare ? 0.8 : 0.4);
           if (rare) {
-            this.toast(it.item.name, `${it.item.rarity[0].toUpperCase()}${it.item.rarity.slice(1)} · Level ${it.item.level}`, '#f0a93c', it.item.icon);
-            this.fx.ring(p.x, p.y, 60, '#f0a93c');
+            this.toast(it.item.name, `${RARITY_LABEL[it.item.rarity]} · Level ${it.item.level}`, colour, it.item.icon);
+            this.fx.ring(p.x, p.y, it.item.rarity === 'mythic' ? 90 : 60, colour);
           }
           this.touch();
         }

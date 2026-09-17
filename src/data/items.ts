@@ -204,6 +204,16 @@ export const WEAPONS: ItemTemplate[] = [
   W('staff_glacier', 'Glacierheart Staff', 'staff', 22, 1, 530, { metal: PAL.ice, glow: PAL.frost, rarity: 'superRare', stats: { intelligence: 11, abilityPower: 22, maxMana: 55 }, fixedEnchants: [{ id: 'frost_focus', level: 2 }] }),
   W('orb_longnight', 'Orb of the Long Night', 'orb', 26, 1.3, 500, { metal: PAL.arcaneDark, glow: PAL.arcaneLit, rarity: 'epic', stats: { intelligence: 15, abilityPower: 32, cooldownReduction: 10, lifesteal: 5 } }),
   W('tome_jotun', 'Codex of the Jotunreach', 'tome', 30, 1.15, 520, { metal: PAL.bone, glow: PAL.frost, rarity: 'epic', stats: { intelligence: 18, abilityPower: 36, maxMana: 110 } }),
+
+  /* --- Under the Gate: levels 35 to 40, and nothing is level-appropriate --- */
+  W('greatsword_divide', 'The Long Division', 'greatsword', 35, 0.7, 70, { metal: PAL.arcaneLit, glow: PAL.arcane, rarity: 'epic', stats: { strength: 18, critDamage: 40 }, fixedEnchants: [{ id: 'committed', level: 3 }] }),
+  W('hammer_carry', 'Carry the One', 'hammer', 36, 0.64, 64, { metal: PAL.white, glow: PAL.arcaneLit, rarity: 'epic', stats: { strength: 20, critDamage: 50 }, fixedEnchants: [{ id: 'shockwave', level: 3 }] }),
+  W('dagger_precision', 'Precision Loss', 'dagger', 35, 2.2, 40, { metal: PAL.arcaneDark, glow: PAL.arcaneLit, rarity: 'epic', stats: { critChance: 22, dexterity: 16 }, fixedEnchants: [{ id: 'piercing', level: 3 }] }),
+  W('halberd_factor', 'Factor', 'halberd', 37, 0.78, 92, { metal: PAL.steel, glow: PAL.arcane, rarity: 'epic', stats: { strength: 16, defense: 12 }, fixedEnchants: [{ id: 'swirling', level: 3 }] }),
+  W('bow_zero', 'Zero', 'bow', 36, 1.2, 680, { metal: PAL.white, glow: PAL.arcaneLit, rarity: 'epic', stats: { dexterity: 18, critChance: 16 }, fixedEnchants: [{ id: 'multishot', level: 3 }] }),
+  W('crossbow_quotient', 'Quotient', 'crossbow', 38, 0.8, 660, { metal: PAL.arcaneDark, glow: PAL.arcane, rarity: 'legendary', stats: { critDamage: 80, dexterity: 18 }, fixedEnchants: [{ id: 'chain_reaction', level: 3 }] }),
+  W('staff_modulo', 'The Modulo, Entire', 'staff', 38, 1, 580, { metal: PAL.arcane, glow: PAL.white, rarity: 'legendary', stats: { intelligence: 26, abilityPower: 52, maxMana: 180, cooldownReduction: 14 }, fixedEnchants: [{ id: 'void_strike', level: 3 }] }),
+  W('orb_irrational', 'The Irrational', 'orb', 37, 1.28, 540, { metal: PAL.white, glow: PAL.arcaneLit, rarity: 'legendary', stats: { intelligence: 24, abilityPower: 48, lifesteal: 8 }, fixedEnchants: [{ id: 'soul_siphon', level: 3 }] }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -256,6 +266,9 @@ export const ARMOR: ItemTemplate[] = [
   A('armor_jotunmail', 'Jotunmail', 26, MAIL, heavy('#7d8ea0', PAL.frost, 'horned', '#3a4a5a'), { rarity: 'epic', stats: { maxHealth: 150, strength: 10, defense: 8 } }),
   A('armor_glacierguard', 'Glacierguard Plate', 28, PLATE, heavy('#9fc4d8', PAL.white, 'full', '#4a6a80'), { rarity: 'epic', glow: PAL.frost, stats: { maxHealth: 185, defense: 14, moveSpeed: -3 }, fixedEnchants: [{ id: 'thorns', level: 2 }] }),
   A('armor_longwinter', 'Shroud of the Long Winter', 30, ROBE, robe('#1f2a38', PAL.frost, 'hood', '#141d28'), { rarity: 'legendary', glow: PAL.ice, stats: { maxMana: 180, intelligence: 18, abilityPower: 38, lifesteal: 6 }, effects: ['frostbite'] }),
+  A('armor_divisor', 'Divisor Plate', 35, PLATE, heavy('#3b3550', PAL.arcaneLit, 'full', '#241f36'), { rarity: 'epic', glow: PAL.arcane, stats: { maxHealth: 300, defense: 22, strength: 16, moveSpeed: -3 } }),
+  A('armor_integer', 'Vestments of the Whole Number', 37, ROBE, robe('#221c34', PAL.white, 'wizard', '#151022'), { rarity: 'legendary', glow: PAL.arcaneLit, stats: { maxMana: 260, intelligence: 26, abilityPower: 52, cooldownReduction: 12 }, effects: ['flowstate'] }),
+  A('armor_uncountable', 'The Uncountable', 39, LIGHT, light('#e8e4f2', PAL.white, 'hood', '#b9b2d0'), { rarity: 'legendary', glow: PAL.white, stats: { dexterity: 26, moveSpeed: 16, critChance: 14, maxStamina: 120 }, fixedEnchants: [{ id: 'deflect', level: 3 }] }),
   A('armor_gatekeeper', "Gatekeeper's Harness", 32, PLATE, heavy('#cfe4f0', PAL.holy, 'crown', '#6f9ab4'), {
     rarity: 'legendary', glow: PAL.white, noDrop: true,
     stats: { maxHealth: 260, defense: 20, strength: 14, moveSpeed: -2 },
@@ -285,6 +298,7 @@ export const OFFHANDS: ItemTemplate[] = [
   { id: 'orb_hoar', name: 'Hoarfrost Lens', type: 'armor', slot: 'offHand', icon: 'orb', weaponKind: 'orb', metal: PAL.ice, glow: PAL.frost, rarity: 'epic', level: 22, value: 1600, stats: { abilityPower: 30, maxMana: 100, cooldownReduction: 8 } },
   { id: 'shield_jotun', name: 'Jotun Doorplank', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: '#7d8ea0', accent: PAL.frost, glow: PAL.frost, rarity: 'epic', level: 26, value: 2300, stats: { defense: 72, maxHealth: 170, moveSpeed: -5 }, fixedEnchants: [{ id: 'thorns', level: 3 }], desc: 'A door, to something that used a mountain for a house.' },
   { id: 'tome_glacier', name: 'The Glacier Testament', type: 'armor', slot: 'offHand', icon: 'tome', weaponKind: 'tome', metal: PAL.white, glow: PAL.ice, rarity: 'legendary', level: 29, value: 3400, stats: { maxMana: 190, intelligence: 16, abilityPower: 34, cooldownReduction: 12 } },
+  { id: 'shield_axiom', name: 'Axiom', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: PAL.white, accent: PAL.arcaneLit, glow: PAL.arcane, rarity: 'legendary', level: 36, value: 5600, stats: { defense: 110, maxHealth: 280, moveSpeed: -4 }, fixedEnchants: [{ id: 'thorns', level: 3 }], desc: 'A thing assumed to be true, beaten flat and strapped to an arm.' },
   { id: 'lantern_off', name: 'Wayfarer Lantern', type: 'armor', slot: 'offHand', icon: 'lantern', metal: PAL.iron, glow: PAL.goldLit, rarity: 'rare', level: 6, value: 180, stats: { magicFind: 8, maxHealth: 14 }, desc: 'Burns whale oil and something the apothecary will not name.' },
 ];
 
@@ -350,6 +364,12 @@ export const ARTIFACTS: ItemTemplate[] = [
     { id: 'time_fold', name: 'Hold the Gate', cooldown: 42, desc: 'Stops time inside the whole arena, and you alone keep walking.' },
     { metal: PAL.white, accent: PAL.holy, glow: PAL.frost, noDrop: true, effects: ['spiritcall', 'flowstate', 'frostbite'], desc: 'It was never a key. It was what the gate was holding shut.' }),
 
+  ART('art_remainder', 'The Remainder Itself', 'mat_crystal', 40, 'mythic', 14000,
+    { maxHealth: 320, strength: 20, intelligence: 20, dexterity: 20, abilityPower: 50, cooldownReduction: 20, magicFind: 35, lifesteal: 8 },
+    { id: 'time_fold', name: 'Divide By Nothing', cooldown: 50, desc: 'Stops the arena. Everything in it stays stopped until you are finished.' },
+    { metal: PAL.white, accent: PAL.arcaneLit, glow: PAL.arcane, noDrop: true, effects: ['spiritcall', 'flowstate', 'soulbind'],
+      desc: 'It was never a monster. It was the part of the sum that would not go away.' }),
+
   /* --- artifacts with their own icon art --- */
   ART('art_rally_horn', 'Horn of the Old Levy', 'horn', 6, 'rare', 300, { maxHealth: 30, defense: 3 },
     { id: 'rally', name: 'Sound the Levy', cooldown: 30, desc: 'A blast that heals you and knocks enemies back.' },
@@ -414,16 +434,16 @@ export const UNIQUES: ItemTemplate[] = [
   /* --- the two northern relics, only found in the Crag Reach --- */
   {
     id: 'unique_leviathan', name: 'Leviathan Axe', type: 'weapon', slot: 'mainHand', icon: 'axe', weaponKind: 'axe',
-    metal: '#bcd8e8', accent: PAL.frost, glow: PAL.frost, rarity: 'legendary', level: 15, value: 4200,
-    stats: { damage: 75, attackSpeed: 1.0, range: 58, strength: 12, critDamage: 25 },
+    metal: '#bcd8e8', accent: PAL.frost, glow: PAL.frost, rarity: 'mythic', level: 15, value: 6400,
+    stats: { damage: 86, attackSpeed: 1.0, range: 58, strength: 14, critDamage: 30 },
     effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'committed', level: 2 }],
     noDrop: true, regions: ['north', 'deepnorth'],
     desc: 'Cold beyond cold, and it always comes back to the hand that threw it. The clans brought it to the Last Gate once. It came back; they did not.',
   },
   {
     id: 'unique_chaos_blades', name: 'Blades of Chaos', type: 'weapon', slot: 'mainHand', icon: 'claws', weaponKind: 'claws',
-    metal: '#c8402f', accent: PAL.flameLit, glow: PAL.ember, rarity: 'legendary', level: 15, value: 4200,
-    stats: { damage: 31, attackSpeed: 2.3, range: 96, strength: 8, dexterity: 8, critChance: 14 },
+    metal: '#c8402f', accent: PAL.flameLit, glow: PAL.ember, rarity: 'mythic', level: 15, value: 6400,
+    stats: { damage: 36, attackSpeed: 2.3, range: 96, strength: 9, dexterity: 9, critChance: 16 },
     effects: ['burning_edge', 'emberburst'], fixedEnchants: [{ id: 'fire_aspect', level: 3 }, { id: 'swirling', level: 2 }],
     noDrop: true, regions: ['north'],
     desc: 'Chained to the bone. They burn whoever holds them, and they do not care whose bone it is.',
@@ -454,6 +474,15 @@ export const UNIQUES: ItemTemplate[] = [
     fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'swirling', level: 3 }, { id: 'committed', level: 2 }],
     noDrop: true,
     desc: 'Aldrhrim did not carry a sword. This is the piece of him that was shaped like one.',
+  },
+  {
+    id: 'unique_remainder', name: 'One', type: 'weapon', slot: 'mainHand', icon: 'sword', weaponKind: 'sword',
+    metal: PAL.white, accent: PAL.arcaneLit, glow: PAL.arcane, rarity: 'mythic', level: 40, value: 20000,
+    stats: { damage: 214, attackSpeed: 1.3, range: 58, strength: 24, intelligence: 24, dexterity: 24, critChance: 20, critDamage: 90, lifesteal: 10 },
+    effects: ['flowstate', 'spiritcall', 'earthshaker'],
+    fixedEnchants: [{ id: 'sharpness', level: 3 }, { id: 'critical_hit', level: 3 }, { id: 'committed', level: 3 }],
+    noDrop: true,
+    desc: 'The smallest thing that will not divide into anything else. It is very sharp about it.',
   },
 ];
 
@@ -496,18 +525,26 @@ export const MATERIALS: ItemTemplate[] = [
   { id: 'mat_glacier_shard', name: 'Glacier Shard', type: 'material', icon: 'mat_crystal', metal: PAL.ice, rarity: 'epic', level: 20, value: 420, stats: {}, stackable: true, desc: 'It does not melt. It has been tried.' },
   { id: 'mat_jotun_ingot', name: 'Jotunsteel Ingot', type: 'material', icon: 'mat_ingot', metal: '#bcd8e8', rarity: 'epic', level: 26, value: 680, stats: {}, stackable: true },
   { id: 'mat_greater_rune', name: 'Greater Binding Rune', type: 'material', icon: 'rune', metal: PAL.frost, rarity: 'legendary', level: 28, value: 950, stats: {}, stackable: true, desc: 'Does what a binding rune does, to things a binding rune will not hold.' },
+
+  /*
+   * Trophies. These used to be typed `quest`, which meant they could not be
+   * sold, could not be dropped, and were kept out of every bulk sell — and no
+   * quest in the game ever asked for one. A wolf handing you a permanent,
+   * unsellable pelt every other kill is not a reward, it is a slot you have
+   * lost. They are materials now, which is what they always were.
+   */
+  { id: 'q_wolf_pelt', name: 'Thick Wolf Pelt', type: 'material', icon: 'mat_leather', rarity: 'common', level: 1, value: 20, stats: {}, stackable: true, desc: 'Proof of a culled pack.' },
+  { id: 'q_bandit_orders', name: 'Cutter Marching Orders', type: 'material', icon: 'scroll', rarity: 'common', level: 8, value: 90, stats: {}, stackable: true, desc: 'Somebody in the south is being told where to burn next.' },
+  { id: 'q_heartseed', name: 'Heartseed of the Grove', type: 'material', icon: 'mat_herb', rarity: 'superRare', level: 12, value: 340, stats: {}, stackable: true, desc: 'It pulses when you hold it still.' },
+  { id: 'q_ice_core', name: 'Frozen Core', type: 'material', icon: 'mat_crystal', metal: PAL.frost, rarity: 'superRare', level: 12, value: 340, stats: {}, stackable: true, desc: 'Cut out of a warden that had stopped moving. It has not.' },
+  { id: 'q_relic_shard', name: 'Shard of the Modulo', type: 'material', icon: 'mat_crystal', metal: PAL.frost, rarity: 'epic', level: 14, value: 520, stats: {}, stackable: true, desc: 'One of many. There are always more.' },
 ];
 
 export const QUEST_ITEMS: ItemTemplate[] = [
-  { id: 'q_wolf_pelt', name: 'Thick Wolf Pelt', type: 'quest', icon: 'mat_leather', rarity: 'common', level: 1, value: 0, stats: {}, stackable: true, noDrop: true, desc: 'Proof of a culled pack.' },
   { id: 'q_supply_crate', name: 'Ashvale Supply Parcel', type: 'quest', icon: 'quest', rarity: 'common', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Sealed with the Alliance stamp.' },
   { id: 'q_ledger', name: 'Guild Ledger Page', type: 'quest', icon: 'scroll', rarity: 'common', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Numbers somebody would rather you did not read.' },
   { id: 'q_crypt_key', name: 'Crypt Seal Key', type: 'quest', icon: 'key', rarity: 'rare', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Cold to the touch.' },
-  { id: 'q_heartseed', name: 'Heartseed of the Grove', type: 'quest', icon: 'mat_herb', rarity: 'superRare', level: 1, value: 0, stats: {}, noDrop: true, desc: 'It pulses when you hold it still.' },
-  { id: 'q_relic_shard', name: 'Shard of the Modulo', type: 'quest', icon: 'mat_crystal', metal: PAL.frost, rarity: 'epic', level: 1, value: 0, stats: {}, stackable: true, noDrop: true, desc: 'One of many. There are always more.' },
   { id: 'q_missing_ring', name: "Maren's Wedding Ring", type: 'quest', icon: 'ring', metal: PAL.gold, rarity: 'common', level: 1, value: 0, stats: {}, noDrop: true },
-  { id: 'q_bandit_orders', name: 'Cutter Marching Orders', type: 'quest', icon: 'scroll', rarity: 'common', level: 1, value: 0, stats: {}, noDrop: true },
-  { id: 'q_ice_core', name: 'Frozen Core', type: 'quest', icon: 'mat_crystal', metal: PAL.frost, rarity: 'superRare', level: 1, value: 0, stats: {}, noDrop: true },
   { id: 'q_gate_sigil', name: 'Sigil of the Last Gate', type: 'quest', icon: 'rune', metal: PAL.frost, rarity: 'legendary', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Warm, in a place where nothing is.' },
   { id: 'q_kings_letter', name: "King Jovan's Letter", type: 'quest', icon: 'scroll', metal: PAL.gold, rarity: 'rare', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Sealed in gold wax, and written by hand.' },
 ];

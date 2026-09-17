@@ -6,9 +6,19 @@ import type { ClassId } from '../../data/classes';
  * Five tiers, colour-coded so rarity is readable at a glance:
  * white, green, blue, purple, gold.
  */
-export type Rarity = 'common' | 'rare' | 'superRare' | 'epic' | 'legendary';
+/**
+ * `mythic` sits above legendary and is not a tier loot can roll: there is no
+ * weight for it in the drop tables and the crown's warrant will not raise
+ * anything into it. It exists so that the handful of named relics that are
+ * genuinely one-of-a-kind do not sit in the same colour as a legendary that
+ * fell out of a chest.
+ */
+export type Rarity = 'common' | 'rare' | 'superRare' | 'epic' | 'legendary' | 'mythic';
 
-export const RARITY_ORDER: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary'];
+export const RARITY_ORDER: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary', 'mythic'];
+
+/** The tiers a random drop can actually be. Mythic is placed by hand only. */
+export const ROLLABLE_RARITIES: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary'];
 
 export const RARITY_COLOR: Record<Rarity, string> = {
   common: '#ded6c8',
@@ -16,6 +26,9 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   superRare: '#4f9ce8',
   epic: '#a978e8',
   legendary: '#f0c93c',
+  // A hot crimson that no other tier is anywhere near, so a mythic reads as
+  // itself at a glance — on the ground, in the pack and in the toast.
+  mythic: '#ff4f6e',
 };
 
 export const RARITY_LABEL: Record<Rarity, string> = {
@@ -24,20 +37,21 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   superRare: 'Super Rare',
   epic: 'Epic',
   legendary: 'Legendary',
+  mythic: 'Mythic',
 };
 
 export const RARITY_MULT: Record<Rarity, number> = {
-  common: 1, rare: 1.26, superRare: 1.58, epic: 1.95, legendary: 2.5,
+  common: 1, rare: 1.26, superRare: 1.58, epic: 1.95, legendary: 2.5, mythic: 2.9,
 };
 
 /** Number of random stat affixes rolled onto an item of each rarity. */
 export const RARITY_AFFIXES: Record<Rarity, number> = {
-  common: 0, rare: 1, superRare: 2, epic: 3, legendary: 4,
+  common: 0, rare: 1, superRare: 2, epic: 3, legendary: 4, mythic: 4,
 };
 
 /** How many enchantment slots an item of each rarity carries. */
 export const RARITY_ENCHANT_SLOTS: Record<Rarity, number> = {
-  common: 0, rare: 1, superRare: 1, epic: 2, legendary: 3,
+  common: 0, rare: 1, superRare: 1, epic: 2, legendary: 3, mythic: 3,
 };
 
 /** Four slots only: one armour piece, a weapon, an off-hand and an artifact. */

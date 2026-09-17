@@ -398,7 +398,7 @@ export function render(game: Game): void {
     const bob = Math.sin(game.now * 3 + it.id) * 2;
     const dy = Math.round(it.y - it.z - 16 + bob);
     const dx = Math.round(it.x - 16);
-    const rare = it.item && (it.item.rarity === 'legendary' || it.item.rarity === 'epic' || it.item.rarity === 'superRare');
+    const rare = it.item && it.item.rarity !== 'common' && it.item.rarity !== 'rare';
     drawables.push({
       y: it.y,
       draw: () => {

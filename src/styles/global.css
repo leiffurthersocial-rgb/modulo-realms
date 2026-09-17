@@ -684,6 +684,34 @@ canvas.world {
   font-size: 9px; color: var(--gold); font-weight: 700;
 }
 .item-cell.selected { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(232, 194, 122, 0.4); }
+/* Mythic is worn by two relics in the whole game, so it is allowed to move. */
+@keyframes mythic-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.ic-name.mythic {
+  background: linear-gradient(100deg, #ff4f6e, #ffb23d, #ff4f6e, #b74dff, #ff4f6e);
+  background-size: 320% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: mythic-shift 5s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 79, 110, 0.5));
+}
+.rarity-pill.mythic {
+  letter-spacing: 0.14em;
+  animation: mythic-pulse 2.4s ease-in-out infinite;
+}
+@keyframes mythic-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 79, 110, 0); }
+  50% { box-shadow: 0 0 10px rgba(255, 79, 110, 0.55); }
+}
+.item-cell.mythic {
+  border-color: #ff4f6e;
+  box-shadow: inset 0 0 14px rgba(255, 79, 110, 0.28), 0 0 10px rgba(255, 79, 110, 0.35);
+  animation: mythic-pulse 2.4s ease-in-out infinite;
+}
+
 .item-cell .keep-mark {
   position: absolute; top: 0; left: 3px; font-size: 10px;
   color: var(--gold); text-shadow: 0 1px 2px #000;

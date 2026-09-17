@@ -2,6 +2,7 @@ import { PAL } from '../game/art/palette';
 import type { Look } from '../game/art/characters';
 import type { CreatureKind } from '../game/art/creatures';
 import type { FactionId } from './races';
+import type { EnemyRole } from './balance';
 
 export type DamageElement = 'physical' | 'fire' | 'frost' | 'arcane' | 'shadow' | 'holy' | 'poison';
 
@@ -30,6 +31,15 @@ export interface BossAttack {
   /** Only usable from this phase onward. */
   phase?: number;
   summon?: string;
+  /**
+   * A share of the player's MAXIMUM health, dealt on top of the normal hit and
+   * ignoring armour entirely. This is the part of a boss that cannot be
+   * out-geared: stacking defense and health makes everything else it does
+   * survivable, and makes this exactly as dangerous as it was on the first
+   * attempt. A dodge roll still avoids it — the answer is meant to be
+   * footwork, not numbers.
+   */
+  lifeTax?: number;
 }
 
 export interface BossPhase {
@@ -43,9 +53,45 @@ export interface BossPhase {
   hazard?: 'fire' | 'poison' | 'frost' | 'shadow' | null;
 }
 
+export interface BossDef {
+  title: string;
+  phases: BossPhase[];
+  attacks: BossAttack[];
+  arenaMusic?: boolean;
+  uniqueDrop: string;
+  /**
+   * The most a single blow may take off, as a share of the boss's maximum
+   * health. A boss that sets this cannot be deleted by a build: whatever the
+   * number on your weapon, it takes at least `1 / hitCap` connecting hits, so
+   * the fight always runs long enough for the boss to actually use its kit.
+   *
+   * This exists because it is not possible to out-scale it. The player's real
+   * damage grows quadratically with level (weapon damage times primary stat,
+   * both linear), so any fixed pool of health is eventually a rounding error —
+   * and a five-phase boss that dies in three seconds is not a boss, it is a
+   * cutscene. Only put it on the handful of fights that are meant to stay
+   * frightening forever.
+   */
+  hitCap?: number;
+  /**
+   * Seconds before it stops pacing itself. After this the boss's damage climbs
+   * by `enrageRate` per second, without limit, so a fight it is losing is
+   * still a fight you can lose. Attrition is not a strategy.
+   */
+  enrageAfter?: number;
+  enrageRate?: number;
+}
+
 export interface EnemyDef {
   id: string;
   name: string;
+  /**
+   * What this thing is for. Health, defense and xp are all solved from it and
+   * the level, against the player's REAL damage curve — see balance.ts. It is
+   * written out on every enemy rather than inferred so that the report in
+   * `scripts/check-balance.ts` is checking a claim, not its own guess.
+   */
+  role: EnemyRole;
   /** Humanoids use the character generator; creatures use the creature generator. */
   kind: 'humanoid' | 'creature';
   look?: Look;
@@ -75,13 +121,7 @@ export interface EnemyDef {
   lootChance: number;
   lootBias?: number;
   elite?: boolean;
-  boss?: {
-    title: string;
-    phases: BossPhase[];
-    attacks: BossAttack[];
-    arenaMusic?: boolean;
-    uniqueDrop: string;
-  };
+  boss?: BossDef;
   /** Undead take extra holy damage; beasts extra poison, etc. */
   tags?: string[];
 }
@@ -96,42 +136,48 @@ export const ENEMIES: EnemyDef[] = [
   /* --- beasts --- */
   {
     id: 'wolf', name: 'Grey Wolf', kind: 'creature', creature: { kind: 'wolf', palette: 'wolf' },
-    level: 1, health: 34, damage: 7, defense: 1, speed: 92, xp: 12, gold: [0, 4], radius: 13,
+    role: 'standard',
+    level: 1, health: 52, damage: 7, defense: 2, speed: 92, xp: 12, gold: [0, 4], radius: 13,
     sight: 300, attackRange: 34, attackCooldown: 1.5, windup: 0.32, pack: true, flee: 0.15,
     drops: [{ item: 'q_wolf_pelt', chance: 0.55 }, { item: 'mat_leather', chance: 0.4 }, { item: 'food_meat', chance: 0.25 }],
     lootChance: 0.1, tags: ['beast'],
   },
   {
     id: 'direwolf', name: 'Dire Wolf', kind: 'creature', creature: { kind: 'wolf', palette: 'direwolf' }, scale: 1.25,
-    level: 6, health: 105, damage: 18, defense: 4, speed: 104, xp: 44, gold: [2, 10], radius: 16,
+    role: 'standard',
+    level: 6, health: 203, damage: 18, defense: 9, speed: 104, xp: 48, gold: [2, 10], radius: 16,
     sight: 360, attackRange: 40, attackCooldown: 1.3, windup: 0.3, pack: true,
     drops: [{ item: 'q_wolf_pelt', chance: 0.7 }, { item: 'mat_leather', chance: 0.5, min: 1, max: 2 }],
     lootChance: 0.18, tags: ['beast'],
   },
   {
     id: 'frostwolf', name: 'Frostmane', kind: 'creature', creature: { kind: 'wolf', palette: 'frostwolf', glow: PAL.frost }, scale: 1.2,
-    level: 11, health: 190, damage: 30, defense: 8, speed: 108, xp: 92, gold: [6, 18], radius: 16,
+    role: 'skirmisher',
+    level: 11, health: 346, damage: 30, defense: 9, speed: 108, xp: 116, gold: [6, 18], radius: 16,
     sight: 380, attackRange: 40, attackCooldown: 1.25, windup: 0.3, pack: true, element: 'frost',
     drops: [{ item: 'mat_leather', chance: 0.5, min: 1, max: 3 }, { item: 'mat_crystal', chance: 0.25 }],
     lootChance: 0.24, tags: ['beast'],
   },
   {
     id: 'boar', name: 'Tusked Boar', kind: 'creature', creature: { kind: 'boar', palette: 'boar' },
-    level: 3, health: 70, damage: 12, defense: 3, speed: 84, xp: 22, gold: [0, 5], radius: 15,
+    role: 'standard',
+    level: 3, health: 87, damage: 12, defense: 5, speed: 84, xp: 22, gold: [0, 5], radius: 15,
     sight: 240, attackRange: 36, attackCooldown: 1.8, windup: 0.45,
     drops: [{ item: 'food_meat', chance: 0.6, min: 1, max: 2 }, { item: 'mat_leather', chance: 0.35 }],
     lootChance: 0.1, tags: ['beast'],
   },
   {
     id: 'spider', name: 'Thicket Spider', kind: 'creature', creature: { kind: 'spider', palette: 'spider' },
-    level: 2, health: 40, damage: 8, defense: 1, speed: 88, xp: 15, gold: [0, 5], radius: 13,
+    role: 'standard',
+    level: 2, health: 65, damage: 8, defense: 3, speed: 88, xp: 16, gold: [0, 5], radius: 13,
     sight: 280, attackRange: 32, attackCooldown: 1.4, windup: 0.3, pack: true,
     drops: [{ item: 'mat_cloth', chance: 0.4 }, { item: 'mat_herb', chance: 0.2 }],
     lootChance: 0.1, tags: ['beast'],
   },
   {
     id: 'venomspider', name: 'Bog Weaver', kind: 'creature', creature: { kind: 'spider', palette: 'venomspider', glow: PAL.toxic }, scale: 1.15,
-    level: 8, health: 130, damage: 21, defense: 5, speed: 92, xp: 58, gold: [3, 12], radius: 15,
+    role: 'standard',
+    level: 8, health: 317, damage: 21, defense: 12, speed: 92, xp: 73, gold: [3, 12], radius: 15,
     sight: 320, attackRange: 240, attackCooldown: 2.2, windup: 0.5, element: 'poison',
     ranged: { speed: 230, element: 'poison', color: PAL.toxic, radius: 30 },
     drops: [{ item: 'mat_herb', chance: 0.4 }, { item: 'antidote', chance: 0.3 }, { item: 'mat_essence', chance: 0.1 }],
@@ -139,21 +185,24 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'bat', name: 'Cave Bat', kind: 'creature', creature: { kind: 'bat', palette: 'bat' },
-    level: 2, health: 26, damage: 6, defense: 0, speed: 118, xp: 11, gold: [0, 3], radius: 11,
+    role: 'skirmisher',
+    level: 2, health: 40, damage: 6, defense: 2, speed: 118, xp: 15, gold: [0, 3], radius: 11,
     sight: 260, attackRange: 28, attackCooldown: 1.1, windup: 0.22, pack: true,
     drops: [{ item: 'mat_leather', chance: 0.2 }],
     lootChance: 0.06, tags: ['beast'],
   },
   {
     id: 'scorpion', name: 'Dune Scorpion', kind: 'creature', creature: { kind: 'scorpion', palette: 'scorpion' },
-    level: 7, health: 120, damage: 20, defense: 7, speed: 78, xp: 52, gold: [2, 12], radius: 15,
+    role: 'standard',
+    level: 7, health: 255, damage: 20, defense: 11, speed: 78, xp: 60, gold: [2, 12], radius: 15,
     sight: 280, attackRange: 38, attackCooldown: 1.6, windup: 0.4, element: 'poison',
     drops: [{ item: 'antidote', chance: 0.3 }, { item: 'mat_bone', chance: 0.3 }],
     lootChance: 0.18, tags: ['beast'],
   },
   {
     id: 'serpent', name: 'Marsh Serpent', kind: 'creature', creature: { kind: 'serpent', palette: 'serpent' },
-    level: 6, health: 88, damage: 17, defense: 3, speed: 96, xp: 42, gold: [1, 8], radius: 14,
+    role: 'skirmisher',
+    level: 6, health: 126, damage: 17, defense: 5, speed: 96, xp: 46, gold: [1, 8], radius: 14,
     sight: 300, attackRange: 46, attackCooldown: 1.35, windup: 0.28, element: 'poison',
     drops: [{ item: 'mat_leather', chance: 0.4 }, { item: 'antidote', chance: 0.2 }],
     lootChance: 0.15, tags: ['beast'],
@@ -161,21 +210,24 @@ export const ENEMIES: EnemyDef[] = [
   /* --- slimes, spirits, constructs --- */
   {
     id: 'slime', name: 'Bog Slime', kind: 'creature', creature: { kind: 'slime', palette: 'slime' },
-    level: 1, health: 44, damage: 6, defense: 2, speed: 52, xp: 10, gold: [0, 4], radius: 13,
+    role: 'brute',
+    level: 1, health: 97, damage: 6, defense: 2, speed: 52, xp: 14, gold: [0, 4], radius: 13,
     sight: 200, attackRange: 30, attackCooldown: 1.8, windup: 0.4,
     drops: [{ item: 'mat_essence', chance: 0.08 }, { item: 'mat_herb', chance: 0.25 }],
     lootChance: 0.08, tags: ['ooze'],
   },
   {
     id: 'toxicslime', name: 'Rot Slime', kind: 'creature', creature: { kind: 'slime', palette: 'slimeToxic', glow: PAL.toxic },
-    level: 7, health: 145, damage: 18, defense: 6, speed: 58, xp: 48, gold: [1, 9], radius: 15,
+    role: 'standard',
+    level: 7, health: 255, damage: 18, defense: 11, speed: 58, xp: 60, gold: [1, 9], radius: 15,
     sight: 240, attackRange: 34, attackCooldown: 1.7, windup: 0.4, element: 'poison',
     drops: [{ item: 'antidote', chance: 0.35 }, { item: 'mat_essence', chance: 0.15 }],
     lootChance: 0.16, tags: ['ooze'],
   },
   {
     id: 'wisp', name: 'Ley Wisp', kind: 'creature', creature: { kind: 'wisp', palette: 'wisp', glow: PAL.arcaneLit },
-    level: 5, health: 60, damage: 15, defense: 2, speed: 86, xp: 36, gold: [2, 10], radius: 12,
+    role: 'skirmisher',
+    level: 5, health: 97, damage: 15, defense: 4, speed: 86, xp: 36, gold: [2, 10], radius: 12,
     sight: 340, attackRange: 260, attackCooldown: 2.1, windup: 0.55, element: 'arcane',
     ranged: { speed: 200, element: 'arcane', color: PAL.arcaneLit, radius: 28 },
     drops: [{ item: 'mat_crystal', chance: 0.3 }, { item: 'mat_essence', chance: 0.12 }],
@@ -183,7 +235,8 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'emberwisp', name: 'Ember Wisp', kind: 'creature', creature: { kind: 'wisp', palette: 'emberwisp', glow: PAL.flame },
-    level: 10, health: 120, damage: 27, defense: 4, speed: 92, xp: 78, gold: [4, 14], radius: 12,
+    role: 'skirmisher',
+    level: 10, health: 293, damage: 27, defense: 8, speed: 92, xp: 99, gold: [4, 14], radius: 12,
     sight: 360, attackRange: 280, attackCooldown: 1.9, windup: 0.5, element: 'fire',
     ranged: { speed: 230, element: 'fire', color: PAL.flame, radius: 34 },
     drops: [{ item: 'mat_crystal', chance: 0.3 }, { item: 'mat_essence', chance: 0.2 }],
@@ -191,14 +244,16 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'crawler', name: 'Grave Crawler', kind: 'creature', creature: { kind: 'crawler', palette: 'crawler' },
-    level: 4, health: 74, damage: 14, defense: 3, speed: 96, xp: 30, gold: [1, 7], radius: 13,
+    role: 'standard',
+    level: 4, health: 118, damage: 14, defense: 6, speed: 96, xp: 29, gold: [1, 7], radius: 13,
     sight: 300, attackRange: 32, attackCooldown: 1.3, windup: 0.28, pack: true,
     drops: [{ item: 'mat_bone', chance: 0.5 }, { item: 'mat_leather', chance: 0.25 }],
     lootChance: 0.12, tags: ['undead'],
   },
   {
     id: 'wraith', name: 'Hollow Wraith', kind: 'creature', creature: { kind: 'wraith', palette: 'wraith', glow: PAL.frost },
-    level: 9, health: 135, damage: 25, defense: 6, speed: 82, xp: 70, gold: [4, 16], radius: 14,
+    role: 'skirmisher',
+    level: 9, health: 245, damage: 25, defense: 7, speed: 82, xp: 83, gold: [4, 16], radius: 14,
     sight: 340, attackRange: 250, attackCooldown: 2, windup: 0.5, element: 'shadow',
     ranged: { speed: 190, element: 'shadow', color: '#6f7f96', radius: 30 },
     drops: [{ item: 'mat_essence', chance: 0.25 }, { item: 'mat_bone', chance: 0.4 }],
@@ -206,21 +261,24 @@ export const ENEMIES: EnemyDef[] = [
   },
   {
     id: 'golem', name: 'Stone Sentinel', kind: 'creature', creature: { kind: 'golem', palette: 'golem' }, scale: 1.2,
-    level: 10, health: 300, damage: 32, defense: 16, speed: 52, xp: 110, gold: [8, 24], radius: 18,
+    role: 'brute',
+    level: 10, health: 798, damage: 32, defense: 24, speed: 52, xp: 120, gold: [8, 24], radius: 18,
     sight: 280, attackRange: 48, attackCooldown: 2.2, windup: 0.65,
     drops: [{ item: 'mat_crystal', chance: 0.4 }, { item: 'mat_iron_ore', chance: 0.5, min: 1, max: 3 }],
     lootChance: 0.3, tags: ['construct'],
   },
   {
     id: 'sandgolem', name: 'Tomb Guardian', kind: 'creature', creature: { kind: 'golem', palette: 'sandgolem' }, scale: 1.2,
-    level: 12, health: 360, damage: 38, defense: 18, speed: 54, xp: 140, gold: [10, 30], radius: 18,
+    role: 'standard',
+    level: 12, health: 626, damage: 38, defense: 18, speed: 54, xp: 141, gold: [10, 30], radius: 18,
     sight: 300, attackRange: 50, attackCooldown: 2.1, windup: 0.6,
     drops: [{ item: 'mat_gem_ruby', chance: 0.2 }, { item: 'mat_crystal', chance: 0.35 }],
     lootChance: 0.32, tags: ['construct'],
   },
   {
     id: 'sapling', name: 'Thorn Sapling', kind: 'creature', creature: { kind: 'treant', palette: 'treant' }, scale: 0.85,
-    level: 8, health: 165, damage: 22, defense: 9, speed: 62, xp: 62, gold: [2, 10], radius: 16,
+    role: 'standard',
+    level: 8, health: 317, damage: 22, defense: 12, speed: 62, xp: 73, gold: [2, 10], radius: 16,
     sight: 260, attackRange: 46, attackCooldown: 1.9, windup: 0.5, element: 'poison',
     drops: [{ item: 'mat_herb', chance: 0.55, min: 1, max: 2 }, { item: 'mat_essence', chance: 0.12 }],
     lootChance: 0.2, tags: ['plant'],
@@ -229,7 +287,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'bandit', name: 'Ash Cutter', kind: 'humanoid',
     look: humanLook({ shirt: '#5a4436', pants: '#3a2f28', hair: '#3a2a20', helmet: 'hood', armorColor: '#4a3a2a', weapon: { kind: 'sword', metal: PAL.iron, grip: PAL.woodDark } }),
-    level: 3, health: 76, damage: 13, defense: 4, speed: 84, xp: 26, gold: [4, 14], radius: 13,
+    role: 'standard',
+    level: 3, health: 87, damage: 13, defense: 5, speed: 84, xp: 22, gold: [4, 14], radius: 13,
     sight: 320, attackRange: 40, attackCooldown: 1.5, windup: 0.35, flee: 0.18, faction: 'bandits',
     drops: [{ item: 'potion_health_s', chance: 0.25 }, { item: 'q_bandit_orders', chance: 0.12 }],
     lootChance: 0.22, tags: ['humanoid'],
@@ -237,7 +296,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'bandit_archer', name: 'Cutter Bowman', kind: 'humanoid',
     look: humanLook({ shirt: '#4a5a42', pants: '#3a2f28', hair: '#4a3324', helmet: 'hood', armorColor: '#3f4a36', weapon: { kind: 'bow', metal: PAL.wood, grip: PAL.woodDark } }),
-    level: 4, health: 62, damage: 15, defense: 3, speed: 88, xp: 30, gold: [5, 16], radius: 13,
+    role: 'standard',
+    level: 4, health: 118, damage: 15, defense: 6, speed: 88, xp: 29, gold: [5, 16], radius: 13,
     sight: 380, attackRange: 300, attackCooldown: 2, windup: 0.5, flee: 0.25, faction: 'bandits',
     ranged: { speed: 330, element: 'physical', color: PAL.cloth, radius: 20 },
     drops: [{ item: 'potion_health_s', chance: 0.2 }, { item: 'mat_leather', chance: 0.3 }],
@@ -246,7 +306,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'bandit_brute', name: 'Cutter Brute', kind: 'humanoid',
     look: humanLook({ shirt: '#6a4436', pants: '#3a2f28', hair: '#2a2029', hairStyle: 'mohawk', armor: 'heavy', armorColor: '#5a5060', bulk: 1.2, height: 1.06, weapon: { kind: 'greataxe', metal: PAL.iron, grip: PAL.woodDark } }),
-    level: 7, health: 180, damage: 26, defense: 9, speed: 74, xp: 62, gold: [10, 28], radius: 15,
+    role: 'brute',
+    level: 7, health: 454, damage: 26, defense: 17, speed: 74, xp: 69, gold: [10, 28], radius: 15,
     sight: 320, attackRange: 52, attackCooldown: 2.1, windup: 0.55, faction: 'bandits',
     drops: [{ item: 'potion_health_m', chance: 0.25 }, { item: 'mat_iron_ingot', chance: 0.3 }],
     lootChance: 0.3, tags: ['humanoid'],
@@ -254,7 +315,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'skeleton', name: 'Risen Skeleton', kind: 'humanoid',
     look: humanLook({ skin: PAL.cloth, hair: PAL.bone, hairStyle: 'bald', shirt: '#5a5548', pants: '#3f3a32', eyes: PAL.ember, armor: 'none', weapon: { kind: 'sword', metal: PAL.ironDark, grip: PAL.woodDark } }),
-    level: 5, health: 80, damage: 16, defense: 6, speed: 70, xp: 34, gold: [2, 10], radius: 13,
+    role: 'standard',
+    level: 5, health: 156, damage: 16, defense: 8, speed: 70, xp: 38, gold: [2, 10], radius: 13,
     sight: 300, attackRange: 40, attackCooldown: 1.7, windup: 0.42,
     drops: [{ item: 'mat_bone', chance: 0.6, min: 1, max: 2 }],
     lootChance: 0.2, tags: ['undead'],
@@ -262,7 +324,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'skeleton_archer', name: 'Bone Archer', kind: 'humanoid',
     look: humanLook({ skin: PAL.cloth, hair: PAL.bone, hairStyle: 'bald', shirt: '#4a4a58', pants: '#38304a', eyes: PAL.frost, armor: 'none', weapon: { kind: 'bow', metal: PAL.bone, grip: PAL.stone } }),
-    level: 7, health: 78, damage: 21, defense: 5, speed: 66, xp: 48, gold: [3, 12], radius: 13,
+    role: 'skirmisher',
+    level: 7, health: 160, damage: 21, defense: 6, speed: 66, xp: 57, gold: [3, 12], radius: 13,
     sight: 380, attackRange: 320, attackCooldown: 2.4, windup: 0.6,
     ranged: { speed: 300, element: 'physical', color: PAL.bone, radius: 20 },
     drops: [{ item: 'mat_bone', chance: 0.6, min: 1, max: 2 }],
@@ -271,7 +334,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'goblin', name: 'Scrap Goblin', kind: 'humanoid',
     look: humanLook({ skin: '#7d9a5c', hair: '#3a2a20', hairStyle: 'wild', shirt: '#6a5a3a', pants: '#3a2f28', height: 0.8, bulk: 0.9, ears: 'elf', eyes: PAL.flameLit, weapon: { kind: 'dagger', metal: PAL.iron, grip: PAL.woodDark } }),
-    level: 2, health: 46, damage: 9, defense: 2, speed: 96, xp: 16, gold: [3, 11], radius: 12,
+    role: 'standard',
+    level: 2, health: 65, damage: 9, defense: 3, speed: 96, xp: 16, gold: [3, 11], radius: 12,
     sight: 300, attackRange: 34, attackCooldown: 1.2, windup: 0.26, pack: true, flee: 0.22,
     drops: [{ item: 'mat_iron_ore', chance: 0.25 }, { item: 'food_bread', chance: 0.2 }],
     lootChance: 0.16, tags: ['humanoid'],
@@ -279,7 +343,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'goblin_shaman', name: 'Goblin Hexer', kind: 'humanoid',
     look: humanLook({ skin: '#6d8a4c', hair: PAL.bone, hairStyle: 'wild', shirt: '#4a3a6a', pants: '#2b1f4d', height: 0.82, bulk: 0.9, ears: 'elf', armor: 'robe', helmet: 'hood', armorColor: '#3a2a5a', eyes: PAL.toxic, weapon: { kind: 'staff', metal: PAL.wood, grip: PAL.woodDark, glow: PAL.toxic } }),
-    level: 6, health: 70, damage: 20, defense: 3, speed: 78, xp: 44, gold: [6, 18], radius: 12,
+    role: 'skirmisher',
+    level: 6, health: 126, damage: 20, defense: 5, speed: 78, xp: 46, gold: [6, 18], radius: 12,
     sight: 360, attackRange: 270, attackCooldown: 2.3, windup: 0.6, element: 'poison',
     ranged: { speed: 200, element: 'poison', color: PAL.toxic, radius: 32 },
     drops: [{ item: 'potion_mana_s', chance: 0.3 }, { item: 'mat_crystal', chance: 0.2 }],
@@ -288,7 +353,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'orc_raider', name: 'Crag Raider', kind: 'humanoid',
     look: humanLook({ skin: PAL.skinOrc, hair: '#2a2029', hairStyle: 'ponytail', shirt: '#5a4436', pants: '#3a2f28', tusks: true, height: 1.12, bulk: 1.2, armor: 'light', armorColor: '#5a4436', eyes: PAL.ember, weapon: { kind: 'axe', metal: PAL.iron, grip: PAL.woodDark } }),
-    level: 9, health: 215, damage: 30, defense: 11, speed: 80, xp: 82, gold: [8, 26], radius: 15,
+    role: 'standard',
+    level: 9, health: 383, damage: 30, defense: 14, speed: 80, xp: 88, gold: [8, 26], radius: 15,
     sight: 340, attackRange: 46, attackCooldown: 1.8, windup: 0.45, faction: 'northern',
     drops: [{ item: 'mat_iron_ingot', chance: 0.3 }, { item: 'potion_health_m', chance: 0.2 }],
     lootChance: 0.3, tags: ['humanoid'],
@@ -296,7 +362,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'cultist', name: 'Concord Apostate', kind: 'humanoid',
     look: humanLook({ skin: PAL.skinUndead, hair: '#38304a', hairStyle: 'long', shirt: '#3a2a5a', pants: '#241d2e', armor: 'robe', helmet: 'hood', armorColor: '#2b1f4d', eyes: PAL.arcaneLit, weapon: { kind: 'wand', metal: PAL.arcane, grip: PAL.woodDark, glow: PAL.arcaneLit } }),
-    level: 11, health: 140, damage: 32, defense: 7, speed: 84, xp: 96, gold: [10, 30], radius: 13,
+    role: 'skirmisher',
+    level: 11, health: 346, damage: 32, defense: 9, speed: 84, xp: 116, gold: [10, 30], radius: 13,
     sight: 380, attackRange: 300, attackCooldown: 2.1, windup: 0.55, element: 'arcane', faction: 'arcane',
     ranged: { speed: 240, element: 'arcane', color: PAL.arcaneLit, radius: 34 },
     drops: [{ item: 'potion_mana_m', chance: 0.3 }, { item: 'mat_essence', chance: 0.2 }, { item: 'q_relic_shard', chance: 0.15 }],
@@ -305,7 +372,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'revenant_knight', name: 'Barrow Knight', kind: 'humanoid',
     look: humanLook({ skin: PAL.skinUndead, hair: '#38304a', hairStyle: 'bald', shirt: '#3f4450', pants: '#2f2c38', armor: 'heavy', helmet: 'full', armorColor: '#4a4655', armorTrim: PAL.frost, bulk: 1.1, eyes: PAL.frost, cape: '#2b1f4d', weapon: { kind: 'greatsword', metal: PAL.ironLit, grip: PAL.woodDark, glow: PAL.frost } }),
-    level: 13, health: 340, damage: 42, defense: 20, speed: 72, xp: 165, gold: [16, 44], radius: 16,
+    role: 'standard',
+    level: 13, health: 716, damage: 42, defense: 20, speed: 72, xp: 162, gold: [16, 44], radius: 16,
     sight: 340, attackRange: 56, attackCooldown: 2, windup: 0.5, element: 'frost',
     drops: [{ item: 'mat_essence', chance: 0.3 }, { item: 'potion_health_l', chance: 0.2 }],
     lootChance: 0.4, lootBias: 0.2, tags: ['undead'],
@@ -314,7 +382,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'mini_captain', name: 'Cutter Captain Vosk', kind: 'humanoid', elite: true,
     look: humanLook({ shirt: '#6a3a36', pants: '#3a2f28', hair: '#2a2029', hairStyle: 'ponytail', beard: 'full', armor: 'heavy', armorColor: '#5a4a44', armorTrim: PAL.gold, helmet: 'horned', bulk: 1.15, cape: '#8e2131', weapon: { kind: 'greatsword', metal: PAL.steel, grip: PAL.woodDark } }),
-    level: 8, health: 520, damage: 30, defense: 12, speed: 84, xp: 260, gold: [40, 90], radius: 16,
+    role: 'elite',
+    level: 8, health: 1456, damage: 30, defense: 22, speed: 84, xp: 219, gold: [40, 90], radius: 16,
     sight: 400, attackRange: 56, attackCooldown: 1.7, windup: 0.45, faction: 'bandits',
     drops: [{ item: 'potion_health_m', chance: 1, min: 2, max: 3 }, { item: 'q_bandit_orders', chance: 1 }],
     lootChance: 1, lootBias: 0.5, tags: ['humanoid'],
@@ -322,7 +391,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'mini_broodmother', name: 'The Brood Mother', kind: 'creature', elite: true,
     creature: { kind: 'spider', palette: 'venomspider', glow: PAL.toxic }, scale: 1.7,
-    level: 9, health: 620, damage: 26, defense: 10, speed: 78, xp: 300, gold: [30, 80], radius: 22,
+    role: 'elite',
+    level: 9, health: 1761, damage: 26, defense: 24, speed: 78, xp: 263, gold: [30, 80], radius: 22,
     sight: 420, attackRange: 260, attackCooldown: 1.9, windup: 0.5, element: 'poison',
     ranged: { speed: 240, element: 'poison', color: PAL.toxic, radius: 36, count: 3, arc: 0.5 },
     drops: [{ item: 'antidote', chance: 1, min: 2, max: 3 }, { item: 'mat_essence', chance: 1 }],
@@ -331,7 +401,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'mini_frostwarden', name: 'Rime Warden', kind: 'creature', elite: true,
     creature: { kind: 'golem', palette: 'golem', glow: PAL.frost }, scale: 1.7,
-    level: 12, health: 880, damage: 40, defense: 22, speed: 56, xp: 420, gold: [50, 120], radius: 24,
+    role: 'elite',
+    level: 12, health: 2800, damage: 40, defense: 32, speed: 56, xp: 423, gold: [50, 120], radius: 24,
     sight: 360, attackRange: 60, attackCooldown: 2.2, windup: 0.7, element: 'frost',
     drops: [{ item: 'q_ice_core', chance: 1 }, { item: 'mat_crystal', chance: 1, min: 2, max: 4 }],
     lootChance: 1, lootBias: 0.6, tags: ['construct'],
@@ -349,7 +420,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     // lv20 skirmisher: hunts in fours, faster than you, made of nothing much
     id: 'rime_stalker', name: 'Rime Stalker', kind: 'creature', creature: { kind: 'wolf', palette: 'rimewolf', glow: PAL.frost }, scale: 1.3,
-    level: 20, health: 387, damage: 59, defense: 17, speed: 122, xp: 332, gold: [18, 44], radius: 17,
+    role: 'skirmisher',
+    level: 20, health: 1009, damage: 59, defense: 17, speed: 122, xp: 332, gold: [18, 44], radius: 17,
     sight: 440, attackRange: 42, attackCooldown: 1.15, windup: 0.26, pack: true, element: 'frost',
     drops: [{ item: 'mat_leather', chance: 0.5, min: 2, max: 4 }, { item: 'mat_glacier_shard', chance: 0.18 }],
     lootChance: 0.3, tags: ['beast'],
@@ -362,7 +434,8 @@ export const ENEMIES: EnemyDef[] = [
       armor: 'heavy', armorColor: '#5a6a7a', armorTrim: PAL.frost, helmet: 'horned', eyes: PAL.frost, bulk: 1.1,
       weapon: { kind: 'axe', metal: PAL.ironLit, grip: PAL.woodDark, glow: PAL.frost },
     }),
-    level: 21, health: 677, damage: 62, defense: 32, speed: 70, xp: 382, gold: [22, 55], radius: 16,
+    role: 'standard',
+    level: 21, health: 1640, damage: 62, defense: 32, speed: 70, xp: 382, gold: [22, 55], radius: 16,
     sight: 360, attackRange: 54, attackCooldown: 1.9, windup: 0.48, element: 'frost',
     drops: [{ item: 'mat_essence', chance: 0.35 }, { item: 'potion_health_l', chance: 0.25 }, { item: 'mat_glacier_shard', chance: 0.2 }],
     lootChance: 0.45, lootBias: 0.3, tags: ['undead'],
@@ -370,7 +443,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     // lv22 skirmisher: keeps its distance and makes the ground cold
     id: 'winter_shade', name: 'Winter Shade', kind: 'creature', creature: { kind: 'wraith', palette: 'wintershade', glow: PAL.frost }, scale: 1.25,
-    level: 22, health: 454, damage: 64, defense: 18, speed: 96, xp: 395, gold: [20, 52], radius: 15,
+    role: 'skirmisher',
+    level: 22, health: 1206, damage: 64, defense: 18, speed: 96, xp: 395, gold: [20, 52], radius: 15,
     sight: 460, attackRange: 330, attackCooldown: 1.9, windup: 0.5, element: 'frost', flee: 0.12,
     ranged: { speed: 300, element: 'frost', color: PAL.frost, radius: 36, count: 2, arc: 0.35 },
     drops: [{ item: 'mat_essence', chance: 0.4 }, { item: 'potion_mana_m', chance: 0.3 }],
@@ -379,7 +453,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     // lv22 standard: lives under the ice and comes up through it
     id: 'glacier_wyrm', name: 'Glacier Wyrm', kind: 'creature', creature: { kind: 'serpent', palette: 'glacierwyrm', glow: PAL.ice }, scale: 1.5,
-    level: 22, health: 732, damage: 64, defense: 33, speed: 88, xp: 416, gold: [24, 58], radius: 19,
+    role: 'standard',
+    level: 22, health: 1783, damage: 64, defense: 33, speed: 88, xp: 416, gold: [24, 58], radius: 19,
     sight: 400, attackRange: 50, attackCooldown: 1.5, windup: 0.34, element: 'frost',
     drops: [{ item: 'mat_leather', chance: 0.6, min: 2, max: 4 }, { item: 'mat_glacier_shard', chance: 0.25 }],
     lootChance: 0.35, tags: ['beast'],
@@ -392,7 +467,8 @@ export const ENEMIES: EnemyDef[] = [
       armor: 'light', armorColor: '#c6d4e0', armorTrim: PAL.frost, helmet: 'hood', eyes: PAL.frost,
       weapon: { kind: 'bow', metal: PAL.bone, grip: PAL.cloth },
     }),
-    level: 23, health: 790, damage: 67, defense: 35, speed: 94, xp: 452, gold: [26, 62], radius: 14,
+    role: 'standard',
+    level: 23, health: 1916, damage: 67, defense: 35, speed: 94, xp: 452, gold: [26, 62], radius: 14,
     sight: 520, attackRange: 400, attackCooldown: 1.7, windup: 0.46, faction: 'bandits',
     ranged: { speed: 420, element: 'physical', color: PAL.bone, radius: 22 },
     drops: [{ item: 'potion_health_xl', chance: 0.25 }, { item: 'mat_leather', chance: 0.4, min: 2, max: 3 }],
@@ -407,7 +483,8 @@ export const ENEMIES: EnemyDef[] = [
       weapon: { kind: 'greataxe', metal: PAL.ironLit, grip: PAL.woodDark },
     }),
     scale: 1.45,
-    level: 24, health: 1317, damage: 78, defense: 58, speed: 62, xp: 562, gold: [40, 95], radius: 22,
+    role: 'brute',
+    level: 24, health: 3338, damage: 78, defense: 58, speed: 62, xp: 562, gold: [40, 95], radius: 22,
     sight: 380, attackRange: 70, attackCooldown: 2.4, windup: 0.72, element: 'frost',
     drops: [{ item: 'mat_jotun_ingot', chance: 0.3 }, { item: 'potion_health_xl', chance: 0.3 }],
     lootChance: 0.55, lootBias: 0.4, tags: ['giant'],
@@ -420,7 +497,8 @@ export const ENEMIES: EnemyDef[] = [
       armor: 'robe', armorColor: '#2a3c4e', armorTrim: PAL.ice, helmet: 'wizard', eyes: PAL.frost, glow: PAL.frost,
       cape: '#1b2a38', weapon: { kind: 'staff', metal: PAL.ice, grip: PAL.bone, glow: PAL.frost },
     }),
-    level: 25, health: 565, damage: 73, defense: 21, speed: 74, xp: 501, gold: [34, 80], radius: 14,
+    role: 'skirmisher',
+    level: 25, health: 1511, damage: 73, defense: 21, speed: 74, xp: 501, gold: [34, 80], radius: 14,
     sight: 440, attackRange: 360, attackCooldown: 2.1, windup: 0.58, element: 'frost', faction: 'arcane',
     ranged: { speed: 280, element: 'frost', color: PAL.ice, radius: 44, count: 3, arc: 0.45 },
     drops: [{ item: 'mat_essence', chance: 0.5 }, { item: 'mat_glacier_shard', chance: 0.3 }, { item: 'q_relic_shard', chance: 0.2 }],
@@ -429,7 +507,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     // lv26 brute: the glacier learned to stand up
     id: 'glass_golem', name: 'Glass Golem', kind: 'creature', creature: { kind: 'golem', palette: 'icegolem', glow: PAL.frost }, scale: 1.8,
-    level: 26, health: 1512, damage: 84, defense: 62, speed: 52, xp: 653, gold: [44, 105], radius: 25,
+    role: 'brute',
+    level: 26, health: 3811, damage: 84, defense: 62, speed: 52, xp: 653, gold: [44, 105], radius: 25,
     sight: 360, attackRange: 66, attackCooldown: 2.5, windup: 0.8, element: 'frost',
     drops: [{ item: 'mat_glacier_shard', chance: 0.6, min: 1, max: 3 }, { item: 'mat_jotun_ingot', chance: 0.25 }],
     lootChance: 0.6, lootBias: 0.5, tags: ['construct'],
@@ -443,7 +522,8 @@ export const ENEMIES: EnemyDef[] = [
       eyes: PAL.frost, cape: '#c6d4e0', weapon: { kind: 'hammer', metal: PAL.rockPale, grip: PAL.woodDark, glow: PAL.frost },
     }),
     scale: 1.8,
-    level: 28, health: 1721, damage: 90, defense: 67, speed: 60, xp: 751, gold: [60, 140], radius: 27,
+    role: 'brute',
+    level: 28, health: 4279, damage: 90, defense: 67, speed: 60, xp: 751, gold: [60, 140], radius: 27,
     sight: 420, attackRange: 84, attackCooldown: 2.6, windup: 0.85, element: 'frost',
     drops: [{ item: 'mat_jotun_ingot', chance: 0.5, min: 1, max: 2 }, { item: 'elixir_grand', chance: 0.3 }],
     lootChance: 0.7, lootBias: 0.6, tags: ['giant'],
@@ -451,7 +531,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     // lv29 brute: a barrow's worth of clan dead, stacked and standing
     id: 'bone_colossus', name: 'Bone Colossus', kind: 'creature', creature: { kind: 'golem', palette: 'bonewrought', glow: PAL.frost }, scale: 2,
-    level: 29, health: 1831, damage: 93, defense: 70, speed: 50, xp: 802, gold: [66, 150], radius: 28,
+    role: 'brute',
+    level: 29, health: 4505, damage: 93, defense: 70, speed: 50, xp: 802, gold: [66, 150], radius: 28,
     sight: 380, attackRange: 76, attackCooldown: 2.7, windup: 0.9, element: 'shadow',
     drops: [{ item: 'mat_bone', chance: 1, min: 3, max: 6 }, { item: 'mat_greater_rune', chance: 0.25 }],
     lootChance: 0.7, lootBias: 0.6, tags: ['undead', 'construct'],
@@ -466,7 +547,8 @@ export const ENEMIES: EnemyDef[] = [
       cape: '#cfe0ec', weapon: { kind: 'orb', metal: PAL.ice, grip: PAL.bone, glow: PAL.frost },
     }),
     scale: 1.5,
-    level: 24, health: 2719, damage: 70, defense: 65, speed: 68, xp: 1467, gold: [180, 340], radius: 20,
+    role: 'elite',
+    level: 24, health: 8524, damage: 70, defense: 65, speed: 68, xp: 1467, gold: [180, 340], radius: 20,
     sight: 480, attackRange: 380, attackCooldown: 1.9, windup: 0.55, element: 'frost',
     ranged: { speed: 300, element: 'frost', color: PAL.ice, radius: 46, count: 4, arc: 0.7 },
     drops: [{ item: 'mat_glacier_shard', chance: 1, min: 2, max: 4 }, { item: 'potion_health_xl', chance: 1, min: 2, max: 3 }],
@@ -475,7 +557,8 @@ export const ENEMIES: EnemyDef[] = [
   {
     id: 'mini_glacier_maw', name: 'Glacier Maw', kind: 'creature', elite: true,
     creature: { kind: 'crawler', palette: 'glaciermaw', glow: PAL.frost }, scale: 2.2,
-    level: 28, health: 3553, damage: 81, defense: 76, speed: 82, xp: 1959, gold: [240, 430], radius: 26,
+    role: 'elite',
+    level: 28, health: 10827, damage: 81, defense: 76, speed: 82, xp: 1959, gold: [240, 430], radius: 26,
     sight: 440, attackRange: 70, attackCooldown: 1.8, windup: 0.5, element: 'frost',
     drops: [{ item: 'mat_jotun_ingot', chance: 1, min: 2, max: 3 }, { item: 'elixir_grand', chance: 1, min: 1, max: 2 }],
     lootChance: 1, lootBias: 0.9, tags: ['beast'],
@@ -490,7 +573,8 @@ export const BOSSES: EnemyDef[] = [
   {
     id: 'boss_stone_warden', name: 'The Stone Warden', kind: 'creature',
     creature: { kind: 'golem', palette: 'golem', glow: PAL.arcaneLit }, scale: 2.3,
-    level: 10, health: 1750, damage: 34, defense: 22, speed: 50, xp: 900, gold: [180, 320], radius: 30,
+    role: 'boss',
+    level: 10, health: 5762, damage: 34, defense: 26, speed: 50, xp: 780, gold: [180, 320], radius: 30,
     sight: 520, attackRange: 70, attackCooldown: 2.4, windup: 0.75,
     drops: [{ item: 'potion_health_l', chance: 1, min: 2, max: 3 }, { item: 'mat_crystal', chance: 1, min: 3, max: 5 }],
     lootChance: 1, lootBias: 1.1, tags: ['construct'],
@@ -519,7 +603,8 @@ export const BOSSES: EnemyDef[] = [
       weapon: { kind: 'greatsword', metal: PAL.ironLit, grip: PAL.woodDark, glow: PAL.arcaneLit },
     }),
     scale: 2.2,
-    level: 15, health: 2600, damage: 46, defense: 24, speed: 74, xp: 1500, gold: [280, 480], radius: 28,
+    role: 'boss',
+    level: 15, health: 11239, damage: 46, defense: 38, speed: 74, xp: 1558, gold: [280, 480], radius: 28,
     sight: 560, attackRange: 76, attackCooldown: 1.8, windup: 0.5, element: 'shadow',
     drops: [{ item: 'potion_health_l', chance: 1, min: 2, max: 4 }, { item: 'mat_essence', chance: 1, min: 2, max: 4 }],
     lootChance: 1, lootBias: 1.3, tags: ['undead'],
@@ -543,7 +628,8 @@ export const BOSSES: EnemyDef[] = [
   {
     id: 'boss_matriarch', name: 'The Forest Matriarch', kind: 'creature',
     creature: { kind: 'treant', palette: 'treant', glow: PAL.toxic }, scale: 2.4,
-    level: 13, health: 2200, damage: 40, defense: 18, speed: 58, xp: 1200, gold: [200, 380], radius: 30,
+    role: 'boss',
+    level: 13, health: 8883, damage: 40, defense: 33, speed: 58, xp: 1213, gold: [200, 380], radius: 30,
     sight: 540, attackRange: 80, attackCooldown: 2.2, windup: 0.65, element: 'poison',
     drops: [{ item: 'mat_herb', chance: 1, min: 3, max: 6 }, { item: 'q_heartseed', chance: 1 }],
     lootChance: 1, lootBias: 1.2, tags: ['plant'],
@@ -566,7 +652,8 @@ export const BOSSES: EnemyDef[] = [
   {
     id: 'boss_sand_tyrant', name: 'The Sand Tyrant', kind: 'creature',
     creature: { kind: 'scorpion', palette: 'scorpion', glow: PAL.toxic }, scale: 2.4,
-    level: 12, health: 1900, damage: 38, defense: 16, speed: 76, xp: 1050, gold: [190, 340], radius: 28,
+    role: 'boss',
+    level: 12, health: 7759, damage: 38, defense: 31, speed: 76, xp: 1058, gold: [190, 340], radius: 28,
     sight: 520, attackRange: 66, attackCooldown: 1.9, windup: 0.5, element: 'poison',
     drops: [{ item: 'antidote', chance: 1, min: 2, max: 4 }, { item: 'mat_gem_ruby', chance: 1 }],
     lootChance: 1, lootBias: 1.15, tags: ['beast'],
@@ -594,7 +681,8 @@ export const BOSSES: EnemyDef[] = [
       cape: '#1f3a52', weapon: { kind: 'staff', metal: PAL.frost, grip: PAL.ironDark, glow: PAL.frost },
     }),
     scale: 2.1,
-    level: 17, health: 2900, damage: 52, defense: 20, speed: 78, xp: 1800, gold: [320, 560], radius: 26,
+    role: 'boss',
+    level: 17, health: 13800, damage: 52, defense: 43, speed: 78, xp: 1948, gold: [320, 560], radius: 26,
     sight: 600, attackRange: 400, attackCooldown: 2, windup: 0.6, element: 'frost',
     ranged: { speed: 280, element: 'frost', color: PAL.frost, radius: 40 },
     drops: [{ item: 'elixir_grand', chance: 1 }, { item: 'mat_essence', chance: 1, min: 3, max: 5 }],
@@ -602,6 +690,9 @@ export const BOSSES: EnemyDef[] = [
     boss: {
       title: 'Archivist of the Ashen Spire',
       uniqueDrop: 'art_modulo_shard',
+      hitCap: 0.033,
+      enrageAfter: 150,
+      enrageRate: 0.018,
       phases: [
         { at: 1, name: 'Calculation', speed: 1, damage: 1, line: 'The Modulo divides all things. You are a remainder.' },
         { at: 0.65, name: 'Remainder', speed: 1.2, damage: 1.25, line: 'Curious. You persist.', hazard: 'frost' },
@@ -610,7 +701,7 @@ export const BOSSES: EnemyDef[] = [
       attacks: [
         { id: 'shards', name: 'Rime Shards', shape: 'projectile', windup: 0.6, cooldown: 3, power: 1.4, count: 8, range: 600, element: 'frost', color: PAL.frost },
         { id: 'blizzard', name: 'Blizzard', shape: 'rain', windup: 1.2, cooldown: 10, power: 1.7, count: 7, radius: 80, element: 'frost', color: PAL.ice },
-        { id: 'nova', name: 'Absolute Zero', shape: 'ring', windup: 1.5, cooldown: 13, power: 3.2, radius: 320, element: 'frost', color: PAL.white },
+        { id: 'nova', name: 'Absolute Zero', shape: 'ring', windup: 1.5, cooldown: 13, power: 3.2, radius: 320, element: 'frost', color: PAL.white, lifeTax: 0.12 },
         { id: 'thralls', name: 'Frozen Court', shape: 'summon', windup: 1.1, cooldown: 18, power: 0, count: 3, element: 'frost', color: PAL.ice, summon: 'revenant_knight', phase: 1 },
         { id: 'blink', name: 'Fold Space', shape: 'dash', windup: 0.4, cooldown: 6, power: 1.2, range: 340, element: 'arcane', color: PAL.arcaneLit, phase: 1 },
       ],
@@ -629,7 +720,8 @@ export const BOSSES: EnemyDef[] = [
       weapon: { kind: 'greataxe', metal: PAL.steel, grip: PAL.woodDark },
     }),
     scale: 2.2,
-    level: 19, health: 3600, damage: 62, defense: 44, speed: 80, xp: 2380, gold: [420, 720], radius: 26,
+    role: 'boss',
+    level: 19, health: 16545, damage: 62, defense: 48, speed: 80, xp: 2383, gold: [420, 720], radius: 26,
     sight: 520, attackRange: 84, attackCooldown: 1.9, windup: 0.55, faction: 'northern',
     drops: [{ item: 'potion_health_xl', chance: 1, min: 2, max: 4 }, { item: 'mat_glacier_shard', chance: 1, min: 2, max: 3 }],
     lootChance: 1, lootBias: 1.2, tags: ['humanoid'],
@@ -657,7 +749,8 @@ export const BOSSES: EnemyDef[] = [
   {
     id: 'boss_riven_choir', name: 'The Riven Choir', kind: 'creature',
     creature: { kind: 'wraith', palette: 'wintershade', glow: PAL.ice }, scale: 2.5,
-    level: 24, health: 5350, damage: 80, defense: 55, speed: 74, xp: 3670, gold: [560, 940], radius: 26,
+    role: 'boss',
+    level: 24, health: 24022, damage: 80, defense: 61, speed: 74, xp: 3668, gold: [560, 940], radius: 26,
     sight: 620, attackRange: 420, attackCooldown: 1.9, windup: 0.55, element: 'frost',
     ranged: { speed: 300, element: 'frost', color: PAL.ice, radius: 44, count: 3, arc: 0.5 },
     drops: [{ item: 'elixir_grand', chance: 1, min: 2, max: 3 }, { item: 'mat_greater_rune', chance: 1 }],
@@ -665,6 +758,9 @@ export const BOSSES: EnemyDef[] = [
     boss: {
       title: 'What Is Left Singing in the Riven Cathedral',
       uniqueDrop: 'art_glacier_heart',
+      hitCap: 0.025,
+      enrageAfter: 150,
+      enrageRate: 0.02,
       phases: [
         { at: 1, name: 'Plainsong', speed: 1, damage: 1, line: 'We were forty. We are one. Sit, and we will teach you the part you sing.' },
         { at: 0.62, name: 'Descant', speed: 1.25, damage: 1.3, line: 'You are singing it wrong.', hazard: 'frost' },
@@ -673,7 +769,7 @@ export const BOSSES: EnemyDef[] = [
       attacks: [
         { id: 'chord', name: 'Chord', shape: 'projectile', windup: 0.55, cooldown: 3, power: 1.3, count: 7, range: 640, element: 'frost', color: PAL.ice },
         { id: 'antiphon', name: 'Antiphon', shape: 'line', windup: 1, cooldown: 8, power: 2.1, range: 620, element: 'frost', color: PAL.white },
-        { id: 'chorus', name: 'Full Chorus', shape: 'ring', windup: 1.4, cooldown: 12, power: 2.6, radius: 340, element: 'frost', color: PAL.frost, phase: 1 },
+        { id: 'chorus', name: 'Full Chorus', shape: 'ring', windup: 1.4, cooldown: 12, power: 2.6, radius: 340, element: 'frost', color: PAL.frost, phase: 1, lifeTax: 0.14 },
         { id: 'voices', name: 'The Other Voices', shape: 'summon', windup: 1.1, cooldown: 19, power: 0, count: 4, element: 'frost', color: PAL.ice, summon: 'winter_shade', phase: 1 },
         { id: 'hail', name: 'Hailfall', shape: 'rain', windup: 1.2, cooldown: 10, power: 1.7, count: 9, radius: 82, element: 'frost', color: PAL.white, phase: 2 },
       ],
@@ -688,13 +784,17 @@ export const BOSSES: EnemyDef[] = [
       weapon: { kind: 'greataxe', metal: '#bcd8e8', grip: PAL.woodDark, glow: PAL.frost },
     }),
     scale: 2.6,
-    level: 28, health: 7000, damage: 93, defense: 66, speed: 66, xp: 4900, gold: [820, 1350], radius: 30,
+    role: 'boss',
+    level: 28, health: 30646, damage: 93, defense: 71, speed: 66, xp: 4898, gold: [820, 1350], radius: 30,
     sight: 560, attackRange: 96, attackCooldown: 2.2, windup: 0.7, element: 'frost',
     drops: [{ item: 'mat_jotun_ingot', chance: 1, min: 3, max: 5 }, { item: 'elixir_grand', chance: 1, min: 2, max: 3 }],
     lootChance: 1, lootBias: 1.4, tags: ['giant'],
     boss: {
       title: 'King Under the Long Barrow',
       uniqueDrop: 'unique_jotunbane',
+      hitCap: 0.02,
+      enrageAfter: 150,
+      enrageRate: 0.025,
       phases: [
         { at: 1, name: 'Waking', speed: 1, damage: 1, line: 'Small thing. Loud thing. You have woken a tired king.' },
         { at: 0.7, name: 'Standing', speed: 1.18, damage: 1.22, line: 'Ah. You meant it.' },
@@ -703,7 +803,7 @@ export const BOSSES: EnemyDef[] = [
       ],
       attacks: [
         { id: 'sweep', name: 'Barrow Sweep', shape: 'cone', windup: 0.7, cooldown: 4.5, power: 1.6, radius: 230, element: 'physical', color: PAL.ironLit },
-        { id: 'quake', name: 'Barrowquake', shape: 'ring', windup: 1.3, cooldown: 10, power: 2.4, radius: 360, element: 'physical', color: PAL.rockPale },
+        { id: 'quake', name: 'Barrowquake', shape: 'ring', windup: 1.3, cooldown: 10, power: 2.4, radius: 360, element: 'physical', color: PAL.rockPale, lifeTax: 0.16 },
         { id: 'hurl', name: 'Hurled Cairn', shape: 'projectile', windup: 0.9, cooldown: 6, power: 1.9, count: 3, range: 620, element: 'physical', color: PAL.rock },
         { id: 'stride', name: 'Long Stride', shape: 'dash', windup: 0.5, cooldown: 8, power: 1.7, range: 460, element: 'frost', color: PAL.frost, phase: 1 },
         { id: 'honour', name: 'Honour Guard', shape: 'summon', windup: 1.2, cooldown: 22, power: 0, count: 3, element: 'frost', color: PAL.ice, summon: 'jotun_thrall', phase: 2 },
@@ -728,7 +828,8 @@ export const BOSSES: EnemyDef[] = [
       weapon: { kind: 'greatsword', metal: '#e6f4fb', grip: PAL.bone, glow: PAL.frost },
     }),
     scale: 3.1,
-    level: 32, health: 9000, damage: 105, defense: 82, speed: 72, xp: 6300, gold: [1600, 2600], radius: 38,
+    role: 'boss',
+    level: 32, health: 37497, damage: 105, defense: 82, speed: 72, xp: 6308, gold: [1600, 2600], radius: 38,
     sight: 720, attackRange: 120, attackCooldown: 2.1, windup: 0.65, element: 'frost',
     ranged: { speed: 320, element: 'frost', color: PAL.white, radius: 52 },
     drops: [
@@ -746,6 +847,15 @@ export const BOSSES: EnemyDef[] = [
       title: 'What the Jotunreach Was Built To Keep In',
       arenaMusic: true,
       uniqueDrop: 'art_last_gate',
+      // 80 connecting hits, minimum, whatever you are carrying. At a
+      // greatsword's swing rate that is a hair over ninety seconds of a
+      // five-phase boss using its whole kit on you, and it is ninety seconds
+      // at level 32 and at level 60.
+      hitCap: 0.0125,
+      // And it does not wait you out. Two minutes in, every blow starts
+      // climbing 3% a second, forever.
+      enrageAfter: 120,
+      enrageRate: 0.03,
       phases: [
         { at: 1, name: 'The Gate', speed: 1, damage: 1, line: 'You walked a very long way to be told no.' },
         { at: 0.8, name: 'The Cold', speed: 1.15, damage: 1.2, line: 'The clans put a door here. A door. Against me.', hazard: 'frost' },
@@ -757,14 +867,66 @@ export const BOSSES: EnemyDef[] = [
         { id: 'edge', name: "Winter's Edge", shape: 'cone', windup: 0.65, cooldown: 4, power: 1.5, radius: 280, element: 'frost', color: PAL.white },
         { id: 'glacier', name: 'Glacier Step', shape: 'dash', windup: 0.45, cooldown: 7, power: 1.8, range: 540, element: 'frost', color: PAL.ice },
         { id: 'shards', name: 'Splinter', shape: 'projectile', windup: 0.6, cooldown: 3.2, power: 1.3, count: 9, range: 700, element: 'frost', color: PAL.frost },
-        { id: 'wall', name: 'The Gate Closes', shape: 'line', windup: 1.1, cooldown: 9, power: 2.2, range: 700, element: 'frost', color: PAL.ice, phase: 1 },
-        { id: 'nova', name: 'Killing Frost', shape: 'ring', windup: 1.5, cooldown: 12, power: 2.8, radius: 400, element: 'frost', color: PAL.white, phase: 1 },
+        { id: 'wall', name: 'The Gate Closes', shape: 'line', windup: 1.1, cooldown: 9, power: 2.2, range: 700, element: 'frost', color: PAL.ice, phase: 1, lifeTax: 0.14 },
+        { id: 'nova', name: 'Killing Frost', shape: 'ring', windup: 1.5, cooldown: 12, power: 2.8, radius: 400, element: 'frost', color: PAL.white, phase: 1, lifeTax: 0.18 },
         { id: 'thralls', name: 'The Long March', shape: 'summon', windup: 1.2, cooldown: 24, power: 0, count: 3, element: 'frost', color: PAL.ice, summon: 'jotun_thrall', phase: 2 },
         { id: 'blizzard', name: 'The Long Night', shape: 'rain', windup: 1.3, cooldown: 10, power: 2, count: 12, radius: 92, element: 'frost', color: PAL.ice, phase: 2 },
         { id: 'stomp', name: 'Break the Floor', shape: 'circle', windup: 1, cooldown: 7, power: 2.1, radius: 240, element: 'physical', color: PAL.rockPale, phase: 2 },
         { id: 'heralds', name: 'The Choir Follows', shape: 'summon', windup: 1.1, cooldown: 26, power: 0, count: 4, element: 'frost', color: PAL.frost, summon: 'winter_shade', phase: 3 },
-        { id: 'winter', name: 'Everywhere', shape: 'ring', windup: 1.8, cooldown: 15, power: 3.6, radius: 560, element: 'frost', color: PAL.white, phase: 4 },
+        { id: 'winter', name: 'Everywhere', shape: 'ring', windup: 1.8, cooldown: 15, power: 3.6, radius: 560, element: 'frost', color: PAL.white, phase: 4, lifeTax: 0.34 },
         { id: 'hunt', name: 'The Season Turns', shape: 'rain', windup: 0.9, cooldown: 6, power: 2.2, count: 14, radius: 96, element: 'frost', color: PAL.white, phase: 4 },
+      ],
+    },
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* Under the Gate                                                    */
+  /*                                                                   */
+  /* Past Aldrhrim, down. Nothing here is level-appropriate for anyone. */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'boss_remainder', name: 'The Remainder', kind: 'creature',
+    creature: { kind: 'wisp', palette: 'wisp', glow: PAL.white }, scale: 3.4,
+    role: 'boss',
+    level: 40, health: 52604, damage: 130, defense: 102, speed: 86, xp: 9668, gold: [4000, 7000], radius: 44,
+    sight: 900, attackRange: 160, attackCooldown: 1.8, windup: 0.55, element: 'arcane',
+    ranged: { speed: 340, element: 'arcane', color: PAL.arcaneLit, radius: 56 },
+    drops: [
+      { item: 'unique_remainder', chance: 1 },
+      { item: 'elixir_grand', chance: 1, min: 6, max: 9 },
+      { item: 'mat_greater_rune', chance: 1, min: 4, max: 7 },
+    ],
+    lootChance: 1, lootBias: 2.4, tags: ['construct'],
+    boss: {
+      title: 'What Would Not Divide',
+      arenaMusic: true,
+      uniqueDrop: 'art_remainder',
+      // 100 connecting hits. There is no build, at any level, that shortens
+      // this fight below about two minutes, and the enrage means those two
+      // minutes get worse rather than safer. This is the one the game is
+      // willing to let you lose forever.
+      hitCap: 0.01,
+      enrageAfter: 90,
+      enrageRate: 0.04,
+      phases: [
+        { at: 1, name: 'Zero', speed: 1, damage: 1, line: 'Everything here was divided evenly. Then there was me.' },
+        { at: 0.84, name: 'One', speed: 1.12, damage: 1.18, line: 'You are counting. Good. Keep counting.' },
+        { at: 0.64, name: 'Two', speed: 1.25, damage: 1.4, line: 'The Concord tried this. The clans tried this. Aldrhrim tried this.', hazard: 'shadow' },
+        { at: 0.44, name: 'Three', speed: 1.42, damage: 1.65, line: 'None of them were wrong. They were only finite.', hazard: 'shadow' },
+        { at: 0.24, name: 'Four', speed: 1.6, damage: 1.95, line: 'I have been the part left over since before the valley had water in it.', hazard: 'shadow' },
+        { at: 0.08, name: 'Remainder', speed: 1.9, damage: 2.4, line: 'AND I AM STILL HERE.', hazard: 'shadow' },
+      ],
+      attacks: [
+        { id: 'divide', name: 'Divide', shape: 'cone', windup: 0.6, cooldown: 3.4, power: 1.6, radius: 320, element: 'arcane', color: PAL.arcaneLit },
+        { id: 'shards', name: 'Long Division', shape: 'projectile', windup: 0.55, cooldown: 2.8, power: 1.3, count: 11, range: 760, element: 'arcane', color: PAL.arcane },
+        { id: 'fold', name: 'Fold', shape: 'dash', windup: 0.35, cooldown: 6, power: 1.8, range: 620, element: 'arcane', color: PAL.white },
+        { id: 'carry', name: 'Carry the One', shape: 'line', windup: 1, cooldown: 8, power: 2.2, range: 800, element: 'shadow', color: PAL.arcaneDark, lifeTax: 0.12 },
+        { id: 'modulo', name: 'Modulo', shape: 'ring', windup: 1.4, cooldown: 11, power: 2.9, radius: 460, element: 'arcane', color: PAL.white, phase: 1, lifeTax: 0.2 },
+        { id: 'factors', name: 'Its Factors', shape: 'summon', windup: 1.1, cooldown: 20, power: 0, count: 4, element: 'frost', color: PAL.ice, summon: 'bone_colossus', phase: 2 },
+        { id: 'rain', name: 'Precision Loss', shape: 'rain', windup: 1.1, cooldown: 8, power: 2.1, count: 14, radius: 96, element: 'shadow', color: PAL.arcaneDark, phase: 2 },
+        { id: 'heralds', name: 'The Others', shape: 'summon', windup: 1.1, cooldown: 24, power: 0, count: 5, element: 'frost', color: PAL.frost, summon: 'herald_winter', phase: 3 },
+        { id: 'zero', name: 'Remainder Zero', shape: 'ring', windup: 2, cooldown: 16, power: 4.2, radius: 700, element: 'shadow', color: PAL.arcaneDark, phase: 4, lifeTax: 0.42 },
+        { id: 'count', name: 'Keep Counting', shape: 'rain', windup: 0.8, cooldown: 5, power: 2.4, count: 18, radius: 104, element: 'arcane', color: PAL.arcaneLit, phase: 5, lifeTax: 0.06 },
       ],
     },
   },

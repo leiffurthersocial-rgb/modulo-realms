@@ -124,6 +124,20 @@ export default function HelpPanel({ game }: { game: Game }) {
                   backing off.
                 </P>
 
+                <H>Bosses that stay bosses</H>
+                <P>
+                  A few fights cannot be deleted by a good build. They cap how much any single blow can take off, so
+                  the fight always runs long enough for them to use everything they have — when you see <b>Warded</b>
+                  float off one, that is the cap, not a miss. Your swing rate, your crits and your abilities all still
+                  matter; only the size of one hit is held down.
+                </P>
+                <P>
+                  The same fights bite through armour. Their biggest attacks take a share of your <i>maximum</i> health
+                  no matter what you are wearing, and a dodge roll is the only thing that avoids them. And they do not
+                  wait you out: stay too long and they start hitting harder every second, without limit. Attrition is
+                  not a plan.
+                </P>
+
                 <H>Dying</H>
                 <P>
                   You keep your gear. Fast travel will not work for three seconds after you take damage, so a waystone
@@ -146,8 +160,21 @@ export default function HelpPanel({ game }: { game: Game }) {
                 </div>
                 <P>
                   Anything above Rare bursts where it lands and stands under a beam of its own colour, so you can spot
-                  a good drop from across a room. Rarer gear also carries more enchantment slots: none, one, one, two,
-                  three.
+                  a good drop from across a room — and the name that floats up when you collect it is in that same
+                  colour, so you never have to open the pack to know what you just picked up. Rarer gear also carries
+                  more enchantment slots: none, one, one, two, three.
+                </P>
+                <P>
+                  <b style={{ color: '#ff4f6e' }}>Mythic</b> is not a tier loot can roll into, and not something the
+                  crown&apos;s warrant can raise a thing to. Two weapons in the whole world wear it. You will know.
+                </P>
+
+                <H>Who drops what</H>
+                <P>
+                  Ordinary enemies drop a fraction of what elites and bosses do — roughly half the materials and well
+                  under half the gear. Forty kills on the road should not fill your pack; the things with names should.
+                  Magic Find is added on top of that rather than scaled by it, so investing in it still changes what a
+                  field kill pays.
                 </P>
 
                 <H>Four slots, and that is all</H>
@@ -251,8 +278,10 @@ export default function HelpPanel({ game }: { game: Game }) {
                   one at level 22, and it is worth waiting for.
                 </P>
                 <P>
-                  The game is built to be finished somewhere around level 34. Each talent branch runs four tiers deep,
-                  which is more points than you will have, so a build is a choice about what to leave out.
+                  The game is built to be finished somewhere around level 34, at the Last Gate. There is content past
+                  it to level 40 — the stair under the gate keeps going down, and what is at the bottom is not
+                  level-appropriate for anybody. Each talent branch runs four tiers deep, which is more points than you
+                  will have, so a build is a choice about what to leave out.
                 </P>
 
                 <H>Changing your mind</H>

@@ -218,10 +218,10 @@ export function ItemCell({ item, selected, onClick, equipped }: { item: Item; se
   const color = rarityColor(item.rarity);
   return (
     <button
-      className={`item-cell ${selected ? 'selected' : ''} ${equipped ? 'equipped' : ''}`}
+      className={`item-cell ${selected ? 'selected' : ''} ${equipped ? 'equipped' : ''} ${item.rarity === 'mythic' ? 'mythic' : ''}`}
       onClick={onClick}
       title={item.name}
-      style={item.rarity === 'common' ? undefined : { borderColor: color, boxShadow: `inset 0 0 12px ${color}22` }}
+      style={item.rarity === 'common' || item.rarity === 'mythic' ? undefined : { borderColor: color, boxShadow: `inset 0 0 12px ${color}22` }}
     >
       <img src={itemIcon(item)} alt="" />
       {item.qty > 1 ? <span className="qty">{item.qty}</span> : null}

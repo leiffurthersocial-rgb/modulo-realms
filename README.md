@@ -247,15 +247,22 @@ colour of the character.
 ### Rarity
 
 Rarity is readable from colour alone, everywhere it appears — item names, tooltip pills,
-inventory slot borders and the drop glow:
+inventory slot borders, the drop glow, and the name that floats up when you collect something:
 
-| Rarity | Colour | Enchantment slots |
-| --- | --- | --- |
-| Common | White | 0 |
-| Rare | Green | 1 |
-| Super Rare | Blue | 1 |
-| Epic | Purple | 2 |
-| Legendary | Yellow / gold | 3 |
+| Rarity | Colour | Enchantment slots | Rolls from loot? |
+| --- | --- | --- | --- |
+| Common | White | 0 | yes |
+| Rare | Green | 1 | yes |
+| Super Rare | Blue | 1 | yes |
+| Epic | Purple | 2 | yes |
+| Legendary | Yellow / gold | 3 | yes |
+| Mythic | Crimson, animated | 3 | **no** |
+
+`Mythic` is placed by hand and nothing else can reach it: its weight in `RARITY_WEIGHTS` is
+zero, `rollRarity` draws from `ROLLABLE_RARITIES` which excludes it, and `canElevate` stops the
+crown's warrant at Legendary. Two weapons in the game carry it — the Leviathan Axe and the
+Blades of Chaos — and its name is drawn with an animated gradient rather than a flat colour, so
+it does not read as "a slightly different legendary".
 
 ### Enchantments
 
@@ -387,11 +394,14 @@ of the extension points below are wired into it. It holds:
 
 | Export | What it decides |
 | --- | --- |
-| `meleeDpsAt(level)` | The damage-per-second every weapon in the game is priced against |
+| `meleeDpsAt(level)` | The damage-per-second every **weapon** is priced against — what keeps weapons honest against each other |
+| `playerDpsAt(level)` | The damage-per-second the player **actually deals**, which is what every **enemy** is priced against |
+| `TIME_TO_KILL` | How many seconds a fight of each role should last. This is the difficulty dial |
 | `CLASS_POWER` / `SHAPE_POWER` | What ranged and magic pay for reach, and what a sweeping weapon pays for its arc |
 | `weaponDamage(kind, level, rarity, speed)` | Damage per swing, solved from the above |
 | `armorDefenseAt(level, rarity)` | The armour curve |
 | `enemyHealthAt/DamageAt/DefenseAt/XpAt(level, role)` | The bestiary curves, by role |
+| `ENEMY_THREAT` | The only things not solved by a curve: how hard a hit lands, and what a kill pays |
 | `LEVEL_BANDS` | Which region is built for which levels |
 | `ENDGAME_LEVEL` | The level the game is built to be finished at |
 
@@ -403,9 +413,18 @@ change, run:
 npx tsx scripts/check-balance.ts
 ```
 
-It prints every weapon, suit of armour and enemy as a multiple of its budget, and flags
-anything out of band. Weapons and armour should all read `x1.00`; enemies are hand-written and
-are allowed to wander, within reason.
+It prints every weapon, suit of armour and enemy as a multiple of its budget — and, for each
+enemy, how many seconds the fight it implies actually takes. Everything should read `x1.00`.
+
+**Two DPS curves, and they are not interchangeable.** `meleeDpsAt` is what a weapon's own
+damage number is priced against, so that sixty weapons stay comparable to each other.
+`playerDpsAt` is what the player really puts out, and it is a different shape: `attackPower()`
+is `weaponDamage * (1 + primaryStat * 0.022)`, and both of those grow with level, so real
+damage grows quadratically. Measured against a dummy, the real number is 1.6x the weapon curve
+at level 5, 6.7x at 17 and 37x at 34. Enemy health priced against the weapon curve is therefore
+correct at low level and meaningless at high level — which is exactly how a five-phase boss once
+ended up dying in three and a half seconds. Enemies are priced against `playerDpsAt` and
+`TIME_TO_KILL`; weapons are priced against `meleeDpsAt`. Do not mix them up.
 
 ### Add an item
 
@@ -467,6 +486,17 @@ telegraph `windup`, a `cooldown`, a `power` multiplier, and an optional `phase` 
 Everything about a boss fight is data; `src/game/entities/enemy.ts` reads it and does not need
 touching. Aldrhrim at the Last Gate is five phases and eleven attacks and is still only a data
 entry.
+
+Three optional fields make a boss one that never becomes easy, and they exist because the
+player's real damage grows *quadratically* (see below) while any fixed pool of health does not:
+
+| Field | What it does |
+| --- | --- |
+| `boss.hitCap` | The most a single blow may remove, as a share of the boss's health. `0.0125` means at least 80 connecting hits, at any level, with any weapon. Capped hits float **Warded**. |
+| `attack.lifeTax` | A share of the player's *maximum* health, dealt on top of the hit and ignoring armour. Stacking defense never makes this attack safe; a dodge roll still avoids it. |
+| `boss.enrageAfter` / `enrageRate` | After N seconds its damage climbs by that fraction per second, without limit. Outlasting it is not a strategy. |
+
+Use them sparingly — on the handful of fights that are supposed to stay frightening forever.
 
 ### Add an NPC
 
