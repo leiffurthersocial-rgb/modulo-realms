@@ -18,6 +18,7 @@ export type DialogueAction =
   | { type: 'give'; item: string; qty?: number }
   | { type: 'take'; item: string; qty?: number }
   | { type: 'gold'; amount: number }
+  | { type: 'remake' }
   | { type: 'attack' };
 
 export interface DialogueCond {

@@ -1277,3 +1277,31 @@ canvas.world {
   display: inline-block; width: 7px; height: 7px; background: #f0c93c;
   border: 1px solid #0c1218; border-radius: 1px;
 }
+
+/* The witch's mirror: what you are, beside what you would be. */
+.remake-layout { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; padding: 0 16px; }
+.remake-mirror {
+  display: flex; align-items: center; justify-content: center; gap: 28px;
+  padding: 14px 10px; border-bottom: 1px solid var(--edge);
+}
+.remake-side { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 210px; }
+.rm-label {
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--muted);
+}
+.rm-race { font-size: 13.5px; color: var(--gold); margin-top: 4px; }
+.rm-stats { font-size: 11px; color: var(--muted); text-align: center; max-width: 230px; line-height: 1.6; }
+.rm-arrow { font-size: 26px; color: #6fd0e8; opacity: 0.8; }
+.remake-rows { display: flex; flex-direction: column; gap: 9px; margin-bottom: 8px; }
+.remake-row { display: flex; align-items: center; gap: 12px; }
+.rr-label { width: 58px; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.rr-items { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.swatch {
+  width: 24px; height: 24px; border-radius: 3px; border: 2px solid var(--edge); cursor: pointer; padding: 0;
+}
+.swatch.on { border-color: var(--gold); box-shadow: 0 0 9px rgba(240, 201, 60, 0.6); }
+.remake-note { font-size: 11.5px; color: var(--muted); line-height: 1.75; padding: 10px 2px 4px; }
+@media (max-width: 760px) {
+  .remake-mirror { gap: 12px; }
+  .remake-side { min-width: 0; }
+}

@@ -5,7 +5,8 @@ import { TEMPLATE_BY_ID } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
-import { FACTION_BY_ID } from '../../data/races';
+import { FACTION_BY_ID, RACE_BY_ID, type RaceId } from '../../data/races';
+import type { Look } from '../art/characters';
 import { PAL } from '../art/palette';
 import { audio, type MusicTrack } from '../audio/audio';
 import { FxSystem } from '../combat/fx';
@@ -32,7 +33,7 @@ import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -2273,6 +2274,16 @@ export class Game implements WorldCtx {
             this.toast(`${a.amount > 0 ? '+' : ''}${a.amount} gold`, undefined, PAL.gold, 'gold');
             audio.play('gold', 0.6);
             break;
+          case 'remake':
+            if (this.player.gold < this.remakeCost) {
+              this.toast('Not enough gold', `The witch wants ${this.remakeCost}.`, '#d9553f');
+              break;
+            }
+            this.panel = 'remake';
+            this.dialogue = null;
+            audio.play('ui_big', 0.6);
+            this.touch();
+            return;
           case 'attack':
             this.startDuel(npc);
             return;
@@ -2428,7 +2439,21 @@ export class Game implements WorldCtx {
   }
 
   /** Gold it costs to retrain into another class. */
-  readonly classChangeCost = 100;
+  /**
+   * Retraining. A class change refunds every talent point and hands over a
+   * starting kit, which at a hundred gold was cheap enough to flip between
+   * classes on a whim and never feel the decision. A thousand makes it a
+   * thing you save for.
+   */
+  readonly classChangeCost = 1000;
+
+  /**
+   * What the witch charges to change what you were born as. Deliberately an
+   * order of magnitude above retraining: a class is a job and a race is not,
+   * and the price is most of what makes the choice at character creation
+   * mean anything at all.
+   */
+  readonly remakeCost = 10000;
 
   /**
    * Retrain into another class: swaps the stat block and ability set, refunds
@@ -2463,6 +2488,45 @@ export class Game implements WorldCtx {
     this.fx.spawn(p.x, p.y, 48, def.color, { speed: 170, life: 1.1, size: 3, gravity: -70 });
     audio.play('levelup', 0.9);
     this.toast(`You are now a ${def.name}`, `${spent} skill point${spent === 1 ? '' : 's'} refunded, starting kit issued.`, def.color);
+    this.touch();
+    return true;
+  }
+
+  /**
+   * The witch's work: a new race and a new face, for a price.
+   *
+   * Everything earned is kept — level, talents, gear, reputation, quests.
+   * Only what the character was born as changes, and with it the racial
+   * bonuses and perk that come from it. The indices are taken modulo the new
+   * race's own palettes, so a beastfolk hair colour cannot survive into a
+   * dwarf and leave the character wearing a colour that race does not have.
+   */
+  remakeCharacter(race: RaceId, look: { skinIndex: number; hairIndex: number; hairStyle: Look['hairStyle']; beard: Look['beard'] }): boolean {
+    const p = this.player;
+    if (p.gold < this.remakeCost) {
+      this.toast('Not enough gold', `The witch wants ${this.remakeCost}.`, '#d9553f');
+      return false;
+    }
+    const def = RACE_BY_ID[race];
+    p.gold -= this.remakeCost;
+    p.race = race;
+    p.skinIndex = look.skinIndex % def.look.skins.length;
+    p.hairIndex = look.hairIndex % def.look.hairs.length;
+    p.hairStyle = look.hairStyle;
+    p.beard = look.beard;
+    p.flags.add('witch_remade');
+    // Racial stats move, so the pools move with them rather than leaving the
+    // character standing there on the old maximum.
+    p.hp = Math.min(p.maxHp, p.hp);
+    p.mp = Math.min(p.maxMp, p.mp);
+    p.sp = Math.min(p.maxSp, p.sp);
+
+    this.closeAll();
+    this.fx.ring(p.x, p.y, 160, '#6fd0e8');
+    this.fx.spawn(p.x, p.y, 54, '#6fd0e8', { speed: 180, life: 1.2, size: 3, gravity: -60 });
+    this.flashScreen('#6fd0e8', 0.25);
+    audio.play('levelup', 0.9);
+    this.toast(`You come up out of the water ${def.name}`, def.perk, '#6fd0e8');
     this.touch();
     return true;
   }

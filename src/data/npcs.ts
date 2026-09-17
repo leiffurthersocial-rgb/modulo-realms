@@ -55,6 +55,8 @@ export interface NpcDef {
    * take the rematch.
    */
   duel?: { enemy: string; wonFlag: string };
+  /** Opens the witch's mirror: a new race, and a new face to go with it. */
+  remakes?: boolean;
 }
 
 const look = (o: Partial<Look>): Look => ({
@@ -746,6 +748,59 @@ export const NPCS: NpcDef[] = [
         '"Every thing you put down out there, the crown owes you for. I keep a tally. It is the only ledger I read."',
         '"Bring me something you carry and I will have it made worthy of the man carrying it."',
       ], choices: [{ text: 'Show me the warrants.', actions: [{ type: 'royal' }] }] },
+    ],
+  },
+  /* ------------------------------ the witch ------------------------------ */
+  {
+    id: 'witch_orsolya', name: 'Orsolya', title: 'Of the Standing Water', race: 'revenant', faction: 'arcane',
+    personality: 'Patient in the way of somebody who has watched a great many people change their minds.',
+    map: 'overworld', tx: 362, ty: 492,
+    look: look({
+      skin: PAL.skinUndead, hair: '#38304a', hairStyle: 'wild', eyes: '#6fd0e8',
+      height: 1.02, bulk: 0.94,
+      shirt: '#2b2038', pants: '#1e1728',
+      armor: 'robe', armorColor: '#33264a', armorTrim: '#6fd0e8', helmet: 'hood', cape: '#241a33',
+      weapon: { kind: 'staff', metal: '#5a4a7a', grip: '#241a33', glow: '#6fd0e8' },
+    }),
+    wander: 8,
+    remakes: true,
+    greeting: [
+      { cond: { flag: 'witch_remade' }, lines: [
+        '"Back again." She does not look up from the water. "It takes the same as it did last time."',
+        '"People always think the second one will be cheaper. It never is."',
+      ] },
+      { cond: { races: ['revenant'] }, lines: [
+        'She looks at you the way you look at a mirror, which is to say without much surprise.',
+        '"You came back wrong too. Sit down. I will not pretend to be shocked."',
+      ] },
+      { lines: [
+        'A woman is kneeling at the edge of a pool that has no business being this still, this close to the river.',
+        '"You are looking at the water rather than at me. Everyone does. It shows you as you are, which most people can stand for about four seconds."',
+      ] },
+    ],
+    topics: [
+      { text: 'Can you change what I am?', to: 'offer' },
+      { text: 'What is the water?', to: 'water' },
+      { text: 'Why out here, and not in a town?', to: 'why_here' },
+    ],
+    nodes: [
+      { id: 'water', text: [
+        '"Older than the Modulo and much ruder about it. The Concord came out once to measure it."',
+        '"They wrote down that it was a pond. I keep the report. It is the funniest thing I own."',
+      ] },
+      { id: 'why_here', text: [
+        '"Because what I do is legal in exactly the way that nobody has got round to writing it down."',
+        '"A town would fix that within a month. Out here I am a rumour, and a rumour pays no tax."',
+      ] },
+      { id: 'offer', text: [
+        '"I can. Blood, bones, the shape of your face, the colour of your eyes — all of it is only a habit your body is in."',
+        '"Breaking a habit that old costs ten thousand gold. I do not haggle and I do not take instalments."',
+        '"You will keep everything you have earned. Your levels, your skills, your gear, the people who owe you favours."',
+        '"What changes is what you were born as. Think about that for a moment before you nod."',
+      ], choices: [
+        { text: 'Show me the water. (10,000g)', cond: { minGold: 10000 }, actions: [{ type: 'remake' }] },
+        { text: 'I cannot afford that.', cond: { minGold: 0 }, to: '__root' },
+      ] },
     ],
   },
   ...WANDERING_TRADERS,
