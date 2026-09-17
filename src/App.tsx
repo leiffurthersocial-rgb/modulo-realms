@@ -19,6 +19,7 @@ import StoragePanel from './ui/StoragePanel';
 import TravelPanel from './ui/TravelPanel';
 import ForgePanel from './ui/ForgePanel';
 import PausePanel from './ui/PausePanel';
+import HelpPanel from './ui/HelpPanel';
 import SettingsPanel from './ui/SettingsPanel';
 import DeathScreen from './ui/DeathScreen';
 
@@ -51,11 +52,16 @@ export default function App() {
     let raf = 0;
     let last = performance.now();
     const loop = (t: number) => {
-      const dt = Math.min(0.1, (t - last) / 1000);
+      raf = requestAnimationFrame(loop);
+      // Battery saver runs the whole loop at 30fps rather than 60. The frame
+      // is skipped outright — no update, no render — which is what actually
+      // saves power; drawing less per frame at 60fps would not.
+      const elapsed = (t - last) / 1000;
+      if (g.settings.batterySaver && elapsed < 1 / 32) return;
+      const dt = Math.min(0.1, elapsed);
       last = t;
       g.update(dt);
       if (g.screen === 'playing' || g.screen === 'dead') render(g);
-      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
 
@@ -158,6 +164,7 @@ function UiLayer({ game }: { game: Game }) {
       {game.panel === 'travel' ? <TravelPanel game={game} /> : null}
       {game.panel === 'forge' ? <ForgePanel game={game} /> : null}
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
+      {game.panel === 'help' ? <HelpPanel game={game} /> : null}
       {showSettings ? (
         <SettingsPanel
           game={game}

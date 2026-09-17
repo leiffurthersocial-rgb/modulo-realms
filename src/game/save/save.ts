@@ -217,6 +217,7 @@ export interface StoredSettings {
   sfx: number;
   uiScale: number;
   showDamage: boolean;
+  batterySaver?: boolean;
 }
 
 export function loadSettings(): StoredSettings | null {

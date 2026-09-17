@@ -45,6 +45,23 @@ export default function SettingsPanel({ game, onClose }: { game: Game; onClose: 
             />
           </div>
 
+          <div className="section-h">Power</div>
+          <div className="setting-row">
+            <label htmlFor="battery">Battery saver</label>
+            <input
+              id="battery"
+              type="checkbox"
+              checked={s.batterySaver}
+              onChange={(e) => set({ batterySaver: e.target.checked })}
+              style={{ accentColor: 'var(--gold)', width: 18, height: 18 }}
+            />
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: -4 }}>
+            Runs at 30 frames a second instead of 60 and spends less on lighting, sparks and weather.
+            Nothing about the game changes — it just costs a tablet far less to play. Worth leaving on
+            away from a charger.
+          </div>
+
           <div className="section-h">Controls</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.85, columns: 2 }}>
             {(Object.keys(DEFAULT_BINDINGS) as Array<keyof typeof DEFAULT_BINDINGS>).map((k) => (

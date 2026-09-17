@@ -139,6 +139,83 @@ canvas.world {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn.small { padding: 5px 10px; font-size: 11.5px; }
 
+/* ---------------- how to play ---------------- */
+
+.help-layout {
+  display: grid;
+  grid-template-columns: 172px 1fr;
+  height: calc(100% - 46px);
+  overflow: hidden;
+}
+
+.help-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--edge);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.help-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  text-align: left;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  cursor: pointer;
+}
+.help-tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.03); }
+.help-tab.active {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+  background: linear-gradient(90deg, rgba(216, 176, 106, 0.12), transparent);
+}
+
+.help-body { padding: 18px 24px 26px; overflow-y: auto; }
+
+.help-h {
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 20px 0 7px;
+}
+.help-body > .help-h:first-child { margin-top: 0; }
+
+.help-p {
+  margin: 0 0 11px;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--text);
+  max-width: 62ch;
+}
+.help-p b { color: var(--parchment); font-weight: 600; }
+
+.help-key {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  padding: 2px 7px;
+  margin: 0 1px;
+  border-radius: 3px;
+  border: 1px solid var(--edge-lit);
+  border-bottom-width: 2px;
+  background: linear-gradient(180deg, var(--panel-3), var(--panel-2));
+  color: var(--parchment);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.help-keys { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 12px; }
+.help-keys > div { display: flex; align-items: baseline; gap: 12px; font-size: 12.5px; color: var(--muted); }
+.help-keys .help-key { flex: none; }
+
 /* extra header actions ride next to the close button without disturbing the
    title/subtitle spacing of every other panel */
 .panel-title .title-actions { display: flex; align-items: center; gap: 10px; }

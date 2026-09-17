@@ -19,6 +19,7 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
           <button className="btn" onClick={() => { saveGame(game); game.toast('Game saved', undefined, '#6fbf5a'); }}>Save game</button>
           <button className="btn" onClick={() => game.setPanel('character')}>Character</button>
           <button className="btn" onClick={() => game.setPanel('quests')}>Journal</button>
+          <button className="btn" onClick={() => game.setPanel('help')}>How to play</button>
           <button className="btn" onClick={onSettings}>Settings</button>
           <button
             className="btn danger"

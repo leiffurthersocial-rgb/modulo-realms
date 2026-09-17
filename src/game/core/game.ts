@@ -31,7 +31,7 @@ import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -182,7 +182,14 @@ export class Game implements WorldCtx {
   private stepTimer = 0;
   private hitStop = 0;
   private lastMapMusic: MusicTrack | null = null;
-  settings = { master: 0.8, music: 0.4, sfx: 0.65, uiScale: 1, showDamage: true };
+  /**
+   * `batterySaver` halves the frame rate and strips the per-frame work that
+   * costs the most on a tablet: the light buffer drops to half resolution and
+   * only the player and placed lights are drawn into it, particle counts are
+   * cut, and ambient weather stops. The world, the rules and the art are
+   * unchanged — it only spends less to show them.
+   */
+  settings = { master: 0.8, music: 0.4, sfx: 0.65, uiScale: 1, showDamage: true, batterySaver: false };
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -2423,6 +2430,7 @@ export class Game implements WorldCtx {
     const dt = Math.min(0.05, dtRaw);
     this.dt = dt;
     this.now += dt;
+    this.fx.budget = this.settings.batterySaver ? 0.35 : 1;
     if (this.screenFlash.alpha > 0) this.screenFlash.alpha = Math.max(0, this.screenFlash.alpha - dt * 2.4);
     if (this.streak > 0 && this.now > this.streakUntil) this.streak = 0;
 
@@ -2928,6 +2936,9 @@ export class Game implements WorldCtx {
 
   /** Dust in daylight, drifting embers and fireflies after dark. */
   private updateAmbience(dt: number): void {
+    // drifting dust, embers and fireflies are pure atmosphere, and the first
+    // thing worth dropping when the goal is to spend less
+    if (this.settings.batterySaver) return;
     this.ambientTimer -= dt;
     if (this.ambientTimer > 0) return;
     this.ambientTimer = 0.12;

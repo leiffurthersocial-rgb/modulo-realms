@@ -5,7 +5,7 @@ import {
 import { T, isSolid } from './tiles';
 import { TILE } from './tiles';
 import { buildPropGrid, createMap, getTile, setTile, type GameMap, type PropInstance } from './map';
-import { buildAshvale } from './village';
+import { buildAshvale, drainFor } from './village';
 import { buildSettlement } from './settlements';
 
 export const REGION_CENTRAL = 0;
@@ -385,6 +385,17 @@ function buildLandmark(ctx: GenCtx, loc: LocationDef) {
   }
 }
 
+/** The natural walkable ground for a tile's region, used when filling water. */
+function regionGround(ctx: GenCtx, tx: number, ty: number): number {
+  switch (ctx.regions[ty * WORLD_W + tx]) {
+    case REGION_NORTH: return T.SNOW;
+    case REGION_EAST: return T.SWAMP_GROUND;
+    case REGION_SOUTH: return T.DESERT_SAND;
+    case REGION_WEST: return T.GRASS_DARK;
+    default: return T.GRASS;
+  }
+}
+
 function buildDungeonEntrance(ctx: GenCtx, loc: LocationDef) {
   const { map } = ctx;
   const { tx, ty } = loc;
@@ -656,8 +667,12 @@ function ensureConnectivity(ctx: GenCtx, locationsOnly = false): void {
               if (nx < 4 || ny < 4 || nx >= W - 4 || ny >= H - 4) continue;
               const ni = ny * W + nx;
               const t = map.tiles[ni];
+              // rock is tunnelled through and water is filled in: both are
+              // solid, and a corridor that stops at a riverbank is no corridor
               if (t === T.MOUNTAIN || t === T.CLIFF || t === T.SNOW_ROCK) {
                 map.tiles[ni] = ctx.regions[ni] === REGION_NORTH ? T.SNOW : T.GRAVEL;
+              } else if (t === T.WATER || t === T.DEEP_WATER || t === T.SWAMP_WATER) {
+                map.tiles[ni] = T.BRIDGE;
               }
             }
           }
@@ -815,6 +830,13 @@ export function generateOverworld(seed: number): GameMap {
   // settlements and points of interest
   buildAshvale(map, rng);
   for (const loc of LOCATIONS) {
+    // Every named place gets a dry apron first. `clearArea` deliberately
+    // refuses to overwrite water, so a cave mouth that generated on a
+    // shoreline kept its lake and penned the player in the moment they
+    // stepped back out of the dungeon.
+    if (loc.kind !== 'village' && loc.kind !== 'town') {
+      drainFor(map, loc.tx, loc.ty, 15, 24, regionGround(ctx, loc.tx, loc.ty));
+    }
     if (loc.kind === 'village') buildSettlement(map, rng, loc);
     else if (loc.kind === 'camp') buildCamp(ctx, loc);
     else if (loc.kind === 'dungeon' || loc.kind === 'cave') buildDungeonEntrance(ctx, loc);

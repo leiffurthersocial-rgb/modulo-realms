@@ -738,8 +738,13 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
     return;
   }
 
-  const w = Math.ceil(viewW);
-  const h = Math.ceil(viewH);
+  // Battery saver halves the light buffer in each axis — a quarter of the
+  // pixels to fill and blend — and the result is scaled back up on the way
+  // out. Light is a soft gradient, so the lost resolution is invisible.
+  const saver = game.settings.batterySaver;
+  const scale = saver ? 0.5 : 1;
+  const w = Math.max(1, Math.ceil(viewW * scale));
+  const h = Math.max(1, Math.ceil(viewH * scale));
   if (lightBuffer.width !== w || lightBuffer.height !== h) {
     lightBuffer.width = w;
     lightBuffer.height = h;
@@ -751,9 +756,11 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
   lg.fillRect(0, 0, w, h);
 
   lg.globalCompositeOperation = 'destination-out';
-  const addLight = (x: number, y: number, radius: number, strength = 1) => {
-    const sx = x - left;
-    const sy = y - top;
+  const addLight = (worldX: number, worldY: number, worldR: number, strength = 1) => {
+    // world -> screen -> buffer, which is the screen scaled down in saver mode
+    const sx = (worldX - left) * scale;
+    const sy = (worldY - top) * scale;
+    const radius = worldR * scale;
     if (sx < -radius || sy < -radius || sx > w + radius || sy > h + radius) return;
     const grad = lg.createRadialGradient(sx, sy, 0, sx, sy, radius);
     grad.addColorStop(0, `rgba(255,255,255,${0.95 * strength})`);
@@ -772,21 +779,27 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
     if (!prop.light) continue;
     addLight(prop.x, prop.y - 16, prop.light * flicker * (map.outdoor ? 1 : 0.78), 0.95);
   }
-  for (const p of game.projectiles) addLight(p.x, p.y, 60, 0.6);
-  for (const z of game.groundZones) addLight(z.x, z.y, z.r * 1.2, 0.5);
-  for (const e of game.enemies) {
-    if (e.def.creature?.glow || e.isBoss) addLight(e.x, e.y - 10, 90, 0.5);
+  if (!saver) {
+    // incidental lights: every shot in flight, every burning patch of ground,
+    // every glowing creature. Atmosphere, and the cheapest thing to drop.
+    for (const p of game.projectiles) addLight(p.x, p.y, 60, 0.6);
+    for (const z of game.groundZones) addLight(z.x, z.y, z.r * 1.2, 0.5);
+    for (const e of game.enemies) {
+      if (e.def.creature?.glow || e.isBoss) addLight(e.x, e.y - 10, 90, 0.5);
+    }
   }
 
   lg.globalCompositeOperation = 'source-over';
   g.save();
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.drawImage(lightBuffer, 0, 0, w, h, 0, 0, game.canvas.width, game.canvas.height);
-  // coloured light wash on top for atmosphere
-  g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = (map.outdoor ? 0.07 : 0.12) * darkness;
-  g.fillStyle = map.outdoor ? '#3f5a94' : '#c86a2a';
-  g.fillRect(0, 0, game.canvas.width, game.canvas.height);
+  if (!saver) {
+    // coloured light wash on top for atmosphere
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = (map.outdoor ? 0.07 : 0.12) * darkness;
+    g.fillStyle = map.outdoor ? '#3f5a94' : '#c86a2a';
+    g.fillRect(0, 0, game.canvas.width, game.canvas.height);
+  }
   g.restore();
   g.setTransform(game.camera.zoom, 0, 0, game.camera.zoom, Math.round(-left * game.camera.zoom), Math.round(-top * game.camera.zoom));
 }

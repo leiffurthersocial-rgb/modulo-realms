@@ -99,6 +99,16 @@ shows what you are locked onto. A mouse still works if you want it, but nothing 
 Mouse, if you want it: left click attacks, right click blocks or makes a heavy attack.
 Auto-aim stays on regardless; the mouse only takes over when there is nothing in range.
 
+**How to play.** The pause menu carries a full in-game manual — the basics, fighting, loot and
+gear, the valley, and getting stronger — with the key names read live from your actual bindings.
+Nothing in the game is explained only once and then lost.
+
+**Battery saver.** A toggle in Settings. It runs the whole loop at 30 frames a second instead of
+60 — skipping the frame outright, which is what actually saves power — and drops the per-frame
+work that costs the most on a tablet: the light buffer falls to half resolution and carries only
+the player and placed lights, particle bursts are cut to a third, and ambient weather stops. The
+world, the rules and the art are unchanged; it simply costs less to show them.
+
 ---
 
 ## The game

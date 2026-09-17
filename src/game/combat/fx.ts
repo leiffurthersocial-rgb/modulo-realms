@@ -47,6 +47,12 @@ export class FxSystem {
   texts: FloatText[] = [];
   telegraphs: Telegraph[] = [];
   rings: Ring[] = [];
+  /**
+   * Scales every particle burst. Battery saver turns this down rather than
+   * switching effects off, so a hit still reads the same — there is simply
+   * less of it to simulate and draw.
+   */
+  budget = 1;
 
   spawn(x: number, y: number, count: number, color: string, o: { speed?: number; life?: number; size?: number; gravity?: number; spread?: number; angle?: number } = {}): void {
     const speed = o.speed ?? 90;
@@ -54,6 +60,7 @@ export class FxSystem {
     const size = o.size ?? 3;
     const spread = o.spread ?? Math.PI * 2;
     const base = o.angle ?? 0;
+    count = Math.max(1, Math.round(count * this.budget));
     for (let i = 0; i < count; i++) {
       if (this.particles.length > 900) break;
       const a = base + (Math.random() - 0.5) * spread;
