@@ -129,16 +129,16 @@ export const LEVEL_BANDS: Array<{ region: string; from: number; to: number; note
 export const REGION_DIFFICULTY: Record<string, number> = {
   central: 1.0,
   west: 1.0,
-  east: 1.06,
-  north: 1.14,
-  south: 1.26,
-  farwest: 1.18,
-  fareast: 1.24,
-  deepnorth: 1.3,
-  farsouth: 1.4,
-  sunkenwest: 1.36,
-  stormeast: 1.46,
-  emberdeep: 1.6,
+  east: 1.03,
+  north: 1.07,
+  south: 1.13,
+  farwest: 1.09,
+  fareast: 1.12,
+  deepnorth: 1.15,
+  farsouth: 1.2,
+  sunkenwest: 1.18,
+  stormeast: 1.23,
+  emberdeep: 1.3,
 };
 
 /**
@@ -255,11 +255,11 @@ export const playerDpsAt = (level: number): number =>
  * geared one takes half again as long. That spread is the point.
  */
 export const TIME_TO_KILL: Record<EnemyRole, number> = {
-  skirmisher: 1.6,
-  standard: 2.7,
-  brute: 6,
-  elite: 14,
-  boss: 55,
+  skirmisher: 0.9,
+  standard: 1.6,
+  brute: 3.4,
+  elite: 9,
+  boss: 42,
 };
 
 /**
@@ -316,9 +316,9 @@ export const enemyGoldAt = (level: number, role: EnemyRole = 'standard'): [numbe
  * what the kill pays, applied once in `Enemy`'s constructor.
  */
 export const ENEMY_THREAT = {
-  // 2.6 was set when fights were twice as long and is far too much now: an
-  // ordinary blow was taking a third of a health bar in mid-game regions.
-  damage: 1.8,
+  // Cut twice. Rank-and-file enemies should not be able to meaningfully
+  // threaten a character who is at or above their level.
+  damage: 1.3,
   xp: 1.12,
 } as const;
 
