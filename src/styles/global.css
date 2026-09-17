@@ -1305,3 +1305,29 @@ canvas.world {
   .remake-mirror { gap: 12px; }
   .remake-side { min-width: 0; }
 }
+
+/* The crown's ledger: places Jovan will have reopened. */
+.crown-intro {
+  font-size: 12.5px; color: var(--muted); line-height: 1.85; font-style: italic;
+  padding: 12px 2px 14px; border-bottom: 1px solid var(--edge); margin-bottom: 12px;
+}
+.crown-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--edge); border-radius: 3px; padding: 11px 13px; margin-bottom: 9px;
+}
+.cr-main { min-width: 0; }
+.cr-name { font-size: 13px; color: var(--cloth); }
+.cr-meta { color: var(--muted); font-size: 11.5px; }
+.cr-state { margin-top: 5px; display: flex; gap: 7px; flex-wrap: wrap; }
+.cr-tag {
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  border: 1px solid var(--edge); border-radius: 2px; padding: 2px 6px;
+}
+.cr-tag.down { color: #f45b5b; border-color: rgba(244, 91, 91, 0.45); }
+.cr-tag.clear { color: var(--gold-dim); border-color: rgba(240, 201, 60, 0.35); }
+.cr-actions { display: flex; gap: 8px; flex-shrink: 0; }
+@media (max-width: 720px) {
+  .crown-row { flex-direction: column; align-items: stretch; }
+  .cr-actions { justify-content: flex-end; }
+}

@@ -20,6 +20,7 @@ import StoragePanel from './ui/StoragePanel';
 import TravelPanel from './ui/TravelPanel';
 import ForgePanel from './ui/ForgePanel';
 import RemakePanel from './ui/RemakePanel';
+import CrownPanel from './ui/CrownPanel';
 import PausePanel from './ui/PausePanel';
 import HelpPanel from './ui/HelpPanel';
 import LootPanel from './ui/LootPanel';
@@ -179,6 +180,7 @@ function UiLayer({ game }: { game: Game }) {
       {game.panel === 'travel' ? <TravelPanel game={game} /> : null}
       {game.panel === 'forge' ? <ForgePanel game={game} /> : null}
       {game.panel === 'remake' ? <RemakePanel game={game} /> : null}
+      {game.panel === 'crown' ? <CrownPanel game={game} /> : null}
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
       {game.panel === 'help' ? <HelpPanel game={game} /> : null}
       {game.panel === 'loot' ? <LootPanel game={game} /> : null}

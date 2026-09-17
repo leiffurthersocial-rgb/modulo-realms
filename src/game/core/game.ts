@@ -33,7 +33,7 @@ import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -2274,6 +2274,12 @@ export class Game implements WorldCtx {
             this.toast(`${a.amount > 0 ? '+' : ''}${a.amount} gold`, undefined, PAL.gold, 'gold');
             audio.play('gold', 0.6);
             break;
+          case 'crown':
+            this.panel = 'crown';
+            this.dialogue = null;
+            audio.play('ui_big', 0.6);
+            this.touch();
+            return;
           case 'remake':
             if (this.player.gold < this.remakeCost) {
               this.toast('Not enough gold', `The witch wants ${this.remakeCost}.`, '#d9553f');
@@ -2851,6 +2857,118 @@ export class Game implements WorldCtx {
     audio.play('quest', 0.5);
     this.toast('Runes rebound', `${item.name} draws new enchantments.`, '#7fd4ff');
     this.touch();
+  }
+
+  /* ---------------- the crown's other ledger ---------------- */
+
+  /**
+   * What the crown can put back.
+   *
+   * A boss stays dead for good, and a cleared dungeon stops being a dungeon —
+   * which is right the first time and wrong the twentieth, when the fight you
+   * want to run again is the one thing in the game you cannot. Rather than
+   * quietly respawning everything on a timer, which would make clearing a
+   * place mean nothing, the crown will send people to reopen a specific one
+   * if you ask and pay.
+   *
+   * The price scales with what is being reopened, because a level-70 boss
+   * room is not the same favour as a level-4 cave.
+   */
+  resetCost(loc: LocationDef): number {
+    const lv = loc.dungeon?.level ?? loc.level ?? 1;
+    return Math.round(200 + lv * lv * 2.2);
+  }
+
+  /** Dungeons the player has cleared or whose boss they have felled. */
+  resettable(): Array<{ loc: LocationDef; cleared: boolean; bossDown: boolean; cost: number }> {
+    const p = this.player;
+    const out: Array<{ loc: LocationDef; cleared: boolean; bossDown: boolean; cost: number }> = [];
+    for (const loc of LOCATIONS) {
+      const d = loc.dungeon;
+      if (!d) continue;
+      const cleared = p.clearedDungeons.has(d.mapId);
+      const bossDown = !!d.boss && p.bossesKilled.has(d.boss);
+      if (!cleared && !bossDown) continue;
+      out.push({ loc, cleared, bossDown, cost: this.resetCost(loc) });
+    }
+    return out.sort((a, b) => (a.loc.dungeon!.level - b.loc.dungeon!.level));
+  }
+
+  /**
+   * Reopen one dungeon: its boss is put back on its throne, every spawn in it
+   * is allowed to return, its chests refill and it stops counting as cleared.
+   * Loot already taken stays taken — this reopens the place, it does not undo
+   * the run.
+   */
+  resetDungeon(locId: string): boolean {
+    const loc = LOCATION_BY_ID[locId];
+    const d = loc?.dungeon;
+    if (!loc || !d) return false;
+    const p = this.player;
+    const cost = this.resetCost(loc);
+    if (p.gold < cost) {
+      this.toast('Not enough gold', `Reopening ${loc.name} costs ${cost}.`, '#d9553f');
+      return false;
+    }
+    p.gold -= cost;
+
+    if (d.boss) p.bossesKilled.delete(d.boss);
+    if (d.miniboss) p.bossesKilled.delete(d.miniboss);
+    p.clearedDungeons.delete(d.mapId);
+
+    const st = this.mapState(d.mapId);
+    st.killedSpawns.clear();
+    st.everKilled.clear();
+    st.respawn = {};
+    st.cleared = false;
+    st.opened.clear();
+    st.chestRestock = {};
+
+    // If the player is standing in it, the place has to refill under their
+    // feet rather than on the next load.
+    if (this.map.id === d.mapId) {
+      this.activeSpawns.clear();
+      for (const e of this.enemies) if (!e.friendly) e.dead = true;
+      for (const c of this.chests) c.opened = false;
+    }
+
+    audio.play('quest', 0.7);
+    this.toast(`${loc.name} is open again`, d.boss ? 'The crown sent word. Something is back on the throne.' : 'The crown sent word. It is worth walking again.', PAL.goldLit);
+    this.touch();
+    return true;
+  }
+
+  /**
+   * Put a single boss back without reopening the whole dungeon around it.
+   * Cheaper, and it is what somebody actually wants when they are farming one
+   * fight for one drop.
+   */
+  respawnBoss(bossId: string): boolean {
+    const loc = LOCATIONS.find((l) => l.dungeon?.boss === bossId || l.dungeon?.miniboss === bossId);
+    if (!loc?.dungeon) return false;
+    const p = this.player;
+    const cost = Math.round(this.resetCost(loc) * 0.6);
+    if (p.gold < cost) {
+      this.toast('Not enough gold', `The crown wants ${cost} for that.`, '#d9553f');
+      return false;
+    }
+    if (!p.bossesKilled.has(bossId)) return false;
+    p.gold -= cost;
+    p.bossesKilled.delete(bossId);
+    p.clearedDungeons.delete(loc.dungeon.mapId);
+
+    const st = this.mapState(loc.dungeon.mapId);
+    st.cleared = false;
+    const bossSpawn = `${loc.dungeon.mapId}_boss`;
+    st.killedSpawns.delete(bossSpawn);
+    st.everKilled.delete(bossSpawn);
+    delete st.respawn[bossSpawn];
+    if (this.map.id === loc.dungeon.mapId) this.activeSpawns.delete(bossSpawn);
+
+    audio.play('quest', 0.7);
+    this.toast(`${ENEMY_BY_ID[bossId]?.name ?? 'It'} is back`, `${loc.name}. The crown says you are welcome to it.`, PAL.goldLit);
+    this.touch();
+    return true;
   }
 
   /* ---------------- the crown ---------------- */

@@ -716,6 +716,7 @@ export const NPCS: NpcDef[] = [
     ],
     topics: [
       { text: 'I would claim a crown commission.', to: 'commission' },
+      { text: 'Something I killed. I want it back.', to: 'reopen' },
       { text: 'Why are you here, and not in the capital?', to: 'why_here' },
       { text: 'What do you know about the Modulo?', to: 'modulo' },
       { tag: 'Paladin', text: 'My oath is to the last lit shrine, not to a crown.', cond: { classes: ['paladin'] }, to: 'oath' },
@@ -744,6 +745,12 @@ export const NPCS: NpcDef[] = [
         '"It does not. It never has, and I have stopped writing letters about it."',
         '"If Thornhollow will hold the west, they may call themselves whatever they like."',
       ] },
+      { id: 'reopen', text: [
+        '"You want me to put something back that you went to the trouble of killing."',
+        'He rubs his eyes. "I have a ledger for this. Of course I have a ledger for this."',
+        '"The crown keeps the roads open, which means the crown knows what is on them, which means when a hole in the ground goes quiet I hear about it within the month."',
+        '"So yes. Name one and I will send people to reopen it. They will want paying and so will I."',
+      ], choices: [{ text: 'Show me the ledger.', actions: [{ type: 'crown' }] }] },
       { id: 'commission', text: [
         '"Every thing you put down out there, the crown owes you for. I keep a tally. It is the only ledger I read."',
         '"Bring me something you carry and I will have it made worthy of the man carrying it."',
