@@ -103,6 +103,7 @@ export default function HelpPanel({ game }: { game: Game }) {
                   [key('offhand'), 'Off-hand: hold to block with a shield, tap to use a tome or brand. With nothing in that hand it drinks a potion'],
                   [key('artifact'), "Your artifact's power, if you have one equipped"],
                   ['1 2 3 4 5', 'Your five class abilities, unlocked as you level — the last at 22'],
+                  ['V', "A weapon's own signature move, if the one you are holding has one"],
                 ]} />
 
                 <H>Melee and ranged are a real choice</H>
@@ -115,6 +116,15 @@ export default function HelpPanel({ game }: { game: Game }) {
                 <P>
                   Within melee, a sweeping weapon trades a little single-target damage for the arc it cuts, and a
                   thrusting one like a dagger or a rapier gets that damage back for only ever hitting one thing.
+                </P>
+
+                <H>A few weapons fight back</H>
+                <P>
+                  One or two relics carry a move of their own, on <K>V</K>, separate from your class abilities. It
+                  belongs to the object rather than to you, so picking one up changes how you fight and putting it down
+                  takes that away again. The <b>Leviathan Axe</b> is thrown and comes back through everything twice,
+                  freezing the corridor it cuts. The <b>Blades of Chaos</b> whip out in a burning circle and haul
+                  whatever they catch to your feet.
                 </P>
 
                 <H>Kill streaks</H>

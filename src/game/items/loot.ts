@@ -184,6 +184,7 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     stackable: !!t.stackable,
     consume: t.consume,
     artifact: t.artifact,
+    weaponPower: t.weaponPower,
   };
 
   if (isGear && !opts.plain) rollEnchants(item, rng);

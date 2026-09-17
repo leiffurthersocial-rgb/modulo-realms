@@ -173,6 +173,23 @@ export default function Hud({ game }: { game: Game }) {
           ) : <span style={{ fontSize: 10, color: 'var(--muted)' }}>off</span>}
           {p.blocking ? <span className="cd" style={{ fontSize: 10 }}>BLOCK</span> : null}
         </button>
+        {p.equipment.mainHand?.weaponPower ? (
+          <button
+            className={`slot ${p.weaponPowerCooldown > 0 ? '' : 'ready'}`}
+            title={`${p.equipment.mainHand.weaponPower.name} (V) — ${p.equipment.mainHand.weaponPower.desc}`}
+            onClick={() => game.useWeaponPower()}
+          >
+            <span className="key">V</span>
+            <img
+              src={getIconUrl(p.equipment.mainHand.icon, { metal: p.equipment.mainHand.iconMetal, glow: p.equipment.mainHand.glow })}
+              alt=""
+              style={{ filter: `drop-shadow(0 0 5px ${p.equipment.mainHand.glow ?? '#fff'}aa)` }}
+            />
+            {p.weaponPowerCooldown > 0
+              ? <span className="cd">{p.weaponPowerCooldown.toFixed(p.weaponPowerCooldown < 1 ? 1 : 0)}</span>
+              : null}
+          </button>
+        ) : null}
         <button
           className={`slot ${p.equipment.accessory?.artifact ? 'ready' : 'locked'}`}
           title={p.equipment.accessory?.artifact ? `${p.equipment.accessory.artifact.name} (R) — ${p.equipment.accessory.artifact.desc}` : 'No artifact equipped'}

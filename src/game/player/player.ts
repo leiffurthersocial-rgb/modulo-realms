@@ -127,6 +127,8 @@ export class Player implements Entity {
   /** Cached enchantment totals, refreshed by stats(). */
   enchantLevels: Record<string, number> = {};
   artifactCooldown = 0;
+  /** Cooldown on the equipped weapon's own signature move. */
+  weaponPowerCooldown = 0;
   offhandCooldown = 0;
   blocking = false;
   dashVx = 0;

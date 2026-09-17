@@ -162,6 +162,12 @@ export interface Item {
   /** Artifacts have an activated power used from the off-hand/artifact key. */
   artifact?: { id: string; name: string; cooldown: number; desc: string };
   /**
+   * A signature move that belongs to the weapon rather than to the class,
+   * used with its own key. Only a handful of named relics carry one — it is
+   * the difference between "a very good axe" and "the axe".
+   */
+  weaponPower?: { id: string; name: string; cooldown: number; desc: string };
+  /**
    * Marked by the player as something to keep. Bulk sells skip it, and it has
    * its own tab in the pack. Nothing sets this automatically — the whole point
    * is that it means "I decided", not "the game guessed".

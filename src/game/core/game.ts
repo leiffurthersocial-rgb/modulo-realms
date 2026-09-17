@@ -1486,6 +1486,115 @@ export class Game implements WorldCtx {
   }
 
   /** Artifact power, bound to R. */
+  /**
+   * The signature move of a weapon that has one. Two relics carry these, and
+   * they are deliberately not class abilities: they belong to the object, so
+   * picking the axe up changes how you fight rather than how hard you hit.
+   */
+  useWeaponPower(): void {
+    const p = this.player;
+    const item = p.equipment.mainHand;
+    const power = item?.weaponPower;
+    if (!power) {
+      this.floatText(p.x, p.y - 44, 'This weapon has no art', PAL.fog, 11);
+      return;
+    }
+    if (p.weaponPowerCooldown > 0) {
+      this.floatText(p.x, p.y - 44, `${Math.ceil(p.weaponPowerCooldown)}s`, PAL.fog, 11);
+      return;
+    }
+    const cdr = Math.min(60, p.stats().cooldownReduction);
+    p.weaponPowerCooldown = power.cooldown * (1 - cdr / 100);
+    const base = p.attackPower() * (1 + p.stats().abilityPower / 100);
+    const aim = this.aimAngle();
+    this.aim = aim;
+    p.dir = dirFromAngle(aim);
+    p.anim = 'attack';
+    p.animTime = 0;
+    this.floatText(p.x, p.y - 48, power.name, item!.glow ?? PAL.goldLit, 14);
+
+    switch (power.id) {
+      case 'leviathan_throw': {
+        // Out along a line, and back along the same line. Everything in the
+        // corridor is hit twice and left chilled, which is the whole reason
+        // to throw an axe you could simply be swinging.
+        const range = 520;
+        const halfWidth = 46;
+        const hit = (mul: number) => {
+          for (const e of this.enemies) {
+            if (e.dead || e.friendly) continue;
+            const dx = e.x - p.x;
+            const dy = e.y - p.y;
+            const along = dx * Math.cos(aim) + dy * Math.sin(aim);
+            const across = Math.abs(-dx * Math.sin(aim) + dy * Math.cos(aim));
+            if (along < -20 || along > range || across > halfWidth + e.radius) continue;
+            const roll = this.rollDamage(base * mul);
+            this.damageEnemy(e, roll.dmg, {
+              element: 'frost', crit: roll.crit, knockback: 120, fromX: p.x, fromY: p.y,
+            });
+            applyStatus(e, 'chill', 0.5, 4, PAL.frost, this.now);
+            this.applyHitEffects(e, roll.dmg, roll.crit);
+          }
+        };
+        const tipX = p.x + Math.cos(aim) * range;
+        const tipY = p.y + Math.sin(aim) * range;
+        this.fx.telegraph(p.x, p.y, range, 0.12, PAL.frost, 'line', aim);
+        this.fx.spawn(tipX, tipY, 26, PAL.frost, { speed: 180, life: 0.7, size: 3 });
+        this.fx.ring(tipX, tipY, 90, PAL.ice);
+        audio.play('swing', 0.7);
+        this.shake(6);
+        hit(1.6);
+        // and the return, a beat later
+        window.setTimeout(() => {
+          if (this.screen !== 'playing') return;
+          this.fx.telegraph(p.x, p.y, range, 0.12, PAL.ice, 'line', aim);
+          this.fx.spawn(p.x, p.y, 20, PAL.frost, { speed: 150, life: 0.5, size: 3 });
+          audio.play('hit', 0.6);
+          hit(1.2);
+          this.touch();
+        }, 420);
+        break;
+      }
+      case 'chaos_chains': {
+        // Catch everything in a wide ring, drag it to your feet, and light the
+        // floor. It is a gap-closer that closes the gap in the other
+        // direction — which is exactly what the chains are for.
+        const reach = 300;
+        this.fx.ring(p.x, p.y, reach, PAL.ember);
+        this.fx.ring(p.x, p.y, reach * 0.6, PAL.flame);
+        this.fx.spawn(p.x, p.y, 40, PAL.flame, { speed: 260, life: 0.8, size: 4 });
+        this.flashScreen(PAL.ember, 0.18);
+        this.shake(9);
+        audio.play('swing', 0.8);
+        let caught = 0;
+        for (const e of this.enemies) {
+          if (e.dead || e.friendly) continue;
+          const d = dist(p.x, p.y, e.x, e.y);
+          if (d > reach + e.radius) continue;
+          const roll = this.rollDamage(base * 1.5);
+          this.damageEnemy(e, roll.dmg, { element: 'fire', crit: roll.crit, fromX: p.x, fromY: p.y });
+          applyStatus(e, 'burn', base * 0.22, 6, PAL.flame, this.now);
+          this.applyHitEffects(e, roll.dmg, roll.crit);
+          // hauled in, but never through a wall and never right on top of you
+          if (!e.isBoss && d > 70) {
+            const a = angleTo(e.x, e.y, p.x, p.y);
+            const tx = e.x + Math.cos(a) * (d - 64);
+            const ty = e.y + Math.sin(a) * (d - 64);
+            if (!boxHitsTerrain(this.map, tx, ty, e.radius * 0.7, e.radius * 0.5)) {
+              e.x = tx;
+              e.y = ty;
+              this.fx.spawn(tx, ty, 10, PAL.ember, { speed: 90, life: 0.4, size: 2 });
+            }
+          }
+          caught++;
+        }
+        if (caught) this.hitStop = Math.max(this.hitStop, 0.07);
+        break;
+      }
+    }
+    this.touch();
+  }
+
   useArtifact(): void {
     const p = this.player;
     const item = p.equipment.accessory;
@@ -2901,11 +3010,13 @@ export class Game implements WorldCtx {
     if (this.input.wasPressed('heavy') || this.input.mousePressed[2]) this.basicAttack(true);
     if (this.input.wasPressed('offhand') && !hasShield) this.useOffhand();
     if (this.input.wasPressed('artifact')) this.useArtifact();
+    if (this.input.wasPressed('weaponPower')) this.useWeaponPower();
     if (this.input.wasPressed('potion')) this.useQuickItem();
     for (let i = 0; i < p.classDef.abilities.length; i++) {
       if (this.input.wasPressed(`slot${i + 1}` as 'slot1')) this.useAbility(i);
     }
     p.artifactCooldown = Math.max(0, p.artifactCooldown - dt);
+    p.weaponPowerCooldown = Math.max(0, p.weaponPowerCooldown - dt);
     p.offhandCooldown = Math.max(0, p.offhandCooldown - dt);
 
     // traps

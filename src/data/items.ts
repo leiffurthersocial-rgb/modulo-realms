@@ -23,6 +23,7 @@ export interface ItemTemplate {
   /** Enchantments always present on this item, regardless of rolls. */
   fixedEnchants?: Array<{ id: string; level: number }>;
   weaponKind?: WeaponKind;
+  weaponPower?: { id: string; name: string; cooldown: number; desc: string };
   armorLook?: ArmorLook;
   classes?: ClassId[];
   desc?: string;
@@ -468,6 +469,11 @@ export const UNIQUES: ItemTemplate[] = [
     metal: '#bcd8e8', accent: PAL.frost, glow: PAL.frost, rarity: 'mythic', level: 15, value: 6400,
     stats: { damage: 86, attackSpeed: 1.0, range: 58, strength: 14, critDamage: 30 },
     effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'committed', level: 2 }],
+    weaponPower: {
+      id: 'leviathan_throw', name: 'Return',
+      cooldown: 9,
+      desc: 'Throw it. It freezes a line of everything it passes, sticks in the ground, and comes back to your hand through all of it again.',
+    },
     noDrop: true, regions: ['north', 'deepnorth'],
     desc: 'Cold beyond cold, and it always comes back to the hand that threw it. The clans brought it to the Last Gate once. It came back; they did not.',
   },
@@ -476,6 +482,11 @@ export const UNIQUES: ItemTemplate[] = [
     metal: '#c8402f', accent: PAL.flameLit, glow: PAL.ember, rarity: 'mythic', level: 15, value: 6400,
     stats: { damage: 36, attackSpeed: 2.3, range: 96, strength: 9, dexterity: 9, critChance: 16 },
     effects: ['burning_edge', 'emberburst'], fixedEnchants: [{ id: 'fire_aspect', level: 3 }, { id: 'swirling', level: 2 }],
+    weaponPower: {
+      id: 'chaos_chains', name: 'Chains of Chaos',
+      cooldown: 11,
+      desc: 'Whip the chains out in a burning circle, drag everything they catch to your feet, and set the ground on fire under all of it.',
+    },
     noDrop: true, regions: ['north'],
     desc: 'Chained to the bone. They burn whoever holds them, and they do not care whose bone it is.',
   },
