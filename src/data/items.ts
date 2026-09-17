@@ -178,6 +178,18 @@ export const WEAPONS: ItemTemplate[] = [
   W('spear_mire', 'Bog Harpoon', 'spear', 6, 1.12, 78, { metal: PAL.rot, rarity: 'rare', stats: { dexterity: 3 } }),
   W('mace_crag', 'Cragwarden Mace', 'mace', 12, 1.05, 50, { metal: PAL.rockPale, rarity: 'rare', stats: { strength: 5, defense: 4 } }),
 
+  /* --- the outer marches: the Gloaming, the Saltreach, the Cinderwastes --- */
+  W('scythe_gloam', 'Gloamreaper', 'scythe', 18, 0.98, 64, { metal: PAL.leafDark, glow: PAL.toxic, rarity: 'rare', stats: { intelligence: 8, lifesteal: 4 }, fixedEnchants: [{ id: 'venomous', level: 2 }] }),
+  W('bow_gloam', 'Exile\'s Longbow', 'bow', 21, 1.16, 610, { metal: PAL.leafDark, glow: PAL.toxic, rarity: 'superRare', stats: { dexterity: 8, critChance: 8 }, fixedEnchants: [{ id: 'venomous', level: 2 }] }),
+  W('dagger_gloam', 'Thorn of the Court', 'dagger', 24, 2.15, 38, { metal: PAL.leaf, glow: PAL.toxic, rarity: 'epic', stats: { critChance: 18, dexterity: 9 }, fixedEnchants: [{ id: 'venomous', level: 3 }] }),
+  W('spear_salt', 'Legionary Pike', 'spear', 20, 1.08, 82, { metal: '#9fc0c8', rarity: 'rare', stats: { dexterity: 7, defense: 6 } }),
+  W('halberd_tide', 'Tidewarden Halberd', 'halberd', 25, 0.8, 90, { metal: '#9fc0c8', glow: PAL.foam, rarity: 'epic', stats: { strength: 11, defense: 9 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+  W('orb_salt', 'Saltglass Lens', 'orb', 23, 1.3, 490, { metal: PAL.foam, glow: PAL.water, rarity: 'superRare', stats: { intelligence: 12, abilityPower: 24, maxMana: 70 } }),
+  W('greataxe_cutter', 'Warlord\'s Cleaver', 'greataxe', 27, 0.68, 68, { metal: PAL.ironDark, glow: PAL.ember, rarity: 'epic', stats: { strength: 14, critDamage: 35 }, fixedEnchants: [{ id: 'fire_aspect', level: 3 }] }),
+  W('mace_cinder', 'Cinderfall Mace', 'mace', 22, 1.04, 52, { metal: '#6a3020', glow: PAL.flame, rarity: 'superRare', stats: { strength: 10, defense: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
+  W('staff_cinder', 'Ashcaller Staff', 'staff', 29, 1, 545, { metal: PAL.ember, glow: PAL.flameLit, rarity: 'epic', stats: { intelligence: 17, abilityPower: 34, maxMana: 100 }, fixedEnchants: [{ id: 'ember_focus', level: 3 }] }),
+  W('crossbow_waste', 'Wastebreaker', 'crossbow', 30, 0.8, 640, { metal: PAL.emberDark, glow: PAL.ember, rarity: 'epic', stats: { critDamage: 65, dexterity: 14 }, fixedEnchants: [{ id: 'chain_reaction', level: 2 }] }),
+
   /* ---------------------------------------------------------------- */
   /* The late game: the Frostmarch, and everything above it            */
   /*                                                                   */
@@ -257,6 +269,14 @@ export const ARMOR: ItemTemplate[] = [
   A('armor_wardplate', 'Wardens Bulwark', 13, PLATE, heavy('#4a5a6a', PAL.frost, 'full', '#2a3a4a'), { rarity: 'superRare', stats: { maxHealth: 64, defense: 7, moveSpeed: -2 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
   A('armor_emberplate', 'Emberforge Plate', 15, PLATE, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 88, defense: 8, strength: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
   A('armor_tidecaller', 'Tidecaller Vestments', 14, ROBE, robe('#274a5e', PAL.frost, 'wizard', '#1a3242'), { rarity: 'epic', glow: PAL.frost, stats: { maxMana: 72, intelligence: 9, abilityPower: 16 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
+
+  /* --- the outer marches --- */
+  A('armor_gloamweave', 'Gloamweave', 18, LIGHT, light('#1f3a28', PAL.toxic, 'hood', '#132017'), { rarity: 'rare', stats: { dexterity: 8, moveSpeed: 8, lifesteal: 3 } }),
+  A('armor_exile', "Exile's Leathers", 23, LIGHT, light('#25412a', PAL.leafLit, 'hood', '#16281c'), { rarity: 'epic', glow: PAL.toxic, stats: { dexterity: 12, critChance: 9, moveSpeed: 10 } }),
+  A('armor_legionary', 'Drowned Legionary Plate', 21, PLATE, heavy('#6f8e92', PAL.foam, 'full', '#33585c'), { rarity: 'superRare', stats: { maxHealth: 130, defense: 10, moveSpeed: -2 } }),
+  A('armor_saltglass', 'Saltglass Vestments', 25, ROBE, robe('#2f4a52', PAL.foam, 'wizard', '#1d3138'), { rarity: 'epic', glow: PAL.foam, stats: { maxMana: 130, intelligence: 14, abilityPower: 28 } }),
+  A('armor_cutterlord', 'Warlord Harness', 27, MAIL, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 165, strength: 12, attackSpeed: 6 } }),
+  A('armor_cinderplate', 'Cinderwaste Plate', 30, PLATE, heavy('#5a2418', PAL.flame, 'full', '#2e120b'), { rarity: 'epic', glow: PAL.flame, stats: { maxHealth: 215, defense: 16, moveSpeed: -3 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
 
   /* --- the Frostmarch and the Jotunreach --- */
   A('armor_marchplate', 'Frostmarch Plate', 19, PLATE, heavy('#5a6a7a', PAL.steel, 'full', '#33404f'), { rarity: 'superRare', stats: { maxHealth: 110, defense: 9, moveSpeed: -2 } }),
@@ -351,6 +371,17 @@ export const ARTIFACTS: ItemTemplate[] = [
     { maxHealth: 90, defense: 10, strength: 6, magicFind: 12 },
     { id: 'rally', name: "King's Rally", cooldown: 38, desc: 'A rallying cry: heals you and empowers your strikes.' },
     { metal: PAL.gold, accent: PAL.holy, glow: PAL.holy, noDrop: true, desc: 'Given, not found. Jovan gives a great many things away.' }),
+
+  /* --- the outer marches --- */
+  ART('art_gloaming_seed', 'Seed of the Gloaming', 'mat_herb', 25, 'epic', 2100, { abilityPower: 24, lifesteal: 5, maxHealth: 90 },
+    { id: 'summon_wolf', name: 'Send the Wood', cooldown: 34, desc: 'The undergrowth stands up and fights for you.' },
+    { metal: PAL.leafDark, accent: PAL.toxic, glow: PAL.toxic }),
+  ART('art_tidecrown', 'The Drowned Crown', 'ring', 27, 'epic', 2600, { maxHealth: 150, defense: 12, intelligence: 12 },
+    { id: 'ward', name: 'High Water', cooldown: 28, desc: 'A wall of salt water that takes the next several blows for you.' },
+    { metal: PAL.gold, accent: PAL.foam, glow: PAL.foam }),
+  ART('art_cinder_core', 'The Cinder Core', 'mat_crystal', 31, 'legendary', 4400, { strength: 16, abilityPower: 34, critDamage: 40 },
+    { id: 'fire_nova', name: 'Open the Lid', cooldown: 24, desc: 'The ground splits and the waste comes up through it.' },
+    { metal: PAL.ember, accent: PAL.flameLit, glow: PAL.flame, effects: ['burning_edge'] }),
 
   /* --- the far north --- */
   ART('art_winter_horn', 'Horn of the Long Winter', 'horn', 20, 'epic', 1500, { maxHealth: 120, defense: 9 },

@@ -15,6 +15,9 @@ export const REGION_EAST = 2;
 export const REGION_SOUTH = 3;
 export const REGION_WEST = 4;
 export const REGION_DEEPNORTH = 5;
+export const REGION_FARWEST = 6;
+export const REGION_FAREAST = 7;
+export const REGION_FARSOUTH = 8;
 
 const CX = VILLAGE_TX;
 const CY = VILLAGE_TY;
@@ -27,18 +30,33 @@ const CY = VILLAGE_TY;
  */
 const DEEPNORTH_Y = 200;
 
+/**
+ * The outer marches. Like the Jotunreach these are bands rather than
+ * quadrants: cross one of these lines and there is nothing on the other side
+ * but the march, which is what makes the edge of the map feel like an edge.
+ */
+const FARWEST_X = 150;
+const FAREAST_X = 620;
+const FARSOUTH_Y = 690;
+
 /** Which region a tile belongs to, with a noisy boundary so it never looks like a pie chart. */
 function regionAt(tx: number, ty: number, seed: number): number {
   // Two octaves of domain warp: a broad one that bends whole borders and a
-  // finer one that frays their edges, so the six regions never read as a pie
+  // finer one that frays their edges, so the nine regions never read as a pie
   // chart even across a map this size.
   const warpX = (fbm(tx * 0.007, ty * 0.007, seed + 11) - 0.5) * 96
     + (fbm(tx * 0.028, ty * 0.028, seed + 41) - 0.5) * 26;
   const warpY = (fbm(tx * 0.007, ty * 0.007, seed + 29) - 0.5) * 96
     + (fbm(tx * 0.028, ty * 0.028, seed + 59) - 0.5) * 26;
-  // The glacier's southern edge is a ragged line, not a latitude.
+  // Every march's inner edge is a ragged line, not a coordinate.
   const iceEdge = DEEPNORTH_Y + (fbm(tx * 0.013, 0.5, seed + 97, 3) - 0.5) * 46;
   if (ty + warpY * 0.5 < iceEdge) return REGION_DEEPNORTH;
+  const wEdge = FARWEST_X + (fbm(0.5, ty * 0.013, seed + 131, 3) - 0.5) * 44;
+  if (tx + warpX * 0.5 < wEdge) return REGION_FARWEST;
+  const eEdge = FAREAST_X + (fbm(0.5, ty * 0.013, seed + 149, 3) - 0.5) * 44;
+  if (tx + warpX * 0.5 > eEdge) return REGION_FAREAST;
+  const sEdge = FARSOUTH_Y + (fbm(tx * 0.013, 0.5, seed + 167, 3) - 0.5) * 44;
+  if (ty + warpY * 0.5 > sEdge) return REGION_FARSOUTH;
   const dx = tx + warpX - CX;
   const dy = ty + warpY - CY;
   const d = Math.hypot(dx, dy);
@@ -77,6 +95,43 @@ function baseTerrain(ctx: GenCtx) {
 
       let tile: number;
       switch (reg) {
+        case REGION_FARWEST: {
+          // The Gloaming. The canopy closes over entirely: dark ground, deep
+          // moss, standing water in the hollows, and cliffs where the old
+          // wood grew over rock and then grew through it.
+          const eW = e + rim * 0.5;
+          if (eW > 0.8) tile = T.CLIFF;
+          else if (eW > 0.74) tile = T.MOUNTAIN;
+          else if (e < 0.27 && m > 0.55) tile = T.SWAMP_WATER;
+          else if (m > 0.62) tile = T.GRASS_DARK;
+          else if (m < 0.3) tile = T.DIRT;
+          else tile = m > 0.46 ? T.GRASS_DARK : T.TALL_GRASS;
+          break;
+        }
+        case REGION_FAREAST: {
+          // The Saltreach: where the Mire runs out into a dead sea. Salt
+          // flats, shallow tide, and bare rock where the water has not
+          // reached yet.
+          const eE = e + rim * 0.5;
+          if (eE > 0.78) tile = T.MOUNTAIN;
+          else if (e < 0.3) tile = T.WATER;
+          else if (e < 0.35) tile = T.SAND;
+          else if (m > 0.66) tile = T.MUD;
+          else if (m < 0.34) tile = T.STONE_GROUND;
+          else tile = T.SAND;
+          break;
+        }
+        case REGION_FARSOUTH: {
+          // The Cinderwastes. Under Duneholt the sand turns to ash, and the
+          // ash is warm. Nothing has grown here in a long time.
+          const eS2 = e + rim * 0.5;
+          if (eS2 > 0.76) tile = T.MOUNTAIN;
+          else if (eS2 > 0.66) tile = T.DESERT_ROCK;
+          else if (m > 0.6) tile = T.GRAVEL;
+          else if (m < 0.32) tile = T.DESERT_SAND;
+          else tile = T.ASH_GROUND;
+          break;
+        }
         case REGION_DEEPNORTH: {
           // Glacier. Bare ice where the sheet is thick, wind-packed snow over
           // most of it, moraine gravel where it has ground the rock down, and
@@ -253,6 +308,36 @@ function scatterProps(ctx: GenCtx) {
       const r = rng.next();
 
       switch (reg) {
+        case REGION_FARWEST: {
+          // Denser than Thornhollow and darker with it: the Gloaming is the
+          // only place on the map where the trees are the terrain.
+          const density = forest > 0.42 ? 0.42 : 0.14;
+          if (r < density) {
+            const kind = forest > 0.6 ? (rng.bool(0.4) ? 'tree_magic' : 'tree_dead') : rng.bool(0.5) ? 'tree_oak' : 'tree_willow';
+            propAt(map, tx, ty, kind, { cw: 13, ch: 9, phase: rng.range(0, 6) });
+          } else if (r < density + 0.04) propAt(map, tx, ty, 'mushroom_cluster');
+          else if (r < density + 0.06) propAt(map, tx, ty, rng.bool() ? 'fern' : 'bush');
+          else if (r < density + 0.07) propAt(map, tx, ty, 'bone_pile');
+          else if (r < density + 0.078) propAt(map, tx, ty, 'stump');
+          break;
+        }
+        case REGION_FAREAST: {
+          if (tile === T.WATER) break;
+          if (r < 0.03) propAt(map, tx, ty, 'reeds');
+          else if (r < 0.045) propAt(map, tx, ty, 'rock_small', { cw: 14, ch: 8 });
+          else if (r < 0.055) propAt(map, tx, ty, 'bone_pile');
+          else if (r < 0.062 && forest > 0.62) propAt(map, tx, ty, 'tree_dead', { cw: 12, ch: 8 });
+          else if (r < 0.07) propAt(map, tx, ty, 'pillar_broken', { cw: 14, ch: 10 });
+          break;
+        }
+        case REGION_FARSOUTH: {
+          if (r < 0.016) propAt(map, tx, ty, 'rock_big', { cw: 22, ch: 12 });
+          else if (r < 0.026) propAt(map, tx, ty, 'shrub_dead');
+          else if (r < 0.034) propAt(map, tx, ty, 'bone_pile');
+          else if (r < 0.04) propAt(map, tx, ty, 'stalagmite');
+          else if (r < 0.045 && forest > 0.66) propAt(map, tx, ty, 'obelisk', { cw: 14, ch: 10 });
+          break;
+        }
         case REGION_DEEPNORTH: {
           // Almost nothing grows up here, and that emptiness is the point: the
           // Jotunreach should read as a place the world stopped decorating.
@@ -344,6 +429,8 @@ function buildCamp(ctx: GenCtx, loc: LocationDef) {
   const { tx, ty } = loc;
   clearArea(map, tx, ty, 9, undefined);
   const ground = loc.region === 'south' ? T.SAND
+    : loc.region === 'farsouth' ? T.ASH_GROUND
+    : loc.region === 'fareast' ? T.SAND
     : loc.region === 'deepnorth' ? T.SNOW
     : loc.region === 'north' ? T.GRAVEL : T.DIRT;
   for (let y = ty - 7; y <= ty + 7; y++) {
@@ -428,6 +515,9 @@ function regionGround(ctx: GenCtx, tx: number, ty: number): number {
   switch (ctx.regions[ty * WORLD_W + tx]) {
     case REGION_NORTH: return T.SNOW;
     case REGION_DEEPNORTH: return T.SNOW;
+    case REGION_FARWEST: return T.GRASS_DARK;
+    case REGION_FAREAST: return T.SAND;
+    case REGION_FARSOUTH: return T.ASH_GROUND;
     case REGION_EAST: return T.SWAMP_GROUND;
     case REGION_SOUTH: return T.DESERT_SAND;
     case REGION_WEST: return T.GRASS_DARK;
@@ -504,6 +594,30 @@ const REGION_SPAWNS: Record<number, Array<{ id: string; weight: number; level: [
     { id: 'sandgolem', weight: 3, level: [11, 14] },
     { id: 'crawler', weight: 3, level: [6, 10] },
   ],
+  [REGION_FARWEST]: [
+    { id: 'gloam_stalker', weight: 9, level: [16, 22] },
+    { id: 'gloam_weaver', weight: 8, level: [18, 24] },
+    { id: 'venomspider', weight: 5, level: [16, 21] },
+    { id: 'hollow_treant', weight: 5, level: [21, 26] },
+    { id: 'court_exile', weight: 4, level: [23, 26] },
+    { id: 'wisp', weight: 3, level: [16, 20] },
+  ],
+  [REGION_FAREAST]: [
+    { id: 'brine_crawler', weight: 9, level: [18, 24] },
+    { id: 'salt_wraith', weight: 8, level: [20, 26] },
+    { id: 'drowned_legionary', weight: 7, level: [22, 27] },
+    { id: 'salt_colossus', weight: 4, level: [25, 28] },
+    { id: 'serpent', weight: 3, level: [18, 22] },
+    { id: 'wraith', weight: 3, level: [18, 23] },
+  ],
+  [REGION_FARSOUTH]: [
+    { id: 'ash_scorpion', weight: 9, level: [21, 27] },
+    { id: 'cinder_wisp', weight: 8, level: [20, 26] },
+    { id: 'ash_serpent', weight: 6, level: [24, 30] },
+    { id: 'cutter_warlord', weight: 5, level: [26, 31] },
+    { id: 'magma_golem', weight: 3, level: [29, 32] },
+    { id: 'bandit_brute', weight: 3, level: [20, 25] },
+  ],
   [REGION_DEEPNORTH]: [
     { id: 'rime_stalker', weight: 9, level: [20, 25] },
     { id: 'ice_revenant', weight: 8, level: [21, 27] },
@@ -567,7 +681,11 @@ function placeSpawns(ctx: GenCtx) {
 
   // camp garrisons
   for (const loc of LOCATIONS.filter((l) => l.kind === 'camp')) {
-    const roster = loc.id === 'thrall_camp'
+    const roster = loc.id === 'exile_camp'
+      ? ['court_exile', 'court_exile', 'gloam_stalker', 'gloam_weaver']
+      : loc.id === 'cutter_stronghold'
+      ? ['cutter_warlord', 'cutter_warlord', 'ash_scorpion', 'bandit_brute', 'cinder_wisp']
+      : loc.id === 'thrall_camp'
       ? ['jotun_thrall', 'ice_revenant', 'ice_revenant', 'herald_winter']
       : loc.id === 'crag_camp'
       ? ['orc_raider', 'orc_raider', 'direwolf']
@@ -843,10 +961,10 @@ export function generateOverworld(seed: number): GameMap {
   // water features
   carveLake(ctx, CX + 51, CY - 35, 17);
   carveLake(ctx, CX - 74, CY + 62, 14);
-  carveRiver(ctx, 235, 232, 285, 392, 3.6);
-  carveRiver(ctx, 285, 392, 400, 477, 4);
-  carveRiver(ctx, 160, 472, 80, 592, 3.2);
-  carveRiver(ctx, 300, 522, 210, 622, 3);
+  carveRiver(ctx, 363, 232, 413, 392, 3.6);
+  carveRiver(ctx, 413, 392, 528, 477, 4);
+  carveRiver(ctx, 288, 472, 208, 592, 3.2);
+  carveRiver(ctx, 428, 522, 338, 622, 3);
 
   // roads between every settlement and the capital, then on to the dungeons
   const towns = LOCATIONS.filter((l) => l.kind === 'village' || l.kind === 'town');
@@ -888,6 +1006,23 @@ export function generateOverworld(seed: number): GameMap {
   road('white_stair', 'the_last_gate');
   road('the_last_gate', 'under_the_gate');
   road('jotun_barrow', 'cairn_of_names');
+  // the outer marches: one road out of each of the old frontier towns, then
+  // the trail onward through the march
+  road('thornhollow', 'duskhold');
+  road('duskhold', 'the_deepwood');
+  road('duskhold', 'thorn_warren');
+  road('duskhold', 'exile_camp');
+  road('thorn_warren', 'gloam_ring');
+  road('mirefall', 'saltwatch');
+  road('saltwatch', 'drowned_court');
+  road('saltwatch', 'salt_mine');
+  road('saltwatch', 'salt_pillars');
+  road('salt_mine', 'wrecked_fleet');
+  road('duneholt', 'cinderhold');
+  road('cinderhold', 'the_caldera');
+  road('cinderhold', 'ashfall_barrow');
+  road('cinderhold', 'cutter_stronghold');
+  road('the_caldera', 'glass_flats');
   road('ashvale', 'whisperwell');
   road('ashvale', 'ember_falls');
   road('ashvale', 'old_bridge');

@@ -538,6 +538,143 @@ export const ENEMIES: EnemyDef[] = [
     lootChance: 0.7, lootBias: 0.6, tags: ['undead', 'construct'],
   },
 
+  /* ---------------------------------------------------------------- */
+  /* The Gloaming, the Saltreach and the Cinderwastes                  */
+  /*                                                                   */
+  /* Three marches at the outer edge of the map, each a step past the  */
+  /* region it grew out of. Priced from balance.ts like everything     */
+  /* else; `npx tsx scripts/check-balance.ts` keeps them honest.       */
+  /* ---------------------------------------------------------------- */
+
+  /* --- the Gloaming (west, 16-26) --- */
+  {
+    id: 'gloam_stalker', name: 'Gloam Stalker', kind: 'creature', creature: { kind: 'wolf', palette: 'gloamwolf', glow: PAL.toxic }, scale: 1.3,
+    role: 'skirmisher',
+    level: 17, health: 755, damage: 51, defense: 14, speed: 126, xp: 247, gold: [12, 34], radius: 17,
+    sight: 480, attackRange: 40, attackCooldown: 1.1, windup: 0.24, pack: true, element: 'poison',
+    drops: [{ item: 'mat_leather', chance: 0.4, min: 1, max: 3 }, { item: 'mat_herb', chance: 0.3 }],
+    lootChance: 0.26, tags: ['beast'],
+  },
+  {
+    id: 'gloam_weaver', name: 'Gloamweaver', kind: 'creature', creature: { kind: 'spider', palette: 'gloamspider', glow: PAL.toxic }, scale: 1.55,
+    role: 'standard',
+    level: 19, health: 1380, damage: 56, defense: 29, speed: 92, xp: 318, gold: [16, 42], radius: 18,
+    sight: 440, attackRange: 320, attackCooldown: 1.8, windup: 0.44, element: 'poison',
+    ranged: { speed: 280, element: 'poison', color: PAL.toxic, radius: 34, count: 2, arc: 0.4 },
+    drops: [{ item: 'antidote', chance: 0.35 }, { item: 'mat_essence', chance: 0.3 }],
+    lootChance: 0.34, tags: ['beast'],
+  },
+  {
+    id: 'hollow_treant', name: 'Hollow Elder', kind: 'creature', creature: { kind: 'treant', palette: 'hollowtreant', glow: PAL.arcaneLit }, scale: 2,
+    role: 'brute',
+    level: 22, health: 2999, damage: 72, defense: 53, speed: 54, xp: 478, gold: [30, 74], radius: 26,
+    sight: 380, attackRange: 78, attackCooldown: 2.5, windup: 0.78, element: 'poison',
+    drops: [{ item: 'mat_essence', chance: 0.45 }, { item: 'q_heartseed', chance: 0.2 }],
+    lootChance: 0.45, lootBias: 0.3, tags: ['plant'],
+  },
+  {
+    id: 'court_exile', name: 'Court Exile', kind: 'humanoid',
+    look: humanLook({
+      skin: PAL.skinElf, hair: '#2f4a33', hairStyle: 'long', ears: 'elf', eyes: PAL.toxic,
+      shirt: '#1f3a28', pants: '#16281c', armor: 'light', armorColor: '#25412a', armorTrim: PAL.toxic, helmet: 'hood',
+      cape: '#132017', weapon: { kind: 'bow', metal: PAL.leafDark, grip: PAL.woodDark, glow: PAL.toxic },
+    }),
+    role: 'standard',
+    level: 24, health: 2059, damage: 70, defense: 36, speed: 96, xp: 489, gold: [30, 70], radius: 14,
+    sight: 540, attackRange: 420, attackCooldown: 1.6, windup: 0.44, faction: 'forest',
+    ranged: { speed: 440, element: 'poison', color: PAL.toxic, radius: 24 },
+    drops: [{ item: 'mat_essence', chance: 0.4 }, { item: 'potion_health_l', chance: 0.3 }],
+    lootChance: 0.5, lootBias: 0.35, tags: ['humanoid'],
+  },
+
+  /* --- the Saltreach (east, 18-28) --- */
+  {
+    id: 'brine_crawler', name: 'Brine Crawler', kind: 'creature', creature: { kind: 'crawler', palette: 'brinecrawler', glow: PAL.foam }, scale: 1.45,
+    role: 'standard',
+    level: 19, health: 1380, damage: 56, defense: 29, speed: 98, xp: 318, gold: [16, 40], radius: 17,
+    sight: 400, attackRange: 46, attackCooldown: 1.4, windup: 0.3, pack: true,
+    drops: [{ item: 'mat_leather', chance: 0.4, min: 1, max: 3 }, { item: 'antidote', chance: 0.25 }],
+    lootChance: 0.3, tags: ['beast'],
+  },
+  {
+    id: 'salt_wraith', name: 'Salt Wraith', kind: 'creature', creature: { kind: 'wraith', palette: 'saltwraith', glow: PAL.foam }, scale: 1.35,
+    role: 'skirmisher',
+    level: 21, health: 1110, damage: 62, defense: 17, speed: 104, xp: 363, gold: [18, 48], radius: 15,
+    sight: 480, attackRange: 340, attackCooldown: 1.8, windup: 0.46, element: 'frost', flee: 0.12,
+    ranged: { speed: 320, element: 'frost', color: PAL.foam, radius: 34, count: 2, arc: 0.36 },
+    drops: [{ item: 'mat_essence', chance: 0.4 }, { item: 'potion_mana_m', chance: 0.3 }],
+    lootChance: 0.34, tags: ['undead'],
+  },
+  {
+    id: 'drowned_legionary', name: 'Drowned Legionary', kind: 'humanoid',
+    look: humanLook({
+      skin: '#8aa6a2', hair: '#3a4a4a', hairStyle: 'bald', shirt: '#3a5058', pants: '#27363c',
+      armor: 'heavy', armorColor: '#6f8e92', armorTrim: PAL.foam, helmet: 'full', eyes: PAL.foam, bulk: 1.1,
+      weapon: { kind: 'spear', metal: '#8aa6a2', grip: PAL.woodDark },
+    }),
+    role: 'standard',
+    level: 23, health: 1916, damage: 67, defense: 35, speed: 76, xp: 452, gold: [26, 64], radius: 16,
+    sight: 380, attackRange: 70, attackCooldown: 1.9, windup: 0.48,
+    drops: [{ item: 'mat_essence', chance: 0.35 }, { item: 'mat_steel_ingot', chance: 0.3 }],
+    lootChance: 0.45, lootBias: 0.3, tags: ['undead'],
+  },
+  {
+    id: 'salt_colossus', name: 'Salt Colossus', kind: 'creature', creature: { kind: 'golem', palette: 'saltgolem', glow: PAL.foam }, scale: 1.9,
+    role: 'brute',
+    level: 26, health: 3800, damage: 84, defense: 62, speed: 54, xp: 653, gold: [44, 104], radius: 25,
+    sight: 360, attackRange: 68, attackCooldown: 2.5, windup: 0.8,
+    drops: [{ item: 'mat_gem_sapphire', chance: 0.3 }, { item: 'mat_rune', chance: 0.25 }],
+    lootChance: 0.6, lootBias: 0.5, tags: ['construct'],
+  },
+
+  /* --- the Cinderwastes (south, 20-32) --- */
+  {
+    id: 'cinder_wisp', name: 'Cinderwisp', kind: 'creature', creature: { kind: 'wisp', palette: 'cinderwisp', glow: PAL.flame }, scale: 1.2,
+    role: 'skirmisher',
+    level: 21, health: 1110, damage: 62, defense: 17, speed: 118, xp: 363, gold: [18, 46], radius: 14,
+    sight: 460, attackRange: 300, attackCooldown: 1.7, windup: 0.4, element: 'fire',
+    ranged: { speed: 330, element: 'fire', color: PAL.flame, radius: 36 },
+    drops: [{ item: 'mat_essence', chance: 0.4 }, { item: 'mat_herb', chance: 0.3 }],
+    lootChance: 0.3, tags: ['elemental'],
+  },
+  {
+    id: 'ash_scorpion', name: 'Ash Scorpion', kind: 'creature', creature: { kind: 'scorpion', palette: 'ashscorpion', glow: PAL.ember }, scale: 1.5,
+    role: 'standard',
+    level: 23, health: 1916, damage: 67, defense: 35, speed: 96, xp: 452, gold: [24, 60], radius: 18,
+    sight: 400, attackRange: 50, attackCooldown: 1.4, windup: 0.32, element: 'fire', pack: true,
+    drops: [{ item: 'mat_leather', chance: 0.45, min: 1, max: 3 }, { item: 'antidote', chance: 0.3 }],
+    lootChance: 0.34, tags: ['beast'],
+  },
+  {
+    id: 'ash_serpent', name: 'Cinder Serpent', kind: 'creature', creature: { kind: 'serpent', palette: 'ashserpent', glow: PAL.flame }, scale: 1.6,
+    role: 'standard',
+    level: 26, health: 2516, damage: 75, defense: 39, speed: 100, xp: 568, gold: [30, 72], radius: 19,
+    sight: 440, attackRange: 54, attackCooldown: 1.35, windup: 0.3, element: 'fire',
+    drops: [{ item: 'mat_leather', chance: 0.5, min: 2, max: 4 }, { item: 'mat_gem_ruby', chance: 0.2 }],
+    lootChance: 0.4, tags: ['beast'],
+  },
+  {
+    id: 'cutter_warlord', name: 'Cutter Warlord', kind: 'humanoid',
+    look: humanLook({
+      skin: PAL.skin2, hair: '#2a2029', hairStyle: 'wild', beard: 'full', shirt: '#5a2a20', pants: '#3a221a',
+      armor: 'heavy', armorColor: '#6a3020', armorTrim: PAL.flameLit, helmet: 'horned', bulk: 1.3, height: 1.08,
+      eyes: PAL.flameLit, cape: '#8e2131', weapon: { kind: 'greataxe', metal: PAL.ironDark, grip: PAL.woodDark, glow: PAL.ember },
+    }),
+    scale: 1.25, role: 'brute',
+    level: 28, health: 4269, damage: 90, defense: 67, speed: 76, xp: 751, gold: [70, 150], radius: 20,
+    sight: 440, attackRange: 76, attackCooldown: 2.2, windup: 0.6, element: 'fire', faction: 'bandits',
+    drops: [{ item: 'q_bandit_orders', chance: 0.4 }, { item: 'potion_health_xl', chance: 0.35 }],
+    lootChance: 0.6, lootBias: 0.5, tags: ['humanoid'],
+  },
+  {
+    id: 'magma_golem', name: 'Magma Golem', kind: 'creature', creature: { kind: 'golem', palette: 'magmagolem', glow: PAL.flame }, scale: 2,
+    role: 'brute',
+    level: 31, health: 5022, damage: 99, defense: 74, speed: 52, xp: 911, gold: [80, 170], radius: 27,
+    sight: 360, attackRange: 72, attackCooldown: 2.6, windup: 0.85, element: 'fire',
+    drops: [{ item: 'mat_gem_ruby', chance: 0.4 }, { item: 'mat_greater_rune', chance: 0.22 }],
+    lootChance: 0.7, lootBias: 0.6, tags: ['construct', 'elemental'],
+  },
+
   /* --- northern elites --- */
   {
     id: 'mini_wintercaller', name: 'The Wintercaller', kind: 'humanoid', elite: true,
@@ -875,6 +1012,108 @@ export const BOSSES: EnemyDef[] = [
         { id: 'heralds', name: 'The Choir Follows', shape: 'summon', windup: 1.1, cooldown: 26, power: 0, count: 4, element: 'frost', color: PAL.frost, summon: 'winter_shade', phase: 3 },
         { id: 'winter', name: 'Everywhere', shape: 'ring', windup: 1.8, cooldown: 15, power: 3.6, radius: 560, element: 'frost', color: PAL.white, phase: 4, lifeTax: 0.34 },
         { id: 'hunt', name: 'The Season Turns', shape: 'rain', windup: 0.9, cooldown: 6, power: 2.2, count: 14, radius: 96, element: 'frost', color: PAL.white, phase: 4 },
+      ],
+    },
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* The outer marches                                                 */
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'boss_gloam_mother', name: 'The Gloaming Itself', kind: 'creature',
+    creature: { kind: 'treant', palette: 'hollowtreant', glow: PAL.toxic }, scale: 3,
+    role: 'boss',
+    level: 25, health: 25555, damage: 83, defense: 64, speed: 58, xp: 3958, gold: [640, 1080], radius: 36,
+    sight: 640, attackRange: 130, attackCooldown: 2.1, windup: 0.65, element: 'poison',
+    ranged: { speed: 280, element: 'poison', color: PAL.toxic, radius: 46 },
+    drops: [{ item: 'q_heartseed', chance: 1 }, { item: 'elixir_grand', chance: 1, min: 2, max: 3 }, { item: 'mat_greater_rune', chance: 1 }],
+    lootChance: 1, lootBias: 1.3, tags: ['plant'],
+    boss: {
+      title: 'The Wood That Stopped Answering',
+      uniqueDrop: 'art_gloaming_seed',
+      hitCap: 0.025,
+      enrageAfter: 150,
+      enrageRate: 0.02,
+      phases: [
+        { at: 1, name: 'Canopy', speed: 1, damage: 1, line: 'The Court asked the wood to be a garden. The wood declined.' },
+        { at: 0.6, name: 'Undergrowth', speed: 1.24, damage: 1.3, line: 'You are standing in me. You have been for an hour.', hazard: 'poison' },
+        { at: 0.26, name: 'Root', speed: 1.5, damage: 1.6, line: 'THEN BE COMPOST.', hazard: 'poison' },
+      ],
+      attacks: [
+        { id: 'lash', name: 'Bough Lash', shape: 'cone', windup: 0.6, cooldown: 3.6, power: 1.5, radius: 260, element: 'physical', color: PAL.leafLit },
+        { id: 'spores', name: 'Spores', shape: 'ring', windup: 1.2, cooldown: 10, power: 2.3, radius: 340, element: 'poison', color: PAL.toxic, lifeTax: 0.13 },
+        { id: 'thorns', name: 'Thornfall', shape: 'rain', windup: 1.1, cooldown: 8, power: 1.8, count: 9, radius: 84, element: 'poison', color: PAL.leaf },
+        { id: 'saplings', name: 'It Has Children', shape: 'summon', windup: 1.1, cooldown: 18, power: 0, count: 4, element: 'poison', color: PAL.toxic, summon: 'hollow_treant', phase: 1 },
+        { id: 'grasp', name: 'Rootgrasp', shape: 'line', windup: 0.9, cooldown: 7, power: 2, range: 600, element: 'poison', color: PAL.leafDark, phase: 1 },
+      ],
+    },
+  },
+  {
+    id: 'boss_tide_king', name: 'The Tide That Was A King', kind: 'humanoid',
+    look: humanLook({
+      skin: '#8aa6a2', hair: '#9fc0c8', hairStyle: 'long', beard: 'long', shirt: '#2f4a52', pants: '#1d3138',
+      armor: 'heavy', armorColor: '#6f8e92', armorTrim: PAL.gold, helmet: 'crown', bulk: 1.5, height: 1.25,
+      eyes: PAL.foam, glow: PAL.foam, cape: '#33585c',
+      weapon: { kind: 'halberd', metal: '#9fc0c8', grip: PAL.woodDark, glow: PAL.foam },
+    }),
+    scale: 2.7, role: 'boss',
+    level: 27, health: 28860, damage: 90, defense: 69, speed: 70, xp: 4573, gold: [760, 1240], radius: 32,
+    sight: 640, attackRange: 110, attackCooldown: 2, windup: 0.6, element: 'frost',
+    ranged: { speed: 300, element: 'frost', color: PAL.foam, radius: 44 },
+    drops: [{ item: 'elixir_grand', chance: 1, min: 2, max: 4 }, { item: 'mat_gem_sapphire', chance: 1, min: 2, max: 3 }],
+    lootChance: 1, lootBias: 1.35, tags: ['undead'],
+    boss: {
+      title: 'Crowned Under Water, Drowned Above It',
+      uniqueDrop: 'art_tidecrown',
+      hitCap: 0.022,
+      enrageAfter: 150,
+      enrageRate: 0.022,
+      phases: [
+        { at: 1, name: 'Low Water', speed: 1, damage: 1, line: 'My court is out there. All of it. Under the salt.' },
+        { at: 0.66, name: 'Flood', speed: 1.22, damage: 1.28, line: 'The tide does not negotiate. Neither did I.', hazard: 'frost' },
+        { at: 0.3, name: 'High Water', speed: 1.5, damage: 1.6, line: 'COME DOWN AND MEET THEM.', hazard: 'frost' },
+      ],
+      attacks: [
+        { id: 'sweep', name: 'Halberd Sweep', shape: 'cone', windup: 0.55, cooldown: 3.4, power: 1.5, radius: 250, element: 'physical', color: '#9fc0c8' },
+        { id: 'surge', name: 'Surge', shape: 'line', windup: 0.9, cooldown: 7, power: 2.1, range: 660, element: 'frost', color: PAL.foam },
+        { id: 'tide', name: 'The Tide Comes In', shape: 'ring', windup: 1.5, cooldown: 12, power: 2.7, radius: 380, element: 'frost', color: PAL.water, lifeTax: 0.15 },
+        { id: 'court', name: 'His Court', shape: 'summon', windup: 1.1, cooldown: 19, power: 0, count: 4, element: 'frost', color: PAL.foam, summon: 'drowned_legionary', phase: 1 },
+        { id: 'undertow', name: 'Undertow', shape: 'dash', windup: 0.45, cooldown: 7, power: 1.7, range: 420, element: 'frost', color: PAL.water, phase: 1 },
+        { id: 'squall', name: 'Squall', shape: 'rain', windup: 1.1, cooldown: 9, power: 1.9, count: 10, radius: 88, element: 'frost', color: PAL.foam, phase: 2 },
+      ],
+    },
+  },
+  {
+    id: 'boss_cinder_maw', name: 'Vulgrim, the Cinder Maw', kind: 'creature',
+    creature: { kind: 'golem', palette: 'magmagolem', glow: PAL.flame }, scale: 3.2,
+    role: 'boss',
+    level: 31, health: 35802, damage: 102, defense: 79, speed: 64, xp: 5938, gold: [1100, 1800], radius: 40,
+    sight: 700, attackRange: 140, attackCooldown: 1.9, windup: 0.6, element: 'fire',
+    ranged: { speed: 320, element: 'fire', color: PAL.flame, radius: 52 },
+    drops: [{ item: 'elixir_grand', chance: 1, min: 3, max: 5 }, { item: 'mat_greater_rune', chance: 1, min: 2, max: 3 }],
+    lootChance: 1, lootBias: 1.6, tags: ['construct', 'elemental'],
+    boss: {
+      title: 'What Duneholt Pays The Cutters To Ignore',
+      arenaMusic: true,
+      uniqueDrop: 'art_cinder_core',
+      hitCap: 0.016,
+      enrageAfter: 130,
+      enrageRate: 0.028,
+      phases: [
+        { at: 1, name: 'Banked', speed: 1, damage: 1, line: 'You have walked a long way over the lid of me.' },
+        { at: 0.78, name: 'Drawing', speed: 1.16, damage: 1.2, line: 'The ash out there is what is left of the last one.', hazard: 'fire' },
+        { at: 0.52, name: 'Open Flame', speed: 1.34, damage: 1.45, line: 'Duneholt pays the Cutters to keep people off my roof. It works.', hazard: 'fire' },
+        { at: 0.26, name: 'Runaway', speed: 1.56, damage: 1.7, line: 'You are not people. Fine.', hazard: 'fire' },
+        { at: 0.09, name: 'Everything Burns', speed: 1.9, damage: 2.1, line: 'THEN LET THE WASTE HAVE THE VALLEY TOO.', hazard: 'fire' },
+      ],
+      attacks: [
+        { id: 'bite', name: 'Maw', shape: 'cone', windup: 0.6, cooldown: 3.4, power: 1.6, radius: 300, element: 'fire', color: PAL.flame },
+        { id: 'spit', name: 'Cinderspit', shape: 'projectile', windup: 0.55, cooldown: 3, power: 1.4, count: 9, range: 700, element: 'fire', color: PAL.ember },
+        { id: 'eruption', name: 'Eruption', shape: 'rain', windup: 1.2, cooldown: 8, power: 2, count: 12, radius: 92, element: 'fire', color: PAL.flameLit },
+        { id: 'flow', name: 'Pyroclast', shape: 'ring', windup: 1.5, cooldown: 12, power: 2.8, radius: 420, element: 'fire', color: PAL.flameLit, phase: 1, lifeTax: 0.19 },
+        { id: 'lunge', name: 'Lunge', shape: 'dash', windup: 0.4, cooldown: 6, power: 1.8, range: 500, element: 'fire', color: PAL.ember, phase: 1 },
+        { id: 'brood', name: 'The Waste Answers', shape: 'summon', windup: 1.1, cooldown: 20, power: 0, count: 4, element: 'fire', color: PAL.flame, summon: 'magma_golem', phase: 2 },
+        { id: 'caldera', name: 'Caldera', shape: 'ring', windup: 1.9, cooldown: 16, power: 3.8, radius: 620, element: 'fire', color: PAL.white, phase: 3, lifeTax: 0.33 },
       ],
     },
   },

@@ -406,6 +406,18 @@ export const CREATURE_PALETTES: Record<string, Pick<CreatureStyle, 'primary' | '
   icegolem: { primary: '#9fc4d8', secondary: '#5f8ba4', accent: PAL.white, eye: PAL.frost },
   bonewrought: { primary: PAL.bone, secondary: '#8e8778', accent: PAL.frost, eye: PAL.frost },
   glaciermaw: { primary: '#bcd8e8', secondary: '#6f9ab4', accent: PAL.blood, eye: PAL.blood },
+
+  /* --- the outer marches --- */
+  gloamwolf: { primary: '#1f2a1e', secondary: '#0f160f', accent: PAL.leafLit, eye: PAL.toxic },
+  gloamspider: { primary: '#22301f', secondary: '#121a11', accent: PAL.toxic, eye: PAL.flameLit },
+  hollowtreant: { primary: '#2a2118', secondary: '#16110c', accent: PAL.toxic, eye: PAL.arcaneLit },
+  saltwraith: { primary: '#9fc0c8', secondary: '#4a7a8c', accent: PAL.foam, eye: PAL.foam },
+  brinecrawler: { primary: '#5f8a8c', secondary: '#33585c', accent: PAL.foam, eye: PAL.ink },
+  saltgolem: { primary: '#cfd8d4', secondary: '#8a9a96', accent: PAL.foam, eye: PAL.water },
+  cinderwisp: { primary: PAL.ember, secondary: PAL.emberDark, accent: PAL.flameLit, eye: PAL.white },
+  ashscorpion: { primary: '#6a3a2a', secondary: '#3a1d14', accent: PAL.flame, eye: PAL.flameLit },
+  magmagolem: { primary: '#5a2418', secondary: '#2e120b', accent: PAL.flame, eye: PAL.flameLit },
+  ashserpent: { primary: '#7a3a2a', secondary: '#45201a', accent: PAL.flameLit, eye: PAL.ember },
 };
 
 export function creatureStyle(kind: CreatureKind, paletteKey: string, scale = 1, glow?: string | null): CreatureStyle {
