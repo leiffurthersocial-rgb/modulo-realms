@@ -49,6 +49,9 @@ export const WEAPON_STAT: Partial<Record<WeaponKind, 'strength' | 'dexterity' | 
 /** The level there is no growing past. */
 export const MAX_LEVEL = 75;
 
+/** The most swings a second anything can reach, whatever it is holding. */
+export const MAX_ATTACK_RATE = 4.5;
+
 /**
  * Experience for the next level.
  *
@@ -315,18 +318,39 @@ export class Player implements Entity {
    * enemy health survives. With the cap at 75 the stat runs to three hundred
    * and the old form returned a 7.6x multiplier on top of the weapon.
    *
-   * So the coefficient is halved AND the tail is bent: the first hundred
-   * points of a stat pay full rate, everything past that pays a third. A
-   * stat is still always worth taking, it just stops being the whole build.
+   * The fix is the BEND, not the coefficient. Bending the tail — the first
+   * hundred and twenty points of a stat pay full rate, everything past that
+   * pays two fifths — is what stops the runaway, because the runaway only
+   * ever happened at the top. Halving the coefficient as well was belt and
+   * braces, and it cost the early and middle game far more than it cost the
+   * end: it is most of why ordinary enemies stopped dying quickly.
+   *
+   * So the coefficient goes back up (0.011 to 0.018, against 0.022 before any
+   * of this) and the bend does the work it was added to do. A stat is worth
+   * taking everywhere, and stops being the whole build at the top.
    */
   attackPower(): number {
     const s = this.stats();
     const weaponDmg = s.damage > 0 ? s.damage : 4 + this.level;
     const prim = s[this.primaryStat()];
-    const scaled = Math.min(prim, 100) + Math.max(0, prim - 100) * 0.34;
-    return weaponDmg * (1 + scaled * 0.011);
+    const scaled = Math.min(prim, 120) + Math.max(0, prim - 120) * 0.4;
+    return weaponDmg * (1 + scaled * 0.018);
   }
 
+  /**
+   * Seconds between swings.
+   *
+   * On the main hand `stats.attackSpeed` is the weapon's own swing RATE; on
+   * everything else it is a percentage bonus, which is why the main hand is
+   * skipped in the sum below.
+   *
+   * The rate is clamped at both ends. The floor was always there. The ceiling
+   * is a backstop: a bug in the affix roller once wrote a percentage into a
+   * weapon's base rate and produced twenty-three swings a second, which no
+   * amount of enemy health survives. Nothing should ever swing faster than
+   * this, so if something tries, it is wrong and the clamp says so rather than
+   * quietly handing out an eighteen-fold damage multiplier.
+   */
   attackInterval(): number {
     const base = this.equipment.mainHand?.stats.attackSpeed ?? 1.2;
     let bonus = 0;
@@ -335,7 +359,8 @@ export class Player implements Entity {
       const pts = this.skills[node.id] ?? 0;
       if (pts && node.bonus.attackSpeed) bonus += node.bonus.attackSpeed * pts;
     }
-    return 1 / Math.max(0.2, base * (1 + bonus / 100));
+    const rate = base * (1 + bonus / 100);
+    return 1 / Math.min(MAX_ATTACK_RATE, Math.max(0.2, rate));
   }
 
   attackRange(): number {

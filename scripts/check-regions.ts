@@ -15,14 +15,14 @@ import {
   damageTaken,
 } from '../src/data/balance';
 
-console.log('region        band     standard   boss      a hit costs');
+console.log('region        band      easy  standard    brute     elite      boss    a hit costs');
 for (const b of LEVEL_BANDS) {
   const lv = Math.round((b.from + b.to) / 2);
   const mul = REGION_DIFFICULTY[b.region] ?? 1;
   const bossMul = REGION_BOSS_DIFFICULTY[b.region] ?? 1;
   const dps = playerDpsAt(lv);
 
-  const secs = (role: 'standard' | 'boss', m: number) =>
+  const secs = (role: 'skirmisher' | 'standard' | 'brute' | 'elite' | 'boss', m: number) =>
     (enemyHealthAt(lv, role) * m) / (dps * (100 / (100 + enemyDefenseAt(lv, role))));
 
   // What one ordinary blow takes off a reasonably armoured character. Armour
@@ -36,9 +36,11 @@ for (const b of LEVEL_BANDS) {
   console.log(
     b.region.padEnd(12),
     `${b.from}-${b.to}`.padEnd(8),
-    `${secs('standard', mul).toFixed(0)}s`.padStart(8),
-    `${secs('boss', bossMul).toFixed(0)}s`.padStart(8),
-    `${((hit / hp) * 100).toFixed(0)}% of health`.padStart(16),
-    `  (x${mul} / boss x${bossMul})`,
+    `${secs('skirmisher', mul).toFixed(1)}s`.padStart(7),
+    `${secs('standard', mul).toFixed(1)}s`.padStart(9),
+    `${secs('brute', mul).toFixed(0)}s`.padStart(9),
+    `${secs('elite', mul).toFixed(0)}s`.padStart(9),
+    `${secs('boss', bossMul).toFixed(0)}s`.padStart(9),
+    `${((hit / hp) * 100).toFixed(0)}% of health`.padStart(17),
   );
 }

@@ -298,6 +298,12 @@ export default function HelpPanel({ game }: { game: Game }) {
                   Part of the stock is fixed to what that merchant&apos;s own ground produces and part of it is rolled
                   fresh, so the same counter is worth checking again and a visit can be lucky or unlucky.
                 </P>
+                <P>
+                  <b>Prices climb steeply with the tier of the goods.</b> A merchant&apos;s markup grows along with
+                  what is on the counter — an iron sword in Ashvale is eighty gold and a breastplate in the Emberdeep
+                  is the better part of eighty thousand. Coin from kills grows with it, so the ratio stays sane, but
+                  late gear is meant to be something you save for rather than something you pick up in passing.
+                </P>
 
                 <H>Doors worth opening</H>
                 <P>
@@ -339,10 +345,11 @@ export default function HelpPanel({ game }: { game: Game }) {
                 </P>
                 <P>
                   A region&apos;s level band says when you are meant to be there. How dangerous it feels is a separate
-                  dial. <b>Thornhollow is gentle on purpose</b> — it is where you learn to dodge — but its bosses take
-                  their own multiplier and are among the hardest fights in the game. The Mire is a real step up, the
-                  Crag Reach harder again, and Duneholt is brutal. By the Emberdeep an ordinary blow takes over half
-                  your health.
+                  dial, and it is a seasoning rather than a second curve — about sixty percent across the whole world.
+                  <b>Thornhollow is gentle on purpose</b>, because it is where you learn to dodge, but its bosses take
+                  their own and much larger multiplier and are among the hardest fights in the game. Rank-and-file
+                  enemies are meant to be texture: two or three hits for a weak one, a few seconds for an ordinary one.
+                  Bosses are where the difficulty lives.
                 </P>
 
                 <H>Changing your mind</H>

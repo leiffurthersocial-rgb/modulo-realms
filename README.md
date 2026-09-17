@@ -151,9 +151,11 @@ shrines. Stronger regions sit further from home, so the world gates itself by di
 rather than by walls.
 
 A region's **level band** says when you are meant to be there; a separate **difficulty
-multiplier** says what it feels like once you are, and the two are different claims.
-Thornhollow is gentle on purpose — it is where a new character learns to dodge — while its
-bosses take their own multiplier and are among the hardest fights in the game.
+multiplier** says what it feels like once you are, and the two are different claims. That
+multiplier is a seasoning rather than a second difficulty curve — about sixty percent across
+the whole world — because rank-and-file enemies are texture, not encounters. Thornhollow is
+gentle on purpose, while its **bosses** take their own and much wider multiplier and are among
+the hardest fights in the game. Difficulty belongs on bosses.
 
 **Ashvale.** The handcrafted home town, laid out as a ring rather than a sprawl. Every
 building you can use — the forge, the trading post, the apothecary, the inn, the chapel and the
@@ -231,6 +233,13 @@ days per shop, staggered so they do not all change on the same morning, with the
 the shop header. Part of the window is fixed to what that ground produces and part is rolled
 fresh, so a visit can be lucky or unlucky. If you want better gear to buy, walk somewhere
 worse.
+
+**And prices climb with the tier.** `valuePremiumAt` makes a thing worth more for being high
+level, and `merchantMarkupAt` raises the markup on top — separately, because raising worth
+alone inflates both sides of the counter and shopping never actually gets harder. An iron
+sword is eighty gold; a level-74 breastplate is a hundred thousand. `enemyGoldAt` tracks the
+same premium so the ratio stays sane: sixty to a hundred ordinary kills for a good weapon at
+any point in the game, tilting higher toward the end.
 
 **King Jovan.** The king keeps court in the Ashvale moot hall, and he is worth the walk twice
 over. He runs **the Royal Armoury** — the best-stocked shop in the valley, sold at a loss

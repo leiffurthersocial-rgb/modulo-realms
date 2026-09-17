@@ -18,13 +18,17 @@ import type { Rarity } from '../game/items/types';
 /**
  * Melee single-target damage per second, at a given level, before rarity.
  *
- * This slope was cut by a third when the cap moved to 75. Weapon damage is
- * only half of what a swing actually does — the other half is the primary
- * stat multiplier in `Player.attackPower`, and the two multiply. A steep
- * weapon curve on top of a growing stat is what let a level-15 relic still
- * delete a level-34 boss, so the weapon side is now the flatter of the two.
+ * Weapon damage is only half of what a swing actually does — the other half is
+ * the primary stat multiplier in `Player.attackPower`, and the two multiply. A
+ * steep weapon curve on top of a growing stat is what let a level-15 relic
+ * delete a level-34 boss, so the weapon side stays the flatter of the two.
+ *
+ * It was cut to 1.8 a level, which was an overcorrection: combined with
+ * everything else in this file it left ordinary enemies taking real effort,
+ * and a wolf on the road should not take effort. Back up to 2.4 — still below
+ * the 2.9 it started at, because the runaway it was fixing was real.
  */
-export const meleeDpsAt = (level: number): number => 8 + level * 1.8;
+export const meleeDpsAt = (level: number): number => 9 + level * 2.4;
 
 /** Each grade of rarity is worth this much more than the one below. */
 export const RARITY_POWER: Record<Rarity, number> = {
@@ -104,29 +108,37 @@ export const LEVEL_BANDS: Array<{ region: string; from: number; to: number; note
 
 /**
  * How dangerous a region is beyond what its level band already says, applied
- * to enemy health and damage in `Enemy`'s constructor.
+ * to enemy health in `Enemy`'s constructor.
  *
  * The level band says when you are MEANT to be somewhere. This says what it
  * feels like when you get there, and the two are not the same claim: the
  * Gloaming and the Mire overlap in level and are nothing like each other to
- * stand in. Thornhollow is the gentle one on purpose — it is where a new
- * character learns the controls — and its BOSSES are exempt, because a soft
- * region with a frightening thing at the bottom of it is the shape the whole
- * west is built around.
+ * stand in.
+ *
+ * The spread used to run to 2.8, which multiplied fight lengths that were
+ * already too long and made every ordinary enemy in the back half of the game
+ * a slog. It is a seasoning, not a second difficulty curve — the level band
+ * does the real work, and this only tilts it. A sixty percent spread across
+ * the whole world is plenty to feel.
+ *
+ * Thornhollow is the gentle one on purpose — it is where a new character
+ * learns the controls — and its BOSSES are exempt, because a soft region with
+ * a frightening thing at the bottom of it is the shape the whole west is
+ * built around.
  */
 export const REGION_DIFFICULTY: Record<string, number> = {
   central: 1.0,
-  west: 1.05,
-  east: 1.3,
-  north: 1.6,
-  south: 1.95,
-  farwest: 1.7,
-  fareast: 1.8,
-  deepnorth: 2.0,
-  farsouth: 2.3,
-  sunkenwest: 2.2,
-  stormeast: 2.45,
-  emberdeep: 2.8,
+  west: 1.0,
+  east: 1.06,
+  north: 1.14,
+  south: 1.26,
+  farwest: 1.18,
+  fareast: 1.24,
+  deepnorth: 1.3,
+  farsouth: 1.4,
+  sunkenwest: 1.36,
+  stormeast: 1.46,
+  emberdeep: 1.6,
 };
 
 /**
@@ -134,20 +146,23 @@ export const REGION_DIFFICULTY: Record<string, number> = {
  * that a starter region can still have something in its cellar that kills
  * you. The west's bosses are the loudest case: Thornhollow is levelled for a
  * character who has just learned to dodge, and the thing in the grove is not.
+ *
+ * These keep a much wider spread than the ordinary multiplier above, because
+ * a boss is where difficulty belongs. Trash is texture; bosses are the game.
  */
 export const REGION_BOSS_DIFFICULTY: Record<string, number> = {
-  central: 1.15,
-  west: 2.4,
-  east: 1.5,
-  north: 1.7,
-  south: 2.1,
-  farwest: 1.9,
-  fareast: 1.95,
-  deepnorth: 2.1,
-  farsouth: 2.4,
-  sunkenwest: 2.3,
-  stormeast: 2.5,
-  emberdeep: 2.9,
+  central: 1.0,
+  west: 1.85,
+  east: 1.2,
+  north: 1.35,
+  south: 1.6,
+  farwest: 1.45,
+  fareast: 1.5,
+  deepnorth: 1.55,
+  farsouth: 1.75,
+  sunkenwest: 1.65,
+  stormeast: 1.8,
+  emberdeep: 2.0,
 };
 
 /**
@@ -203,14 +218,20 @@ const ROLE_XP: Record<EnemyRole, number> = {
  * the stated fight lengths correspondingly faster, which is the spread the
  * whole system is built around.
  *
- * Current fit, measured against real builds with content in place to level
- * 75: it sits within 10% of the typical build from level 22 up (196 measured
- * against 180 at 22, 1187 against 1355 at 56, 2494 against 2668 at 75) and
- * deliberately a little under it below that, so the opening hours are brisker
- * than the stated fight lengths rather than slower.
+ * It counts abilities as well as auto-attacks, bounded by what the mana and
+ * stamina bars can pay for. Counting only auto-attacks said a level-73 mage
+ * dealt a sixth of what a rogue did, when in play it deals more; counting
+ * abilities on cooldown with no regard for cost said the opposite just as
+ * loudly. Both errors were made during this tuning pass and both would have
+ * had the whole game retuned around a wrong number.
+ *
+ * Current fit: within about 10% of a measured typical build from level 22 up,
+ * and deliberately a quarter under it below that — so the opening hours run
+ * SHORTER than the stated fight lengths rather than longer. Nothing in the
+ * first few hours should take effort.
  */
 export const playerDpsAt = (level: number): number =>
-  10 + 0.3 * level * level + 0.0023 * level * level * level;
+  13 + 0.5 * level * level + 0.011 * level * level * level;
 
 /**
  * How long a fight should last, in seconds, for a player of the right level
@@ -218,15 +239,27 @@ export const playerDpsAt = (level: number): number =>
  * a health number means nothing on its own, and a health number that does not
  * move with the player's real damage means nothing at any level.
  *
- * A best-in-slot build clears these in roughly a third of the time; a badly
- * geared one takes two or three times as long. That spread is the point.
+ * These are the real difficulty dial, and they were set far too high — nearly
+ * double their original values, on top of a region multiplier that then
+ * multiplied them again. The compound result was that a rank-and-file enemy
+ * anywhere past the starting valley was a fight, and rank-and-file enemies
+ * must not be fights. They are the texture between the fights.
+ *
+ * The shape to aim for: a skirmisher dies to two or three connecting hits, a
+ * standard enemy takes a few seconds of attention, a brute is a decision, and
+ * only an elite or a boss is an encounter. Bosses keep most of their length,
+ * because a boss is supposed to be long — and their hit caps and immune phases
+ * are what make that length interesting rather than merely long.
+ *
+ * A best-in-slot build clears these in roughly two thirds of the time; a badly
+ * geared one takes half again as long. That spread is the point.
  */
 export const TIME_TO_KILL: Record<EnemyRole, number> = {
-  skirmisher: 4,
-  standard: 7,
-  brute: 13,
-  elite: 34,
-  boss: 95,
+  skirmisher: 1.6,
+  standard: 2.7,
+  brute: 6,
+  elite: 14,
+  boss: 55,
 };
 
 /**
@@ -251,6 +284,31 @@ export const enemyDamageAt = (level: number, role: EnemyRole = 'standard'): numb
 export const enemyXpAt = (level: number, role: EnemyRole = 'standard'): number =>
   Math.round((9 + level * level * 0.75 + level * 2) * ROLE_XP[role]);
 
+/** What each role is worth in coin relative to an ordinary enemy. */
+const ROLE_GOLD: Record<EnemyRole, number> = {
+  skirmisher: 0.7, standard: 1, brute: 1.45, elite: 4, boss: 16,
+};
+
+/**
+ * What a kill pays, as a range.
+ *
+ * This has to track `valuePremiumAt` or the economy quietly breaks in the back
+ * half of the game. Gold drops were hand-written per enemy and barely moved
+ * with level — a level-23 corpse paid about 90 and a level-70 one about 114,
+ * while the gear on the counter beside it went from 3,000 to 47,000. The
+ * result was that shopping worked early and became impossible later, which is
+ * the opposite of a difficulty curve.
+ *
+ * Tying it to the same premium that prices the goods keeps the ratio roughly
+ * constant: somewhere around sixty to a hundred ordinary kills for a good
+ * weapon at any point in the game, tilting higher toward the end because the
+ * end is where gear is supposed to be an ambition.
+ */
+export const enemyGoldAt = (level: number, role: EnemyRole = 'standard'): [number, number] => {
+  const mid = 1.3 * level * valuePremiumAt(level) * ROLE_GOLD[role];
+  return [Math.max(0, Math.round(mid * 0.6)), Math.max(1, Math.round(mid * 1.4))];
+};
+
 /**
  * The two things that are NOT solved by the curves above. Health and defense
  * are derived from TIME_TO_KILL, so there is nothing left to tune there —
@@ -258,7 +316,9 @@ export const enemyXpAt = (level: number, role: EnemyRole = 'standard'): number =
  * what the kill pays, applied once in `Enemy`'s constructor.
  */
 export const ENEMY_THREAT = {
-  damage: 2.6,
+  // 2.6 was set when fights were twice as long and is far too much now: an
+  // ordinary blow was taking a third of a health bar in mid-game regions.
+  damage: 1.8,
   xp: 1.12,
 } as const;
 
@@ -279,6 +339,37 @@ export const TRASH_DROP_RATE = {
 } as const;
 
 /* ------------------------------------------------------------------ */
+/* Money                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How much more a thing is worth for being high level, beyond what its raw
+ * numbers already say.
+ *
+ * An item's base value is a linear function of its damage and level, which
+ * makes an endgame weapon cost about the same as twenty kills at the level it
+ * drops at — the same ratio as a starter sword, so gear never becomes an
+ * ambition. Worth grows faster than that: the gap between the second-best
+ * weapon in the world and the best one is not one level's worth of anything.
+ */
+export const valuePremiumAt = (level: number): number => 1 + Math.pow(level / 30, 1.6);
+
+/**
+ * A merchant's markup, which climbs with the tier of what is on the counter.
+ *
+ * This is deliberately separate from `valuePremiumAt`. Raising an item's WORTH
+ * inflates both sides of the counter — you pay more, and you are paid more for
+ * the loot you bring in, so shopping never actually gets harder. Raising the
+ * MARKUP moves only the buying side, which is the thing that should get
+ * expensive: a trader in the Emberdeep is the only person for a hundred miles
+ * with a level-70 breastplate and prices accordingly.
+ *
+ * At level 1 this is the 1.25 it has always been. By the cap it is near four.
+ */
+export const merchantMarkupAt = (level: number): number =>
+  1.25 * (1 + Math.pow(Math.max(0, level) / 40, 1.4));
+
+/* ------------------------------------------------------------------ */
 /* Armour                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -296,10 +387,10 @@ export const TRASH_DROP_RATE = {
  * (it is always a real reduction, and more is always better) while making it
  * impossible to out-scale damage entirely. The cap is the backstop.
  */
-export const armorConstantAt = (level: number): number => 70 + 34 * level;
+export const armorConstantAt = (level: number): number => 58 + 24 * level;
 
 /** Nothing reduces a hit by more than this, whatever you are wearing. */
-export const MAX_DAMAGE_REDUCTION = 0.62;
+export const MAX_DAMAGE_REDUCTION = 0.74;
 
 /** The share of a blow that actually lands, for a player of this level. */
 export function damageTaken(defense: number, level: number): number {

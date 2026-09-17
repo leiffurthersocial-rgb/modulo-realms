@@ -1,5 +1,5 @@
 import { RNG } from '../core/rng';
-import { meleeDpsAt } from '../../data/balance';
+import { meleeDpsAt, merchantMarkupAt, valuePremiumAt } from '../../data/balance';
 import { DROPPABLE, REGION_RELICS, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
 import { candidateEnchants } from './enchants';
 import { EFFECTS } from './effects';
@@ -30,7 +30,9 @@ const PREFIXES: Affix[] = [
   { name: 'Nimble', stat: 'dexterity', perLevel: 0.3, flat: 1, weight: 10 },
   { name: 'Studious', stat: 'intelligence', perLevel: 0.3, flat: 1, weight: 10 },
   { name: 'Hale', stat: 'vitality', perLevel: 0.28, flat: 1, weight: 9 },
-  { name: 'Quickened', stat: 'attackSpeed', perLevel: 0.25, flat: 3, weight: 7 },
+  // Multiplicative with everything else a character has, so it is priced
+  // well below the flat stats and rolls less often than they do.
+  { name: 'Quickened', stat: 'attackSpeed', perLevel: 0.09, flat: 2, weight: 5 },
   { name: 'Focused', stat: 'abilityPower', perLevel: 0.5, flat: 4, weight: 8 },
   { name: 'Fleet', stat: 'moveSpeed', perLevel: 0.2, flat: 2, weight: 7 },
   { name: 'Leeching', stat: 'lifesteal', perLevel: 0.1, flat: 1, weight: 5 },
@@ -51,6 +53,29 @@ const SUFFIXES: Affix[] = [
   { name: 'of Endurance', suffix: true, stat: 'staminaRegen', perLevel: 0.12, flat: 1, weight: 5 },
   { name: 'of the Hunt', suffix: true, stat: 'critChance', perLevel: 0.2, flat: 2, weight: 6 },
 ];
+
+/**
+ * Whether an affix may roll onto this template at all.
+ *
+ * `attackSpeed` means two different things depending on where it sits, and
+ * conflating them was a genuine bug rather than a balance problem. On a weapon
+ * the field holds the weapon's BASE SWING RATE — 1.26 for a longsword. On
+ * anything else it is a PERCENTAGE BONUS, which is how `Player.attackInterval`
+ * reads it from armour, off-hands and artifacts.
+ *
+ * The affix roller wrote percentages, so a longsword that rolled it came out
+ * with a base swing rate of 1.26 + 21 = 22.26 — eighteen times the intended
+ * attack rate, from one affix, on an item whose name did not even say
+ * "Quickened" because only the first prefix gets to name a piece. It was the
+ * single strongest thing in the game and it was invisible.
+ *
+ * So: no attack-speed affix on a weapon. On armour it works correctly and
+ * stays.
+ */
+function affixAllowedOn(a: Affix, t: ItemTemplate): boolean {
+  if (a.stat === 'attackSpeed' && t.slot === 'mainHand') return false;
+  return true;
+}
 
 const RARITY_WEIGHTS: Record<Rarity, number> = {
   common: 100, rare: 42, superRare: 15, epic: 4.6, legendary: 0.9,
@@ -181,7 +206,7 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     let suffixName: string | null = null;
     for (let i = 0; i < affixCount; i++) {
       const pool = i % 2 === 0 ? PREFIXES : SUFFIXES;
-      const candidates = pool.filter((a) => !used.has(a.name));
+      const candidates = pool.filter((a) => !used.has(a.name) && affixAllowedOn(a, t));
       if (!candidates.length) continue;
       const a = rng.weighted(candidates, candidates.map((c) => c.weight));
       used.add(a.name);
@@ -209,7 +234,9 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
   const enchants: RolledEnchant[] = (t.fixedEnchants ?? []).map((e) => ({ ...e }));
   const slotBonus = t.fixedEnchants?.length ?? 0;
   const enchantSlots = Math.max(RARITY_ENCHANT_SLOTS[rarity], slotBonus);
-  const value = Math.max(1, Math.round(t.value * RARITY_MULT[rarity] * (1 + (level - t.level) * 0.1)));
+  const value = Math.max(1, Math.round(
+    t.value * RARITY_MULT[rarity] * (1 + (level - t.level) * 0.1) * valuePremiumAt(level),
+  ));
 
   const item: Item = {
     uid: newUid(),
@@ -272,7 +299,7 @@ export const sellValue = (item: Item, priceMod = 1): number =>
   Math.max(1, Math.round(item.value * 0.35 * priceMod)) * Math.max(1, item.qty);
 
 export const buyValue = (item: Item, priceMod = 1): number =>
-  Math.max(1, Math.round(item.value * 1.25 * priceMod));
+  Math.max(1, Math.round(item.value * merchantMarkupAt(item.level) * priceMod));
 
 /**
  * Bring an item saved by an older build back into line with its template.

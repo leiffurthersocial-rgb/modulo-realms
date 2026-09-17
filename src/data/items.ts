@@ -4,7 +4,7 @@ import type { WeaponKind } from '../game/art/weaponart';
 import type { ClassId } from './classes';
 import type { ArmorLook, ConsumeEffect, EquipSlot, ItemType, Rarity, Stats } from '../game/items/types';
 import type { RegionId } from './locations';
-import { armorDefenseAt, weaponDamage } from './balance';
+import { armorDefenseAt, weaponDamage, weaponDps } from './balance';
 
 export interface ItemTemplate {
   id: string;
@@ -468,14 +468,22 @@ export const ARTIFACTS: ItemTemplate[] = [
 /* ------------------------------------------------------------------ */
 
 /**
- * The named relics. These are the only weapons in the game written by hand
- * rather than solved by `W()`, which makes them the only weapons that can
- * drift — and they had, to between 1.5x and 2.5x their own curve.
+ * What a named relic is worth over a generated weapon of its level and
+ * rarity. The whole premium, and deliberately small: a relic wins on its
+ * effects, its fixed enchantments and its signature move, not on a damage
+ * number nothing else in the game is allowed to have.
+ */
+export const RELIC_PREMIUM = 1.12;
+
+/**
+ * The named relics.
  *
- * They now all sit at 1.12x, and that is the whole premium. A relic is meant
- * to win on its effects, its fixed enchantments and its signature move, not
- * on a damage number nothing else in the game is allowed to have.
- * `scripts/check-balance.ts` prints them alongside the generated weapons.
+ * Their damage numbers are written out below so the table reads honestly, but
+ * they are NOT authoritative — `priceRelics()` at the bottom of this file
+ * solves each one from the shared curve on load, exactly as `W()` does for
+ * every generated weapon. They were the only weapons that could drift, and
+ * they twice had: first to between 1.5x and 2.5x their own curve, and then
+ * again the moment the curve was retuned underneath them. Now they cannot.
  */
 export const UNIQUES: ItemTemplate[] = [
   {
@@ -692,6 +700,21 @@ export const TEMPLATE_BY_ID: Record<string, ItemTemplate> = Object.fromEntries(A
 export const DROPPABLE = ALL_TEMPLATES.filter(
   (t) => !t.noDrop && (t.type === 'weapon' || t.type === 'armor' || t.type === 'accessory'),
 );
+
+/**
+ * Solve every relic's damage from the shared curve, so a hand-written weapon
+ * cannot drift away from the generated ones when the curve is retuned. This
+ * is the same arithmetic `W()` does, plus the relic premium, applied in place
+ * on load. The numbers written in the table above are documentation.
+ */
+function priceRelics(): void {
+  for (const u of UNIQUES) {
+    if (!u.weaponKind || u.stats.damage === undefined) continue;
+    const speed = u.stats.attackSpeed ?? 1;
+    u.stats.damage = Math.max(1, Math.round(weaponDps(u.weaponKind, u.level, u.rarity) * RELIC_PREMIUM / speed));
+  }
+}
+priceRelics();
 
 /** Region-locked relics, rolled only by chests and elites in that region. */
 export const REGION_RELICS = UNIQUES.filter((t) => t.regions?.length);
