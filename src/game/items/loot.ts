@@ -237,6 +237,7 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     consume: t.consume,
     artifact: t.artifact,
     weaponPower: t.weaponPower,
+    noReroll: t.noReroll,
   };
 
   if (isGear && !opts.plain) rollEnchants(item, rng);
@@ -272,3 +273,59 @@ export const sellValue = (item: Item, priceMod = 1): number =>
 
 export const buyValue = (item: Item, priceMod = 1): number =>
   Math.max(1, Math.round(item.value * 1.25 * priceMod));
+
+/**
+ * Bring an item saved by an older build back into line with its template.
+ *
+ * An item is a SNAPSHOT: when it was rolled, everything the template said got
+ * copied onto it, and it has carried those copies ever since. That is correct
+ * for the parts that were rolled — its rarity, its affixes, its enchantments,
+ * the level it came out at — and wrong for the parts the template simply
+ * states. Add a signature move to the Leviathan Axe and the axe already in
+ * somebody's hands does not have one, because the field did not exist on the
+ * day it dropped. The player's reasonable conclusion is that the feature does
+ * not work.
+ *
+ * So: on load, every stored item is re-read against its template, and the
+ * fields the template OWNS are refreshed — the activated powers, the intrinsic
+ * effects, the art, the description, the reroll lock. Rolled state is left
+ * strictly alone.
+ *
+ * Damage is deliberately included. A weapon's numbers come from the shared
+ * curve, and when that curve moves the gear in a save has to move with it or
+ * the balance pass only applies to items found after it.
+ */
+export function refreshFromTemplate(item: Item): Item {
+  const t = TEMPLATE_BY_ID[item.defId];
+  if (!t) return item;
+
+  // Stats the template defines are re-priced outright. Trying to preserve an
+  // affix roll on top of them by subtracting "what the base used to be" cannot
+  // work: the template's own numbers are exactly what a balance pass changed,
+  // so the old base is unknowable and the subtraction produces nonsense —
+  // during development it produced negative damage. Stats the template does
+  // NOT define are pure affix rolls and are left completely alone, which is
+  // where almost every affix lands anyway. The cost is that an affix which
+  // happened to stack onto a stat the template also grants is folded back in,
+  // and that is a fair price for gear that actually obeys the current curve.
+  const scaled = scaleStats(t, item.level, item.rarity);
+  for (const [k, v] of Object.entries(scaled) as Array<[StatKey, number]>) {
+    item.stats[k] = v;
+  }
+
+  item.weaponPower = t.weaponPower;
+  item.artifact = t.artifact;
+  item.weaponKind = t.weaponKind;
+  item.armorLook = t.armorLook;
+  item.icon = t.icon;
+  item.iconMetal = t.metal;
+  item.iconAccent = t.accent;
+  item.classes = t.classes;
+  item.desc = t.desc;
+  item.noReroll = t.noReroll;
+  item.consume = t.consume;
+  // Intrinsic effects belong to the template; anything the roll added on top
+  // is kept.
+  for (const e of t.effects ?? []) if (!item.effects.includes(e)) item.effects.push(e);
+  return item;
+}

@@ -23,6 +23,7 @@ export default function ForgePanel({ game }: { game: Game }) {
   const ingots = countItem(p.inventory, 'mat_iron_ingot');
   const reforge = item ? game.reforgeCost(item) : null;
   const rebind = item ? game.enchantCost(item) : null;
+  const blocked = item ? game.rerollBlocked(item) : null;
   const royal = game.royalOpen;
   const warrants = game.warrantsAvailable();
   const elevate = item ? game.canElevate(item) : null;
@@ -116,21 +117,21 @@ export default function ForgePanel({ game }: { game: Game }) {
                   <div>
                     <div className="fa-title">Rebind runes</div>
                     <div className="fa-desc">
-                      {item.enchantSlots > 0
-                        ? 'Discard the rolled enchantments and draw new ones from this item’s pool.'
-                        : 'Common gear has no enchantment slots. Find something rarer.'}
+                      {blocked ?? 'Discard the rolled enchantments and draw new ones from this item’s pool.'}
                     </div>
-                    <div className="fa-cost">
-                      <img src={getIconUrl('rune')} alt="" />{rebind!.runes}
-                      <img src={getIconUrl('gold')} alt="" />{rebind!.gold}
-                    </div>
+                    {blocked ? null : (
+                      <div className="fa-cost">
+                        <img src={getIconUrl('rune')} alt="" />{rebind!.runes}
+                        <img src={getIconUrl('gold')} alt="" />{rebind!.gold}
+                      </div>
+                    )}
                   </div>
                   <button
                     className="btn primary"
-                    disabled={item.enchantSlots <= 0 || runes < rebind!.runes || p.gold < rebind!.gold}
+                    disabled={!!blocked || runes < rebind!.runes || p.gold < rebind!.gold}
                     onClick={() => game.rerollEnchants(item.uid)}
                   >
-                    Rebind
+                    {item.noReroll ? 'Bound' : 'Rebind'}
                   </button>
                 </div>
 

@@ -2754,10 +2754,25 @@ export class Game implements WorldCtx {
     return { runes: 1, gold: Math.round(60 + item.level * 40) };
   }
 
+  /** Why the forge will not rebind this item's runes, or null if it will. */
+  rerollBlocked(item: Item): string | null {
+    if (item.noReroll) {
+      return 'Its runes were bound by the hand that made it. They will not come loose.';
+    }
+    if (item.enchantSlots <= 0) return 'Nothing on it will hold a rune.';
+    return null;
+  }
+
   rerollEnchants(uid: string): void {
     const p = this.player;
     const item = this.findGear(uid);
-    if (!item || item.enchantSlots <= 0) return;
+    if (!item) return;
+    const blocked = this.rerollBlocked(item);
+    if (blocked) {
+      this.toast('The runes will not move', blocked, '#d9553f');
+      audio.play('ui', 0.4);
+      return;
+    }
     const cost = this.enchantCost(item);
     if (countItem(p.inventory, 'mat_rune') < cost.runes || p.gold < cost.gold) {
       this.toast('Not enough materials', `${cost.runes} binding rune and ${cost.gold} gold.`, '#d9553f');

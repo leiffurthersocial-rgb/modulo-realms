@@ -6,6 +6,7 @@ import { buildInterior } from '../world/interiors';
 import { generateOverworld } from '../world/worldgen';
 import { Player } from '../player/player';
 import { QuestLog, type ActiveQuest } from '../quests/questlog';
+import { refreshFromTemplate } from '../items/loot';
 import type { EquipSlot, Item } from '../items/types';
 
 const KEY = 'modulo-realms-save-v1';
@@ -164,9 +165,17 @@ export function loadGame(game: Game): boolean {
   player.gold = sp.gold;
   player.skillPoints = sp.skillPoints;
   player.skills = sp.skills ?? {};
-  player.inventory = sp.inventory ?? [];
-  player.storage = sp.storage ?? [];
+  // Gear in a save is a snapshot of the templates as they were on the day it
+  // dropped. Re-reading it against them is what lets a balance pass, or a new
+  // signature move, reach the axe already in the player's hands rather than
+  // only the next one they find.
+  player.inventory = (sp.inventory ?? []).map(refreshFromTemplate);
+  player.storage = (sp.storage ?? []).map(refreshFromTemplate);
   player.equipment = sp.equipment ?? player.equipment;
+  for (const slot of Object.keys(player.equipment) as EquipSlot[]) {
+    const it = player.equipment[slot];
+    if (it) player.equipment[slot] = refreshFromTemplate(it);
+  }
   player.reputation = { ...player.reputation, ...sp.reputation };
   player.flags = new Set(sp.flags ?? []);
   player.discovered = new Set(sp.discovered ?? []);

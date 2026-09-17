@@ -159,6 +159,13 @@ export interface Item {
   stackable: boolean;
   consume?: ConsumeEffect;
   questId?: string;
+  /**
+   * Set on relics whose enchantments were written by hand: the forge will not
+   * rebind their runes. Rerolling them would replace a chosen set with a
+   * random one and there is no way back, so the option is refused rather
+   * than offered.
+   */
+  noReroll?: boolean;
   /** Artifacts have an activated power used from the off-hand/artifact key. */
   artifact?: { id: string; name: string; cooldown: number; desc: string };
   /**

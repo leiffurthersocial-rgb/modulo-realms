@@ -30,6 +30,8 @@ export interface ItemTemplate {
   stackable?: boolean;
   consume?: ConsumeEffect;
   artifact?: { id: string; name: string; cooldown: number; desc: string };
+  /** The forge will not rebind this item's runes. See Item.noReroll. */
+  noReroll?: boolean;
   /** Excluded from random loot tables. */
   noDrop?: boolean;
   /** Only rolls as loot inside these regions. */
@@ -442,7 +444,7 @@ export const UNIQUES: ItemTemplate[] = [
     id: 'unique_flamebound', name: 'Flamebound Sword', type: 'weapon', slot: 'mainHand', icon: 'sword', weaponKind: 'sword',
     metal: PAL.flame, glow: PAL.ember, rarity: 'legendary', level: 8, value: 1500,
     stats: { damage: 24, attackSpeed: 1.32, range: 52, strength: 8, critChance: 6 },
-    effects: ['burning_edge', 'emberburst'], fixedEnchants: [{ id: 'fire_aspect', level: 2 }], noDrop: true,
+    effects: ['burning_edge', 'emberburst'], fixedEnchants: [{ id: 'fire_aspect', level: 2 }], noReroll: true, noDrop: true,
     desc: 'Forged in a furnace that has not gone out in three hundred years.',
   },
   {
@@ -456,21 +458,21 @@ export const UNIQUES: ItemTemplate[] = [
     id: 'unique_matriarch', name: 'Bough of the Matriarch', type: 'weapon', slot: 'mainHand', icon: 'staff', weaponKind: 'staff',
     metal: PAL.leaf, glow: PAL.toxic, rarity: 'legendary', level: 13, value: 2100,
     stats: { damage: 33, attackSpeed: 1.05, range: 505, intelligence: 12, abilityPower: 22 },
-    effects: ['venomous', 'spiritcall'], fixedEnchants: [{ id: 'ember_focus', level: 2 }], noDrop: true,
+    effects: ['venomous', 'spiritcall'], fixedEnchants: [{ id: 'ember_focus', level: 2 }], noReroll: true, noDrop: true,
     desc: 'Cut from a tree that was old when the valley was young. It has not forgiven you.',
   },
   {
     id: 'unique_stormcall', name: 'Stormcaller Bow', type: 'weapon', slot: 'mainHand', icon: 'bow', weaponKind: 'bow',
     metal: '#8fd0f0', glow: '#8fd0f0', rarity: 'legendary', level: 12, value: 2000,
     stats: { damage: 23, attackSpeed: 1.28, range: 607, dexterity: 10, critChance: 10 },
-    effects: ['stormcaller', 'echo'], fixedEnchants: [{ id: 'multishot', level: 2 }], noDrop: true,
+    effects: ['stormcaller', 'echo'], fixedEnchants: [{ id: 'multishot', level: 2 }], noReroll: true, noDrop: true,
     desc: 'Drawn once at the top of the Ashen Spire. The storm has followed it since.',
   },
   {
     id: 'unique_sandtyrant', name: 'Fang of the Sand Tyrant', type: 'weapon', slot: 'mainHand', icon: 'dagger', weaponKind: 'dagger',
     metal: PAL.toxic, glow: PAL.toxic, rarity: 'legendary', level: 11, value: 1850,
     stats: { damage: 19, attackSpeed: 2.15, range: 38, dexterity: 9, critChance: 16, critDamage: 30 },
-    effects: ['venomous', 'swiftstep'], fixedEnchants: [{ id: 'venomous', level: 3 }], noDrop: true,
+    effects: ['venomous', 'swiftstep'], fixedEnchants: [{ id: 'venomous', level: 3 }], noReroll: true, noDrop: true,
     desc: 'Still dripping. It will not stop.',
   },
   /* --- the two northern relics, only found in the Crag Reach --- */
@@ -478,7 +480,7 @@ export const UNIQUES: ItemTemplate[] = [
     id: 'unique_leviathan', name: 'Leviathan Axe', type: 'weapon', slot: 'mainHand', icon: 'axe', weaponKind: 'axe',
     metal: '#bcd8e8', accent: PAL.frost, glow: PAL.frost, rarity: 'mythic', level: 15, value: 6400,
     stats: { damage: 54, attackSpeed: 1.0, range: 58, strength: 14, critDamage: 30 },
-    effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'committed', level: 2 }],
+    effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'committed', level: 2 }], noReroll: true,
     weaponPower: {
       id: 'leviathan_throw', name: 'Return',
       cooldown: 14,
@@ -491,7 +493,7 @@ export const UNIQUES: ItemTemplate[] = [
     id: 'unique_chaos_blades', name: 'Blades of Chaos', type: 'weapon', slot: 'mainHand', icon: 'claws', weaponKind: 'claws',
     metal: '#c8402f', accent: PAL.flameLit, glow: PAL.ember, rarity: 'mythic', level: 15, value: 6400,
     stats: { damage: 23, attackSpeed: 2.3, range: 96, strength: 9, dexterity: 9, critChance: 16 },
-    effects: ['burning_edge', 'emberburst'], fixedEnchants: [{ id: 'fire_aspect', level: 3 }, { id: 'swirling', level: 2 }],
+    effects: ['burning_edge', 'emberburst'], fixedEnchants: [{ id: 'fire_aspect', level: 3 }, { id: 'swirling', level: 2 }], noReroll: true,
     weaponPower: {
       id: 'chaos_chains', name: 'Chains of Chaos',
       cooldown: 15,
@@ -506,7 +508,7 @@ export const UNIQUES: ItemTemplate[] = [
     id: 'unique_jotunbane', name: "Jotunbane, the Gravecutter", type: 'weapon', slot: 'mainHand', icon: 'greataxe', weaponKind: 'greataxe',
     metal: '#bcd8e8', accent: PAL.white, glow: PAL.frost, rarity: 'legendary', level: 27, value: 7800,
     stats: { damage: 113, attackSpeed: 0.66, range: 68, strength: 20, critDamage: 45, maxHealth: 120 },
-    effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'swirling', level: 2 }],
+    effects: ['frostbite', 'earthshaker'], fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'swirling', level: 2 }], noReroll: true,
     noDrop: true, regions: ['deepnorth'],
     desc: 'The barrow-jotun buried it with himself, which tells you what he thought of it.',
   },
@@ -514,7 +516,7 @@ export const UNIQUES: ItemTemplate[] = [
     id: 'unique_whitecrown', name: 'Whitecrown', type: 'weapon', slot: 'mainHand', icon: 'staff', weaponKind: 'staff',
     metal: PAL.white, accent: PAL.ice, glow: PAL.frost, rarity: 'legendary', level: 29, value: 8400,
     stats: { damage: 67, attackSpeed: 1, range: 560, intelligence: 22, abilityPower: 44, maxMana: 150, cooldownReduction: 12 },
-    effects: ['frostbite', 'spiritcall'], fixedEnchants: [{ id: 'frost_focus', level: 3 }, { id: 'ember_focus', level: 2 }],
+    effects: ['frostbite', 'spiritcall'], fixedEnchants: [{ id: 'frost_focus', level: 3 }, { id: 'ember_focus', level: 2 }], noReroll: true,
     noDrop: true, regions: ['deepnorth'],
     desc: 'Cut from the ceiling of a cathedral that sings when the wind is wrong.',
   },
@@ -523,7 +525,7 @@ export const UNIQUES: ItemTemplate[] = [
     metal: '#e6f4fb', accent: PAL.white, glow: PAL.frost, rarity: 'legendary', level: 34, value: 12000,
     stats: { damage: 127, attackSpeed: 0.72, range: 74, strength: 26, critChance: 12, critDamage: 60, lifesteal: 6 },
     effects: ['frostbite', 'earthshaker', 'flowstate'],
-    fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'swirling', level: 3 }, { id: 'committed', level: 2 }],
+    fixedEnchants: [{ id: 'freezing', level: 3 }, { id: 'swirling', level: 3 }, { id: 'committed', level: 2 }], noReroll: true,
     noDrop: true,
     desc: 'Aldrhrim did not carry a sword. This is the piece of him that was shaped like one.',
   },
@@ -532,7 +534,7 @@ export const UNIQUES: ItemTemplate[] = [
     metal: '#e8e0d4', accent: PAL.gold, glow: PAL.goldLit, rarity: 'mythic', level: 30, value: 11000,
     stats: { damage: 48, attackSpeed: 2.1, range: 50, dexterity: 22, strength: 10, critChance: 26, critDamage: 70, moveSpeed: 10 },
     effects: ['swiftstep', 'flowstate'],
-    fixedEnchants: [{ id: 'critical_hit', level: 3 }, { id: 'piercing', level: 3 }, { id: 'committed', level: 3 }],
+    fixedEnchants: [{ id: 'critical_hit', level: 3 }, { id: 'piercing', level: 3 }, { id: 'committed', level: 3 }], noReroll: true,
     noDrop: true,
     desc: 'He fought with it for thirty years and never once drew it first. Won honestly, or not at all.',
   },
@@ -541,7 +543,7 @@ export const UNIQUES: ItemTemplate[] = [
     metal: PAL.white, accent: PAL.arcaneLit, glow: PAL.arcane, rarity: 'mythic', level: 40, value: 20000,
     stats: { damage: 95, attackSpeed: 1.3, range: 58, strength: 24, intelligence: 24, dexterity: 24, critChance: 20, critDamage: 90, lifesteal: 10 },
     effects: ['flowstate', 'spiritcall', 'earthshaker'],
-    fixedEnchants: [{ id: 'sharpness', level: 3 }, { id: 'critical_hit', level: 3 }, { id: 'committed', level: 3 }],
+    fixedEnchants: [{ id: 'sharpness', level: 3 }, { id: 'critical_hit', level: 3 }, { id: 'committed', level: 3 }], noReroll: true,
     noDrop: true,
     desc: 'The smallest thing that will not divide into anything else. It is very sharp about it.',
   },
