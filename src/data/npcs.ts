@@ -487,8 +487,19 @@ export const NPCS: NpcDef[] = [
       { cond: { classes: ['necromancer', 'mage'] }, lines: ['"You have been reading things that read back. I can smell it."'] },
       { lines: ['"Everyone who comes here is looking for something they lost on purpose."'] },
     ],
-    topics: [{ text: 'What is under the mire?', to: 'under' }],
-    nodes: [{ id: 'under', text: ['"A town. Older than Ashvale, ruder than Duneholt."', '"It went under in one night, and the shrine above it still takes offerings."'] }],
+    topics: [
+      { text: 'What is under the mire?', to: 'under' },
+      { text: 'Could you make me something other than what I am?', to: 'orsolya' },
+    ],
+    nodes: [
+      { id: 'under', text: ['"A town. Older than Ashvale, ruder than Duneholt."', '"It went under in one night, and the shrine above it still takes offerings."'] },
+      { id: 'orsolya', text: [
+        'She laughs, which she does not often do.',
+        '"Not a chance. That is not bog work, that is water work, and there is exactly one woman doing it."',
+        '"Orsolya. West, past Thornhollow, out by the hermit\'s place — there is a pool there that is far too still for the ground it is on."',
+        '"She will want ten thousand and she will not come down. Do not waste her afternoon haggling."',
+      ] },
+    ],
   },
 
   /* ------------------------------ Thornhollow ------------------------------ */
@@ -756,6 +767,183 @@ export const NPCS: NpcDef[] = [
         '"Bring me something you carry and I will have it made worthy of the man carrying it."',
       ], choices: [{ text: 'Show me the warrants.', actions: [{ type: 'royal' }] }] },
     ],
+  },
+  /* --------------------------- the outer trade --------------------------- */
+  /*
+   * Merchants placed where the roads actually go, each stocking what their own
+   * ground produces — salt and cordage on the flats, fire-proofing in the ash,
+   * reed and rot-cures in the fen. On top of the named stock each one rolls
+   * random gear for its region, so the same shop is worth checking twice and
+   * two visits are never the same window.
+   */
+  {
+    id: 'trader_halla', name: 'Halla Nine-Knots', title: 'Fenwright', race: 'human', faction: 'guild',
+    personality: 'Talks while working and does not stop doing either.',
+    map: 'overworld', tx: 50, ty: 516,
+    look: look({ skin: PAL.skin5, hair: '#2b3f42', hairStyle: 'braid', shirt: '#243330', pants: '#1c2a26', armor: 'light', armorColor: '#38505a', armorTrim: '#8fd0f0' }),
+    wander: 10,
+    shop: {
+      id: 'shop_halla', name: 'Nine Knots', priceMod: 1.05,
+      stock: [
+        { item: 'armor_fenweave' }, { item: 'armor_reedstep' }, { item: 'spear_fen' }, { item: 'bow_reed' },
+        { item: 'staff_silt' }, { item: 'art_tide_glass' },
+        { item: 'antidote', qty: 8 }, { item: 'potion_health_xl', qty: 6 }, { item: 'mat_essence', qty: 5 },
+      ],
+      randomGear: { count: 7, level: 55 },
+      buys: ['weapon', 'armor', 'accessory', 'material', 'consumable'], gold: 14000,
+    },
+    greeting: [
+      { lines: [
+        'She is splicing rope and does not look up. "Mind the boards. Third one from you is the one that goes."',
+        '"Everything I sell is treated. Out here untreated means gone by spring, and spring is not far."',
+      ] },
+    ],
+    topics: [{ text: 'Does the water still rise?', to: 'water' }],
+    nodes: [{ id: 'water', text: [
+      '"Four fingers a year, and it has been four fingers a year since my grandmother counted."',
+      '"We move the town. It is not a tragedy, it is a Tuesday. Ask me again in eighty years."',
+    ] }],
+  },
+  {
+    id: 'trader_osk', name: 'Osk Copperbraid', title: 'Earthing-Smith', race: 'dwarf', faction: 'guild',
+    personality: 'Extremely calm about a job that involves standing in a lightning field.',
+    map: 'overworld', tx: 912, ty: 404,
+    look: look({ skin: PAL.skin2, hair: '#b5462f', hairStyle: 'braid', beard: 'long', height: 0.86, bulk: 1.2, shirt: '#4b4470', pants: '#2e2a48', armor: 'heavy', armorColor: '#5a5480', armorTrim: '#b9b0ff', weapon: { kind: 'hammer', metal: '#9a8fe8', grip: '#241f3c' } }),
+    wander: 10,
+    shop: {
+      id: 'shop_osk', name: 'The Earthing Works', priceMod: 1.1,
+      stock: [
+        { item: 'armor_stormward' }, { item: 'armor_glasscloak' }, { item: 'halberd_storm' }, { item: 'crossbow_thunder' },
+        { item: 'wand_fork' }, { item: 'art_storm_ring' },
+        { item: 'potion_health_xl', qty: 8 }, { item: 'elixir_grand', qty: 3 }, { item: 'mat_crystal', qty: 6 }, { item: 'mat_rune', qty: 2 },
+      ],
+      randomGear: { count: 8, level: 62 },
+      buys: ['weapon', 'armor', 'accessory', 'material', 'consumable'], gold: 20000,
+    },
+    greeting: [
+      { cond: { races: ['dwarf'] }, lines: ['"Kin. Do not touch the braid, it is live. That is the whole business."'] },
+      { lines: [
+        'Copper cable runs from everything he owns into a pit behind the cart.',
+        '"You are safe standing here and nowhere else. I would not wander while we talk."',
+      ] },
+    ],
+    topics: [{ text: 'Why work here at all?', to: 'why' }],
+    nodes: [{ id: 'why', text: [
+      '"Because a strike will fuse sand into a tube forty feet long and perfectly round, and I can sell that."',
+      '"Nobody else will come and get it. That is not a problem with the work. That is the work."',
+    ] }],
+  },
+  {
+    id: 'trader_vess', name: 'Vess Ashgrin', title: 'Bankmaster', race: 'orc', faction: 'bandits',
+    personality: 'Cheerful, enormous, and entirely straight with you about the prices being terrible.',
+    map: 'overworld', tx: 498, ty: 1028,
+    look: look({ skin: PAL.skinOrc, hair: '#2a1410', hairStyle: 'mohawk', tusks: true, height: 1.1, bulk: 1.24, shirt: '#3a1210', pants: '#1c0806', armor: 'heavy', armorColor: '#4a1a14', armorTrim: PAL.flameLit, weapon: { kind: 'axe', metal: '#8a2a18', grip: '#240c09', glow: PAL.ember } }),
+    wander: 10,
+    shop: {
+      id: 'shop_vess', name: 'The Banked Fire', priceMod: 1.16,
+      stock: [
+        { item: 'armor_emberplate' }, { item: 'armor_underfloor' }, { item: 'axe_cinder' }, { item: 'mace_ember' },
+        { item: 'claws_emberjaw' }, { item: 'tome_deep' }, { item: 'art_ember_heart' },
+        { item: 'potion_health_xl', qty: 10 }, { item: 'elixir_grand', qty: 4 }, { item: 'mat_rune', qty: 3 }, { item: 'mat_crystal', qty: 8 },
+      ],
+      randomGear: { count: 9, level: 68 },
+      buys: ['weapon', 'armor', 'accessory', 'material', 'consumable'], gold: 32000,
+    },
+    greeting: [
+      { cond: { races: ['orc'] }, lines: ['"Ashborn! Down HERE! The prices are still robbery, I will not lie to kin."'] },
+      { lines: [
+        'He is sitting on a crate that is visibly too small and does not appear to care.',
+        '"Everything is overpriced. I know. You walked this far down, so we both know you are buying anyway."',
+      ] },
+    ],
+    topics: [{ text: 'What is the banking?', to: 'banking' }],
+    nodes: [{ id: 'banking', text: [
+      '"A fire you keep alive on purpose, so you never have to start one. Cutter word."',
+      '"We have kept ours three hundred years. Nobody remembers who lit it and nobody is going to be the one who lets it out."',
+    ] }],
+  },
+  {
+    id: 'trader_maro', name: 'Maro Saltgrin', title: 'Flat-Runner', race: 'beastfolk', faction: 'guild',
+    personality: 'Never entirely still, and sells faster than he talks.',
+    map: 'overworld', tx: 706, ty: 456,
+    look: look({ skin: PAL.skinBeast, hair: '#c9a86b', hairStyle: 'wild', ears: 'beast', eyes: '#d9a441', shirt: '#4a7a8c', pants: '#33585c', armor: 'light', armorColor: '#9fc0c8', armorTrim: PAL.foam }),
+    wander: 16,
+    shop: {
+      id: 'shop_maro', name: 'The Running Cart', priceMod: 1.02,
+      stock: [
+        { item: 'potion_health_l', qty: 8 }, { item: 'potion_mana_m', qty: 6 }, { item: 'antidote', qty: 6 },
+        { item: 'mat_essence', qty: 4 }, { item: 'mat_steel_ingot', qty: 4 }, { item: 'mat_rune', qty: 1 },
+      ],
+      randomGear: { count: 8, level: 42 },
+      buys: ['weapon', 'armor', 'accessory', 'material', 'consumable'], gold: 11000,
+    },
+    greeting: [
+      { lines: [
+        'The cart is already moving when you reach it. He slows to a walk rather than stopping.',
+        '"Walk with me. I do not stop on the flats, I have opinions about standing still out here."',
+      ] },
+    ],
+    topics: [{ text: 'What opinions?', to: 'opinions' }],
+    nodes: [{ id: 'opinions', text: [
+      '"That things under the salt notice a weight that stays in one place."',
+      '"I have never seen one. I have seen where one was. That was sufficient."',
+    ] }],
+  },
+  {
+    id: 'trader_bryn', name: 'Bryn Underleaf', title: 'Gloaming Forager', race: 'elf', faction: 'forest',
+    personality: 'Quiet, watchful, and clearly happier in the dark than you are.',
+    map: 'overworld', tx: 80, ty: 476,
+    look: look({ skin: PAL.skinElf, hair: '#5b9247', hairStyle: 'long', ears: 'elf', eyes: '#2f6f93', shirt: '#1f3a28', pants: '#0f160f', armor: 'light', armorColor: '#2a2118', armorTrim: PAL.leafLit, helmet: 'hood', cape: '#121a11' }),
+    wander: 12,
+    shop: {
+      id: 'shop_bryn', name: 'Underleaf', priceMod: 0.96,
+      stock: [
+        { item: 'mat_herb', qty: 10 }, { item: 'antidote', qty: 8 }, { item: 'potion_stamina', qty: 6 },
+        { item: 'potion_health_l', qty: 6 }, { item: 'mat_essence', qty: 4 },
+      ],
+      randomGear: { count: 6, level: 34 },
+      buys: ['weapon', 'armor', 'accessory', 'material', 'consumable'], gold: 9000,
+    },
+    greeting: [
+      { cond: { races: ['elf'] }, lines: ['"You came out this far. Nobody from the Court comes out this far." A pause. "Sit. Eat something."'] },
+      { lines: [
+        'You do not see the stall until you are almost standing in it.',
+        '"Cheaper than the Court, and I do not report what you buy. Those two facts are related."',
+      ] },
+    ],
+    topics: [{ text: 'Does anything grow out here?', to: 'grow' }],
+    nodes: [{ id: 'grow', text: [
+      '"Everything grows out here. It simply does it slowly, in the dark, and mostly on things that used to be alive."',
+      '"Which is why the medicine is good. Do not ask what is in it."',
+    ] }],
+  },
+  {
+    id: 'trader_ilka', name: 'Ilka Redcount', title: 'Cutter Quartermaster', race: 'human', faction: 'bandits',
+    personality: 'Runs a straight counter for a crooked organisation and is very clear about which is which.',
+    map: 'overworld', tx: 410, ty: 776,
+    look: look({ skin: PAL.skin4, hair: '#b5462f', hairStyle: 'ponytail', shirt: '#6a3a2a', pants: '#3a1d14', armor: 'light', armorColor: '#7a3a2a', armorTrim: PAL.flame, weapon: { kind: 'crossbow', metal: PAL.iron, grip: '#45201a' } }),
+    wander: 8,
+    shop: {
+      id: 'shop_ilka', name: 'The Red Count', priceMod: 1.12,
+      stock: [
+        { item: 'potion_health_xl', qty: 6 }, { item: 'elixir_grand', qty: 2 }, { item: 'mat_gem_ruby', qty: 3 },
+        { item: 'mat_steel_ingot', qty: 5 }, { item: 'mat_rune', qty: 2 },
+      ],
+      randomGear: { count: 7, level: 50 },
+      buys: ['weapon', 'armor', 'accessory', 'material', 'consumable'], gold: 18000,
+    },
+    greeting: [
+      { cond: { repMin: { faction: 'bandits', value: 25 } }, lines: ['"Our sort. Prices are the same, but I will tell you which of it is stolen."'] },
+      { lines: [
+        '"I take Cutter money and I keep an honest counter. Both of those are true and neither is my idea of a joke."',
+        '"Buy what you like. I do not ask where you are taking it."',
+      ] },
+    ],
+    topics: [{ text: 'Honest counter, for the Cutters?', to: 'honest' }],
+    nodes: [{ id: 'honest', text: [
+      '"A crew that cannot trust its own quartermaster stops being a crew inside a year. Ask the last three."',
+      '"So I count straight. What they do on the road is the road\'s business."',
+    ] }],
   },
   /* ------------------------------ the witch ------------------------------ */
   {

@@ -2043,12 +2043,17 @@ export class Game implements WorldCtx {
   openShop(npc: NpcDef): void {
     const shop = npc.shop!;
     const tier = this.shopTier(npc);
-    // Stock is keyed to a level bucket as well as the shop, so a merchant
-    // restocks with better goods once the player has meaningfully grown.
+    // Stock is keyed to three things: the shop, a level bucket so a merchant
+    // carries better goods once the player has meaningfully grown, and which
+    // restock window we are in so the window changes on its own over time.
     const bucket = Math.floor(this.player.level / 3);
-    const key = `${shop.id}:${bucket}`;
+    const period = Math.floor(this.day / this.restockDays(shop.id));
+    const key = `${shop.id}:${bucket}:${period}`;
     let stock = this.shopStock.get(key);
     if (!stock) {
+      // Drop the shop's previous window so the map does not accumulate every
+      // stock list this shop has ever had.
+      for (const k of [...this.shopStock.keys()]) if (k.startsWith(`${shop.id}:`)) this.shopStock.delete(k);
       const rng = new RNG(`${this.seed}:${key}`);
       stock = shop.stock.map((s) => makeItem(s.item, { qty: s.qty ?? 1, level: s.level, plain: true, rng }));
       if (shop.randomGear) {
@@ -2603,8 +2608,32 @@ export class Game implements WorldCtx {
     this.touch();
   }
 
+  /**
+   * Days between restocks for a given shop.
+   *
+   * A shop is a place you come back to, and a shop whose window never changes
+   * is a place you stop coming back to. Stock used to be redrawn only when the
+   * player slept, which meant a character who never used an inn saw the same
+   * six items for the whole game. It now turns over on its own clock, and the
+   * interval is derived from the shop's own id so they do not all change on
+   * the same morning — two to five days, stable per shop.
+   */
+  restockDays(shopId: string): number {
+    let h = 0;
+    for (let i = 0; i < shopId.length; i++) h = (h * 31 + shopId.charCodeAt(i)) >>> 0;
+    // two to five days, stable per shop
+    return 2 + (h % 4);
+  }
+
+  /** Throw away every shop's stock, so the next visit draws fresh. */
   restockShops(): void {
     this.shopStock.clear();
+  }
+
+  /** Days until this shop draws a new window, for the shop panel to show. */
+  daysUntilRestock(shopId: string): number {
+    const every = this.restockDays(shopId);
+    return every - (this.day % every);
   }
 
   /**

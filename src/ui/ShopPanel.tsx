@@ -14,6 +14,9 @@ export default function ShopPanel({ game }: { game: Game }) {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
 
   const sellable = p.inventory.filter((i) => i.type !== 'quest');
+  // Worth saying out loud: a shop turning over is only useful if the player
+  // knows it is going to.
+  const restock = game.daysUntilRestock(shop.shopId);
 
   return (
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
@@ -22,7 +25,7 @@ export default function ShopPanel({ game }: { game: Game }) {
           <span>{shop.name}</span>
           <span className="sub">
             {npc.name} · prices {shop.priceMod < 0.98 ? 'favourable' : shop.priceMod > 1.06 ? 'steep' : 'fair'}
-            {' '}({Math.round(shop.priceMod * 100)}%)
+            {' '}({Math.round(shop.priceMod * 100)}%) · new stock in {restock} day{restock === 1 ? '' : 's'}
           </span>
           <button className="close-x" onClick={() => game.closeAll()}>×</button>
         </div>
