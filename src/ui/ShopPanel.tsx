@@ -87,7 +87,7 @@ export default function ShopPanel({ game }: { game: Game }) {
                     </div>
                     {locked ? (
                       <span className="sr-price" style={{ color: 'var(--muted)' }} title={`Come back at level ${it.level - LOOT_LEVEL_REACH}`}>
-                        🔒 lvl {it.level - LOOT_LEVEL_REACH}
+                        Locked &middot; lvl {it.level - LOOT_LEVEL_REACH}
                       </span>
                     ) : (
                       <span className="sr-price">{price}g</span>

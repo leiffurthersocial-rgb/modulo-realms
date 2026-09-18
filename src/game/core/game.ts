@@ -1,6 +1,6 @@
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ENEMY_BY_ID } from '../../data/enemies';
-import { LOOT_LEVEL_REACH, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
+import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
 import { TEMPLATE_BY_ID } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
@@ -1144,26 +1144,40 @@ export class Game implements WorldCtx {
       p.mp -= manaCost;
       const pierce = enchantValue('piercing', p.enchant('piercing'));
       const multishot = p.enchantPower('multishot');
-      const shots = multishot > 0 && Math.random() * 100 < multishot ? 3 : 1;
       const chainReaction = p.enchantPower('chain_reaction');
+      // What a magic weapon actually does when you pull the trigger. Every
+      // one of them used to fire the same slow purple bolt, which made the
+      // choice between a staff and a wand a question of which had the bigger
+      // number on it. They now fight differently enough that the number is
+      // the second thing you look at.
+      const shot = magic ? MAGIC_SHOT[p.weaponKind()] ?? MAGIC_SHOT.staff : null;
+      const volley = shot?.count ?? 1;
+      const lucky = multishot > 0 && Math.random() * 100 < multishot;
+      const shots = volley * (lucky ? 3 : 1);
+      const element = magic ? (p.cls === 'necromancer' ? 'shadow' : shot!.element) : 'physical';
+      const color = magic ? (p.cls === 'necromancer' ? PAL.toxic : shot!.color) : PAL.cloth;
       for (let i = 0; i < shots; i++) {
-        const spread = shots === 1 ? 0 : (i - 1) * 0.16;
-        const roll = this.rollDamage(base * (shots > 1 ? 0.75 : 1));
+        // A volley fans around the aim line; a single shot goes down it.
+        const spread = shots === 1 ? 0
+          : ((i - (shots - 1) / 2) * (shot?.spread ?? 0.16));
+        const perShot = shot ? shot.damage / volley : (shots > 1 ? 0.75 : 1);
+        const roll = this.rollDamage(base * perShot * (lucky ? 0.75 : 1));
         this.spawnProjectile({
           x: p.x, y: p.y - 14,
           angle: aim + spread,
-          speed: magic ? 360 : 520,
+          speed: magic ? shot!.speed : 520,
           damage: roll.dmg,
-          radius: magic ? 26 : 18,
-          range: p.attackRange(),
-          element: magic ? (p.cls === 'necromancer' ? 'shadow' : 'arcane') : 'physical',
-          color: magic ? (p.cls === 'necromancer' ? PAL.toxic : PAL.arcaneLit) : PAL.cloth,
+          radius: magic ? shot!.radius : 18,
+          range: magic ? p.attackRange() * shot!.range : p.attackRange(),
+          element,
+          color,
           friendly: true,
           crit: roll.crit,
-          pierce,
-          sprite: magic ? 'bolt' : 'arrow',
+          pierce: pierce + (shot?.pierce ?? 0),
+          homing: shot?.homing,
+          sprite: magic ? shot!.sprite : 'arrow',
           onHitEffects: p.effectIds(),
-          splash: magic ? 24 : (chainReaction > 0 && Math.random() * 100 < chainReaction ? 70 : 0),
+          splash: magic ? shot!.splash : (chainReaction > 0 && Math.random() * 100 < chainReaction ? 70 : 0),
         });
       }
       const roll = { dmg: base, crit: false };
@@ -1483,11 +1497,21 @@ export class Game implements WorldCtx {
         // 75 — which is the only way "scales with progression" can mean
         // anything for a heal. Ability power still improves it, and the cap
         // stops that from becoming the old problem in a new hat.
-        const frac = Math.min(0.62, 0.3 * (1 + stats.abilityPower / 260));
+        // `power` is the share of the health bar this ability is worth, which
+        // is how the six classes differ: a Paladin's Mend is worth more than a
+        // Rogue's swig of tonic, and neither one outgrows the other.
+        const frac = Math.min(ab.power * 2, ab.power * (1 + stats.abilityPower / 260));
         const heal = p.maxHp * frac;
-        p.hp = Math.min(p.maxHp, p.hp + heal);
-        this.floatText(p.x, p.y - 40, `+${Math.round(heal)}`, '#6fbf5a', 15);
-        this.fx.spawn(p.x, p.y, 26, PAL.holy, { speed: 90, life: 0.8, size: 3, gravity: -110 });
+        if (ab.duration) {
+          // Given back over time rather than all at once: worth more in total,
+          // worth nothing if you die in the next two seconds.
+          p.regen = { rate: heal / ab.duration, until: this.now + ab.duration, color: ab.color };
+          this.floatText(p.x, p.y - 40, ab.name, ab.color, 14);
+        } else {
+          p.hp = Math.min(p.maxHp, p.hp + heal);
+          this.floatText(p.x, p.y - 40, `+${Math.round(heal)}`, '#6fbf5a', 15);
+        }
+        this.fx.spawn(p.x, p.y, 26, ab.color, { speed: 90, life: 0.8, size: 3, gravity: -110 });
         audio.play('heal', 0.6);
         break;
       }
@@ -1524,6 +1548,9 @@ export class Game implements WorldCtx {
   }
 
   groundZones: Array<{ x: number; y: number; r: number; until: number; next: number; dps: number; element: AbilityDef['element']; color: string; burst: boolean; delay: number }> = [];
+
+  /** Throttles the drifting motes a regen gives off, so it is not one per frame. */
+  private regenFxTimer = 0;
 
   /** Off-hand action: shields block (held), everything else has a quick use. */
   /**
@@ -3390,6 +3417,20 @@ export class Game implements WorldCtx {
     if (p.hp < p.maxHp && !this.enemies.some((e) => !e.friendly && !e.dead && dist2(e.x, e.y, p.x, p.y) < 360 * 360)) {
       p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.012 * dt);
     }
+    // A mend keeps working while you fight, which is the whole reason to take
+    // one over a potion.
+    if (p.regen) {
+      if (this.now > p.regen.until) p.regen = null;
+      else if (p.hp < p.maxHp) {
+        const tick = p.regen.rate * dt;
+        p.hp = Math.min(p.maxHp, p.hp + tick);
+        this.regenFxTimer -= dt;
+        if (this.regenFxTimer <= 0) {
+          this.regenFxTimer = 0.45;
+          this.fx.spawn(p.x, p.y - 6, 3, p.regen.color, { speed: 40, life: 0.6, size: 2, gravity: -90 });
+        }
+      }
+    }
 
     // statuses
     for (let i = p.statuses.length - 1; i >= 0; i--) {
@@ -3650,7 +3691,10 @@ export class Game implements WorldCtx {
       // missile that curves across the field at whatever it passes.
       if (pr.friendly && (pr.homing ?? 1) > 0) {
         let best: Enemy | null = null;
-        let bestD = 150;
+        // A shot built to seek looks further for something to seek. Ordinary
+        // shots (homing 1) keep the old short window, and the cap stops a
+        // tome's bolts from crossing the field after whatever they notice.
+        let bestD = 150 * Math.min(2.2, Math.max(1, pr.homing ?? 1));
         for (const e of this.enemies) {
           if (e.dead || e.friendly || pr.hits.has(e.id)) continue;
           const d = dist(pr.x, pr.y, e.x, e.y);

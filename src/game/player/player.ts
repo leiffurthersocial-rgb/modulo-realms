@@ -163,6 +163,12 @@ export class Player implements Entity {
   invuln = 0;
   shield = 0;
   shieldUntil = 0;
+  /**
+   * Health coming back over time, from an ability that mends rather than
+   * heals outright. Kept as a rate rather than a stack of ticks so a second
+   * cast simply replaces the first instead of layering.
+   */
+  regen: { rate: number; until: number; color: string } | null = null;
   /** Cached enchantment totals, refreshed by stats(). */
   enchantLevels: Record<string, number> = {};
   artifactCooldown = 0;

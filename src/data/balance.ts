@@ -66,6 +66,62 @@ export const SHAPE_POWER: Partial<Record<WeaponKind, number>> = {
 export const weaponClass = (kind: WeaponKind): keyof typeof CLASS_POWER =>
   (RANGED_KINDS.has(kind) ? 'ranged' : MAGIC_KINDS.has(kind) ? 'magic' : 'melee');
 
+/**
+ * How each magic weapon throws what it throws.
+ *
+ * Every magic weapon used to fire the identical slow purple bolt, so the only
+ * thing separating a staff from a wand was the damage printed on it — which
+ * makes four weapon kinds into one weapon with four names. Each now has a
+ * shape you can feel from the first cast:
+ *
+ * - a STAFF is artillery: one slow, heavy shell with a wide burst
+ * - a WAND is a sidearm: three fast little darts, cheap and twitchy
+ * - a TOME reads the room: two seekers that curve onto whatever is closest
+ * - an ORB is point-blank: a tight cone of shards that shreds anything that
+ *   closed the distance, and reaches almost nowhere
+ *
+ * `damage` is the share of one attack's worth the whole volley is paid — so a
+ * wand's three darts together are worth about what a staff's one shell is,
+ * and the DPS curve above still decides which weapon is stronger.
+ */
+export interface MagicShot {
+  /** Projectiles per attack. */
+  count: number;
+  /** Total damage as a multiple of one ordinary hit, split across the volley. */
+  damage: number;
+  /** Radians between neighbouring shots in a volley. */
+  spread: number;
+  speed: number;
+  radius: number;
+  /** Multiplies the weapon's stated range. */
+  range: number;
+  splash: number;
+  pierce?: number;
+  homing?: number;
+  element: 'fire' | 'frost' | 'arcane' | 'shadow';
+  color: string;
+  sprite: 'bolt' | 'orb' | 'shard' | 'spit';
+}
+
+export const MAGIC_SHOT: Partial<Record<WeaponKind, MagicShot>> = {
+  staff: {
+    count: 1, damage: 1.1, spread: 0, speed: 300, radius: 30, range: 1,
+    splash: 58, element: 'arcane', color: '#9578e8', sprite: 'bolt',
+  },
+  wand: {
+    count: 3, damage: 1.0, spread: 0.1, speed: 620, radius: 16, range: 0.95,
+    splash: 0, element: 'arcane', color: '#6fd0e8', sprite: 'shard',
+  },
+  tome: {
+    count: 2, damage: 1.05, spread: 0.5, speed: 330, radius: 22, range: 1.1,
+    splash: 18, homing: 3.4, element: 'shadow', color: '#a978e8', sprite: 'orb',
+  },
+  orb: {
+    count: 5, damage: 1.35, spread: 0.17, speed: 500, radius: 15, range: 0.5,
+    splash: 0, pierce: 1, element: 'frost', color: '#6fd0e8', sprite: 'shard',
+  },
+};
+
 /** Target damage per second for a weapon of this kind, level and rarity. */
 export function weaponDps(kind: WeaponKind, level: number, rarity: Rarity): number {
   const cls = weaponClass(kind);

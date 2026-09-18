@@ -141,6 +141,15 @@ export const WEAPONS: ItemTemplate[] = [
   W('staff_concord', 'Concord Spellstaff', 'staff', 13, 1.02, 505, { metal: PAL.arcane, glow: PAL.arcaneLit, rarity: 'superRare', stats: { intelligence: 7, abilityPower: 14, maxMana: 30 } }),
   W('wand_copper', 'Copper Wand', 'wand', 2, 1.6, 372, { metal: PAL.copper, glow: PAL.frost, stats: { intelligence: 2 } }),
   W('tome_lesser', 'Lesser Grimoire', 'tome', 4, 1.2, 386, { metal: PAL.blood, glow: PAL.arcaneLit, stats: { intelligence: 3, maxMana: 15 } }),
+  // Wands and tomes used to jump from level 2 and 4 straight to 19 and 30,
+  // so the two fastest-feeling magic weapons in the game were unavailable
+  // for most of it. These fill the gap band by band.
+  W('wand_ash', 'Ashvale Wand', 'wand', 6, 1.58, 386, { metal: PAL.wood, glow: PAL.ember, stats: { intelligence: 3, abilityPower: 6 } }),
+  W('wand_guild', 'Guild Sparker', 'wand', 10, 1.6, 400, { metal: PAL.copper, glow: PAL.goldLit, rarity: 'rare', stats: { intelligence: 5, abilityPower: 9, cooldownReduction: 4 } }),
+  W('wand_thorn', 'Thornhollow Switch', 'wand', 14, 1.62, 406, { metal: PAL.leafDark, glow: PAL.toxic, rarity: 'rare', stats: { intelligence: 6, abilityPower: 11 }, fixedEnchants: [{ id: 'venomous', level: 1 }] }),
+  W('tome_ledger', 'Guild Casting Ledger', 'tome', 9, 1.18, 420, { metal: PAL.copper, glow: PAL.goldLit, rarity: 'rare', stats: { intelligence: 5, maxMana: 28 } }),
+  W('tome_mire', 'The Sunken Register', 'tome', 15, 1.16, 452, { metal: PAL.swampDark, glow: PAL.toxic, rarity: 'superRare', stats: { intelligence: 8, abilityPower: 15, maxMana: 45 } }),
+  W('tome_concord', 'Concord Working Copy', 'tome', 22, 1.15, 486, { metal: PAL.arcane, glow: PAL.arcaneLit, rarity: 'superRare', stats: { intelligence: 12, abilityPower: 24, maxMana: 70 } }),
   W('scythe_bone', 'Bone Scythe', 'scythe', 1, 1.05, 58, { metal: PAL.cloth, stats: { intelligence: 2 }, classes: ['necromancer'] }),
   W('scythe_grave', 'Gravewarden Scythe', 'scythe', 10, 0.95, 64, { metal: PAL.rot, glow: PAL.toxic, rarity: 'rare', stats: { intelligence: 5, lifesteal: 3 } }),
 
@@ -228,12 +237,17 @@ export const WEAPONS: ItemTemplate[] = [
   W('bow_zero', 'Zero', 'bow', 36, 1.2, 680, { metal: PAL.white, glow: PAL.arcaneLit, rarity: 'epic', stats: { dexterity: 18, critChance: 16 }, fixedEnchants: [{ id: 'multishot', level: 3 }] }),
   W('crossbow_quotient', 'Quotient', 'crossbow', 38, 0.8, 660, { metal: PAL.arcaneDark, glow: PAL.arcane, rarity: 'legendary', stats: { critDamage: 80, dexterity: 18 }, fixedEnchants: [{ id: 'chain_reaction', level: 3 }] }),
   W('staff_modulo', 'The Modulo, Entire', 'staff', 38, 1, 580, { metal: PAL.arcane, glow: PAL.white, rarity: 'legendary', stats: { intelligence: 26, abilityPower: 52, maxMana: 180, cooldownReduction: 14 }, fixedEnchants: [{ id: 'void_strike', level: 3 }] }),
+  W('wand_divisor', 'Divisor', 'wand', 36, 1.56, 440, { metal: PAL.arcaneLit, glow: PAL.white, rarity: 'epic', stats: { intelligence: 20, abilityPower: 38, cooldownReduction: 10 } }),
+  W('tome_carried', 'The Carried Remainder', 'tome', 39, 1.14, 530, { metal: PAL.white, glow: PAL.arcane, rarity: 'legendary', stats: { intelligence: 25, abilityPower: 50, maxMana: 165 }, fixedEnchants: [{ id: 'soul_siphon', level: 2 }] }),
   W('orb_irrational', 'The Irrational', 'orb', 37, 1.28, 540, { metal: PAL.white, glow: PAL.arcaneLit, rarity: 'legendary', stats: { intelligence: 24, abilityPower: 48, lifesteal: 8 }, fixedEnchants: [{ id: 'soul_siphon', level: 3 }] }),
 
   /* --- the deep marches: levels 52 to 75 --- */
   W('sword_drowned', 'Drowned Longsword', 'sword', 53, 1.26, 54, { metal: '#6f9ab4', rarity: 'rare', stats: { strength: 8, maxHealth: 60 } }),
   W('spear_fen', 'Fenreed Spear', 'spear', 55, 1.18, 74, { metal: '#4a7a6a', rarity: 'rare', stats: { dexterity: 9 } }),
   W('staff_silt', 'Siltbound Stave', 'staff', 56, 0.96, 520, { metal: '#38505a', glow: '#8fd0f0', rarity: 'superRare', stats: { intelligence: 12, abilityPower: 16 } }),
+  W('wand_saltglass', 'Saltglass Wand', 'wand', 52, 1.54, 450, { metal: '#9fc0c8', glow: PAL.foam, rarity: 'superRare', stats: { intelligence: 11, abilityPower: 15 } }),
+  W('tome_drowned', 'The Drowned Concordance', 'tome', 57, 1.12, 500, { metal: '#4a7a6a', glow: '#8fd0f0', rarity: 'superRare', stats: { intelligence: 13, abilityPower: 18, maxMana: 120 } }),
+  W('orb_fen', 'Fenlight Lens', 'orb', 54, 1.3, 500, { metal: '#243330', glow: '#8fd0f0', rarity: 'superRare', stats: { intelligence: 12, abilityPower: 16, maxMana: 90 } }),
   W('greataxe_mire', 'Mirebreaker', 'greataxe', 58, 0.64, 70, { metal: '#243330', rarity: 'superRare', stats: { strength: 13, critDamage: 24 } }),
   W('bow_reed', 'Blackreed Bow', 'bow', 59, 1.12, 560, { metal: '#1c2a26', rarity: 'superRare', stats: { dexterity: 12, critChance: 7 } }),
   W('dagger_undertow', 'Undertow', 'dagger', 61, 2.0, 40, { metal: '#6f9ab4', glow: PAL.foam, rarity: 'epic', stats: { dexterity: 14, critChance: 11 } }),
@@ -247,6 +261,9 @@ export const WEAPONS: ItemTemplate[] = [
   W('tome_deep', 'The Deep Ledger', 'tome', 71, 1.1, 480, { metal: '#3a1210', glow: PAL.ember, rarity: 'epic', stats: { intelligence: 19, abilityPower: 26 } }),
   W('claws_emberjaw', 'Emberjaw Talons', 'claws', 72, 2.2, 100, { metal: '#4a1a14', glow: PAL.flameLit, rarity: 'epic', stats: { dexterity: 19, critChance: 12 } }),
   W('hammer_floor', 'Underfloor Maul', 'hammer', 74, 0.62, 66, { metal: '#330d08', glow: PAL.flame, rarity: 'epic', stats: { strength: 21, critDamage: 40 } }),
+  W('orb_banked', 'The Banked Ember', 'orb', 69, 1.28, 520, { metal: '#6a2016', glow: PAL.flameLit, rarity: 'epic', stats: { intelligence: 18, abilityPower: 24, lifesteal: 6 } }),
+  W('wand_striker', 'Strikerod', 'wand', 73, 1.52, 470, { metal: '#4b4470', glow: '#e0dcff', rarity: 'epic', stats: { intelligence: 20, abilityPower: 26, cooldownReduction: 10 } }),
+  W('staff_lastfire', 'The Last Fire', 'staff', 75, 0.98, 590, { metal: '#330d08', glow: PAL.flameLit, rarity: 'legendary', stats: { intelligence: 28, abilityPower: 46, maxMana: 260, cooldownReduction: 12 }, fixedEnchants: [{ id: 'ember_focus', level: 3 }] }),
 ];
 
 /* ------------------------------------------------------------------ */
