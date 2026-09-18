@@ -208,6 +208,7 @@ export default function TouchControls({ game }: { game: Game }) {
             className="small"
             icon={p.equipment.offHand ? getIconUrl(p.equipment.offHand.icon, { metal: p.equipment.offHand.iconMetal }) : null}
             label={p.equipment.offHand ? undefined : 'OFF'}
+            cooldown={p.equipment.offHand?.weaponKind === 'shield' ? undefined : p.offhandCooldown}
             action="offhand"
           />
         </div>

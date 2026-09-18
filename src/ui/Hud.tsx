@@ -165,17 +165,30 @@ export default function Hud({ game }: { game: Game }) {
             </button>
           );
         })}
-        <button
-          className={`slot ${p.equipment.offHand ? 'ready' : 'locked'}`}
-          title={p.equipment.offHand ? `${p.equipment.offHand.name} (F)` : 'No off-hand (F uses a potion)'}
-          onClick={() => game.useOffhand()}
-        >
-          <span className="key">F</span>
-          {p.equipment.offHand ? (
-            <img src={getIconUrl(p.equipment.offHand.icon, { metal: p.equipment.offHand.iconMetal, glow: p.equipment.offHand.glow })} alt="" />
-          ) : <span style={{ fontSize: 10, color: 'var(--muted)' }}>off</span>}
-          {p.blocking ? <span className="cd" style={{ fontSize: 10 }}>BLOCK</span> : null}
-        </button>
+        {(() => {
+          // A shield never uses offhandCooldown at all — it is held to block,
+          // not triggered — so a countdown left over from whatever was in
+          // this slot before must not bleed onto it after a swap.
+          const isShield = p.equipment.offHand?.weaponKind === 'shield';
+          const cd = isShield ? 0 : p.offhandCooldown;
+          return (
+            <button
+              className={`slot ${p.equipment.offHand ? (cd <= 0 ? 'ready' : '') : 'locked'}`}
+              title={p.equipment.offHand ? `${p.equipment.offHand.name} (F)` : 'No off-hand (F uses a potion)'}
+              onClick={() => game.useOffhand()}
+            >
+              <span className="key">F</span>
+              {p.equipment.offHand ? (
+                <img src={getIconUrl(p.equipment.offHand.icon, { metal: p.equipment.offHand.iconMetal, glow: p.equipment.offHand.glow })} alt="" />
+              ) : <span style={{ fontSize: 10, color: 'var(--muted)' }}>off</span>}
+              {p.blocking
+                ? <span className="cd" style={{ fontSize: 10 }}>BLOCK</span>
+                : cd > 0
+                ? <span className="cd">{cd.toFixed(cd < 1 ? 1 : 0)}</span>
+                : null}
+            </button>
+          );
+        })()}
         {p.equipment.mainHand?.weaponPower ? (
           <button
             className={`slot ${p.weaponPowerCooldown > 0 ? '' : 'ready'}`}
