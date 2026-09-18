@@ -2,10 +2,17 @@ import { useMemo, useState } from 'react';
 import type { Game } from '../game/core/game';
 import { ALL_TEMPLATES, type ItemTemplate } from '../data/items';
 import { LOCATIONS } from '../data/locations';
+import { ALL_ENEMIES } from '../data/enemies';
+import { QUESTS } from '../data/quests';
+import { CLASSES, SKILL_BRANCHES, type ClassId } from '../data/classes';
+import { FACTIONS, RACES, repTier, type RaceId } from '../data/races';
+import { ENCHANTS } from '../game/items/enchants';
 import { MAX_LEVEL } from '../game/player/player';
-import { RARITY_LABEL, type Rarity } from '../game/items/types';
+import { EQUIP_SLOT_ORDER, RARITY_LABEL, SLOT_LABEL, type EquipSlot, type Rarity } from '../game/items/types';
+import type { Look } from '../game/art/characters';
 import { rarityColor } from './ItemCard';
 import { getIconUrl } from '../game/art/icons';
+import SpritePreview from './SpritePreview';
 
 /**
  * The debug menu, reachable only by a character named "debug".
@@ -17,7 +24,7 @@ import { getIconUrl } from '../game/art/icons';
  * need a reload.
  */
 
-const TABS = ['Items', 'Character', 'World'] as const;
+const TABS = ['Items', 'Character', 'Build', 'Spawn', 'World'] as const;
 type Tab = typeof TABS[number];
 
 const TYPES: Array<{ id: string; label: string }> = [
@@ -56,6 +63,8 @@ export default function DebugPanel({ game }: { game: Game }) {
 
         {tab === 'Items' ? <ItemsTab game={game} /> : null}
         {tab === 'Character' ? <CharacterTab game={game} /> : null}
+        {tab === 'Build' ? <BuildTab game={game} /> : null}
+        {tab === 'Spawn' ? <SpawnTab game={game} /> : null}
         {tab === 'World' ? <WorldTab game={game} /> : null}
       </div>
     </div>
@@ -138,6 +147,9 @@ function ItemsTab({ game }: { game: Game }) {
         </button>
         <button className="btn small" onClick={() => game.debugGiveAll((t) => t.slot === 'offHand', level, rolled)}>
           Give every off-hand
+        </button>
+        <button className="btn small danger" onClick={() => game.debugClearInventory()}>
+          Empty the pack ({p.inventory.length})
         </button>
       </div>
 
@@ -247,6 +259,20 @@ function CharacterTab({ game }: { game: Game }) {
         >
           God mode: {game.godMode ? 'on' : 'off'}
         </button>
+        <button
+          className={`btn small ${game.oneShot ? 'primary' : ''}`}
+          onClick={() => { game.oneShot = !game.oneShot; game.touch(); }}
+          title="Anything you hit dies, except during a boss's immune phase"
+        >
+          One-shot: {game.oneShot ? 'on' : 'off'}
+        </button>
+        <button
+          className={`btn small ${game.freeCasting ? 'primary' : ''}`}
+          onClick={() => { game.freeCasting = !game.freeCasting; game.touch(); }}
+          title="No mana, no stamina, no cooldowns"
+        >
+          Free casting: {game.freeCasting ? 'on' : 'off'}
+        </button>
         <button className="btn small" onClick={() => game.debugRestore()}>Full restore</button>
         <button className="btn small" onClick={() => game.debugKillNearby()}>Kill everything nearby</button>
         <button
@@ -257,7 +283,243 @@ function CharacterTab({ game }: { game: Game }) {
         </button>
       </div>
       <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.7 }}>
-        Full restore also clears every cooldown and stands you back up if you are dead.
+        Full restore also clears every cooldown and stands you back up if you are dead. One-shot deliberately
+        does not pierce a boss&apos;s immune phase, so it cannot hide the bug it was meant to find.
+      </div>
+
+      <div className="section-h">Name</div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input
+          className="name-input"
+          style={{ margin: 0, maxWidth: 260 }}
+          value={p.name}
+          onChange={(e) => { p.name = e.target.value; game.touch(); }}
+        />
+        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+          {game.isDebug ? 'Still named "debug", so this menu stays.' : 'Not "debug" any more — this menu goes when you close it.'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Build — what you are, and what you have put points into             */
+/* ------------------------------------------------------------------ */
+
+const HAIR: Array<Look['hairStyle']> = ['short', 'long', 'ponytail', 'braid', 'mohawk', 'wild', 'bald'];
+const BEARDS: Array<NonNullable<Look['beard']>> = ['none', 'stubble', 'full', 'long'];
+
+function BuildTab({ game }: { game: Game }) {
+  const p = game.player;
+  const branches = SKILL_BRANCHES(p.classDef);
+  const spent = Object.values(p.skills).reduce((n, v) => n + v, 0);
+  const totalNodes = p.classDef.skills.reduce((n, s) => n + s.max, 0);
+
+  return (
+    <div className="inv-col scroll" style={{ flex: 1, overflowY: 'auto', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="section-h">Class &mdash; {p.classDef.name}</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {CLASSES.map((c) => (
+              <button
+                key={c.id}
+                className={`filter-chip ${c.id === p.cls ? 'active' : ''}`}
+                style={{ color: c.id === p.cls ? c.color : undefined }}
+                onClick={() => game.debugSetClass(c.id as ClassId)}
+                title={`${c.playstyle} — free here, and it refunds your points`}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="section-h">Race &mdash; {p.raceDef.name}</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {RACES.map((r) => (
+              <button
+                key={r.id}
+                className={`filter-chip ${r.id === p.race ? 'active' : ''}`}
+                onClick={() => game.debugSetRace(r.id as RaceId)}
+                title={r.perk}
+              >
+                {r.name}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.7 }}>
+            {p.raceDef.perk}
+          </div>
+
+          <div className="section-h">Face</div>
+          <Row label="Skin">
+            {p.raceDef.look.skins.map((c, i) => (
+              <button
+                key={c + i}
+                className={`swatch ${i === p.skinIndex ? 'on' : ''}`}
+                style={{ background: c }}
+                onClick={() => game.debugSetLook({ skinIndex: i })}
+              />
+            ))}
+          </Row>
+          <Row label="Hair">
+            {p.raceDef.look.hairs.map((c, i) => (
+              <button
+                key={c + i}
+                className={`swatch ${i === p.hairIndex ? 'on' : ''}`}
+                style={{ background: c }}
+                onClick={() => game.debugSetLook({ hairIndex: i })}
+              />
+            ))}
+          </Row>
+          <Row label="Style">
+            {HAIR.map((h) => (
+              <button key={h} className={`filter-chip ${h === p.hairStyle ? 'active' : ''}`} onClick={() => game.debugSetLook({ hairStyle: h })}>{h}</button>
+            ))}
+          </Row>
+          <Row label="Beard">
+            {BEARDS.map((b) => (
+              <button key={b} className={`filter-chip ${b === (p.beard ?? 'none') ? 'active' : ''}`} onClick={() => game.debugSetLook({ beard: b })}>{b}</button>
+            ))}
+          </Row>
+        </div>
+
+        <div style={{ paddingTop: 22 }}>
+          <SpritePreview look={p.look()} scale={4} />
+        </div>
+      </div>
+
+      <div className="section-h">Talents &mdash; {spent} of {totalNodes} points in, {p.skillPoints} spare</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn small primary" onClick={() => game.debugMaxSkills()}>Max the whole tree</button>
+        <button className="btn small" onClick={() => game.debugClearSkills()}>Clear and refund</button>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>Max one branch</span>
+        {branches.map((b) => (
+          <button key={b} className="filter-chip" onClick={() => game.debugMaxBranch(b)}>{b}</button>
+        ))}
+        <button className="btn small" onClick={() => game.setPanel('skills')}>Open the tree</button>
+      </div>
+
+      <div className="section-h">Standing</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+        {[100, 50, 0, -50, -100].map((v) => (
+          <button key={v} className="filter-chip" onClick={() => game.debugSetRep('all', v)}>All to {v}</button>
+        ))}
+      </div>
+      {FACTIONS.map((f) => {
+        const v = p.rep(f.id);
+        return (
+          <div key={f.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 5 }}>
+            <span style={{ fontSize: 11.5, width: 130, color: 'var(--muted)' }}>{f.name}</span>
+            <input
+              type="range"
+              min={-100}
+              max={100}
+              value={v}
+              style={{ flex: 1, maxWidth: 320 }}
+              onChange={(e) => game.debugSetRep(f.id, Number(e.target.value))}
+            />
+            <span style={{ fontSize: 11.5, width: 120 }}>{v} &middot; {repTier(v).label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Spawn — enemies, and what is on your gear                           */
+/* ------------------------------------------------------------------ */
+
+function SpawnTab({ game }: { game: Game }) {
+  const p = game.player;
+  const [q, setQ] = useState('');
+  const [level, setLevel] = useState(p.level);
+  const [count, setCount] = useState(1);
+  const [elite, setElite] = useState(false);
+  const [slot, setSlot] = useState<EquipSlot>('mainHand');
+
+  const needle = q.trim().toLowerCase();
+  const list = ALL_ENEMIES.filter((e) => !needle || e.name.toLowerCase().includes(needle) || e.id.includes(needle));
+  const held = p.equipment[slot];
+
+  return (
+    <div className="inv-col" style={{ flex: 1, minHeight: 0, gap: 8 }}>
+      <div className="section-h">Enchant what you are wearing</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {EQUIP_SLOT_ORDER.map((s) => (
+          <button key={s} className={`filter-chip ${s === slot ? 'active' : ''}`} onClick={() => setSlot(s)}>{SLOT_LABEL[s]}</button>
+        ))}
+        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+          {held ? `${held.name} · ${held.enchants.length}/${held.enchantSlots}` : 'nothing in that slot'}
+        </span>
+      </div>
+      {held ? (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          {ENCHANTS.map((en) => {
+            const at = held.enchants.find((e) => e.id === en.id)?.level ?? 0;
+            return (
+              <button
+                key={en.id}
+                className={`filter-chip ${at ? 'active' : ''}`}
+                title={`${en.name} — click to cycle 0-3`}
+                onClick={() => game.debugEnchant(slot, en.id, (at + 1) % 4)}
+              >
+                {en.name}{at ? ` ${at}` : ''}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="section-h">Put something on the ground</div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input
+          className="name-input"
+          style={{ flex: 1, minWidth: 160, margin: 0 }}
+          placeholder="Search the bestiary..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <Num label="Level" value={level} min={1} max={99} onChange={setLevel} />
+        <button className="btn small" onClick={() => setLevel(p.level)}>Mine</button>
+        <Num label="Count" value={count} min={1} max={20} onChange={setCount} />
+        <button className={`filter-chip ${elite ? 'active' : ''}`} onClick={() => setElite(!elite)}>Elite</button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn small" onClick={() => game.debugKillNearby()}>Kill everything nearby</button>
+        <button
+          className={`btn small ${game.oneShot ? 'primary' : ''}`}
+          onClick={() => { game.oneShot = !game.oneShot; game.touch(); }}
+        >
+          One-shot: {game.oneShot ? 'on' : 'off'}
+        </button>
+        <span style={{ fontSize: 11.5, color: 'var(--muted)', alignSelf: 'center' }}>
+          {game.enemies.filter((e) => !e.dead && !e.friendly).length} alive on this map
+        </span>
+      </div>
+
+      <div className="shop-list scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        {list.map((e) => (
+          <div className="shop-row" key={e.id}>
+            <div className="sr-name" style={{ color: e.boss ? '#f45b5b' : undefined }}>
+              {e.name}
+              <div className="sr-meta">
+                {e.id} &middot; {e.role}{e.boss ? ' · boss' : ''} &middot; written at level {e.level}
+                {e.tags?.length ? ` · ${e.tags.join(', ')}` : ''}
+              </div>
+            </div>
+            <button
+              className="btn small primary"
+              onClick={() => { game.closeAll(); game.debugSpawn(e.id, { level, count, elite }); }}
+            >
+              Spawn
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -285,6 +547,26 @@ function WorldTab({ game }: { game: Game }) {
         <button className="filter-chip" onClick={() => { game.day += 1; game.restockShops(); game.touch(); }}>+1 day (restocks)</button>
       </div>
 
+      <div className="section-h">Speed</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[0.25, 0.5, 1, 2, 4].map((s) => (
+          <button
+            key={s}
+            className={`filter-chip ${game.timeScale === s ? 'active' : ''}`}
+            onClick={() => { game.timeScale = s; game.touch(); }}
+          >
+            {s}&times;
+          </button>
+        ))}
+        <button
+          className={`btn small ${game.freeCasting ? 'primary' : ''}`}
+          onClick={() => { game.freeCasting = !game.freeCasting; game.touch(); }}
+          title="Abilities and off-hands cost nothing and never go on cooldown"
+        >
+          Free casting: {game.freeCasting ? 'on' : 'off'}
+        </button>
+      </div>
+
       <div className="section-h">The map</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <button className="btn small" onClick={() => game.debugRevealWorld()}>Attune every waystone</button>
@@ -292,6 +574,22 @@ function WorldTab({ game }: { game: Game }) {
         <span style={{ fontSize: 11.5, color: 'var(--muted)', alignSelf: 'center' }}>
           {p.waystones.size} attuned &middot; {p.discovered.size} found &middot; {p.bossesKilled.size} bosses down
         </span>
+      </div>
+
+      <div className="section-h">Progress</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn small" onClick={() => game.debugCompleteQuests()}>
+          Complete every quest ({game.quests.completed.length}/{QUESTS.length})
+        </button>
+        <button className="btn small" onClick={() => game.debugKillAllBosses()}>Mark every boss felled</button>
+        <button className="btn small" onClick={() => game.debugResetProgress()}>Reset bosses, dungeons and chests</button>
+        <button className="btn small" onClick={() => game.setPanel('crown')} title="Jovan's ledger — reopen a dungeon or put a boss back">
+          Open the crown&apos;s ledger
+        </button>
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.7 }}>
+        The crown pays one warrant per boss felled, so marking them all also gives you {ALL_ENEMIES.filter((e) => e.boss).length} warrants
+        to spend at the anvil.
       </div>
 
       <div className="section-h">Go somewhere</div>
@@ -329,6 +627,15 @@ function WorldTab({ game }: { game: Game }) {
 }
 
 /* ------------------------------------------------------------------ */
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="remake-row">
+      <span className="rr-label">{label}</span>
+      <span className="rr-items">{children}</span>
+    </div>
+  );
+}
 
 function Num({ label, value, min, max, step = 1, onChange }: {
   label: string; value: number; min: number; max: number; step?: number; onChange: (n: number) => void;

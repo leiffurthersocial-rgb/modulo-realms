@@ -1,11 +1,11 @@
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
-import { ENEMY_BY_ID } from '../../data/enemies';
+import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
 import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
 import { ALL_TEMPLATES, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
-import { FACTION_BY_ID, RACE_BY_ID, type RaceId } from '../../data/races';
+import { FACTION_BY_ID, FACTIONS, RACE_BY_ID, type FactionId, type RaceId } from '../../data/races';
 import type { Look } from '../art/characters';
 import { PAL } from '../art/palette';
 import { audio, type MusicTrack } from '../audio/audio';
@@ -191,6 +191,12 @@ export class Game implements WorldCtx {
   showMinimap = true;
   debug = false;
   godMode = false;
+  /** Debug: how fast the world runs. 1 is normal. */
+  timeScale = 1;
+  /** Debug: abilities and off-hands cost nothing and never go on cooldown. */
+  freeCasting = false;
+  /** Debug: every hit the player lands kills whatever it lands on. */
+  oneShot = false;
   lastAutosave = 0;
   bossTarget: Enemy | null = null;
   /** Black screen wipe used for doors, stairs and fast travel. */
@@ -702,6 +708,9 @@ export class Game implements WorldCtx {
       }
       return;
     }
+    // Debug one-shot sits after the ward check on purpose: an immune phase is
+    // still immune, so this cannot hide a boss-phase bug it was meant to find.
+    if (this.oneShot) amount = Math.max(amount, e.maxHp * 999);
     const def = e.defense;
     let dmg = amount * (100 / (100 + Math.max(0, def)));
     // undead take extra holy damage, plants burn, constructs resist poison
@@ -1342,21 +1351,23 @@ export class Game implements WorldCtx {
     const ab = p.abilities[index];
     if (!ab) return;
     const cd = p.cooldowns[ab.id] ?? 0;
-    if (cd > 0) {
-      this.floatText(p.x, p.y - 44, 'Not ready', PAL.fog, 11);
-      return;
+    if (!this.freeCasting) {
+      if (cd > 0) {
+        this.floatText(p.x, p.y - 44, 'Not ready', PAL.fog, 11);
+        return;
+      }
+      if (p.mp < ab.mana) {
+        this.floatText(p.x, p.y - 44, 'Not enough mana', '#6f9ce8', 11);
+        return;
+      }
+      if (p.sp < ab.stamina) {
+        this.floatText(p.x, p.y - 44, 'Not enough stamina', '#8fbf4a', 11);
+        return;
+      }
+      p.mp -= ab.mana;
+      p.sp -= ab.stamina;
+      p.cooldowns[ab.id] = p.cooldownFor(ab);
     }
-    if (p.mp < ab.mana) {
-      this.floatText(p.x, p.y - 44, 'Not enough mana', '#6f9ce8', 11);
-      return;
-    }
-    if (p.sp < ab.stamina) {
-      this.floatText(p.x, p.y - 44, 'Not enough stamina', '#8fbf4a', 11);
-      return;
-    }
-    p.mp -= ab.mana;
-    p.sp -= ab.stamina;
-    p.cooldowns[ab.id] = p.cooldownFor(ab);
 
     const stats = p.stats();
     const power = p.attackPower() * ab.power * (1 + stats.abilityPower / 100);
@@ -1576,7 +1587,7 @@ export class Game implements WorldCtx {
     p.animTime = 0;
     const stats = p.stats();
     const cdr = Math.min(60, stats.cooldownReduction);
-    const cool = (base: number) => { p.offhandCooldown = base * (1 - cdr / 100); };
+    const cool = (base: number) => { p.offhandCooldown = this.freeCasting ? 0 : base * (1 - cdr / 100); };
 
     switch (off.weaponKind) {
       case 'tome': {
@@ -3168,6 +3179,185 @@ export class Game implements WorldCtx {
     this.touch();
   }
 
+  /**
+   * Change class without the retraining fee or the starting kit.
+   *
+   * `changeClass` is the in-world version: it charges a thousand gold and
+   * hands over a kit, both of which get in the way when the thing you are
+   * testing is what a level-60 Necromancer's talent tree does.
+   */
+  debugSetClass(cls: ClassId): void {
+    const p = this.player;
+    if (p.cls === cls) return;
+    const spent = Object.values(p.skills).reduce((a, b) => a + b, 0);
+    p.skills = {};
+    p.skillPoints += spent;
+    p.cooldowns = {};
+    p.buffs = [];
+    p.cls = cls;
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    p.sp = p.maxSp;
+    const def = CLASS_BY_ID[cls];
+    this.fx.ring(p.x, p.y, 150, def.color);
+    this.toast('Debug', `Now a ${def.name}. ${spent} points refunded.`, def.color);
+    this.touch();
+  }
+
+  /** Change race without the witch or her ten thousand gold. */
+  debugSetRace(race: RaceId): void {
+    const p = this.player;
+    const def = RACE_BY_ID[race];
+    p.race = race;
+    p.skinIndex = p.skinIndex % def.look.skins.length;
+    p.hairIndex = p.hairIndex % def.look.hairs.length;
+    p.hp = Math.min(p.maxHp, p.hp);
+    p.mp = Math.min(p.maxMp, p.mp);
+    p.sp = Math.min(p.maxSp, p.sp);
+    this.fx.ring(p.x, p.y, 150, '#6fd0e8');
+    this.toast('Debug', `Now ${def.name}. ${def.perk}`, '#6fd0e8');
+    this.touch();
+  }
+
+  /** Edit the face without going to the pool. */
+  debugSetLook(look: Partial<{ skinIndex: number; hairIndex: number; hairStyle: Look['hairStyle']; beard: Look['beard'] }>): void {
+    const p = this.player;
+    const def = p.raceDef;
+    if (look.skinIndex !== undefined) p.skinIndex = look.skinIndex % def.look.skins.length;
+    if (look.hairIndex !== undefined) p.hairIndex = look.hairIndex % def.look.hairs.length;
+    if (look.hairStyle) p.hairStyle = look.hairStyle;
+    if (look.beard) p.beard = look.beard;
+    this.touch();
+  }
+
+  /**
+   * Fill the talent tree, or empty it.
+   *
+   * A maxed tree is the only way to see what a build actually does without
+   * playing to 75 first, and it needs no skill points because nothing here is
+   * pretending to be earned.
+   */
+  debugMaxSkills(): void {
+    const p = this.player;
+    for (const node of p.classDef.skills) p.skills[node.id] = node.max;
+    p.skillPoints = 0;
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    p.sp = p.maxSp;
+    this.toast('Debug', `Every talent maxed (${p.classDef.skills.length} nodes).`, PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Empty the tree and hand every point back. */
+  debugClearSkills(): void {
+    const p = this.player;
+    const spent = Object.values(p.skills).reduce((a, b) => a + b, 0);
+    p.skills = {};
+    p.skillPoints += spent;
+    this.toast('Debug', `${spent} points refunded.`, PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Max one branch of the tree, for comparing specialisations side by side. */
+  debugMaxBranch(branch: string): void {
+    const p = this.player;
+    let n = 0;
+    for (const node of p.classDef.skills) {
+      if (node.branch !== branch) continue;
+      p.skills[node.id] = node.max;
+      n++;
+    }
+    this.toast('Debug', `${branch} maxed (${n} nodes).`, PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Set standing with one faction, or all six at once. */
+  debugSetRep(faction: FactionId | 'all', value: number): void {
+    const p = this.player;
+    const v = Math.max(-100, Math.min(100, Math.round(value)));
+    if (faction === 'all') for (const f of FACTIONS) p.reputation[f.id] = v;
+    else p.reputation[faction] = v;
+    this.touch();
+  }
+
+  /** Put an enemy on the ground next to the player, at any level. */
+  debugSpawn(enemyId: string, opts: { level?: number; elite?: boolean; boss?: boolean; count?: number } = {}): void {
+    const def = ENEMY_BY_ID[enemyId];
+    if (!def) return;
+    const p = this.player;
+    const n = Math.max(1, opts.count ?? 1);
+    const level = Math.max(1, Math.round(opts.level ?? p.level));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const d = 120 + (n > 1 ? 40 : 0);
+      const pos = findOpenNear(this.map, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 12, 8);
+      const e = new Enemy(enemyId, pos.x, pos.y, level, {
+        elite: opts.elite,
+        boss: opts.boss ?? !!def.boss,
+        region: this.regionAtPlayer(),
+      });
+      this.enemies.push(e);
+      if (opts.boss ?? def.boss) this.bossTarget = e;
+    }
+    this.toast('Debug', `Spawned ${n} × ${def.name} at level ${level}.`, '#d9553f');
+    this.touch();
+  }
+
+  /** Clear every quest gate and story flag the world checks. */
+  debugCompleteQuests(): void {
+    const p = this.player;
+    for (const q of [...this.quests.active]) {
+      if (!this.quests.completed.includes(q.id)) this.quests.completed.push(q.id);
+    }
+    this.quests.active = [];
+    for (const def of QUESTS) {
+      if (!this.quests.completed.includes(def.id)) this.quests.completed.push(def.id);
+    }
+    void p;
+    this.toast('Debug', `${this.quests.completed.length} quests marked complete.`, PAL.goldLit);
+    this.touch();
+  }
+
+  /** Mark every boss felled, which is also what the crown pays warrants on. */
+  debugKillAllBosses(): void {
+    const p = this.player;
+    for (const def of ALL_ENEMIES) if (def.boss) p.bossesKilled.add(def.id);
+    this.toast('Debug', `${p.bossesKilled.size} bosses marked felled.`, PAL.goldLit);
+    this.touch();
+  }
+
+  /** Forget every boss kill and cleared dungeon, so the world is fresh again. */
+  debugResetProgress(): void {
+    const p = this.player;
+    p.bossesKilled.clear();
+    p.clearedDungeons.clear();
+    p.warrantsUsed = 0;
+    for (const st of this.mapStates.values()) {
+      st.killedSpawns.clear();
+      st.opened.clear();
+    }
+    this.activeSpawns.clear();
+    this.toast('Debug', 'Bosses, dungeons and chests reset.', PAL.goldLit);
+    this.touch();
+  }
+
+  /** Throw away everything in the pack, which fills up fast in here. */
+  debugClearInventory(): void {
+    this.player.inventory.length = 0;
+    this.toast('Debug', 'Pack emptied.', PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Put an enchantment on whatever is in the main hand, at a chosen level. */
+  debugEnchant(slot: EquipSlot, id: string, level: number): void {
+    const item = this.player.equipment[slot];
+    if (!item) return;
+    item.enchants = item.enchants.filter((e) => e.id !== id);
+    if (level > 0) item.enchants.push({ id, level });
+    item.enchantSlots = Math.max(item.enchantSlots, item.enchants.length);
+    this.touch();
+  }
+
   /** Jump the clock to an hour of the day, for checking night art and schedules. */
   debugSetHour(hour: number): void {
     this.clock = DAY_SECONDS * ((hour % 24) / 24);
@@ -3579,7 +3769,9 @@ export class Game implements WorldCtx {
   /* ---------------- update ---------------- */
 
   update(dtRaw: number): void {
-    const dt = Math.min(0.05, dtRaw);
+    // Debug can run the world fast or slow. Clamping before the scale keeps a
+    // long frame from stepping the world half a second at 4x.
+    const dt = Math.min(0.05, dtRaw) * this.timeScale;
     this.dt = dt;
     this.now += dt;
     this.fx.budget = this.settings.batterySaver ? 0.35 : 1;
