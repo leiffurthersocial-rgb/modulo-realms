@@ -108,7 +108,7 @@ export default function HelpPanel({ game }: { game: Game }) {
                 <Keys rows={[
                   [key('attack'), 'Attack with your main hand. Hold it down to keep swinging'],
                   [key('heavy'), 'Heavy attack — slower, much harder, and it costs stamina'],
-                  [key('offhand'), 'Off-hand: hold to block with a shield, tap to use a tome or brand. With nothing in that hand it drinks a potion'],
+                  [key('offhand'), 'Off-hand: hold to block with a shield; tap for a tome bolt, an orb\u2019s frost ring, a thrown brand or a lantern flare. Empty hand drinks a potion'],
                   [key('artifact'), "Your artifact's power, if you have one equipped"],
                   ['1 2 3 4 5', 'Your five class abilities, unlocked as you level — the last at 22'],
                   ['V', "A weapon's own signature move, if the one you are holding has one"],

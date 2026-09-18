@@ -1521,15 +1521,30 @@ export class Game implements WorldCtx {
   groundZones: Array<{ x: number; y: number; r: number; until: number; next: number; dps: number; element: AbilityDef['element']; color: string; burst: boolean; delay: number }> = [];
 
   /** Off-hand action: shields block (held), everything else has a quick use. */
+  /**
+   * The off-hand action.
+   *
+   * Every off-hand kind now does the thing it looks like it does. Previously
+   * only tomes and torches were implemented and everything else fell through
+   * to `useQuickItem()` — so pressing the off-hand key while holding an orb or
+   * a lantern drank a health potion, which is not a subtle failure. A shield
+   * is the one that does nothing here on purpose: it is HELD to block rather
+   * than tapped, and that is handled in the input pass.
+   */
   useOffhand(): void {
     const p = this.player;
     const off = p.equipment.offHand;
     if (!off) {
+      // Nothing in that hand, so the key does the next most useful thing.
       this.useQuickItem();
       return;
     }
+    if (off.weaponKind === 'shield') {
+      this.floatText(p.x, p.y - 44, 'Hold to block', PAL.fog, 11);
+      return;
+    }
     if (p.offhandCooldown > 0) {
-      this.floatText(p.x, p.y - 44, 'Not ready', PAL.fog, 11);
+      this.floatText(p.x, p.y - 44, `${p.offhandCooldown.toFixed(1)}s`, PAL.fog, 11);
       return;
     }
     const aim = this.aimAngle();
@@ -1537,25 +1552,62 @@ export class Game implements WorldCtx {
     p.dir = dirFromAngle(aim);
     p.anim = 'cast';
     p.animTime = 0;
+    const stats = p.stats();
+    const cdr = Math.min(60, stats.cooldownReduction);
+    const cool = (base: number) => { p.offhandCooldown = base * (1 - cdr / 100); };
 
-    if (off.weaponKind === 'tome') {
-      if (p.mp < 12) {
-        this.floatText(p.x, p.y - 44, 'Not enough mana', '#6f9ce8', 11);
+    switch (off.weaponKind) {
+      case 'tome': {
+        // A bolt out of the book. Cheap, quick, and the reason a caster
+        // carries one rather than a shield.
+        if (p.mp < 12) {
+          this.floatText(p.x, p.y - 44, 'Not enough mana', '#6f9ce8', 11);
+          return;
+        }
+        p.mp -= 12;
+        cool(1.4);
+        const roll = this.rollDamage(p.attackPower() * 0.9 * (1 + stats.abilityPower / 100));
+        this.spawnProjectile({
+          x: p.x, y: p.y - 14, angle: aim, speed: 380, damage: roll.dmg, radius: 30,
+          range: 360, element: 'arcane', color: PAL.arcaneLit, friendly: true, crit: roll.crit,
+          splash: 26, sprite: 'bolt', onHitEffects: p.effectIds(),
+        });
+        audio.play('cast', 0.5);
         return;
       }
-      p.mp -= 12;
-      p.offhandCooldown = 1.4;
-      const roll = this.rollDamage(p.attackPower() * 0.9);
-      this.spawnProjectile({
-        x: p.x, y: p.y - 14, angle: aim, speed: 380, damage: roll.dmg, radius: 30,
-        range: 360, element: 'arcane', color: PAL.arcaneLit, friendly: true, crit: roll.crit,
-        splash: 26, sprite: 'bolt', onHitEffects: p.effectIds(),
-      });
-      audio.play('cast', 0.5);
-      return;
+      case 'orb': {
+        // A lens focuses what is already there, so it answers with a ring
+        // rather than a bolt: close range, hits everything, and chills.
+        if (p.mp < 18) {
+          this.floatText(p.x, p.y - 44, 'Not enough mana', '#6f9ce8', 11);
+          return;
+        }
+        p.mp -= 18;
+        cool(7);
+        const r = 130;
+        const power = p.attackPower() * 1.15 * (1 + stats.abilityPower / 100);
+        this.fx.ring(p.x, p.y, r, off.glow ?? PAL.frost);
+        this.fx.spawn(p.x, p.y, 26, off.glow ?? PAL.frost, { speed: 200, life: 0.5, size: 3 });
+        this.shake(4);
+        for (const e of this.enemies) {
+          if (e.dead || e.friendly) continue;
+          if (dist(p.x, p.y, e.x, e.y) > r + e.radius) continue;
+          const roll = this.rollDamage(power);
+          this.damageEnemy(e, roll.dmg, { element: 'frost', crit: roll.crit, knockback: 110, fromX: p.x, fromY: p.y });
+          e.applyStatusFrom('chill', 0.45, 3, PAL.frost, this.now);
+          this.applyHitEffects(e, roll.dmg, roll.crit);
+        }
+        audio.play('cast', 0.55);
+        return;
+      }
+      case 'none':
+      default:
+        break;
     }
+
     if (off.icon === 'torch_item') {
-      p.offhandCooldown = 6;
+      // Throw the burning end somewhere and let it keep burning.
+      cool(6);
       const pt = this.aimPoint(200);
       this.groundZones.push({
         x: pt.x, y: pt.y, r: 70, until: this.now + 4.4, next: this.now + 0.4,
@@ -1565,7 +1617,38 @@ export class Game implements WorldCtx {
       audio.play('cast', 0.5);
       return;
     }
-    this.useQuickItem();
+    if (off.icon === 'lantern') {
+      // A lantern is not a weapon. Raising it lights the ground, and the
+      // things out there that do not care for being seen mind it a great deal.
+      cool(14);
+      const r = 240;
+      this.fx.ring(p.x, p.y, r, PAL.goldLit);
+      this.fx.spawn(p.x, p.y, 30, PAL.goldLit, { speed: 150, life: 1.1, size: 3, gravity: -30 });
+      this.flashScreen(PAL.goldLit, 0.12);
+      let caught = 0;
+      for (const e of this.enemies) {
+        if (e.dead || e.friendly) continue;
+        if (dist(p.x, p.y, e.x, e.y) > r + e.radius) continue;
+        // Blinded things stop chasing and wander, which is what a lantern is
+        // for: getting away, or getting a free opening.
+        e.applyStatusFrom('chill', 0.55, 4, PAL.goldLit, this.now);
+        e.state = 'idle';
+        e.alertTime = 0;
+        const tags = e.def.tags ?? [];
+        if (tags.includes('undead') || tags.includes('spirit')) {
+          const roll = this.rollDamage(p.attackPower() * 1.4);
+          this.damageEnemy(e, roll.dmg, { element: 'holy', crit: roll.crit, fromX: p.x, fromY: p.y });
+        }
+        caught++;
+      }
+      this.floatText(p.x, p.y - 48, caught ? `Blinded ${caught}` : 'The dark pulls back', PAL.goldLit, 13);
+      audio.play('heal', 0.5);
+      return;
+    }
+
+    // An off-hand with no action of its own is worn for its stats. Say so
+    // rather than silently drinking a potion.
+    this.floatText(p.x, p.y - 44, 'Nothing to use', PAL.fog, 11);
   }
 
   /** Artifact power, bound to R. */
@@ -2024,20 +2107,42 @@ export class Game implements WorldCtx {
    * ground, the better the stock — so walking somewhere frightening is how you
    * shop, not just how you fight.
    */
+  /**
+   * What a merchant carries, decided by where they stand and who is standing
+   * in front of them — in that order.
+   *
+   * LOCATION sets the window. A region's level band is what its shops are
+   * worth, so the Emberdeep quartermaster deals in level-60s whoever walks in
+   * and the Ashvale stall deals in level-5s. LEVEL places you inside that
+   * window: the same counter shows a level-30 character the bottom of the
+   * band and a level-70 one the top, rather than showing everyone the same
+   * fixed list forever.
+   *
+   * The old rule took `Math.max(base, band, ...)` where `band` was the TOP of
+   * the region's range, so every shop in a region sold the same tier no matter
+   * who asked — a level-3 character in Thornhollow was offered level-14 goods
+   * they could not use or afford, and a level-70 character was offered exactly
+   * the same thing.
+   */
   private shopTier(npc: NpcDef): { level: number; magicFind: number; luck: number; band: number } {
     const region = REGION_BY_ID[(npc.map === 'overworld'
       ? REGION_BY_INDEX[this.getMap('overworld').regions?.[npc.ty * WORLD_W + npc.tx] ?? 0]?.id
       : 'central') as RegionId] ?? REGION_BY_ID.central;
-    // distance from home town, in tiles, as a second difficulty axis
+    // distance from home town, in tiles, as a second axis on how good the
+    // goods get: a cart at the edge of the world carries better things
     const dist = Math.hypot(npc.tx - VILLAGE_TX, npc.ty - VILLAGE_TY);
-    const far = Math.min(1, dist / 190);
-    const base = npc.shop?.randomGear?.level ?? region.level[0];
-    // A shop indoors inherits its own stated tier rather than the region's, so
-    // the king's armoury is not priced like a village stall.
-    const band = Math.max(base, region.level[1], Math.round(region.level[0] + (region.level[1] - region.level[0]) * far));
-    // meet the player where they are, but never below what the region is worth
-    const level = Math.max(base, band, Math.min(band + 4, this.player.level + 2));
-    return { level, magicFind: 30 + band * 5 + far * 40, luck: 0.3 + far * 0.7, band };
+    const far = Math.min(1, dist / 260);
+    // A shop that states its own tier (the king's armoury, a dungeon-mouth
+    // cart) uses that as its floor rather than the region's.
+    const stated = npc.shop?.randomGear?.level;
+    const from = Math.max(1, Math.min(stated ?? region.level[0], region.level[0]));
+    const to = Math.max(stated ?? region.level[1], region.level[1]);
+    // The player's level, held inside the window the location allows. A little
+    // above is aspirational and worth showing; far above is a shop selling
+    // things nobody here could have made.
+    const level = Math.round(Math.max(from - 1, Math.min(to + 3, this.player.level + 1)));
+    const band = Math.round((from + to) / 2);
+    return { level, magicFind: 25 + band * 4 + far * 45, luck: 0.25 + far * 0.75, band };
   }
 
   openShop(npc: NpcDef): void {
@@ -2055,12 +2160,28 @@ export class Game implements WorldCtx {
       // stock list this shop has ever had.
       for (const k of [...this.shopStock.keys()]) if (k.startsWith(`${shop.id}:`)) this.shopStock.delete(k);
       const rng = new RNG(`${this.seed}:${key}`);
-      stock = shop.stock.map((s) => makeItem(s.item, { qty: s.qty ?? 1, level: s.level, plain: true, rng }));
+      const region = npc.map === 'overworld' ? this.regionIdAt(npc.tx, npc.ty) : undefined;
+      // The hand-written list is the shop's IDENTITY — the potions it always
+      // has, the materials it deals in, the two or three signature pieces that
+      // say where you are. Its gear is re-levelled to the shop's tier rather
+      // than frozen at whatever level it was written at, so a signature piece
+      // is something you can actually use when you get there.
+      stock = shop.stock.map((entry) => {
+        const t = TEMPLATE_BY_ID[entry.item];
+        const isGear = t && (t.type === 'weapon' || t.type === 'armor' || t.type === 'accessory');
+        return makeItem(entry.item, {
+          qty: entry.qty ?? 1,
+          level: entry.level ?? (isGear ? tier.level : undefined),
+          plain: true,
+          rng,
+        });
+      });
+      // Everything else is rolled for this level and this region, which is the
+      // bulk of the window and the reason to come back.
       if (shop.randomGear) {
-        // one extra slot per four levels of regional danger
-        const count = shop.randomGear.count + Math.floor(tier.band / 4);
+        const count = shop.randomGear.count + 4 + Math.floor(tier.band / 5);
         for (let i = 0; i < count; i++) {
-          stock.push(rollLoot(tier.level + rng.int(-1, 2), rng, tier.magicFind, tier.luck, npc.map === 'overworld' ? this.regionIdAt(npc.tx, npc.ty) : undefined));
+          stock.push(rollLoot(Math.max(1, tier.level + rng.int(-2, 2)), rng, tier.magicFind, tier.luck, region));
         }
       }
       this.shopStock.set(key, stock);
@@ -3312,10 +3433,13 @@ export class Game implements WorldCtx {
     else if (this.input.hasMouse && this.input.mouseIdle < 1.6) this.aim = angleTo(p.x, p.y, this.input.world.x, this.input.world.y);
 
     // combat input
+    // Right mouse used to both block and heavy-attack, so a shield user swung
+    // every time they raised their guard. With a shield up it blocks and
+    // nothing else; without one it is still the heavy swing.
     const hasShield = p.equipment.offHand?.weaponKind === 'shield';
     p.blocking = hasShield && (this.input.isDown('offhand') || this.input.mouseDown[2]);
     if (this.input.isDown('attack') || this.input.mouseDown[0]) this.basicAttack(false);
-    if (this.input.wasPressed('heavy') || this.input.mousePressed[2]) this.basicAttack(true);
+    if (this.input.wasPressed('heavy') || (!hasShield && this.input.mousePressed[2])) this.basicAttack(true);
     if (this.input.wasPressed('offhand') && !hasShield) this.useOffhand();
     if (this.input.wasPressed('artifact')) this.useArtifact();
     if (this.input.wasPressed('weaponPower')) this.useWeaponPower();

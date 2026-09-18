@@ -41,7 +41,7 @@ export interface Look {
   height?: number;
   bulk?: number;
   weapon?: WeaponStyle | null;
-  offhand?: 'none' | 'shield' | 'torch' | 'tome';
+  offhand?: 'none' | 'shield' | 'torch' | 'tome' | 'orb' | 'lantern';
   offhandColor?: string;
   glow?: string | null;
   eyes?: string;
@@ -459,6 +459,21 @@ function drawOffhand(p: Px, look: Look, x: number, y: number) {
   } else if (look.offhand === 'tome') {
     p.fill(x, y + 2, 8, 7, PAL.blood);
     p.fill(x + 3, y + 2, 2, 7, PAL.gold);
+  } else if (look.offhand === 'orb') {
+    // A lens held in the palm, lit from inside rather than reflecting.
+    p.ellipse(x + 4, y + 5, 7, 7, shade(c, 0.55));
+    p.ellipse(x + 4, y + 5, 5, 5, c);
+    p.ellipse(x + 3, y + 4, 2, 2, PAL.white);
+    p.ellipse(x + 4, y + 5, 11, 11, withAlpha(c, 0.12));
+  } else if (look.offhand === 'lantern') {
+    // A cage with a flame in it, hanging from a ring.
+    p.fill(x + 3, y - 2, 2, 2, PAL.ironDark);
+    p.fill(x + 1, y, 6, 1, PAL.ironDark);
+    p.box(x + 1, y + 1, 6, 8, PAL.ironDark);
+    p.fill(x + 2, y + 2, 4, 6, withAlpha(PAL.goldLit, 0.85));
+    p.ellipse(x + 4, y + 5, 2, 3, PAL.flameLit);
+    p.fill(x + 1, y + 9, 6, 1, PAL.ironDark);
+    p.ellipse(x + 4, y + 5, 12, 12, withAlpha(PAL.goldLit, 0.12));
   }
 }
 

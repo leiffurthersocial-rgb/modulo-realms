@@ -460,14 +460,25 @@ export class Player implements Entity {
       weapon: mh?.weaponKind && mh.weaponKind !== 'none'
         ? { kind: mh.weaponKind, metal: mh.iconMetal ?? PAL.iron, grip: '#2a1c14', glow: mh.glow }
         : null,
-      offhand: off
-        ? (off.weaponKind === 'shield' ? 'shield' : off.weaponKind === 'tome' ? 'tome' : off.icon === 'torch_item' ? 'torch' : 'shield')
-        : 'none',
+      // Everything that was not a shield or a tome used to fall through to
+      // 'shield', so orbs and lanterns were drawn strapped to the arm as
+      // bucklers. Each kind now draws as itself.
+      offhand: off ? offhandArtFor(off) : 'none',
       offhandColor: off?.iconMetal ?? PAL.iron,
       // A mythic relic glows on the character the way a legendary does.
       glow: topTier(mh) ? mh!.glow ?? null : (topTier(armor) ? armor!.glow ?? null : null),
     };
   }
+}
+
+/** Which piece of off-hand art an equipped item should be drawn with. */
+function offhandArtFor(off: Item): NonNullable<Look['offhand']> {
+  if (off.weaponKind === 'shield') return 'shield';
+  if (off.weaponKind === 'tome') return 'tome';
+  if (off.weaponKind === 'orb') return 'orb';
+  if (off.icon === 'torch_item') return 'torch';
+  if (off.icon === 'lantern') return 'lantern';
+  return 'shield';
 }
 
 /** Legendary and Mythic gear is the gear that glows on the character. */
