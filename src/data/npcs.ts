@@ -2,6 +2,7 @@ import { PAL } from '../game/art/palette';
 import type { Look } from '../game/art/characters';
 import type { DialogueChoice, DialogueNode } from '../game/dialogue/types';
 import type { FactionId, RaceId } from './races';
+import { VILLAGE_TX, VILLAGE_TY } from './locations';
 
 export interface ShopDef {
   id: string;
@@ -70,6 +71,17 @@ const dayJob = (workTx: number, workTy: number, homeTx: number, homeTy: number, 
   { at: 18, tx: socialTx, ty: socialTy, label: 'at the tavern' },
   { at: 22, tx: homeTx, ty: homeTy, label: 'at home' },
 ];
+
+// Keep spawns and daily destinations together, relative to the town centre,
+// so expanding the world cannot leave residents walking toward the old town.
+const ashvaleResident = (dx: number, dy: number, homeDx = dx, homeDy = dy): Pick<NpcDef, 'map' | 'tx' | 'ty' | 'schedule'> => {
+  const tx = VILLAGE_TX + dx;
+  const ty = VILLAGE_TY + dy;
+  return {
+    map: 'overworld', tx, ty,
+    schedule: dayJob(tx, ty, VILLAGE_TX + homeDx, VILLAGE_TY + homeDy, VILLAGE_TX + 13, VILLAGE_TY + 9),
+  };
+};
 
 
 /* ------------------------------------------------------------------ */
@@ -175,10 +187,9 @@ export const NPCS: NpcDef[] = [
   {
     id: 'elder_hanne', name: 'Elder Hanne', title: 'Elder of Ashvale', race: 'human', faction: 'alliance',
     personality: 'Dry, unhurried, has already thought of the thing you are about to say.',
-    map: 'overworld', tx: 467, ty: 457,
+    ...ashvaleResident(-13, 9),
     look: look({ hair: '#d8cfc4', hairStyle: 'braid', shirt: '#4a5a7a', pants: '#3b3346', armor: 'robe', armorColor: '#4a5a7a', armorTrim: PAL.gold }),
     quests: ['tutorial'],
-    schedule: dayJob(371, 457, 371, 457, 397, 457),
     wander: 40,
     greeting: [
       { cond: { races: ['revenant'] }, lines: ['Hanne looks at you a moment longer than is polite.', '"You are cold, and you are standing in my square. Welcome to Ashvale, all the same."'] },
@@ -202,9 +213,8 @@ export const NPCS: NpcDef[] = [
   {
     id: 'smith_corin', name: 'Corin Emberhand', title: 'Blacksmith', race: 'dwarf', faction: 'guild',
     personality: 'Blunt, fair, secretly proud of every blade he sells.',
-    map: 'overworld', tx: 469, ty: 443,
+    ...ashvaleResident(-11, -5, -14, -3),
     look: look({ skin: PAL.skin3, hair: '#b5462f', hairStyle: 'short', beard: 'long', height: 0.86, bulk: 1.18, shirt: '#6a4436', pants: '#3a2f28', armor: 'light', armorColor: '#5a4436', weapon: { kind: 'hammer', metal: PAL.iron, grip: PAL.woodDark } }),
-    schedule: dayJob(373, 443, 370, 445, 397, 457),
     wander: 26,
     shop: {
       id: 'shop_corin', name: "Emberhand's Forge", priceMod: 1,
@@ -237,9 +247,8 @@ export const NPCS: NpcDef[] = [
   {
     id: 'merchant_pell', name: 'Pell', title: 'General Merchant', race: 'human', faction: 'alliance',
     personality: 'Cheerful, exhausting, would sell you your own boots.',
-    map: 'overworld', tx: 480, ty: 441,
+    ...ashvaleResident(0, -7),
     look: look({ hair: '#8a6a3a', hairStyle: 'ponytail', shirt: '#7a5a3a', pants: '#4a3a2a', armor: 'light', armorColor: '#8a6a4a' }),
-    schedule: dayJob(384, 441, 384, 441, 397, 457),
     wander: 20,
     shop: {
       id: 'shop_pell', name: "Pell's Stall", priceMod: 1.05,
@@ -295,9 +304,8 @@ export const NPCS: NpcDef[] = [
   {
     id: 'alchemist_sable', name: 'Sable Quill', title: 'Apothecary', race: 'elf', faction: 'arcane',
     personality: 'Precise, faintly amused by everyone, including herself.',
-    map: 'overworld', tx: 491, ty: 443,
+    ...ashvaleResident(11, -5),
     look: look({ skin: PAL.skinElf, hair: '#9578e8', hairStyle: 'long', ears: 'elf', eyes: '#2f6f93', shirt: '#4a3a6a', pants: '#2b1f4d', armor: 'robe', armorColor: '#4a3a6a', armorTrim: PAL.frost }),
-    schedule: dayJob(395, 443, 395, 443, 397, 457),
     wander: 22,
     shop: {
       id: 'shop_sable', name: "Sable's Apothecary", priceMod: 1.08,
@@ -350,9 +358,8 @@ export const NPCS: NpcDef[] = [
   {
     id: 'hunter_kesh', name: 'Kesh', title: 'Hunter', race: 'beastfolk', faction: 'forest',
     personality: 'Quiet, watchful, more comfortable outside town than in it.',
-    map: 'overworld', tx: 486, ty: 451,
+    ...ashvaleResident(6, 3),
     look: look({ skin: PAL.skinBeast, hair: '#a3823f', hairStyle: 'ponytail', ears: 'beast', eyes: PAL.gold, shirt: '#3f6a4a', pants: '#4a3324', armor: 'light', armorColor: '#4a5a3a', helmet: 'hood', weapon: { kind: 'bow', metal: PAL.wood, grip: PAL.woodDark } }),
-    schedule: dayJob(390, 451, 390, 451, 397, 457),
     wander: 30,
     shop: {
       id: 'shop_kesh', name: "Kesh's Kit", priceMod: 0.98,
