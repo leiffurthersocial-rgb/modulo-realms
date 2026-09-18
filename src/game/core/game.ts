@@ -2101,28 +2101,19 @@ export class Game implements WorldCtx {
   }
 
   /**
-   * How good a merchant's wares are. A cart parked at a level-16 dungeon mouth
-   * sells level-16 gear at level-16 odds; the stall in the starting square
-   * sells what a level-1 player can use. The further out and the deadlier the
-   * ground, the better the stock — so walking somewhere frightening is how you
-   * shop, not just how you fight.
-   */
-  /**
    * What a merchant carries, decided by where they stand and who is standing
-   * in front of them — in that order.
+   * in front of them — in that order, but the second always wins.
    *
-   * LOCATION sets the window. A region's level band is what its shops are
-   * worth, so the Emberdeep quartermaster deals in level-60s whoever walks in
-   * and the Ashvale stall deals in level-5s. LEVEL places you inside that
-   * window: the same counter shows a level-30 character the bottom of the
-   * band and a level-70 one the top, rather than showing everyone the same
-   * fixed list forever.
-   *
-   * The old rule took `Math.max(base, band, ...)` where `band` was the TOP of
-   * the region's range, so every shop in a region sold the same tier no matter
-   * who asked — a level-3 character in Thornhollow was offered level-14 goods
-   * they could not use or afford, and a level-70 character was offered exactly
-   * the same thing.
+   * LOCATION sets a window: a region's level band is what its shops are
+   * worth, so the Emberdeep quartermaster deals in level-60s and the Ashvale
+   * stall deals in level-5s. LEVEL places you inside that window — the same
+   * counter shows a level-30 character the bottom of the band and a level-70
+   * one the top — but never past a fixed reach above the player's own level.
+   * Without that ceiling, a level-3 character who wandered into Emberdeep
+   * would be offered level-50+ gear nobody at their level could use or
+   * afford; refreshed every restock, it just keeps being useless. So the
+   * window is a ceiling on how good things get, not a floor on how far the
+   * shop will overshoot you.
    */
   private shopTier(npc: NpcDef): { level: number; magicFind: number; luck: number; band: number } {
     const region = REGION_BY_ID[(npc.map === 'overworld'
@@ -2140,7 +2131,13 @@ export class Game implements WorldCtx {
     // The player's level, held inside the window the location allows. A little
     // above is aspirational and worth showing; far above is a shop selling
     // things nobody here could have made.
-    const level = Math.round(Math.max(from - 1, Math.min(to + 3, this.player.level + 1)));
+    const windowLevel = Math.round(Math.max(from - 1, Math.min(to + 3, this.player.level + 1)));
+    // A region's floor is a promise about what its shops are worth, not a
+    // license to sell a level-3 wanderer a level-54 sword just because they
+    // strayed into Emberdeep. Nobody can afford — or use — gear far past
+    // their own level, so the window never outruns the player by more than
+    // this much, whatever the location says it's worth.
+    const level = Math.max(1, Math.min(windowLevel, this.player.level + 8));
     const band = Math.round((from + to) / 2);
     return { level, magicFind: 25 + band * 4 + far * 45, luck: 0.25 + far * 0.75, band };
   }
