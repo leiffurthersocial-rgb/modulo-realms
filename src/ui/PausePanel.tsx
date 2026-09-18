@@ -16,6 +16,15 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
             {game.map.name} · {game.timeLabel} · {coords.isDoor ? 'Door ' : ''}{coords.x}, {coords.y}
           </div>
           <button className="btn primary" onClick={() => game.closeAll()}>Resume</button>
+          {game.isDebug ? (
+            <button
+              className="btn"
+              style={{ borderColor: '#9578e8', color: '#c9b6ff' }}
+              onClick={() => game.setPanel('debug')}
+            >
+              Open debug menu
+            </button>
+          ) : null}
           <button className="btn" onClick={() => { saveGame(game); game.toast('Game saved', undefined, '#6fbf5a'); }}>Save game</button>
           <button className="btn" onClick={() => game.setPanel('character')}>Character</button>
           <button className="btn" onClick={() => game.setPanel('quests')}>Journal</button>

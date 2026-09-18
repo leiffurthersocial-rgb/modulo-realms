@@ -1,7 +1,7 @@
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ENEMY_BY_ID } from '../../data/enemies';
 import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
-import { TEMPLATE_BY_ID } from '../../data/items';
+import { ALL_TEMPLATES, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
@@ -19,7 +19,7 @@ import { makeItem, rollEnchants, rollLoot, sellValue, buyValue } from '../items/
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
 import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, RARITY_LABEL, type EquipSlot, type Item, type Rarity } from '../items/types';
-import { DEFAULT_SWING_ARC, Player, SWING_ARC, type PlayerInit } from '../player/player';
+import { DEFAULT_SWING_ARC, MAX_LEVEL, Player, SWING_ARC, skillPointsFor, type PlayerInit } from '../player/player';
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
 import { buildInterior, interiorEntry } from '../world/interiors';
@@ -33,7 +33,7 @@ import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -3063,6 +3063,127 @@ export class Game implements WorldCtx {
       default:
         break;
     }
+  }
+
+  /* ---------------- debug mode ---------------- */
+
+  /**
+   * Whether this character is a test harness rather than a player.
+   *
+   * Naming a character "debug" is the whole key. It is deliberately not a
+   * settings toggle or a key combination: a normal player never types it by
+   * accident, a save that has it keeps it, and anyone testing the game can
+   * get to the tools from the title screen in about four seconds. Everything
+   * it unlocks is additive, so an ordinary save is untouched by any of it.
+   */
+  get isDebug(): boolean {
+    return this.player?.name.trim().toLowerCase() === 'debug';
+  }
+
+  /**
+   * Put the character at a level outright, forwards or backwards.
+   *
+   * Skill points are re-derived from the level rather than added to, so
+   * dropping to 5 and going back to 60 does not leave a hundred spare points
+   * behind. Anything already spent stays spent.
+   */
+  debugSetLevel(level: number): void {
+    const p = this.player;
+    const target = Math.max(1, Math.min(MAX_LEVEL, Math.round(level)));
+    let earned = 0;
+    for (let l = 2; l <= target; l++) earned += skillPointsFor(l);
+    const spent = Object.values(p.skills).reduce((n, v) => n + v, 0);
+    p.level = target;
+    p.xp = 0;
+    p.skillPoints = Math.max(0, earned - spent);
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    p.sp = p.maxSp;
+    this.toast('Debug', `Level ${target}.`, PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Put an item in the pack at a chosen level and rarity. Returns false if the bag is full. */
+  debugGive(templateId: string, opts: { level?: number; rarity?: Rarity; qty?: number; plain?: boolean } = {}): boolean {
+    const t = TEMPLATE_BY_ID[templateId];
+    if (!t) return false;
+    const item = makeItem(templateId, {
+      level: opts.level ?? t.level,
+      rarity: opts.rarity,
+      qty: opts.qty ?? 1,
+      plain: opts.plain,
+    });
+    const ok = addItem(this.player.inventory, item);
+    if (!ok) this.toast('Bag full', undefined, '#e8763a');
+    this.touch();
+    return ok;
+  }
+
+  /** Give one item and put it straight in its slot, so a weapon can be tried in one click. */
+  debugEquip(templateId: string, opts: { level?: number; rarity?: Rarity } = {}): void {
+    const t = TEMPLATE_BY_ID[templateId];
+    if (!t?.slot) return;
+    const item = makeItem(templateId, { level: opts.level ?? t.level, rarity: opts.rarity });
+    const previous = this.player.equipment[t.slot];
+    this.player.equipment[t.slot] = item;
+    if (previous) addItem(this.player.inventory, previous);
+    audio.play('equip', 0.6);
+    this.toast('Debug', `Equipped ${item.name}.`, PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Every template matching a filter, at one level. The bag fills up; that is the point. */
+  debugGiveAll(filter: (t: ItemTemplate) => boolean, level: number, rarity?: Rarity): void {
+    let given = 0;
+    for (const t of ALL_TEMPLATES) {
+      if (!filter(t)) continue;
+      if (!this.debugGive(t.id, { level, rarity })) break;
+      given++;
+    }
+    this.toast('Debug', `Added ${given} items.`, PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Open every waystone and mark every location found, so anywhere is one travel away. */
+  debugRevealWorld(): void {
+    const p = this.player;
+    for (const loc of LOCATIONS) p.discovered.add(loc.id);
+    for (const site of WAYSTONE_SITES) p.waystones.add(site.id);
+    this.toast('Debug', 'Every waystone attuned.', PAL.arcaneLit);
+    this.touch();
+  }
+
+  /** Top everything up, clear what is eating you, and stand back up if dead. */
+  debugRestore(): void {
+    const p = this.player;
+    p.hp = p.maxHp;
+    p.mp = p.maxMp;
+    p.sp = p.maxSp;
+    p.statuses.length = 0;
+    p.dead = false;
+    for (const k of Object.keys(p.cooldowns)) p.cooldowns[k] = 0;
+    p.offhandCooldown = 0;
+    p.artifactCooldown = 0;
+    p.weaponPowerCooldown = 0;
+    this.touch();
+  }
+
+  /** Jump the clock to an hour of the day, for checking night art and schedules. */
+  debugSetHour(hour: number): void {
+    this.clock = DAY_SECONDS * ((hour % 24) / 24);
+    this.touch();
+  }
+
+  /** Wipe the board, without having to fight it. */
+  debugKillNearby(): void {
+    let n = 0;
+    for (const e of this.enemies) {
+      if (e.dead || e.friendly) continue;
+      this.damageEnemy(e, e.hp * 10, { element: 'arcane' });
+      n++;
+    }
+    this.toast('Debug', `Killed ${n}.`, PAL.arcaneLit);
+    this.touch();
   }
 
   /** Cost to push an item one level higher at the anvil. */

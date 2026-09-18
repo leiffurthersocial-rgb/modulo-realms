@@ -196,7 +196,7 @@ export const WEAPONS: ItemTemplate[] = [
   W('dagger_gloam', 'Thorn of the Court', 'dagger', 24, 2.15, 38, { metal: PAL.leaf, glow: PAL.toxic, rarity: 'epic', stats: { critChance: 18, dexterity: 9 }, fixedEnchants: [{ id: 'venomous', level: 3 }] }),
   W('spear_salt', 'Legionary Pike', 'spear', 20, 1.08, 82, { metal: '#9fc0c8', rarity: 'rare', stats: { dexterity: 7, defense: 6 } }),
   W('halberd_tide', 'Tidewarden Halberd', 'halberd', 25, 0.8, 90, { metal: '#9fc0c8', glow: PAL.foam, rarity: 'epic', stats: { strength: 11, defense: 9 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
-  W('orb_salt', 'Saltglass Lens', 'orb', 23, 1.3, 490, { metal: PAL.foam, glow: PAL.water, rarity: 'superRare', stats: { intelligence: 12, abilityPower: 24, maxMana: 70 } }),
+  W('orb_saltglass', 'Saltglass Focus', 'orb', 23, 1.3, 490, { metal: PAL.foam, glow: PAL.water, rarity: 'superRare', stats: { intelligence: 12, abilityPower: 24, maxMana: 70 } }),
   W('greataxe_cutter', 'Warlord\'s Cleaver', 'greataxe', 27, 0.68, 68, { metal: PAL.ironDark, glow: PAL.ember, rarity: 'epic', stats: { strength: 14, critDamage: 35 }, fixedEnchants: [{ id: 'fire_aspect', level: 3 }] }),
   W('mace_cinder', 'Cinderfall Mace', 'mace', 22, 1.04, 52, { metal: '#6a3020', glow: PAL.flame, rarity: 'superRare', stats: { strength: 10, defense: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
   W('staff_cinder', 'Ashcaller Staff', 'staff', 29, 1, 545, { metal: PAL.ember, glow: PAL.flameLit, rarity: 'epic', stats: { intelligence: 17, abilityPower: 34, maxMana: 100 }, fixedEnchants: [{ id: 'ember_focus', level: 3 }] }),
@@ -305,7 +305,7 @@ export const ARMOR: ItemTemplate[] = [
   A('armor_thornweave', 'Thornweave Habit', 9, ROBE, robe('#2d4a2f', PAL.leafLit, 'hood', '#1f3322'), { rarity: 'rare', stats: { maxMana: 38, abilityPower: 9, moveSpeed: 3 } }),
   A('armor_cutter', 'Cutter Raid Harness', 11, LIGHT, light('#5a3a2a', PAL.ember, 'cap'), { rarity: 'superRare', stats: { attackSpeed: 6, critChance: 5, moveSpeed: 5 } }),
   A('armor_wardplate', 'Wardens Bulwark', 13, PLATE, heavy('#4a5a6a', PAL.frost, 'full', '#2a3a4a'), { rarity: 'superRare', stats: { maxHealth: 64, defense: 7, moveSpeed: -2 }, fixedEnchants: [{ id: 'deflect', level: 2 }] }),
-  A('armor_emberplate', 'Emberforge Plate', 15, PLATE, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 88, defense: 8, strength: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
+  A('armor_emberforge', 'Emberforge Plate', 15, PLATE, heavy('#6a3020', PAL.flameLit, 'horned', '#3a1a12'), { rarity: 'epic', glow: PAL.ember, stats: { maxHealth: 88, defense: 8, strength: 6 }, fixedEnchants: [{ id: 'fire_aspect', level: 2 }] }),
   A('armor_tidecaller', 'Tidecaller Vestments', 14, ROBE, robe('#274a5e', PAL.frost, 'wizard', '#1a3242'), { rarity: 'epic', glow: PAL.frost, stats: { maxMana: 72, intelligence: 9, abilityPower: 16 }, fixedEnchants: [{ id: 'freezing', level: 2 }] }),
 
   /* --- the outer marches --- */
