@@ -475,6 +475,9 @@ npx tsx scripts/measure-dps.ts      # what a real build actually puts out, for r
 npx tsx scripts/reprice-enemies.ts  # rewrites the bestiary's derived literals when a curve moves
 ```
 
+`npx tsx scripts/check-npc-schedules.ts` checks that Ashvale's residents stay in town
+and follow their work, tavern and home schedules, including across midnight.
+
 `check-balance` prints every weapon, suit of armour and enemy as a multiple of its budget, and
 for each enemy how many seconds the fight it implies actually takes. Everything should read
 `x1.00`, except the named relics, which are allowed a stated 1.12x premium and nothing beyond
