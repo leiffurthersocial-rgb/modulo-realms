@@ -368,6 +368,31 @@ export const OFFHANDS: ItemTemplate[] = [
   { id: 'tome_glacier', name: 'The Glacier Testament', type: 'armor', slot: 'offHand', icon: 'tome', weaponKind: 'tome', metal: PAL.white, glow: PAL.ice, rarity: 'legendary', level: 29, value: 3400, stats: { maxMana: 190, intelligence: 16, abilityPower: 34, cooldownReduction: 12 } },
   { id: 'shield_axiom', name: 'Axiom', type: 'armor', slot: 'offHand', icon: 'shield', weaponKind: 'shield', metal: PAL.white, accent: PAL.arcaneLit, glow: PAL.arcane, rarity: 'legendary', level: 36, value: 5600, stats: { defense: 110, maxHealth: 280, moveSpeed: -4 }, fixedEnchants: [{ id: 'thorns', level: 3 }], desc: 'A thing assumed to be true, beaten flat and strapped to an arm.' },
   { id: 'lantern_off', name: 'Wayfarer Lantern', type: 'armor', slot: 'offHand', icon: 'lantern', metal: PAL.iron, glow: PAL.goldLit, rarity: 'rare', level: 6, value: 180, stats: { magicFind: 8, maxHealth: 14 }, desc: 'Burns whale oil and something the apothecary will not name.' },
+
+  /*
+   * Off-hands that do something other than sit there.
+   *
+   * Shields block, tomes and orbs cast, and everything else in this slot used
+   * to be a stat stick — which left the whole left hand uninteresting for any
+   * class that did not want a wall strapped to its arm. Each of these has an
+   * action on the off-hand key, and its own art on the character, so picking
+   * one up changes a fight rather than a number.
+   */
+  { id: 'satchel_cutter', name: "Cutter's Satchel", type: 'armor', slot: 'offHand', icon: 'bomb', metal: PAL.wood, accent: PAL.ember, glow: PAL.flame, rarity: 'rare', level: 5, value: 210, stats: { critChance: 4, maxStamina: 15 }, desc: 'Short fuses, and they have all been cut shorter.' },
+  { id: 'satchel_guild', name: 'Guild Blasting Kit', type: 'armor', slot: 'offHand', icon: 'bomb', metal: PAL.ironDark, accent: PAL.flameLit, glow: PAL.ember, rarity: 'epic', level: 20, value: 1500, stats: { critChance: 9, critDamage: 20, maxStamina: 30 }, desc: 'Signed for in triplicate. Nobody has ever checked one back in.' },
+  { id: 'satchel_cinder', name: 'The Waste Kit', type: 'armor', slot: 'offHand', icon: 'bomb', metal: '#3a1210', accent: PAL.flameLit, glow: PAL.flame, rarity: 'legendary', level: 58, value: 17000, stats: { critChance: 14, critDamage: 48, strength: 14 }, desc: 'Packed by somebody who did not expect to be walking back.' },
+
+  { id: 'horn_clan', name: 'Clanhold Warhorn', type: 'armor', slot: 'offHand', icon: 'horn', metal: PAL.bone, accent: PAL.gold, glow: PAL.goldLit, rarity: 'rare', level: 9, value: 340, stats: { maxHealth: 30, strength: 3 }, desc: 'Answered, the first few times.' },
+  { id: 'horn_jotun', name: 'The Long Winter Horn', type: 'armor', slot: 'offHand', icon: 'horn', metal: '#bcd8e8', accent: PAL.white, glow: PAL.frost, rarity: 'epic', level: 28, value: 2600, stats: { maxHealth: 140, strength: 10, defense: 12 }, desc: 'Sounded once a century, and twice in living memory.' },
+  { id: 'drum_storm', name: 'The Thunder Drum', type: 'armor', slot: 'offHand', icon: 'drum', metal: '#4b4470', accent: '#e0dcff', glow: '#b9b0ff', rarity: 'legendary', level: 64, value: 24000, stats: { maxHealth: 380, strength: 20, defense: 24 }, desc: 'Struck on the flats, and the weather answers on the beat.' },
+
+  { id: 'glass_concord', name: 'Concord Sandglass', type: 'armor', slot: 'offHand', icon: 'hourglass', metal: PAL.arcane, accent: PAL.frost, glow: PAL.arcaneLit, rarity: 'superRare', level: 13, value: 620, stats: { cooldownReduction: 8, intelligence: 5, maxMana: 40 }, desc: 'The sand in it has been going the same way for two hundred years.' },
+  { id: 'glass_barrow', name: 'The Barrow Glass', type: 'armor', slot: 'offHand', icon: 'hourglass', metal: PAL.bone, accent: PAL.frost, glow: PAL.ice, rarity: 'epic', level: 31, value: 3600, stats: { cooldownReduction: 12, intelligence: 12, maxMana: 110, moveSpeed: 4 }, desc: 'Turned over by somebody who is still waiting for it to finish.' },
+  { id: 'glass_remainder', name: 'Carried Forward', type: 'armor', slot: 'offHand', icon: 'hourglass', metal: PAL.white, accent: PAL.arcaneLit, glow: PAL.arcane, rarity: 'legendary', level: 51, value: 13000, stats: { cooldownReduction: 16, intelligence: 22, maxMana: 240, moveSpeed: 6 }, desc: 'The sand does not run out. It is simply somewhere else for a while.' },
+
+  { id: 'chalice_shrine', name: 'Shrine Chalice', type: 'armor', slot: 'offHand', icon: 'chalice', metal: PAL.copper, accent: PAL.gold, glow: PAL.holy, rarity: 'rare', level: 11, value: 420, stats: { maxHealth: 40, intelligence: 4, defense: 5 }, desc: 'Refills overnight, at a shrine that is still lit.' },
+  { id: 'chalice_dawn', name: 'The Last Lit Cup', type: 'armor', slot: 'offHand', icon: 'chalice', metal: PAL.gold, accent: PAL.white, glow: PAL.holy, rarity: 'epic', level: 34, value: 4400, stats: { maxHealth: 190, intelligence: 14, defense: 18, lifesteal: 4 }, desc: 'Carried out of a shrine that was not, by then.' },
+  { id: 'chalice_drowned', name: 'The Cup She Left', type: 'armor', slot: 'offHand', icon: 'chalice', metal: '#38505a', accent: PAL.foam, glow: '#8fd0f0', rarity: 'legendary', level: 56, value: 15500, stats: { maxHealth: 420, intelligence: 24, defense: 34, lifesteal: 7 }, desc: 'Full, still, under all that water.' },
   /* --- the far and deep marches. Off-hands stopped at level 36, which meant
      that past the mid forties `rollLoot`'s level window contained none at all:
      no shop sold one and none ever dropped. --- */

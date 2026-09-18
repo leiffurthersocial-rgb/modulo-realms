@@ -234,8 +234,16 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
   const enchants: RolledEnchant[] = (t.fixedEnchants ?? []).map((e) => ({ ...e }));
   const slotBonus = t.fixedEnchants?.length ?? 0;
   const enchantSlots = Math.max(RARITY_ENCHANT_SLOTS[rarity], slotBonus);
+  // Ten percent a level for every level above what the template was written
+  // at, floored rather than allowed to run negative. Re-levelling an item
+  // DOWN more than ten levels used to take this term past zero, and the
+  // clamp below turned the result into a value of 1 — which is how a shop
+  // re-levelling its level-70 signature piece down for a low-level visitor
+  // ended up offering a legendary for two gold. `valuePremiumAt` already
+  // prices the level itself, so the floor only has to stop the sign flip.
+  const levelScale = Math.max(0.2, 1 + (level - t.level) * 0.1);
   const value = Math.max(1, Math.round(
-    t.value * RARITY_MULT[rarity] * (1 + (level - t.level) * 0.1) * valuePremiumAt(level),
+    t.value * RARITY_MULT[rarity] * levelScale * valuePremiumAt(level),
   ));
 
   const item: Item = {

@@ -41,7 +41,7 @@ export interface Look {
   height?: number;
   bulk?: number;
   weapon?: WeaponStyle | null;
-  offhand?: 'none' | 'shield' | 'torch' | 'tome' | 'orb' | 'lantern';
+  offhand?: 'none' | 'shield' | 'torch' | 'tome' | 'orb' | 'lantern' | 'horn' | 'bomb' | 'hourglass' | 'chalice';
   offhandColor?: string;
   glow?: string | null;
   eyes?: string;
@@ -474,6 +474,37 @@ function drawOffhand(p: Px, look: Look, x: number, y: number) {
     p.ellipse(x + 4, y + 5, 2, 3, PAL.flameLit);
     p.fill(x + 1, y + 9, 6, 1, PAL.ironDark);
     p.ellipse(x + 4, y + 5, 12, 12, withAlpha(PAL.goldLit, 0.12));
+  } else if (look.offhand === 'horn') {
+    // A drinking horn's cousin: banded, wide at the lip, carried mouth-up.
+    p.poly([[x, y + 9], [x + 2, y + 2], [x + 7, y], [x + 7, y + 3], [x + 3, y + 5], [x + 2, y + 10]], c);
+    p.poly([[x + 1, y + 8], [x + 3, y + 3], [x + 6, y + 1], [x + 6, y + 2], [x + 3, y + 5]], shade(c, 1.35));
+    p.fill(x + 1, y + 6, 4, 1, PAL.gold);
+    p.outline(shade(c, 0.5));
+  } else if (look.offhand === 'bomb') {
+    // A satchel with one of them already in hand, fuse lit.
+    p.fill(x, y + 4, 8, 6, shade(c, 0.7));
+    p.fill(x, y + 4, 8, 1, shade(c, 1.2));
+    p.ellipse(x + 6, y + 2, 4, 4, PAL.ironDark);
+    p.fill(x + 6, y - 1, 1, 2, PAL.wood);
+    p.set(x + 6, y - 2, PAL.flameLit);
+    p.ellipse(x + 6, y - 2, 5, 5, withAlpha(PAL.flame, 0.14));
+  } else if (look.offhand === 'hourglass') {
+    // Two bulbs and a waist, in a wooden frame.
+    p.fill(x, y, 8, 1, PAL.wood);
+    p.fill(x, y + 10, 8, 1, PAL.wood);
+    p.fill(x, y + 1, 1, 9, PAL.wood);
+    p.fill(x + 7, y + 1, 1, 9, PAL.wood);
+    p.poly([[x + 1, y + 1], [x + 7, y + 1], [x + 4, y + 5]], c);
+    p.poly([[x + 1, y + 10], [x + 7, y + 10], [x + 4, y + 6]], shade(c, 1.3));
+    p.ellipse(x + 4, y + 5, 7, 9, withAlpha(c, 0.12));
+  } else if (look.offhand === 'chalice') {
+    // A wide cup on a stem, with something lit sitting in it.
+    p.poly([[x + 1, y + 1], [x + 7, y + 1], [x + 6, y + 5], [x + 2, y + 5]], c);
+    p.fill(x + 2, y + 1, 4, 1, PAL.holy);
+    p.fill(x + 3, y + 5, 2, 4, shade(c, 0.75));
+    p.fill(x + 1, y + 9, 6, 1, c);
+    p.ellipse(x + 4, y + 2, 9, 7, withAlpha(PAL.holy, 0.14));
+    p.outline(shade(c, 0.5));
   }
 }
 

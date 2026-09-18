@@ -164,9 +164,9 @@ export class Player implements Entity {
   shield = 0;
   shieldUntil = 0;
   /**
-   * Health coming back over time, from an ability that mends rather than
-   * heals outright. Kept as a rate rather than a stack of ticks so a second
-   * cast simply replaces the first instead of layering.
+   * Health coming back over time rather than all at once — what a chalice
+   * off-hand gives you. Kept as a rate rather than a stack of ticks so a
+   * second draught replaces the first instead of layering.
    */
   regen: { rate: number; until: number; color: string } | null = null;
   /** Cached enchantment totals, refreshed by stats(). */
@@ -484,6 +484,10 @@ function offhandArtFor(off: Item): NonNullable<Look['offhand']> {
   if (off.weaponKind === 'orb') return 'orb';
   if (off.icon === 'torch_item') return 'torch';
   if (off.icon === 'lantern') return 'lantern';
+  if (off.icon === 'horn' || off.icon === 'drum') return 'horn';
+  if (off.icon === 'bomb') return 'bomb';
+  if (off.icon === 'hourglass') return 'hourglass';
+  if (off.icon === 'chalice') return 'chalice';
   return 'shield';
 }
 

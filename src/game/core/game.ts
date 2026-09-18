@@ -1497,21 +1497,11 @@ export class Game implements WorldCtx {
         // 75 — which is the only way "scales with progression" can mean
         // anything for a heal. Ability power still improves it, and the cap
         // stops that from becoming the old problem in a new hat.
-        // `power` is the share of the health bar this ability is worth, which
-        // is how the six classes differ: a Paladin's Mend is worth more than a
-        // Rogue's swig of tonic, and neither one outgrows the other.
-        const frac = Math.min(ab.power * 2, ab.power * (1 + stats.abilityPower / 260));
+        const frac = Math.min(0.62, 0.3 * (1 + stats.abilityPower / 260));
         const heal = p.maxHp * frac;
-        if (ab.duration) {
-          // Given back over time rather than all at once: worth more in total,
-          // worth nothing if you die in the next two seconds.
-          p.regen = { rate: heal / ab.duration, until: this.now + ab.duration, color: ab.color };
-          this.floatText(p.x, p.y - 40, ab.name, ab.color, 14);
-        } else {
-          p.hp = Math.min(p.maxHp, p.hp + heal);
-          this.floatText(p.x, p.y - 40, `+${Math.round(heal)}`, '#6fbf5a', 15);
-        }
-        this.fx.spawn(p.x, p.y, 26, ab.color, { speed: 90, life: 0.8, size: 3, gravity: -110 });
+        p.hp = Math.min(p.maxHp, p.hp + heal);
+        this.floatText(p.x, p.y - 40, `+${Math.round(heal)}`, '#6fbf5a', 15);
+        this.fx.spawn(p.x, p.y, 26, PAL.holy, { speed: 90, life: 0.8, size: 3, gravity: -110 });
         audio.play('heal', 0.6);
         break;
       }
@@ -1675,6 +1665,83 @@ export class Game implements WorldCtx {
       }
       this.floatText(p.x, p.y - 48, caught ? `Blinded ${caught}` : 'The dark pulls back', PAL.goldLit, 13);
       audio.play('heal', 0.5);
+      return;
+    }
+
+    if (off.icon === 'bomb') {
+      // Lit and thrown. The one off-hand that is simply damage, and the only
+      // way a Warrior gets a hole blown in a group at range.
+      cool(9);
+      const pt = this.aimPoint(300);
+      const r = 120;
+      this.fx.telegraph(pt.x, pt.y, r, 0.35, PAL.ember, 'circle');
+      const power = p.attackPower() * 2.4 * (1 + stats.abilityPower / 100);
+      window.setTimeout(() => {
+        if (this.screen !== 'playing') return;
+        this.fx.ring(pt.x, pt.y, r, PAL.flameLit);
+        this.fx.spawn(pt.x, pt.y, 40, PAL.flame, { speed: 260, life: 0.6, size: 3 });
+        this.shake(9);
+        for (const e of this.enemies) {
+          if (e.dead || e.friendly) continue;
+          if (dist(pt.x, pt.y, e.x, e.y) > r + e.radius) continue;
+          const roll = this.rollDamage(power);
+          this.damageEnemy(e, roll.dmg, { element: 'fire', crit: roll.crit, knockback: 240, fromX: pt.x, fromY: pt.y });
+          e.applyStatusFrom('burn', roll.dmg * 0.25, 4, PAL.flame, this.now);
+          this.applyHitEffects(e, roll.dmg, roll.crit);
+        }
+      }, 350);
+      audio.play('swing', 0.5);
+      return;
+    }
+    if (off.icon === 'horn' || off.icon === 'drum') {
+      // Sounded, not swung: it makes you harder to put down and everything
+      // nearby briefly unwilling to try.
+      cool(22);
+      const dur = 9;
+      p.buffs = p.buffs.filter((b) => !b.id.startsWith('offhand_horn'));
+      p.buffs.push({ id: 'offhand_horn', name: off.name, stat: 'abilityPower', amount: 22, until: this.now + dur, color: off.glow ?? PAL.goldLit });
+      p.buffs.push({ id: 'offhand_horn_spd', name: off.name, stat: 'moveSpeed', amount: 12, until: this.now + dur, color: off.glow ?? PAL.goldLit });
+      this.fx.ring(p.x, p.y, 200, off.glow ?? PAL.goldLit);
+      this.fx.spawn(p.x, p.y, 30, off.glow ?? PAL.goldLit, { speed: 220, life: 0.7, size: 3 });
+      this.shake(5);
+      for (const e of this.enemies) {
+        if (e.dead || e.friendly) continue;
+        if (dist(p.x, p.y, e.x, e.y) > 240 + e.radius) continue;
+        e.applyStatusFrom('chill', 0.6, 3, off.glow ?? PAL.goldLit, this.now);
+      }
+      this.floatText(p.x, p.y - 48, off.name, off.glow ?? PAL.goldLit, 14);
+      audio.play('levelup', 0.5);
+      return;
+    }
+    if (off.icon === 'hourglass') {
+      // Turned over. Everything close slows to a crawl, and nothing takes
+      // damage from it — this one buys you the opening rather than using it.
+      cool(20);
+      const r = 260;
+      this.fx.ring(p.x, p.y, r, off.glow ?? PAL.arcaneLit);
+      this.fx.spawn(p.x, p.y, 34, off.glow ?? PAL.arcaneLit, { speed: 120, life: 1.2, size: 2 });
+      let caught = 0;
+      for (const e of this.enemies) {
+        if (e.dead || e.friendly) continue;
+        if (dist(p.x, p.y, e.x, e.y) > r + e.radius) continue;
+        e.applyStatusFrom('chill', 0.75, 5, off.glow ?? PAL.arcaneLit, this.now);
+        caught++;
+      }
+      this.floatText(p.x, p.y - 48, caught ? `Slowed ${caught}` : 'The sand runs', off.glow ?? PAL.arcaneLit, 13);
+      audio.play('cast', 0.5);
+      return;
+    }
+    if (off.icon === 'chalice') {
+      // Drunk from. Clears what is eating you and keeps mending afterwards,
+      // which is a different job from a potion and stacks with neither.
+      cool(26);
+      p.statuses.length = 0;
+      const heal = p.maxHp * Math.min(0.5, 0.24 * (1 + stats.abilityPower / 260));
+      p.regen = { rate: heal / 5, until: this.now + 5, color: off.glow ?? PAL.holy };
+      this.fx.ring(p.x, p.y, 70, off.glow ?? PAL.holy);
+      this.fx.spawn(p.x, p.y, 26, off.glow ?? PAL.holy, { speed: 90, life: 0.9, size: 3, gravity: -110 });
+      this.floatText(p.x, p.y - 44, 'Cleansed', off.glow ?? PAL.holy, 13);
+      audio.play('heal', 0.6);
       return;
     }
 
@@ -2244,8 +2311,15 @@ export class Game implements WorldCtx {
     this.touch();
   }
 
-  /** Whether an item on a shop counter is above what the player can buy yet — see shopTier(). */
+  /**
+   * Whether an item on a shop counter is above what the player can buy yet.
+   *
+   * Only gear is held back — see shopTier(). A potion's level is a tier mark
+   * rather than a requirement, and telling somebody they are too low a level
+   * to buy a bandage is the kind of rule that reads as a bug.
+   */
   shopLocked(item: Item): boolean {
+    if (item.type !== 'weapon' && item.type !== 'armor' && item.type !== 'accessory') return false;
     return item.level > this.player.level + LOOT_LEVEL_REACH;
   }
 
@@ -3500,8 +3574,8 @@ export class Game implements WorldCtx {
     if (p.hp < p.maxHp && !this.enemies.some((e) => !e.friendly && !e.dead && dist2(e.x, e.y, p.x, p.y) < 360 * 360)) {
       p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.012 * dt);
     }
-    // A mend keeps working while you fight, which is the whole reason to take
-    // one over a potion.
+    // Mending keeps working while you fight, which is the whole reason to
+    // carry something that mends over another potion.
     if (p.regen) {
       if (this.now > p.regen.until) p.regen = null;
       else if (p.hp < p.maxHp) {
