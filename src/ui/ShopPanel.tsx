@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Game } from '../game/core/game';
 import { NPC_BY_ID } from '../data/npcs';
 import { buyValue, sellValue } from '../game/items/loot';
+import { LOOT_LEVEL_REACH } from '../data/balance';
 import type { Item } from '../game/items/types';
 import { getIconUrl } from '../game/art/icons';
 import ItemCard, { itemIcon, rarityColor } from './ItemCard';
@@ -68,12 +69,13 @@ export default function ShopPanel({ game }: { game: Game }) {
             <div className="shop-list scroll">
               {shop.stock.map((it) => {
                 const price = buyValue(it, shop.priceMod);
+                const locked = game.shopLocked(it);
                 const afford = p.gold >= price;
                 return (
                   <div
-                    className="shop-row"
+                    className={`shop-row ${locked ? 'locked' : ''}`}
                     key={it.uid}
-                    style={{ opacity: afford ? 1 : 0.55 }}
+                    style={{ opacity: locked ? 0.5 : afford ? 1 : 0.55 }}
                     onMouseEnter={() => { setHover(it); setSide('buy'); }}
                     onMouseLeave={() => setHover(null)}
                     onClick={() => game.buyItem(it.uid)}
@@ -83,7 +85,13 @@ export default function ShopPanel({ game }: { game: Game }) {
                       {it.name}{it.qty > 1 ? ` ×${it.qty}` : ''}
                       <div className="sr-meta">Level {it.level} · {it.type}</div>
                     </div>
-                    <span className="sr-price">{price}g</span>
+                    {locked ? (
+                      <span className="sr-price" style={{ color: 'var(--muted)' }} title={`Come back at level ${it.level - LOOT_LEVEL_REACH}`}>
+                        🔒 lvl {it.level - LOOT_LEVEL_REACH}
+                      </span>
+                    ) : (
+                      <span className="sr-price">{price}g</span>
+                    )}
                   </div>
                 );
               })}
@@ -102,7 +110,9 @@ export default function ShopPanel({ game }: { game: Game }) {
               compare={hover.slot ? p.equipment[hover.slot] : null}
             />
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--gold)' }}>
-              {side === 'buy'
+              {side === 'buy' && game.shopLocked(hover)
+                ? `Not for sale yet — come back at level ${hover.level - LOOT_LEVEL_REACH}.`
+                : side === 'buy'
                 ? `Costs ${buyValue(hover, shop.priceMod)} gold — you would have ${Math.max(0, p.gold - buyValue(hover, shop.priceMod))}`
                 : `Sells for ${sellValue({ ...hover, qty: 1 }, shop.priceMod)} gold — you would have ${p.gold + sellValue({ ...hover, qty: 1 }, shop.priceMod)}`}
             </div>

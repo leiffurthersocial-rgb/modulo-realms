@@ -2119,8 +2119,13 @@ export class Game implements WorldCtx {
    * afford; refreshed every restock, it just keeps being useless. So the
    * window is a ceiling on how good things get, not a floor on how far the
    * shop will overshoot you.
+   *
+   * `ceiling` is the window's own natural top, before the player-reach clamp
+   * — what this counter would show if nobody's level mattered. When it sits
+   * above `level`, openShop uses it to sit a couple of locked items on the
+   * counter: not for sale yet, but proof there's better here once you are.
    */
-  private shopTier(npc: NpcDef): { level: number; magicFind: number; luck: number; band: number } {
+  private shopTier(npc: NpcDef): { level: number; ceiling: number; magicFind: number; luck: number; band: number } {
     const region = REGION_BY_ID[(npc.map === 'overworld'
       ? REGION_BY_INDEX[this.getMap('overworld').regions?.[npc.ty * WORLD_W + npc.tx] ?? 0]?.id
       : 'central') as RegionId] ?? REGION_BY_ID.central;
@@ -2144,7 +2149,7 @@ export class Game implements WorldCtx {
     // this much, whatever the location says it's worth.
     const level = Math.max(1, Math.min(windowLevel, this.player.level + LOOT_LEVEL_REACH));
     const band = Math.round((from + to) / 2);
-    return { level, magicFind: 25 + band * 4 + far * 45, luck: 0.25 + far * 0.75, band };
+    return { level, ceiling: windowLevel, magicFind: 25 + band * 4 + far * 45, luck: 0.25 + far * 0.75, band };
   }
 
   openShop(npc: NpcDef): void {
@@ -2185,6 +2190,16 @@ export class Game implements WorldCtx {
         for (let i = 0; i < count; i++) {
           stock.push(rollLoot(Math.max(1, tier.level + rng.int(-2, 2)), rng, tier.magicFind, tier.luck, region));
         }
+        // A couple of pieces from further up the window, priced but not for
+        // sale — buyItem() turns them away below the level this shop's
+        // ceiling calls for. Seeing them is the point: this counter has
+        // better on it, you're just not there yet.
+        if (tier.ceiling > tier.level) {
+          for (let i = 0; i < 2; i++) {
+            const lvl = Math.max(tier.level + 1, tier.ceiling - rng.int(0, 3));
+            stock.push(rollLoot(lvl, rng, tier.magicFind, tier.luck, region));
+          }
+        }
       }
       this.shopStock.set(key, stock);
     }
@@ -2202,11 +2217,20 @@ export class Game implements WorldCtx {
     this.touch();
   }
 
+  /** Whether an item on a shop counter is above what the player can buy yet — see shopTier(). */
+  shopLocked(item: Item): boolean {
+    return item.level > this.player.level + LOOT_LEVEL_REACH;
+  }
+
   buyItem(uid: string): void {
     const s = this.shop;
     if (!s) return;
     const item = s.stock.find((i) => i.uid === uid);
     if (!item) return;
+    if (this.shopLocked(item)) {
+      this.toast('Not yet', `Come back at level ${item.level - LOOT_LEVEL_REACH}.`, '#e8763a');
+      return;
+    }
     const price = buyValue(item, s.priceMod);
     if (this.player.gold < price) {
       this.toast('Not enough gold', `${price} needed.`, '#e8763a');

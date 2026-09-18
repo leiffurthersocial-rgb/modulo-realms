@@ -931,6 +931,8 @@ canvas.world {
 .shop-row .sr-name { flex: 1; font-size: 12.5px; min-width: 0; text-align: left; }
 .shop-row .sr-meta { display: block; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
 .shop-row .sr-price { color: var(--gold); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.shop-row.locked { cursor: default; }
+.shop-row.locked:hover { background: rgba(255, 255, 255, 0.02); border-color: transparent; }
 .shop-foot {
   padding: 10px 14px; border-top: 1px solid var(--edge);
   display: flex; justify-content: space-between; align-items: center; font-size: 12.5px;
