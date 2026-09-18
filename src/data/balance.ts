@@ -338,6 +338,17 @@ export const TRASH_DROP_RATE = {
   material: 0.55,
 } as const;
 
+/**
+ * How far above the player's own level a *randomly rolled* item is allowed
+ * to land — shop stock and the gear an ordinary kill drops, alike. A region
+ * or a high-level enemy can still make the roll worse than this, never
+ * better: it's a ceiling on how good the roll gets, not a promise of how bad
+ * it can be. Deterministic, hand-placed rewards (a boss's named unique, a
+ * quest payout) are exempt on purpose — those are supposed to be worth
+ * reaching for, not something you could already use.
+ */
+export const LOOT_LEVEL_REACH = 15;
+
 /* ------------------------------------------------------------------ */
 /* Money                                                               */
 /* ------------------------------------------------------------------ */

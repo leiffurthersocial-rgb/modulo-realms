@@ -1,6 +1,6 @@
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ENEMY_BY_ID } from '../../data/enemies';
-import { TRASH_DROP_RATE, damageTaken } from '../../data/balance';
+import { LOOT_LEVEL_REACH, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
 import { TEMPLATE_BY_ID } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
@@ -825,7 +825,12 @@ export class Game implements WorldCtx {
     // investing in it still visibly changes what a field kill pays.
     const gearChance = e.def.lootChance * (trash ? TRASH_DROP_RATE.gear : 1);
     if (rng.bool(gearChance * (1 + looting) + mf / 300)) {
-      this.dropPickup(e.x, e.y, rollLoot(Math.max(1, e.level), rng, mf, e.def.lootBias ?? 0, this.regionAtPlayer()), 0);
+      // Random gear is capped to the player's own reach — an over-levelled
+      // enemy standing in your way should be dangerous, not a level-70 drop
+      // waiting for a level-10 kill to trigger it. A boss's uniqueDrop below
+      // is a separate, deliberate reward and stays at the boss's own level.
+      const level = Math.max(1, Math.min(e.level, p.level + LOOT_LEVEL_REACH));
+      this.dropPickup(e.x, e.y, rollLoot(level, rng, mf, e.def.lootBias ?? 0, this.regionAtPlayer()), 0);
     }
     if (e.def.boss) {
       // A duel won is a person beaten, not a dungeon cleared: they leave the
@@ -2137,7 +2142,7 @@ export class Game implements WorldCtx {
     // strayed into Emberdeep. Nobody can afford — or use — gear far past
     // their own level, so the window never outruns the player by more than
     // this much, whatever the location says it's worth.
-    const level = Math.max(1, Math.min(windowLevel, this.player.level + 8));
+    const level = Math.max(1, Math.min(windowLevel, this.player.level + LOOT_LEVEL_REACH));
     const band = Math.round((from + to) / 2);
     return { level, magicFind: 25 + band * 4 + far * 45, luck: 0.25 + far * 0.75, band };
   }
