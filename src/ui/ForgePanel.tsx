@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Game } from '../game/core/game';
 import { countItem } from '../game/items/inventory';
+import { LOOT_LEVEL_REACH } from '../data/balance';
 import { EQUIP_SLOT_ORDER, type Item } from '../game/items/types';
 import { getIconUrl } from '../game/art/icons';
 import ItemCard, { itemIcon, rarityColor } from './ItemCard';
@@ -20,7 +21,11 @@ export default function ForgePanel({ game }: { game: Game }) {
   const item = sel ? game.findGear(sel) : undefined;
 
   const runes = countItem(p.inventory, 'mat_rune');
-  const ingots = countItem(p.inventory, 'mat_iron_ingot');
+  const ingots = game.ingotsHeld();
+  const ore = countItem(p.inventory, 'mat_iron_ore');
+  const smelt = game.smeltCost();
+  const cap = game.reforgeCap();
+  const maxed = item ? item.level >= cap : false;
   const reforge = item ? game.reforgeCost(item) : null;
   const rebind = item ? game.enchantCost(item) : null;
   const blocked = item ? game.rerollBlocked(item) : null;
@@ -35,7 +40,7 @@ export default function ForgePanel({ game }: { game: Game }) {
           <span>{royal ? 'Crown Commission' : 'The Anvil'}</span>
           <span className="sub">
             {royal ? <>{warrants} warrant{warrants === 1 ? '' : 's'} &middot; </> : null}
-            {ingots} iron ingots &middot; {runes} binding runes &middot; {p.gold} gold
+            {ingots} ingots (iron equivalent) &middot; {ore} ore &middot; {runes} binding runes &middot; {p.gold} gold
           </span>
           <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
         </div>
@@ -74,7 +79,11 @@ export default function ForgePanel({ game }: { game: Game }) {
                 <div className="forge-action">
                   <div>
                     <div className="fa-title">Reforge</div>
-                    <div className="fa-desc">Raise the item one level and strengthen its core stats.</div>
+                    <div className="fa-desc">
+                      {maxed
+                        ? `Level ${item.level} is as far as this anvil will take anything for you. Reach level ${item.level - LOOT_LEVEL_REACH + 1} and come back.`
+                        : `Raise the item one level and strengthen its core stats. This anvil works up to level ${cap} for you.`}
+                    </div>
                     <div className="fa-cost">
                       <img src={getIconUrl('mat_ingot')} alt="" />{reforge!.ingots}
                       <img src={getIconUrl('gold')} alt="" />{reforge!.gold}
@@ -82,10 +91,31 @@ export default function ForgePanel({ game }: { game: Game }) {
                   </div>
                   <button
                     className="btn primary"
-                    disabled={ingots < reforge!.ingots || p.gold < reforge!.gold}
+                    disabled={maxed || ingots < reforge!.ingots || p.gold < reforge!.gold}
                     onClick={() => game.reforge(item.uid)}
                   >
-                    Reforge
+                    {maxed ? 'At your limit' : 'Reforge'}
+                  </button>
+                </div>
+
+                <div className="forge-action">
+                  <div>
+                    <div className="fa-title">Smelt ore</div>
+                    <div className="fa-desc">
+                      {smelt.ore} iron ore into one ingot, and it will run every batch you can pay for at once.
+                      Steel counts as three ingots at this anvil, Jotunsteel as eight.
+                    </div>
+                    <div className="fa-cost">
+                      <img src={getIconUrl('mat_ore')} alt="" />{smelt.ore}
+                      <img src={getIconUrl('gold')} alt="" />{smelt.gold}
+                    </div>
+                  </div>
+                  <button
+                    className="btn"
+                    disabled={ore < smelt.ore || p.gold < smelt.gold}
+                    onClick={() => game.smelt()}
+                  >
+                    Smelt {ore >= smelt.ore ? `${Math.min(Math.floor(ore / smelt.ore), Math.floor(p.gold / smelt.gold))}` : ''}
                   </button>
                 </div>
 

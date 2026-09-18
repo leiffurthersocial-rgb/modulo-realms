@@ -3000,16 +3000,99 @@ export class Game implements WorldCtx {
     };
   }
 
+  /**
+   * The highest level the anvil will take a piece of gear to.
+   *
+   * The forge used to push anything as far as you could pay for, which meant
+   * the correct way to play it was to find one early weapon and reforge it
+   * three hundred times rather than ever use a drop. Held to the same reach
+   * the shops and the loot tables use, it is a way to keep a piece you like
+   * current — not a way to skip the game.
+   */
+  reforgeCap(): number {
+    return this.player.level + LOOT_LEVEL_REACH;
+  }
+
+  /**
+   * Ingots the anvil will take, and what each is worth in iron.
+   *
+   * Steel and Jotunsteel dropped all game and did nothing but sell, while the
+   * anvil wanted iron ingots that essentially stopped dropping after the
+   * opening region — so the forge quietly closed for business around level
+   * twenty. A smith can work any of it; better metal simply goes further.
+   */
+  private static readonly INGOTS: Array<{ id: string; worth: number; name: string }> = [
+    { id: 'mat_iron_ingot', worth: 1, name: 'Iron Ingot' },
+    { id: 'mat_steel_ingot', worth: 3, name: 'Steel Ingot' },
+    { id: 'mat_jotun_ingot', worth: 8, name: 'Jotunsteel Ingot' },
+  ];
+
+  /** Total iron-equivalent the player is carrying, across every grade of ingot. */
+  ingotsHeld(): number {
+    return Game.INGOTS.reduce((n, t) => n + countItem(this.player.inventory, t.id) * t.worth, 0);
+  }
+
+  /**
+   * Spend `need` iron-equivalent, smallest grade first, handing back change in
+   * iron when a larger ingot has to be broken. Returns false and spends
+   * nothing if there is not enough.
+   */
+  private spendIngots(need: number): boolean {
+    if (this.ingotsHeld() < need) return false;
+    const inv = this.player.inventory;
+    let left = need;
+    for (const tier of Game.INGOTS) {
+      if (left <= 0) break;
+      const have = countItem(inv, tier.id);
+      if (have <= 0) continue;
+      const take = Math.min(have, Math.ceil(left / tier.worth));
+      removeByDefId(inv, tier.id, take);
+      const change = take * tier.worth - left;
+      left = 0;
+      if (change > 0) addTemplate(inv, 'mat_iron_ingot', change);
+    }
+    return true;
+  }
+
+  /** Ore into ingots, at the anvil. Three ore makes one. */
+  smeltCost(): { ore: number; gold: number } {
+    return { ore: 3, gold: 10 };
+  }
+
+  smelt(): void {
+    const p = this.player;
+    const cost = this.smeltCost();
+    const ore = countItem(p.inventory, 'mat_iron_ore');
+    if (ore < cost.ore || p.gold < cost.gold) {
+      this.toast('Not enough ore', `${cost.ore} iron ore and ${cost.gold} gold makes one ingot.`, '#d9553f');
+      return;
+    }
+    // Everything that will go, goes: nobody wants to press this eleven times.
+    const batches = Math.min(Math.floor(ore / cost.ore), Math.floor(p.gold / cost.gold));
+    removeByDefId(p.inventory, 'mat_iron_ore', batches * cost.ore);
+    p.gold -= batches * cost.gold;
+    addTemplate(p.inventory, 'mat_iron_ingot', batches);
+    this.fx.spawn(p.x, p.y - 10, 18, PAL.ember, { speed: 90, life: 0.6, size: 3, gravity: -40 });
+    audio.play('levelup', 0.45);
+    this.toast('Smelted', `${batches} iron ingot${batches === 1 ? '' : 's'}.`, PAL.goldLit);
+    this.touch();
+  }
+
   reforge(uid: string): void {
     const p = this.player;
     const item = this.findGear(uid);
     if (!item) return;
-    const cost = this.reforgeCost(item);
-    if (countItem(p.inventory, 'mat_iron_ingot') < cost.ingots || p.gold < cost.gold) {
-      this.toast('Not enough materials', `${cost.ingots} iron ingots and ${cost.gold} gold.`, '#d9553f');
+    const cap = this.reforgeCap();
+    if (item.level >= cap) {
+      this.toast('The anvil will not take it further', `Nothing here can work past level ${cap} for you yet.`, '#d9553f');
       return;
     }
-    removeByDefId(p.inventory, 'mat_iron_ingot', cost.ingots);
+    const cost = this.reforgeCost(item);
+    if (this.ingotsHeld() < cost.ingots || p.gold < cost.gold) {
+      this.toast('Not enough materials', `${cost.ingots} ingots and ${cost.gold} gold.`, '#d9553f');
+      return;
+    }
+    this.spendIngots(cost.ingots);
     p.gold -= cost.gold;
     item.level += 1;
     for (const key of ['damage', 'defense', 'maxHealth', 'maxMana'] as const) {

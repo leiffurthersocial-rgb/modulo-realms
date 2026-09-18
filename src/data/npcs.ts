@@ -222,7 +222,7 @@ export const NPCS: NpcDef[] = [
         { item: 'sword_iron' }, { item: 'axe_iron' }, { item: 'mace_iron' }, { item: 'dagger_iron' },
         { item: 'spear_hunt' }, { item: 'greatsword_iron' }, { item: 'shield_wood' }, { item: 'shield_iron' },
         { item: 'armor_leather' }, { item: 'armor_leather' }, { item: 'armor_traveller' }, { item: 'armor_leather' },
-        { item: 'armor_mail' }, { item: 'armor_mail' }, { item: 'mat_iron_ingot', qty: 5 },
+        { item: 'armor_mail' }, { item: 'armor_mail' }, { item: 'mat_iron_ingot', qty: 12 }, { item: 'mat_iron_ore', qty: 20 },
       ],
       randomGear: { count: 4, level: 5 },
       buys: ['weapon', 'armor', 'accessory', 'material'], gold: 900,
@@ -446,7 +446,7 @@ export const NPCS: NpcDef[] = [
     wander: 14,
     shop: {
       id: 'shop_haldor', name: 'Northwatch Forge', priceMod: 1.02,
-      stock: [{ item: 'greataxe_clan' }, { item: 'hammer_iron' }, { item: 'greatsword_crag' }, { item: 'armor_guard' }, { item: 'armor_guard' }, { item: 'armor_guard' }, { item: 'armor_guard' }, { item: 'shield_tower' }, { item: 'mat_steel_ingot', qty: 4 }],
+      stock: [{ item: 'greataxe_clan' }, { item: 'hammer_iron' }, { item: 'greatsword_crag' }, { item: 'armor_guard' }, { item: 'armor_guard' }, { item: 'armor_guard' }, { item: 'armor_guard' }, { item: 'shield_tower' }, { item: 'mat_steel_ingot', qty: 6 }, { item: 'mat_iron_ingot', qty: 10 }],
       randomGear: { count: 4, level: 11 },
       buys: ['weapon', 'armor', 'material'], gold: 1400,
     },

@@ -297,7 +297,7 @@ export const ENEMIES: EnemyDef[] = [
     role: 'standard',
     level: 12, health: 141, damage: 37, defense: 18, speed: 54, xp: 141, gold: [12, 27], radius: 18,
     sight: 300, attackRange: 50, attackCooldown: 2.1, windup: 0.6,
-    drops: [{ item: 'mat_gem_ruby', chance: 0.2 }, { item: 'mat_crystal', chance: 0.35 }],
+    drops: [{ item: 'mat_gem_ruby', chance: 0.2 }, { item: 'mat_crystal', chance: 0.35 }, { item: 'mat_iron_ore', chance: 0.4, min: 1, max: 2 }],
     lootChance: 0.32, tags: ['construct'],
   },
   {
@@ -315,7 +315,7 @@ export const ENEMIES: EnemyDef[] = [
     role: 'standard',
     level: 3, health: 27, damage: 13, defense: 5, speed: 84, xp: 22, gold: [2, 6], radius: 13,
     sight: 320, attackRange: 40, attackCooldown: 1.5, windup: 0.35, flee: 0.18, faction: 'bandits',
-    drops: [{ item: 'potion_health_s', chance: 0.25 }, { item: 'q_bandit_orders', chance: 0.12 }],
+    drops: [{ item: 'potion_health_s', chance: 0.25 }, { item: 'q_bandit_orders', chance: 0.12 }, { item: 'mat_iron_ore', chance: 0.4 }],
     lootChance: 0.22, tags: ['humanoid'],
   },
   {
@@ -325,7 +325,7 @@ export const ENEMIES: EnemyDef[] = [
     level: 4, health: 33, damage: 16, defense: 6, speed: 88, xp: 29, gold: [3, 8], radius: 13,
     sight: 380, attackRange: 300, attackCooldown: 2, windup: 0.5, flee: 0.25, faction: 'bandits',
     ranged: { speed: 330, element: 'physical', color: PAL.cloth, radius: 20 },
-    drops: [{ item: 'potion_health_s', chance: 0.2 }, { item: 'mat_leather', chance: 0.3 }],
+    drops: [{ item: 'potion_health_s', chance: 0.2 }, { item: 'mat_leather', chance: 0.3 }, { item: 'mat_iron_ore', chance: 0.3 }],
     lootChance: 0.24, tags: ['humanoid'],
   },
   {
@@ -334,7 +334,7 @@ export const ENEMIES: EnemyDef[] = [
     role: 'brute',
     level: 7, health: 120, damage: 27, defense: 17, speed: 74, xp: 69, gold: [9, 20], radius: 15,
     sight: 320, attackRange: 52, attackCooldown: 2.1, windup: 0.55, faction: 'bandits',
-    drops: [{ item: 'potion_health_m', chance: 0.25 }, { item: 'mat_iron_ingot', chance: 0.3 }],
+    drops: [{ item: 'potion_health_m', chance: 0.25 }, { item: 'mat_iron_ingot', chance: 0.4 }],
     lootChance: 0.3, tags: ['humanoid'],
   },
   {
@@ -362,7 +362,7 @@ export const ENEMIES: EnemyDef[] = [
     role: 'standard',
     level: 2, health: 23, damage: 10, defense: 3, speed: 96, xp: 16, gold: [2, 4], radius: 12,
     sight: 300, attackRange: 34, attackCooldown: 1.2, windup: 0.26, pack: true, flee: 0.22,
-    drops: [{ item: 'mat_iron_ore', chance: 0.25 }, { item: 'food_bread', chance: 0.2 }],
+    drops: [{ item: 'mat_iron_ore', chance: 0.45, min: 1, max: 2 }, { item: 'food_bread', chance: 0.2 }],
     lootChance: 0.16, tags: ['humanoid'],
   },
   {
@@ -381,7 +381,7 @@ export const ENEMIES: EnemyDef[] = [
     role: 'standard',
     level: 9, health: 86, damage: 29, defense: 14, speed: 80, xp: 88, gold: [8, 19], radius: 15,
     sight: 340, attackRange: 46, attackCooldown: 1.8, windup: 0.45, faction: 'northern',
-    drops: [{ item: 'mat_iron_ingot', chance: 0.3 }, { item: 'potion_health_m', chance: 0.2 }],
+    drops: [{ item: 'mat_iron_ingot', chance: 0.4 }, { item: 'potion_health_m', chance: 0.2 }],
     lootChance: 0.3, tags: ['humanoid'],
   },
   {
@@ -400,7 +400,7 @@ export const ENEMIES: EnemyDef[] = [
     role: 'standard',
     level: 13, health: 162, damage: 40, defense: 20, speed: 72, xp: 162, gold: [13, 30], radius: 16,
     sight: 340, attackRange: 56, attackCooldown: 2, windup: 0.5, element: 'frost',
-    drops: [{ item: 'mat_essence', chance: 0.3 }, { item: 'potion_health_l', chance: 0.2 }],
+    drops: [{ item: 'mat_essence', chance: 0.3 }, { item: 'potion_health_l', chance: 0.2 }, { item: 'mat_steel_ingot', chance: 0.3 }],
     lootChance: 0.4, lootBias: 0.2, tags: ['undead'],
   },
   /* --- minibosses --- */
