@@ -13,6 +13,7 @@ const checks = [
   "check-npc-schedules",
   "check-aegean-content",
   "check-save-rejoin",
+  "check-marine",
   "check-aegean-life",
   "check-aegean-world",
   "check-aegean-activity-scenes",
@@ -42,9 +43,12 @@ try {
     if (result.status !== 0)
       throw new Error(`${name} failed (${result.status})`);
   }
-  const parity = spawnSync(process.execPath, [join(root, "scripts/check-legacy-mechanics.mjs")], { cwd: root, stdio: "inherit", timeout: 60000 });
-  if (parity.error) throw parity.error;
-  if (parity.status !== 0) throw new Error("Original game parity failed");
+  for (const name of ["check-legacy-mechanics", "check-legacy-art"]) {
+    console.log(`\n${name}`);
+    const parity = spawnSync(process.execPath, [join(root, `scripts/${name}.mjs`)], { cwd: root, stdio: "inherit", timeout: 60000 });
+    if (parity.error) throw parity.error;
+    if (parity.status !== 0) throw new Error(`${name} failed`);
+  }
   console.log("\nAll Aegean and compatibility checks passed.");
 } finally {
   rmSync(temporary, { recursive: true, force: true });

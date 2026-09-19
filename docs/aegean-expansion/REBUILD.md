@@ -12,7 +12,9 @@ Original equipment generation, forging, Crown upgrades, Life Siphon, Arrow Rain 
 
 ## Geography and settlement direction
 
-The eastern half remains exactly the area of the old world. Terrain uses the original layered noise, ridges, moisture variation and scatter grammar. Only the old eastern rim changes in the west, opening a broad natural transition. Coasts have a northern fjord, a hooked military cape, a deep southern gulf, beaches, cliffs, river mouths and volcanic shores. Six curving rivers, braided delta channels, farms and groves shape routes.
+The eastern half remains exactly the area of the old world. Terrain uses the original layered noise, ridges, moisture variation and scatter grammar, with separate Greek geology, colours and vegetation. Only the old eastern rim changes in the west, opening a broad natural transition. Coasts have a northern fjord, a hooked military cape, a deep southern gulf, beaches, cliffs, river mouths and volcanic shores. Six curving rivers, braided delta channels, farms and groves shape routes.
+
+The Greek provinces no longer borrow western snow, poison bog, forest-floor or desert materials. Nineteen new materials provide thyme cushions, laurel leaf mould, Olympian alpine flowers, bedded limestone, golden terraces, Eurotas red earth, reed banks, delta silt, reed pools, porous pumice, glassy obsidian, storm heath, golden gardens, shell sand, black volcanic sand, clear karst springs and vineyard furrows. Raised limestone and obsidian have their own exposed cliff faces. Twelve new scenery designs include laurel, plane trees, umbrella pines, juniper, asphodel, oleander, papyrus, tamarisk, saltbush, mastic, pumice and obsidian. They follow the existing layered pixel-art drawing and collision system.
 
 Every named island has a distinct outline and a local composition: vineyards and palace ruins, bronze giant footprints, a petrified orchard, livestock pens, ruined wings, siren stacks, a flooded theatre, a caldera, a giant's table or sister-island histories. Asterion uses connected island routes and a terraced ascent to a monumental temple.
 
@@ -21,6 +23,8 @@ Eight settlements have compact lanes, working stalls, house thresholds, gardens,
 ## Art, sound and discovery
 
 Greek textures and architecture are drawn through the existing pixel-art renderer: weathered stone, roof shingles, bronze, watermills, warehouses, porticoes, fishing gear, baskets, vines and household details. New art keys are checked for missing renderer cases. Light sources use the original day/night lighting.
+
+The sea has a separate low-contrast depth texture, a broad transition from turquoise shallows to deep blue, travelling swells across tile boundaries, wind-broken whitecaps and local shoreline breakers. Each beach wave approaches, brightens, runs up shell or black sand, leaves a damp fringe and retreats. Shore contours follow the actual water around every island, headland and bay; they do not use distance from the mainland. Deep water never casts a wall face or a downward wall shadow onto land. Rock, piers and marble quays occlude foam using the renderer's actual shoreline masks. Rivers, karst springs, Lerna pools and the Styx retain their own water treatment. Waves use visible chunks and a bounded 48-chunk geometry cache, with no additional full-world canvas or per-frame canvas readbacks.
 
 Ten Greek music arrangements use the original synthesized soundtrack system. Original music definitions are unchanged. Sailing, thunderstorms, resonators, army chapters and royal phase transitions have finite sound cues. Region changes reuse the same scheduler.
 
@@ -36,16 +40,19 @@ Validated locally on 19 September 2026, using one build/test process at a time o
 
 | Check | Result |
 | --- | --- |
-| `npm run check:aegean` | All twelve serial groups passed: references, original NPCs, content, recovery-save reconciliation, Greek residents/audio, world geometry, activity scenes, encounters, class diagnostics, services, real-Game integration and original-mechanics parity. |
+| `npm run check:aegean` | All fourteen serial groups passed: references, original NPCs, content, recovery-save reconciliation, marine rendering, Greek residents/audio, world geometry, activity scenes, encounters, class diagnostics, services, real-Game integration, original-mechanics parity and original-art parity. |
 | World geometry, seeds 1337 and 42 | Passed: exact map doubling; frozen original world outside the former eastern rim; twenty usable docks; no foot route to Asterion; connected entrances, objectives, activities and island anvil. |
 | Original-mechanics comparison against Git `d39d75a` | 615 loot cases, four forging/Crown/load sequences, Life Siphon, Arrow Rain and every original boss attack passed. |
+| Original-art comparison against Git `d39d75a` | Ordered Canvas2D drawing commands and source surfaces match for all 196 original tile variants, 48 wall faces and eight transition masks. All 76 variants of the 19 new materials have distinct drawing commands. |
+| Greek biome identity | Finished worlds reject copied western natural terrain inside Greek regions and require regional material signatures. The narrow old-world transition strip is explicitly exempt. Seeds 1337 and 42 pass. |
+| Marine rendering | Actual paint-call fixtures pass for all shore orientations, concave/convex coasts, tiny islands and channels, inland-water exclusion, run-up/retreat, camera continuity, cache eviction/revisions and exact clipping against all eight hard-bank masks. Static depth blending is checked for continuity and material boundaries. |
 | Activity scenes and residents | All 57 scenes, 176 interaction objects, 48 residents, actual outdoor paths and indoor furniture passed. Journal tracking resumes existing unfinished stories without erasing evidence or paying rewards. |
 | Production build | TypeScript and Vite passed. |
 | Built browser, desktop | Actual door entry, refresh → Continue, dock purchase → embark, earned recipe display, island royal weapon selection, heroic talent selection and original Pause actions checked. No browser errors reported. |
 | Built browser, 390 × 844 | Journal, Shipwright and Anvil inspected; lists/details scroll within the panel and no longer clip off the screen. |
 | Save roundtrip | Reload and actual Continue click restored the same inn, character, position, gold and royal item. Automated scenarios also cover original saves, rollback progress, held Greek items and positions stranded by a rebuilt coast. |
 
-Browser review used a separate local test character, controlled travel, invulnerability and explicit earned-reward fixtures to reach the relevant interfaces. These are interaction and rendering checks, not a human victory over Leonidas. Audio checks cover arrangements, scheduler lifetime and finite cues; they do not constitute an independent listening review. Long-session pacing and difficulty across human playstyles still need playtesting.
+Browser review used a separate local test character, controlled travel, invulnerability and explicit earned-reward fixtures to reach the relevant interfaces. Shoreline captures additionally disable local enemy spawning so the waves can be inspected without combat overlays. The surf recording captures the running game's canvas; the renderer and wave timing are unmodified. These are interaction and rendering checks, not a human victory over Leonidas. Audio checks cover arrangements, scheduler lifetime and finite cues; they do not constitute an independent listening review. Long-session pacing and difficulty across human playstyles still need playtesting.
 
 The live site remains on the original game plus Continue repair (`976cb01`, script `index-BFDKpKYF.js`). This branch must not be merged or promoted as part of the rebuild delivery.
 
@@ -60,6 +67,8 @@ The atlas below is rendered from seed 1337's actual tile data using the game's m
 | Thyra square and an actual house entrance | [Town](review/thyra.png), [door](review/house.png) |
 | Furnished Split Amphora inn | [Inn](review/inn.png) |
 | Shipwright and sailing | [Harbour](review/shipwright.png), [ship](review/sailing.png) |
+| Moving surf and two beach materials | [Nine-second surf recording](review/surf-motion.webm), [shell beach](review/shell-surf.png), [black beach](review/black-surf.png) |
+| Greek natural biomes | [Laurel grove](review/laurel-grove.png), [Olympian meadow](review/olympian-meadow.png), [Lerna reeds](review/reed-delta.png), [Eurotas](review/eurotas.png) |
 | Temple of the Last Oath | [Temple](review/temple.png) |
 | Tartarus and Persephone's cultivated beds | [Underworld](review/tartarus.png), [garden](review/persephone.png) |
 | Original Journal and Anvil with Greek content | [Journal](review/journal.png), [Anvil](review/anvil.png) |

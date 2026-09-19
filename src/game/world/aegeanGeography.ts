@@ -103,128 +103,70 @@ function mainlandRegion(
 }
 
 function terrain(region: number, e: number, m: number, detail: number): number {
+  // Keep the underlying ridges and wet/dry contours, but give every province
+  // its own geology and plant floor. Olympus is limestone and alpine flowers,
+  // Lerna a warm reed delta, and the south glassy volcanic flows, not copied
+  // western snow, poison bog and desert biomes.
   switch (region) {
     case 14:
-      return e > 0.72
-        ? T.SNOW_ROCK
-        : e > 0.665
-          ? T.MOUNTAIN
-          : e < 0.36 && m > 0.56
-            ? T.ICE
-            : m < 0.35
-              ? T.GRAVEL
-              : e < 0.5 && m < 0.48
-                ? T.STONE_GROUND
-                : T.SNOW;
+      return e > 0.665 ? T.LIMESTONE_CRAG
+        : e < 0.36 && m > 0.56 ? T.LIMESTONE
+        : m < 0.35 ? T.LIMESTONE
+        : e < 0.5 && m < 0.48 ? T.THYME_SCRUB : T.OLYMPIAN_MEADOW;
     case 13:
-      return e > 0.75
-        ? T.CLIFF
-        : e > 0.67
-          ? T.STONE_GROUND
-          : m > 0.57
-            ? T.GRASS_DARK
-            : m > 0.47
-              ? T.TALL_GRASS
-              : m < 0.32
-                ? T.DIRT
-                : detail > 0.64
-                  ? T.FLOWERS
-                  : T.AEGEAN_GRASS;
+      return e > 0.75 ? T.LIMESTONE_CRAG
+        : e > 0.67 ? T.LIMESTONE
+        : m > 0.57 ? T.LAUREL_FLOOR
+        : m > 0.47 ? T.AEGEAN_GRASS
+        : m < 0.32 ? T.EUROTAS_EARTH
+        : detail > 0.64 ? T.THYME_SCRUB : T.LAUREL_FLOOR;
     case 15:
-      return e > 0.76
-        ? T.CLIFF
-        : e > 0.66
-          ? T.GRAVEL
-          : e < 0.35 && m > 0.58
-            ? T.SWAMP_GROUND
-            : m > 0.59
-              ? T.GRASS_DARK
-              : m < 0.36
-                ? T.DIRT
-                : m > 0.51
-                  ? T.TALL_GRASS
-                  : T.GRASS_PALE;
+      return e > 0.76 ? T.LIMESTONE_CRAG
+        : e > 0.66 ? T.LIMESTONE
+        : e < 0.35 && m > 0.58 ? T.REED_BANK
+        : m > 0.59 ? T.LAUREL_FLOOR
+        : m < 0.36 ? T.EUROTAS_EARTH
+        : m > 0.51 ? T.AEGEAN_GRASS : T.GOLDEN_TERRACE;
     case 16:
-      return e > 0.735
-        ? T.CLIFF
-        : e > 0.65
-          ? T.MOUNTAIN
-          : e > 0.58
-            ? T.STONE_GROUND
-            : m < 0.36
-              ? T.GRAVEL
-              : m > 0.57
-                ? T.GRASS_DARK
-                : detail > 0.66
-                  ? T.FLOWERS
-                  : T.AEGEAN_GRASS;
+      return e > 0.65 ? T.LIMESTONE_CRAG
+        : e > 0.58 ? T.LIMESTONE
+        : m < 0.36 ? T.THYME_SCRUB
+        : m > 0.57 ? T.LAUREL_FLOOR
+        : detail > 0.66 ? T.AEGEAN_GRASS : T.GOLDEN_TERRACE;
     case 18:
-      return e > 0.74
-        ? T.MOUNTAIN
-        : e > 0.65
-          ? T.DESERT_ROCK
-          : m > 0.57
-            ? T.GRASS_DARK
-            : m > 0.49
-              ? T.AEGEAN_GRASS
-              : m < 0.33
-                ? T.GRAVEL
-                : detail > 0.63
-                  ? T.DIRT
-                  : T.TERRACOTTA;
+      return e > 0.74 ? T.LIMESTONE_CRAG
+        : e > 0.65 ? T.LIMESTONE
+        : m > 0.57 ? T.LAUREL_FLOOR
+        : m > 0.49 ? T.AEGEAN_GRASS
+        : m < 0.33 ? T.THYME_SCRUB
+        : detail > 0.63 ? T.VINEYARD_SOIL : T.EUROTAS_EARTH;
     case 19:
-      return e > 0.73
-        ? T.CLIFF
-        : e > 0.63
-          ? T.STONE_GROUND
-          : e < 0.42
-            ? T.SWAMP_WATER
-            : m > 0.62
-              ? T.GRASS_DARK
-              : m < 0.34
-                ? T.MUD
-                : detail > 0.63
-                  ? T.TALL_GRASS
-                  : T.SWAMP_GROUND;
+      return e > 0.73 ? T.LIMESTONE_CRAG
+        : e > 0.63 ? T.LIMESTONE
+        : e < 0.42 ? T.LERNA_POOL
+        : m > 0.62 ? T.LAUREL_FLOOR
+        : m < 0.34 ? T.DELTA_SILT
+        : detail > 0.63 ? T.AEGEAN_GRASS : T.REED_BANK;
     case 20:
-      return e > 0.735
-        ? T.MOUNTAIN
-        : e > 0.64
-          ? T.DESERT_ROCK
-          : m > 0.63
-            ? T.GRAVEL
-            : m < 0.34
-              ? T.STONE_GROUND
-              : detail > 0.58
-                ? T.ASH_GROUND
-                : T.BASALT;
+      return e > 0.735 ? T.OBSIDIAN_CRAG
+        : e > 0.64 ? T.EUROTAS_EARTH // Iron-red oxidised seams above the glass flows.
+        : m > 0.63 ? T.PUMICE
+        : m < 0.34 ? T.BLACK_BEACH
+        : detail > 0.58 ? T.PUMICE : T.OBSIDIAN;
     case 17:
     case 22:
-      return e > 0.735
-        ? T.CLIFF
-        : e > 0.64
-          ? T.DESERT_ROCK
-          : m < 0.34
-            ? T.SAND
-            : m > 0.6
-              ? T.TALL_GRASS
-              : detail > 0.64
-                ? T.GRASS_PALE
-                : T.AEGEAN_GRASS;
+      return e > 0.735 ? T.LIMESTONE_CRAG
+        : e > 0.64 ? T.LIMESTONE
+        : m < 0.34 ? T.SHELL_BEACH
+        : m > 0.6 ? T.LAUREL_FLOOR
+        : detail > 0.64 ? T.GOLDEN_TERRACE : T.THYME_SCRUB;
     default:
-      return e > 0.75
-        ? T.CLIFF
-        : e > 0.67
-          ? T.STONE_GROUND
-          : m > 0.6
-            ? T.GRASS_DARK
-            : m < 0.31
-              ? T.GRAVEL
-              : m < 0.39
-                ? T.GRASS_PALE
-                : detail > 0.66
-                  ? T.FLOWERS
-                  : T.AEGEAN_GRASS;
+      return e > 0.75 ? T.LIMESTONE_CRAG
+        : e > 0.67 ? T.LIMESTONE
+        : m > 0.6 ? T.LAUREL_FLOOR
+        : m < 0.31 ? T.LIMESTONE
+        : m < 0.39 ? T.THYME_SCRUB
+        : detail > 0.66 ? T.GOLDEN_TERRACE : T.AEGEAN_GRASS;
   }
 }
 
@@ -303,49 +245,39 @@ function islandTerrain(
 ): number {
   if (island.id === "asterion") {
     const summit = Math.hypot((x - 1818) / 50, (y - 391) / 40);
-    if (summit < 0.7 && e > 0.49) return T.MOUNTAIN;
-    if (e > 0.72) return T.CLIFF;
-    if (m > 0.57 && y > 430) return T.GRASS_DARK;
-    if (m < 0.35) return T.GRAVEL;
-    return e > 0.58 ? T.STONE_GROUND : T.BASALT;
+    if (summit < 0.7 && e > 0.49) return T.OBSIDIAN_CRAG;
+    if (e > 0.72) return T.OBSIDIAN_CRAG;
+    if (m > 0.57 && y > 430) return T.LAUREL_FLOOR;
+    if (m < 0.35) return T.LIMESTONE;
+    return e > 0.58 ? T.OBSIDIAN : T.STORM_HEATH;
   }
-  if (island.coast === "volcanic")
-    return e > 0.71
-      ? T.CLIFF
-      : e > 0.64
-        ? T.DESERT_ROCK
-        : m > 0.59
-          ? T.TERRACOTTA
-          : m < 0.35
-            ? T.ASH_GROUND
-            : T.BASALT;
+  if (island.coast === "volcanic") {
+    if (e > 0.71) return T.OBSIDIAN_CRAG;
+    if (e > 0.64) return T.OBSIDIAN;
+    if (island.id === "crete") return m > 0.59 ? T.EUROTAS_EARTH : m < 0.35 ? T.PUMICE : T.VINEYARD_SOIL;
+    return m > 0.59 ? T.EUROTAS_EARTH : m < 0.35 ? T.PUMICE : T.OBSIDIAN;
+  }
   if (island.id === "hesperides")
-    return e > 0.75
-      ? T.STONE_GROUND
-      : m > 0.52
-        ? T.GRASS_DARK
-        : m < 0.36
-          ? T.GRASS_PALE
-          : T.FLOWERS;
+    return e > 0.75 ? T.LIMESTONE : m > 0.52 ? T.LAUREL_FLOOR : m < 0.36 ? T.GOLDEN_TERRACE : T.GOLDEN_GARDEN;
   if (island.coast === "storm")
-    return e > 0.66
-      ? T.CLIFF
-      : e > 0.57
-        ? T.STONE_GROUND
-        : m < 0.38
-          ? T.GRAVEL
-          : T.AEGEAN_GRASS;
-  return e > 0.71
-    ? T.CLIFF
-    : e > 0.64
-      ? T.STONE_GROUND
-      : m > 0.55
-        ? T.GRASS_DARK
-        : m < 0.33
-          ? T.GRAVEL
-          : e < 0.42
-            ? T.GRASS_PALE
-            : T.AEGEAN_GRASS;
+    return e > 0.66 ? T.LIMESTONE_CRAG : e > 0.57 ? T.LIMESTONE : m < 0.38 ? T.PUMICE : T.STORM_HEATH;
+  if (e > 0.71) return T.LIMESTONE_CRAG;
+  if (e > 0.64) return T.LIMESTONE;
+  // Related islands share a sea, not a carpet: each landfall has a distinctive
+  // material mix supporting its authored ruins, orchards and local stories.
+  switch (island.id) {
+    case "gorgon": return m > 0.55 ? T.LIMESTONE : m < 0.33 ? T.PUMICE : T.THYME_SCRUB;
+    case "erytheia": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.EUROTAS_EARTH : T.GOLDEN_TERRACE;
+    case "amazon": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.EUROTAS_EARTH : T.AEGEAN_GRASS;
+    case "delos": return m > 0.55 ? T.GOLDEN_TERRACE : m < 0.33 ? T.LIMESTONE : T.THYME_SCRUB;
+    case "thalke": return m > 0.55 ? T.THYME_SCRUB : m < 0.33 ? T.EUROTAS_EARTH : T.LIMESTONE;
+    case "cyclops_table": return m > 0.55 ? T.THYME_SCRUB : m < 0.33 ? T.PUMICE : T.LIMESTONE;
+    case "sister_west": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.SHELL_BEACH : T.AEGEAN_GRASS;
+    case "sister_middle": return m > 0.55 ? T.GOLDEN_GARDEN : m < 0.33 ? T.LIMESTONE : T.GOLDEN_TERRACE;
+    case "sister_east": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.EUROTAS_EARTH : T.THYME_SCRUB;
+    case "drowned_lyre": return m > 0.55 ? T.REED_BANK : m < 0.33 ? T.LIMESTONE : T.THYME_SCRUB;
+    default: return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.LIMESTONE : e < 0.42 ? T.THYME_SCRUB : T.AEGEAN_GRASS;
+  }
 }
 
 export function generateAegeanTerrain(map: GameMap, seed: number): void {
@@ -377,10 +309,10 @@ export function generateAegeanTerrain(map: GameMap, seed: number): void {
         const cliffs = (y < 460 && y > 320) || y > 970;
         tile =
           reg === 20
-            ? T.BASALT
+            ? T.BLACK_BEACH
             : cliffs && e > 0.61 && x < coast - 2
-              ? T.CLIFF
-              : T.SAND;
+              ? T.LIMESTONE_CRAG
+              : T.SHELL_BEACH;
       }
       // Reconstruct the original Stormreach/Emberdeep terrain without its old
       // map-edge mountain multiplier, then let it dissolve into the new biome.
@@ -449,8 +381,8 @@ export function generateAegeanTerrain(map: GameMap, seed: number): void {
         map.tiles[i] =
           depth < 2.5
             ? island.coast === "volcanic" || island.coast === "storm"
-              ? T.BASALT
-              : T.SAND
+              ? T.BLACK_BEACH
+              : T.SHELL_BEACH
             : islandTerrain(island, x, y, e, m);
       }
     }
@@ -540,11 +472,11 @@ export function generateAegeanTerrain(map: GameMap, seed: number): void {
     ],
     5,
   );
-  // Arcadian karst pools and a spring-fed lake below the Olympian snowline.
-  basin(map, seed, 1114, 216, 19, 13, T.WATER, 1);
-  basin(map, seed, 1193, 186, 16, 23, T.WATER, 1);
-  basin(map, seed, 1051, 788, 28, 18, T.SWAMP_WATER, 1);
-  basin(map, seed, 1170, 847, 24, 31, T.SWAMP_WATER, 1);
+  // Arcadian karst pools and a spring-fed lake below the Olympian escarpment.
+  basin(map, seed, 1114, 216, 19, 13, T.AEGEAN_SPRING, 1);
+  basin(map, seed, 1193, 186, 16, 23, T.AEGEAN_SPRING, 1);
+  basin(map, seed, 1051, 788, 28, 18, T.LERNA_POOL, 1);
+  basin(map, seed, 1170, 847, 24, 31, T.LERNA_POOL, 1);
   rivers(map, seed);
   farms(map, seed);
   islandGardens(map);
@@ -588,7 +520,7 @@ function coastalInlet(
             map.landmasses![i] === mass &&
             !isWater(map.tiles[i])
           )
-            map.tiles[i] = mass === 18 ? T.BASALT : T.SAND;
+            map.tiles[i] = mass === 18 ? T.BLACK_BEACH : T.SHELL_BEACH;
         }
     },
   );
@@ -616,13 +548,13 @@ function islandInlet(
 
 function islandGardens(map: GameMap): void {
   for (const [cx, cy, rx, ry, tile, mass] of [
-    [1522, 885, 11, 6, T.FARM_SOIL, 3],
-    [1570, 872, 12, 7, T.FARM_SOIL, 3],
-    [1723, 861, 11, 10, T.TERRACOTTA, 6],
-    [1757, 889, 14, 8, T.GRASS_PALE, 6],
-    [1820, 1018, 10, 5, T.FLOWERS, 7],
-    [1851, 1036, 12, 7, T.FLOWERS, 7],
-    [1582, 1004, 9, 13, T.TERRACOTTA, 8],
+    [1522, 885, 11, 6, T.VINEYARD_SOIL, 3],
+    [1570, 872, 12, 7, T.VINEYARD_SOIL, 3],
+    [1723, 861, 11, 10, T.EUROTAS_EARTH, 6],
+    [1757, 889, 14, 8, T.GOLDEN_TERRACE, 6],
+    [1820, 1018, 10, 5, T.GOLDEN_GARDEN, 7],
+    [1851, 1036, 12, 7, T.GOLDEN_GARDEN, 7],
+    [1582, 1004, 9, 13, T.EUROTAS_EARTH, 8],
   ]) {
     for (let y = -ry; y <= ry; y++)
       for (let x = -rx; x <= rx; x++) {
@@ -641,7 +573,7 @@ function islandGardens(map: GameMap): void {
     for (let x = 1796; x <= 1824; x++) {
       const i = y * map.w + x;
       if (map.landmasses![i] !== 18) continue;
-      map.tiles[i] = y % 4 === 0 ? T.STONE_GROUND : T.MARBLE;
+      map.tiles[i] = y % 4 === 0 ? T.LIMESTONE : T.MARBLE;
     }
 }
 
@@ -663,7 +595,7 @@ function basin(
         Math.hypot((x - cx) / rx, (y - cy) / ry) +
         (fbm(x * 0.1, y * 0.1, seed + 55, 3) - 0.5) * 0.32;
       if (d < 0.82) map.tiles[i] = water;
-      else if (d < 1) map.tiles[i] = water === T.SWAMP_WATER ? T.MUD : T.SAND;
+      else if (d < 1) map.tiles[i] = water === T.LERNA_POOL ? T.DELTA_SILT : T.SHELL_BEACH;
     }
 }
 
@@ -710,10 +642,10 @@ function river(
         if (x < 970 || y < 8 || y >= map.h - 8 || map.landmasses![i] !== 1)
           continue;
         const d = Math.hypot(dx, dy);
-        if (d < w - 1.4) map.tiles[i] = T.DEEP_WATER;
-        else if (d < w) map.tiles[i] = T.WATER;
+        if (d < w - 1.4) map.tiles[i] = T.AEGEAN_SPRING;
+        else if (d < w) map.tiles[i] = T.AEGEAN_SPRING;
         else if (d < w + 1.7 && !isWater(map.tiles[i]))
-          map.tiles[i] = map.regions![i] === 19 ? T.MUD : T.SAND;
+          map.tiles[i] = map.regions![i] === 19 ? T.DELTA_SILT : T.SHELL_BEACH;
       }
   });
 }
@@ -829,7 +761,7 @@ function farms(map: GameMap, seed: number): void {
           i = ty * map.w + tx;
         if (map.landmasses![i] !== 1 || isWater(map.tiles[i])) continue;
         const edge = Math.abs(x) === w || Math.abs(y) === h;
-        map.tiles[i] = edge ? T.ROAD_DIRT : T.FARM_SOIL;
+        map.tiles[i] = edge ? T.ROAD_DIRT : T.VINEYARD_SOIL;
       }
   }
 }
@@ -889,7 +821,7 @@ export function aegeanPath(
         map.tiles[i] = isWater(tile)
           ? T.BRIDGE
           : isSolid(tile)
-            ? T.GRAVEL
+            ? (x >= 960 ? T.LIMESTONE : T.GRAVEL)
             : width > 1
               ? T.ROAD
               : T.ROAD_DIRT;
@@ -947,41 +879,40 @@ export function scatterAegeanScenery(map: GameMap, seed: number): void {
       const forest = fbm(x * 0.045, y * 0.045, seed + 404, 3);
       let art: string | undefined,
         solid = false;
-      if (tile === T.SWAMP_WATER) {
-        if (r < 0.04) art = "lilypad";
-        else if (r < 0.075) art = "reeds";
-      } else if (tile === T.FARM_SOIL) {
-        if (r < 0.18) art = "aegean_wheat";
+      if (tile === T.LERNA_POOL) {
+        if (r < 0.075) art = "aegean_papyrus";
+      } else if (tile === T.VINEYARD_SOIL) {
+        if (r < 0.18) art = mass === 3 ? "aegean_vines" : "aegean_wheat";
       } else if (region === 14) {
         if (r < (forest > 0.57 ? 0.115 : 0.016)) {
-          art = tile === T.SNOW ? "tree_pine_snow" : "tree_pine";
+          art = "aegean_juniper";
           solid = true;
         } else if (r < 0.035) {
-          art = "rock_snow";
+          art = "aegean_limestone";
           solid = true;
-        } else if (r < 0.045) art = "shrub_dead";
+        } else if (r < 0.045) art = "aegean_asphodel";
       } else if (region === 19) {
         if (forest > 0.54 && r < 0.12) {
-          art = rng.bool(0.7) ? "tree_willow" : "tree_dead";
+          art = rng.bool(0.7) ? "aegean_plane_tree" : "aegean_tamarisk";
           solid = true;
-        } else if (r < 0.1) art = "reeds";
-        else if (r < 0.125) art = rng.bool() ? "fern" : "mushroom_cluster";
-      } else if (region === 20) {
+        } else if (r < 0.1) art = "aegean_papyrus";
+        else if (r < 0.125) art = rng.bool() ? "aegean_oleander" : "aegean_asphodel";
+      } else if (region === 20 || tile === T.OBSIDIAN || tile === T.PUMICE) {
         if (r < 0.016) {
-          art = "rock_big";
+          art = rng.bool(0.55) ? "aegean_obsidian" : "aegean_pumice";
           solid = true;
-        } else if (r < 0.027) art = "shrub_dead";
+        } else if (r < 0.027) art = "aegean_saltbush";
         else if (r < 0.03 && forest > 0.59) art = "aegean_fumarole";
-        else if (r < 0.036) art = "bone_pile";
+        else if (r < 0.036) art = "aegean_shore_bones";
       } else if (region === 23) {
         if (forest > 0.51 && r < 0.19) {
           art = "aegean_red_cypress";
           solid = true;
         } else if (r < 0.035) art = "aegean_shield_grave";
-        else if (r < 0.052) art = "rock_small";
-        else if (r < 0.07) art = "grass_tuft";
+        else if (r < 0.052) art = "aegean_limestone";
+        else if (r < 0.07) art = "aegean_asphodel";
       } else {
-        const wooded = region === 13 || tile === T.GRASS_DARK;
+        const wooded = region === 13 || tile === T.LAUREL_FLOOR;
         const density = wooded
           ? forest > 0.48
             ? 0.26
@@ -990,20 +921,22 @@ export function scatterAegeanScenery(map: GameMap, seed: number): void {
             ? 0.105
             : 0.016;
         if (r < density) {
-          art = wooded
-            ? rng.pick([
-                "tree_oak",
-                "tree_pine",
-                "aegean_olive",
-                "aegean_cypress",
-              ])
-            : rng.pick(["aegean_olive", "aegean_olive", "aegean_cypress"]);
+          art = region === 16
+            ? "aegean_laurel"
+            : region === 15
+              ? rng.pick(["aegean_plane_tree", "aegean_olive", "aegean_oleander"])
+              : region === 17 || region === 22
+                ? rng.pick(["aegean_tamarisk", "aegean_umbrella_pine", "aegean_olive"])
+                : wooded
+                  ? rng.pick(["aegean_laurel", "aegean_umbrella_pine", "aegean_plane_tree", "aegean_cypress"])
+                  : rng.pick(["aegean_olive", "aegean_olive", "aegean_cypress"]);
           if (mass === 7) art = "aegean_golden_tree";
           solid = true;
         } else if (r < density + 0.025)
-          art = rng.pick(["grass_tuft", "bush", "aegean_thyme"]);
-        else if (r < density + 0.036) art = wooded ? "fern" : "rock_small";
-        else if (r < density + 0.04 && forest > 0.61) art = "pillar_broken";
+          art = rng.pick(["aegean_asphodel", "aegean_mastic", "aegean_thyme"]);
+        else if (r < density + 0.036)
+          art = wooded ? "aegean_oleander" : "aegean_limestone";
+        else if (r < density + 0.04 && forest > 0.61) art = "aegean_pillar_cracked";
       }
       if (!art) continue;
       // Leave both banks of every road readable and collision-free.
@@ -1016,7 +949,6 @@ export function scatterAegeanScenery(map: GameMap, seed: number): void {
         cw: solid ? 12 : undefined,
         ch: solid ? 8 : undefined,
         phase: rng.range(0, 6),
-        flat: art === "lilypad",
       });
     }
   landmarks(map, seed);
@@ -1042,13 +974,15 @@ function coastDressing(map: GameMap, seed: number): void {
       if (AEGEAN_PORTS.some((p) => Math.hypot(x - p.tx, y - p.ty) < 9))
         continue;
       const art =
-        map.regions![i] === 20 || map.regions![i] === 23
-          ? rng.pick(["rock_small", "aegean_driftwood", "aegean_shore_bones"])
+        map.regions![i] === 20 || map.tiles[i] === T.BLACK_BEACH
+          ? rng.pick(["aegean_pumice", "aegean_obsidian", "aegean_driftwood", "aegean_saltbush"])
+          : map.regions![i] === 23
+            ? rng.pick(["aegean_limestone", "aegean_driftwood", "aegean_shore_bones", "aegean_saltbush"])
           : rng.pick([
               "aegean_limestone",
               "aegean_shells",
               "aegean_driftwood",
-              "aegean_thyme",
+              "aegean_saltbush",
             ]);
       prop(map, x, y, art, { flat: art === "aegean_shells" });
     }

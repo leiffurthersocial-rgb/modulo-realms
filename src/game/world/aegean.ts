@@ -53,7 +53,7 @@ function clearLanding(
       if (dx * dx + dy * dy > radius * radius || !map.landmasses?.[i]) continue;
       const tile = map.tiles[i];
       if (isSolid(tile) || isWater(tile))
-        setTile(map, x + dx, y + dy, T.GRAVEL);
+        setTile(map, x + dx, y + dy, T.LIMESTONE);
     }
 }
 
@@ -271,7 +271,7 @@ export function buildOffshoreField(map: GameMap): Uint16Array {
   for (let y = 1; y < map.h - 1; y++)
     for (let x = 960; x < map.w - 1; x++) {
       const i = y * map.w + x;
-      if (!isWater(map.tiles[i]) || map.tiles[i] === T.SWAMP_WATER) continue;
+      if (!isWater(map.tiles[i]) || (map.tiles[i] === T.SWAMP_WATER || map.tiles[i] === T.LERNA_POOL)) continue;
       if (
         [i - 1, i + 1, i - map.w, i + map.w].some(
           (j) => map.landmasses?.[j] === 1,
@@ -295,7 +295,7 @@ export function buildOffshoreField(map: GameMap): Uint16Array {
         j < 0 ||
         field[j] !== 65535 ||
         !isWater(map.tiles[j]) ||
-        map.tiles[j] === T.SWAMP_WATER
+        (map.tiles[j] === T.SWAMP_WATER || map.tiles[j] === T.LERNA_POOL)
       )
         continue;
       field[j] = Math.min(65534, field[i] + 1);
@@ -344,7 +344,7 @@ export function prepareAegeanActivityGround(
             if (Math.abs(dx) <= 1 || Math.abs(dy) <= 1)
               setTile(map, tx, ty, T.BRIDGE);
           } else if (isSolid(getTile(map, tx, ty)))
-            setTile(map, tx, ty, T.GRAVEL);
+            setTile(map, tx, ty, T.LIMESTONE);
       }
     if (road && map.id === "overworld") path(map, x, y, road.x, road.y, 1);
     courts.push({ x: x * TILE, y: y * TILE });

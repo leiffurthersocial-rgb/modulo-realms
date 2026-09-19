@@ -30,7 +30,7 @@ import {
   tilePassable,
   type GameMap,
 } from "../src/game/world/map";
-import { isSolid, isWater, TILE } from "../src/game/world/tiles";
+import { isSolid, isWater, T, TILES, TILE } from "../src/game/world/tiles";
 
 const noop = () => undefined;
 const knownArt = new Set([...AEGEAN_PROP_NAMES, ...PROP_NAMES]);
@@ -192,6 +192,68 @@ for (let region = 12; region <= 20; region++) {
     `Region ${region}: only ${substantial.length} meaningful terrain materials`,
   );
 }
+// Sharing roads and the game's collision rules must never turn into copying
+// the western natural biomes. Check the finished, stamped world rather than
+// only the terrain function, so town/river/island passes cannot reintroduce it.
+const retiredGreekTerrain = new Set<number>([
+  T.DEEP_WATER, T.WATER, T.SAND, T.GRASS, T.GRASS_DARK, T.GRASS_PALE,
+  T.TALL_GRASS, T.FLOWERS, T.DIRT, T.FARM_SOIL, T.STONE_GROUND, T.GRAVEL,
+  T.MOUNTAIN, T.CLIFF, T.SNOW, T.SNOW_ROCK, T.ICE, T.SWAMP_WATER,
+  T.SWAMP_GROUND, T.MUD, T.DESERT_SAND, T.DESERT_ROCK, T.ASH_GROUND,
+]);
+const regionMaterials = new Map<number, Map<number, number>>();
+const islandMaterials = new Map<number, Map<number, number>>();
+for (let y = 0; y < world.h; y++) for (let x = 960; x < world.w; x++) {
+  const i = y * world.w + x, region = world.regions![i], tile = world.tiles[i];
+  if (region < 12) continue; // Narrow, intentional western transition.
+  assert.ok(!retiredGreekTerrain.has(tile),
+    `Greek region ${region} copied ${TILES[tile].name} at ${x},${y}`);
+  const regional = regionMaterials.get(region) ?? new Map<number, number>();
+  regional.set(tile, (regional.get(tile) ?? 0) + 1);
+  regionMaterials.set(region, regional);
+  const mass = world.landmasses![i];
+  if (mass > 1) {
+    const island = islandMaterials.get(mass) ?? new Map<number, number>();
+    island.set(tile, (island.get(tile) ?? 0) + 1);
+    islandMaterials.set(mass, island);
+  }
+}
+for (const [region, materials] of [
+  [12, [T.THYME_SCRUB, T.AEGEAN_GRASS, T.LIMESTONE]],
+  [13, [T.LAUREL_FLOOR]],
+  [14, [T.OLYMPIAN_MEADOW, T.LIMESTONE]],
+  [15, [T.GOLDEN_TERRACE]],
+  [16, [T.GOLDEN_TERRACE, T.LAUREL_FLOOR]],
+  [17, [T.SHELL_BEACH, T.THYME_SCRUB]],
+  [18, [T.EUROTAS_EARTH]],
+  [19, [T.REED_BANK, T.LERNA_POOL, T.DELTA_SILT]],
+  [20, [T.OBSIDIAN, T.PUMICE, T.BLACK_BEACH]],
+  [23, [T.STORM_HEATH, T.OBSIDIAN]],
+] as Array<[number, number[]]>) for (const tile of materials) {
+  assert.ok((regionMaterials.get(region)?.get(tile) ?? 0) > 16,
+    `Region ${region}: missing substantial ${TILES[tile].name}`);
+}
+for (const [id, material] of [
+  ["hesperides", T.GOLDEN_GARDEN], ["crete", T.VINEYARD_SOIL],
+  ["gorgon", T.LIMESTONE], ["ash_crown", T.OBSIDIAN],
+  ["asterion", T.STORM_HEATH],
+] as Array<[string, number]>) {
+  const island = AEGEAN_ISLANDS.find((island) => island.id === id)!;
+  assert.ok((islandMaterials.get(island.landmass)?.get(material) ?? 0) > 16,
+    `${id}: its landscape must include ${TILES[material].name}`);
+}
+// Marine surf must not be painted onto an inland karst spring or a walkable
+// reed pool. Their movement properties still follow the original water rules.
+assert.ok(isSolid(T.AEGEAN_SPRING) && isWater(T.AEGEAN_SPRING));
+assert.ok(!isSolid(T.LERNA_POOL) && isWater(T.LERNA_POOL));
+assert.equal(TILES[T.LERNA_POOL].speed, TILES[T.SWAMP_WATER].speed);
+for (const tile of [T.AEGEAN_SHALLOWS, T.AEGEAN_SEA])
+  assert.ok(isSolid(tile) && isWater(tile));
+assert.equal(TILES[T.SHELL_BEACH].shore, "sand");
+assert.equal(TILES[T.BLACK_BEACH].shore, "sand");
+assert.equal(TILES[T.PUMICE].shore, "shingle");
+assert.equal(TILES[T.LIMESTONE].shore, "rock");
+assert.equal(TILES[T.OBSIDIAN].shore, "rock");
 // The gulfs must remain open marine geography and may never become bridges
 // when roads or settlements are regenerated over them.
 for (const [x, y] of [

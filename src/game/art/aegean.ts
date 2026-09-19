@@ -59,6 +59,18 @@ export const AEGEAN_PROP_NAMES = [
   "red_cypress",
   "olive",
   "golden_tree",
+  "laurel",
+  "plane_tree",
+  "umbrella_pine",
+  "juniper",
+  "asphodel",
+  "oleander",
+  "papyrus",
+  "tamarisk",
+  "pumice",
+  "obsidian",
+  "saltbush",
+  "mastic",
   "oath_gate",
   "hades_gate",
   "arch",
@@ -195,8 +207,210 @@ function wheel(p: Px, x: number, y: number, r: number): void {
     );
 }
 
+/** Small irregular leaf masses, lit from the same upper left as the original
+ * world. Each plant below has its own branches, silhouette and leaf treatment. */
+function foliage(
+  p: Px, rng: RNG, x: number, y: number, rx: number, ry: number,
+  colors: [string, string, string], leafLength = 2,
+): void {
+  p.ellipse(x, y + 2, rx, ry, colors[0]);
+  for (let lobe = 0; lobe < 7; lobe++) {
+    const a = lobe * Math.PI * 2 / 7;
+    p.ellipse(x + Math.cos(a) * rx * .46, y + Math.sin(a) * ry * .44,
+      rx * .53, ry * .52, lobe < 4 ? colors[1] : colors[0]);
+  }
+  p.ellipse(x - rx * .18, y - ry * .16, rx * .65, ry * .61, colors[1]);
+  for (let i = 0; i < Math.floor(rx * ry / 8); i++) {
+    const angle = rng.range(0, Math.PI * 2), distance = Math.sqrt(rng.next()) * .9;
+    const xx = x + Math.cos(angle) * rx * distance;
+    const yy = y + Math.sin(angle) * ry * distance;
+    const light = yy < y + 2 && xx < x + rx * .55;
+    p.line(xx, yy, xx + leafLength - 1, yy - (i % 3 === 0 ? 1 : 0),
+      rng.bool(light ? .6 : .18) ? colors[2] : colors[0]);
+  }
+}
+
+function greekLandscape(name: string): Px | undefined {
+  const rng = new RNG(`greek-landscape:${name}`);
+  if (name === "aegean_plane_tree") {
+    const p = base(100, 112);
+    // A pollarded river plane: mottled pale bark and broad open branches.
+    p.poly([[35,105],[44,90],[43,65],[30,47],[29,38],[47,56],[53,43],
+      [59,38],[57,62],[67,48],[77,44],[61,67],[57,88],[65,106]], "#66634e");
+    p.poly([[40,103],[48,87],[47,63],[35,48],[48,57],[53,48],[52,74],
+      [54,88],[59,104]], "#b5ad80");
+    p.line(49,71,48,95,"#e0d0a2").line(57,65,70,50,"#c6ba8e");
+    for (const [x,y,w,h] of [[44,80,5,5],[49,60,3,7],[52,89,4,6],[47,98,3,4]])
+      p.fill(x,y,w,h,"#858c69");
+    for (const [x,y,rx,ry] of [[23,40,20,19],[39,23,23,19],[66,24,24,18],[78,43,19,19],[52,46,26,21]])
+      foliage(p,rng,x,y,rx,ry,["#3e5944","#648254","#a3ab6b"],3);
+    p.line(42,105,29,108,"#7c7556").line(58,104,73,107,"#77724f");
+    p.circle(51,84,3,"#777152").circle(51,84,1,"#4e5140");
+    return p;
+  }
+  if (name === "aegean_umbrella_pine") {
+    const p = base(100, 106);
+    // Tall orange trunk, high forks and a level, spreading parasol crown.
+    p.poly([[43,101],[47,71],[45,55],[30,39],[33,35],[50,49],[56,34],
+      [61,35],[56,57],[56,82],[60,101]],"#654b36");
+    p.poly([[47,100],[50,70],[49,54],[36,39],[50,49],[52,43],
+      [53,65],[52,99]],"#a57749");
+    for (let y=55;y<99;y+=6) p.fill(48+(y%4),y,4,2,"#76543b");
+    p.line(51,50,71,36,"#8b623e").line(46,49,20,33,"#8b623e");
+    for (const [x,y,rx,ry] of [[19,31,16,11],[37,23,24,15],[66,21,26,14],[82,34,15,11],[54,35,31,13]])
+      foliage(p,rng,x,y,rx,ry,["#314c42","#506950","#8b9864"],3);
+    p.fill(45,101,15,2,"#6c5138").line(48,98,38,103,"#86643f");
+    p.ellipse(30,46,2,3,"#745436").ellipse(73,43,2,3,"#92613e");
+    return p;
+  }
+  if (name === "aegean_laurel") {
+    const p = base(68,68);
+    p.poly([[28,63],[30,42],[19,27],[24,26],[33,37],[39,21],[43,23],
+      [36,45],[39,64]],"#63533a");
+    p.line(32,60,33,40,"#a38a58").line(34,41,43,33,"#877348");
+    for (const [x,y,rx,ry] of [[20,30,15,18],[34,18,17,15],[49,32,14,18],[33,41,20,14]])
+      foliage(p,rng,x,y,rx,ry,["#304e41","#496d49","#93a967"],3);
+    for (const [x,y] of [[20,39],[43,22],[46,39],[29,29],[34,48]])
+      p.circle(x,y,1,"#323f39").set(x-1,y-1,"#687887");
+    return p;
+  }
+  if (name === "aegean_juniper") {
+    const p = base(64,60);
+    // Wind-pruned mountain tree grows sideways above an exposed twisted root.
+    p.poly([[25,55],[31,45],[30,35],[18,27],[21,23],[37,33],[43,25],
+      [48,26],[40,39],[36,50],[43,56]],"#605b48");
+    p.line(32,51,35,37,"#b6a080").line(34,35,22,27,"#958869");
+    for (const [x,y,rx,ry] of [[15,24,12,10],[32,17,16,12],[48,24,13,11],[36,32,17,10]])
+      foliage(p,rng,x,y,rx,ry,["#3b5350","#647d6b","#a0af8d"],2);
+    for(const [x,y] of [[19,25],[38,16],[45,27],[29,31]])
+      p.fill(x,y,2,2,"#506c8b").set(x,y,"#8babb6");
+    p.line(32,53,18,57,"#938265").line(37,53,46,56,"#6c6850");
+    return p;
+  }
+  if (name === "aegean_tamarisk") {
+    const p = base(84,80);
+    // Fine, drooping coastal sprays; the crown stays porous rather than round.
+    p.poly([[33,75],[39,61],[40,46],[23,31],[27,29],[44,43],[55,27],
+      [57,29],[47,50],[45,67],[49,76]],"#76654f");
+    p.line(40,69,44,47,"#ad936d").line(43,44,32,20,"#826e52");
+    for (const [x,y,rx,ry] of [[18,31,14,8],[31,23,17,10],[54,26,21,10],[66,39,13,9],[43,40,20,9]]) {
+      foliage(p,rng,x,y,rx,ry,["#617568","#8d9b79","#b4b792"],1);
+      for(let n=0;n<7;n++) {
+        const xx=x+rng.int(-rx+3,rx-3), yy=y+rng.int(-3,4), length=rng.int(7,15);
+        p.line(xx,yy,xx-2,yy+length,"#788a70");
+        for(let k=0;k<length;k+=3) p.fill(xx-3,yy+k,3,1,k%2?"#a7ad86":"#c49c9b");
+      }
+    }
+    return p;
+  }
+  if (name === "aegean_oleander" || name === "aegean_mastic") {
+    const oleander=name.endsWith("oleander"), p=base(oleander?60:52,oleander?54:40);
+    const x=p.w/2, floor=p.h-5, spread=oleander?1:.82;
+    for(let n=0;n<5;n++) p.line(x+rng.int(-5,5),floor,x-17+n*8,floor-25,"#75674b");
+    for (const [dx,dy,rx,ry] of [[-14,-17,12,11],[0,-25,15,13],[15,-15,12,12],[0,-10,17,10]])
+      foliage(p,rng,x+dx*spread,floor+dy*spread,rx*spread,ry*spread,oleander?["#3d5c48","#608254","#9bae6f"]:["#47573b","#718451","#a6af6f"],3);
+    for(let n=0;n<(oleander?12:9);n++) {
+      const xx=x+rng.int(-20,20)*spread, yy=floor-rng.int(9,30)*spread;
+      if(oleander) p.fill(xx-2,yy,5,1,"#c8808d").fill(xx,yy-2,1,5,"#dea1a3").set(xx,yy,"#e4c47e");
+      else p.fill(xx,yy,2,2,"#9a5846").set(xx,yy,"#c58357");
+    }
+    return p;
+  }
+  if (name === "aegean_asphodel") {
+    const p=base(40,42);
+    for(let n=0;n<10;n++) {
+      const x=20+rng.int(-6,6), end=20+rng.int(-17,17);
+      p.poly([[x,37],[end,rng.int(18,28)],[end+1,30],[x+1,37]],n%2?"#799478":"#526d5c");
+    }
+    for(const [x,y] of [[12,9],[23,4],[30,13],[19,16]]) {
+      p.line(x,35,x,y,"#81946c");
+      for(let k=0;k<3;k++) {
+        const xx=x+(k%2===0?-2:2), yy=y+k*6;
+        p.line(x,yy+3,xx,yy,"#8e9c77");
+        p.fill(xx-2,yy,5,1,"#ddd8bb").fill(xx,yy-2,1,5,"#eae5ce").set(xx,yy,"#b09c63");
+      }
+    }
+    return p;
+  }
+  if (name === "aegean_papyrus") {
+    const p = base(52, 68);
+    // Bowed triangular stems spring from one rhizome. Broad, overlapping umbels
+    // carry the silhouette; isolated single-pixel stalks looked like wire cages.
+    const heads = [[13, 29, 11], [25, 14, 15], [39, 32, 11], [29, 43, 11]];
+    for (const [x, y] of heads) {
+      const foot = 25 + Math.round((x - 25) * .28);
+      p.poly([[foot - 1, 64], [x - 1, y], [x + 2, y], [foot + 2, 64]], "#536d4c");
+      p.line(foot, 61, x, y + 4, "#9bab68");
+      p.fill(x - 1, y + 8, 3, 2, "#6a8050");
+    }
+    for (const [x, y, radius] of heads) {
+      p.ellipse(x, y, radius * .72, 4, "#4c6b4c");
+      // The narrow lance-shaped bracts radiate from a shaded hub and curve
+      // down at the sides. Golden seed clusters sit at the ends of fine rays.
+      for (let ray = 0; ray < 11; ray++) {
+        const angle = Math.PI + ray * Math.PI / 10;
+        const length = radius - (ray % 3 === 0 ? 2 : 0);
+        const xx = x + Math.cos(angle) * length;
+        const yy = y + Math.sin(angle) * length * .72;
+        const side = ray < 5 ? -1 : 1;
+        p.poly([[x, y + 2], [xx - side * 2, yy - 1], [xx + side, yy + 4]],
+          ray % 2 ? "#6f8c51" : "#809b59");
+        p.line(x, y + 1, xx, yy, ray < 6 ? "#abb774" : "#91a363");
+        p.line(xx, yy, xx + side, yy + 4, "#688448");
+        if (ray % 2 === 0)
+          p.fill(xx, yy - 1, 2, 2, "#b7b37a").set(xx, yy - 2, "#d0c28c");
+      }
+      for (const side of [-1, 1])
+        p.poly([[x, y], [x + side * radius, y + 2],
+          [x + side * (radius - 3), y + 8], [x + side * (radius - 5), y + 3]], "#69854e");
+      p.ellipse(x, y + 1, 3, 2, "#8f9b59").set(x - 1, y, "#c5bb80");
+    }
+    for (const [tipX, tipY] of [[8, 48], [13, 42], [20, 46], [36, 44], [45, 52]])
+      p.poly([[24, 65], [tipX, tipY], [tipX + 2, tipY + 8], [29, 65]], "#688450")
+        .line(26, 64, tipX, tipY, "#91a36a");
+    p.ellipse(26, 64, 10, 2, "#57704c");
+    return p;
+  }
+  if (name === "aegean_saltbush") {
+    const p=base(42,30);
+    for(const [x,y,rx,ry] of [[12,17,10,7],[23,12,11,9],[31,20,9,6]])
+      foliage(p,rng,x,y,rx,ry,["#718277","#a0af99","#c7c9ab"],2);
+    for(let n=0;n<6;n++) {const x=rng.int(7,35),y=rng.int(10,22);p.line(x,y+3,x-1,y-4,"#a2a789").set(x-1,y-5,"#d1c6a0");}
+    return p;
+  }
+  if (name === "aegean_pumice") {
+    const p=base(48,34);
+    p.poly([[4,27],[5,17],[12,11],[15,5],[29,4],[41,12],[44,24],[37,29],[16,30]],"#8e8475");
+    p.poly([[6,23],[9,15],[17,7],[29,6],[38,13],[33,23],[15,27]],"#c6bba2");
+    p.poly([[15,7],[28,5],[36,12],[20,15],[9,18]],"#ddd1b6");
+    for(let n=0;n<32;n++) {
+      const x=rng.int(11,36),y=rng.int(12,25);
+      p.ellipse(x,y,rng.int(1,2),1,"#978e7d").set(x-1,y-1,"#e2d3b4");
+    }
+    p.fill(6,28,7,2,"#b4a98f").fill(36,29,6,1,"#d4c6a7");
+    return p;
+  }
+  if (name === "aegean_obsidian") {
+    const p=base(60,66);
+    // Knapped volcanic glass, with a separate conchoidal shard at the base.
+    p.poly([[10,55],[14,27],[31,4],[43,21],[48,57],[34,62],[17,61]],"#272e38");
+    p.poly([[15,30],[30,6],[29,42],[18,57]],"#56616b");
+    p.poly([[31,8],[42,23],[38,47],[30,41]],"#3a4854");
+    p.poly([[18,58],[29,43],[39,49],[34,61]],"#45515a");
+    p.line(30,8,29,38,"#899192").line(16,31,20,25,"#79878b").line(30,43,38,49,"#79878b");
+    p.line(34,20,39,29,"#293543").line(34,25,38,31,"#697582");
+    p.poly([[38,57],[46,39],[52,44],[56,59],[49,62]],"#252c36");
+    p.poly([[40,56],[46,42],[47,58]],"#69717a");
+    p.line(45,45,47,57,"#9a9b96").fill(6,60,5,2,"#58616a");
+    return p;
+  }
+  return undefined;
+}
+
 /** Original procedural props share painted marble, bronze and terracotta motifs. */
 function draw(name: string, frame = 0): Px {
+  const landscape = greekLandscape(name);
+  if (landscape) return landscape;
   if (name === "aegean_amphora") {
     const p = base(32, 42),
       rng = new RNG("amphora-glaze");

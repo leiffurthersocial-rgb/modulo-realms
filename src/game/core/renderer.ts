@@ -8,7 +8,10 @@ import { getTileset, TILE_VARIANTS } from '../art/tileset';
 import { drawProjectile } from '../combat/projectiles';
 import { RARITY_COLOR } from '../items/types';
 import type { Enemy } from '../entities/enemy';
-import { T, TILE, TILES, isWall, isWater } from '../world/tiles';
+import { T, TILE, TILES, isWater } from '../world/tiles';
+import { drawTerrainRelief } from './terrainRelief';
+import { drawMarine, isMarine } from './marine';
+import { drawMarineDepth } from './marineDepth';
 import { propsInRect, type GameMap } from '../world/map';
 import type { Game } from './game';
 import { LOCATIONS } from '../../data/locations';
@@ -29,6 +32,13 @@ const scratchG = scratch.getContext('2d')!;
 const NEIGHBORS: Array<[number, number]> = [
   [0, -1], [1, 0], [0, 1], [-1, 0], [-1, -1], [1, -1], [1, 1], [-1, 1],
 ];
+
+let marineBankMasks: Uint8ClampedArray[] | undefined;
+function getMarineBankMasks(): Uint8ClampedArray[] {
+  // Read the eight tiny static masks once; no per-frame canvas readbacks.
+  return marineBankMasks ??= getTileset().masks.map(mask =>
+    (mask as HTMLCanvasElement).getContext('2d')!.getImageData(0, 0, TILE, TILE).data);
+}
 
 function tileVariant(tx: number, ty: number): number {
   const h = (Math.imul(tx, 374761393) ^ Math.imul(ty, 668265263)) >>> 0;
@@ -56,7 +66,8 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
       const v = tileVariant(tx, ty);
       const dx = x * TILE;
       const dy = y * TILE;
-      g.drawImage(ts.sheet, v * TILE, id * TILE, TILE, TILE, dx, dy, TILE, TILE);
+      if (isMarine(id)) drawMarineDepth(g, ts.sheet, map, tx, ty, v, dx, dy, TILE);
+      else g.drawImage(ts.sheet, v * TILE, id * TILE, TILE, TILE, dx, dy, TILE, TILE);
 
       const def = TILES[id];
       // blend higher-priority neighbours over this tile
@@ -68,11 +79,15 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
         const nid = map.tiles[ny * map.w + nx];
         if (nid === id) continue;
         const ndef = TILES[nid];
-        if (!ndef || ndef.blend <= def.blend) continue;
-        // The turquoise shelf needs the same broken edge masks as the shore;
-        // treating both depths as one family left a hard 32px staircase.
-        const greekShelf = id === T.AEGEAN_SHALLOWS && nid === T.AEGEAN_SEA;
-        if (ndef.family && ndef.family === def.family && !greekShelf) continue;
+        if (!ndef) continue;
+        // The shelf has a broad continuous depth gradient of its own.
+        if (isMarine(id) && isMarine(nid)) continue;
+        const dryBank = isMarine(id) && !ndef.water && nid !== T.VOID;
+        // Land overlaps the sea at the shore. Painting water over land made
+        // the blue edge look like a raised slab, especially south of a beach.
+        if (isMarine(nid) && !def.water) continue;
+        if (!dryBank && ndef.blend <= def.blend) continue;
+        if (ndef.family && ndef.family === def.family) continue;
         if (ndef.solid && !def.solid && ndef.blend >= 90) continue;
         scratchG.clearRect(0, 0, TILE, TILE);
         scratchG.globalCompositeOperation = 'source-over';
@@ -83,22 +98,9 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
         g.drawImage(scratch, dx, dy);
       }
 
-      // wall faces and drop shadows give the tiles depth
-      if (isWall(id)) {
-        const belowId = ty + 1 < map.h ? map.tiles[(ty + 1) * map.w + tx] : T.VOID;
-        if (!isWall(belowId)) {
-          g.drawImage(ts.faces, v * TILE, id * TILE, TILE, TILE, dx, dy + TILE - 14, TILE, 14);
-        }
-      } else {
-        const aboveId = ty > 0 ? map.tiles[(ty - 1) * map.w + tx] : T.VOID;
-        if (isWall(aboveId)) {
-          const grad = g.createLinearGradient(0, dy, 0, dy + 10);
-          grad.addColorStop(0, 'rgba(8,6,12,0.45)');
-          grad.addColorStop(1, 'rgba(8,6,12,0)');
-          g.fillStyle = grad;
-          g.fillRect(dx, dy, TILE, 10);
-        }
-      }
+      const belowId = ty + 1 < map.h ? map.tiles[(ty + 1) * map.w + tx] : T.VOID;
+      const aboveId = ty > 0 ? map.tiles[(ty - 1) * map.w + tx] : T.VOID;
+      drawTerrainRelief(g, ts.faces, id, belowId, aboveId, dx, dy, v, TILE);
     }
   }
 
@@ -332,7 +334,7 @@ export function render(game: Game): void {
       for (let tx = tx0; tx <= tx1; tx++) {
         if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) continue;
         const id = map.tiles[ty * map.w + tx];
-        if (!isWater(id)) continue;
+        if (!isWater(id) || isMarine(id)) continue;
         const phase = Math.sin(t * 1.6 + tx * 0.6 + ty * 0.4);
         if (phase < 0.55) continue;
         g.fillStyle = id === T.SWAMP_WATER ? PAL.toxic : PAL.foam;
@@ -342,6 +344,8 @@ export function render(game: Game): void {
       }
     }
     g.restore();
+    if ((map.id === 'overworld' && left + viewW >= 960 * TILE) || map.id.startsWith('aegean_'))
+      drawMarine(g, map, left, top, viewW, viewH, t, getMarineBankMasks());
   }
 
   // gather drawables
