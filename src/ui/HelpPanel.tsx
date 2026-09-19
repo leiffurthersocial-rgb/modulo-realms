@@ -190,7 +190,7 @@ export default function HelpPanel({ game }: { game: Game }) {
                 <P>
                   <b style={{ color: '#ff4f6e' }}>Mythic</b> is not a tier loot can roll into, and not something the
                   crown&apos;s warrant can raise a thing to. A handful of weapons in the whole world wear it. You will
-                  know. Above Mythic, Olympian relics come from Achaea’s authored deeds. Primordial equipment can only be earned and forged on Asterion, beyond the Three Hundred and the storm. Neither tier appears in random loot; both hold four enchantments.
+                  know.
                 </P>
                 <P>
                   The top tiers are <b>gated behind your level</b>. A legendary is effectively unavailable below level
@@ -326,7 +326,7 @@ export default function HelpPanel({ game }: { game: Game }) {
               <>
                 <H>Levels and skill points</H>
                 <P>
-                  Experience comes from fighting, finding places, and finishing bounties. The cap is <b>level 100</b>,
+                  Experience comes from fighting, finding places, and finishing bounties. The cap is <b>level 75</b>,
                   and getting there is meant to take a long time: a level costs roughly sixteen kills in the opening
                   hour and settles at about eighty-five from the early twenties onward. Elites pay three times what
                   ordinary enemies do and bosses seven and a half, so clearing a dungeon is worth a real slice of a
@@ -334,14 +334,14 @@ export default function HelpPanel({ game }: { game: Game }) {
                 </P>
                 <P>
                   Every level pays a skill point, every third level pays two, and every tenth pays five. That is 120
-                  points by level 75, against trees that hold 162 — so <b>no build ever finishes one</b>. Each class has
+                  points by the cap, against trees that hold 162 — so <b>no build ever finishes one</b>. Each class has
                   three talent branches seven tiers deep plus a shared Mastery branch, and five abilities that unlock
                   as you go, the last at level 22.
                 </P>
                 <P>
                   The world is laid out as a ladder: Ashvale to level 6, Thornhollow to 14, the Mire to 24, the Crag
                   Reach to 36, Duneholt to 42, then the outer marches, the Jotunreach and the Cinderwastes, and finally
-                  the three deep marches — the Drowning Reach, the Stormreach and the Emberdeep, which runs to 75. Beyond the eastern Veteran’s Threshold lies Achaea, a new continent for levels 75–100. Press H for the Chronicle, Labours, mastery choices, fleet and forge. At levels 80, 85, 90, 95 and 100, choose one heroic mastery; ordinary skill points stop at 75.
+                  the three deep marches — the Drowning Reach, the Stormreach and the Emberdeep, which runs to 75.
                 </P>
                 <P>
                   A region&apos;s level band says when you are meant to be there. How dangerous it feels is a separate

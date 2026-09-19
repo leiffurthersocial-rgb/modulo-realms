@@ -3,13 +3,12 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Modulo: Realms of Ash \u2014 a 2D open-world pixel-art fantasy RPG that runs in the browser.",
+  "description": "Modulo: Realms of Ash — a 2D open-world pixel-art fantasy RPG that runs in the browser.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "check:aegean": "node scripts/check-aegean.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "react": "^18.3.1",

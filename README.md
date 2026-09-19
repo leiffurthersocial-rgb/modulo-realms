@@ -1,9 +1,7 @@
 # Modulo: Realms of Ash
 
 A 2D open-world pixel-art fantasy RPG that runs entirely in the browser. Make a character,
-walk out of Ashvale, and find out what the valley is being divided by. The Aegean Oath
-expansion adds an equally large eastern continent, Greek myths, ships, the Three Hundred,
-and Leonidas. See the [expansion guide](docs/aegean-expansion/README.md).
+walk out of Ashvale, and find out what the valley is being divided by.
 
 Everything in the game — every tile, sprite, building, item icon, sound effect and music
 track — is generated procedurally at runtime from code in this repository. There are no
@@ -24,8 +22,6 @@ binary art or audio assets, and nothing is copied from any existing game.
 ---
 
 ## Running it
-
-Run `npm run check:aegean` for the eight serial expansion and compatibility checks.
 
 ```bash
 npm install
@@ -145,8 +141,8 @@ world, the rules and the art are unchanged; it simply costs less to show them.
 
 ## The game
 
-**The world.** One continuous 1920×1088-tile overworld (61,440×34,816 pixels). Its original
-western half contains twelve regions, laid out as a ladder from the central Ashvale Valley outward: Thornhollow
+**The world.** One continuous 960×1088-tile overworld (roughly 30,700×34,800 pixels) split
+into twelve regions, laid out as a ladder from the central Ashvale Valley outward: Thornhollow
 west, the Sunken Mire east, the Crag Reach north and Duneholt Reach south, then the outer
 marches — the Gloaming, the Saltreach, the Jotunreach and the Cinderwastes — and finally the
 three deep marches: the Drowning Reach, the Stormreach and the Emberdeep. Roads, rivers and
@@ -191,10 +187,10 @@ go where you like.
 readable wind-ups, summons and arena-wide attacks.
 
 **Progression.** Experience from combat, quests, exploration and dungeon clears, to a cap of
-**level 100**. Heroic mastery choices start at level 80; ordinary talent points stop at 75. The curve is written as *how many kills a level should cost* — the only unit a
+**level 75**. The curve is written as *how many kills a level should cost* — the only unit a
 player actually feels — ramping from about sixteen in the opening hour to a flat eighty-five
 from the early twenties on. Levels pay one skill point, every third pays two and every tenth
-pays five: 120 by level 75, against class trees that hold 162, so no build ever finishes one.
+pays five: 120 by the cap, against class trees that hold 162, so no build ever finishes one.
 Each class has three talent branches seven tiers deep plus a shared Mastery branch, and five
 abilities.
 
@@ -317,8 +313,6 @@ inventory slot borders, the drop glow, and the name that floats up when you coll
 | Epic | Purple | 2 | yes |
 | Legendary | Yellow / gold | 3 | yes |
 | Mythic | Crimson, animated | 3 | **no** |
-| Olympian | Ivory / divine gold | 4 | **no** |
-| Primordial | Starlight | 4 | **no; Asterion only** |
 
 `Mythic` is placed by hand and nothing else can reach it: its weight in `RARITY_WEIGHTS` is
 zero, `rollRarity` draws from `ROLLABLE_RARITIES` which excludes it, and `canElevate` stops the

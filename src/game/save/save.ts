@@ -1,8 +1,3 @@
-import type { AegeanPowersSave } from '../aegean/powers';
-import type { ActivitiesSave } from '../aegean/activities';
-import type { CampaignSnapshot } from '../aegean/campaign';
-import type { NavalSave } from '../aegean/naval';
-import { invalidateChunks } from '../core/renderer';
 import type { ClassId } from '../../data/classes';
 import type { FactionId, RaceId } from '../../data/races';
 import type { Look } from '../art/characters';
@@ -11,12 +6,10 @@ import { buildInterior } from '../world/interiors';
 import { generateOverworld } from '../world/worldgen';
 import { Player } from '../player/player';
 import { QuestLog, type ActiveQuest } from '../quests/questlog';
-import { refreshFromTemplate, normalizeItemCurve, type ItemCurveMigration } from '../items/loot';
+import { refreshFromTemplate } from '../items/loot';
 import type { EquipSlot, Item } from '../items/types';
 
 const KEY = 'modulo-realms-save-v1';
-const BACKUP_KEY = 'modulo-realms-save-pre-aegean';
-const RECOVERY_KEY = 'modulo-realms-save-recovery';
 const SETTINGS_KEY = 'modulo-realms-settings-v1';
 
 interface SavedMapState {
@@ -31,14 +24,7 @@ interface SavedMapState {
 }
 
 export interface SaveData {
-  version: 1 | 2;
-  now?: number;
-  itemMigrations?: ItemCurveMigration[];
-  campaign?: CampaignSnapshot;
-  activities?: ActivitiesSave;
-  naval?: NavalSave;
-  powers?: AegeanPowersSave;
-  encounters?: ReturnType<Game['encounters']['snapshot']>;
+  version: 1;
   savedAt: number;
   seed: number;
   mapId: string;
@@ -77,17 +63,6 @@ export interface SaveData {
     quickItem: string | null;
     playTime: number;
     deaths: number;
-    cooldowns?:Record<string,number>;
-    resistances?:Player['resistances'];
-    statuses?:Player['statuses'];
-    buffs?:Player['buffs'];
-    reviveUsed?:boolean;
-    regen?:Player['regen'];
-    shield?:number;
-    shieldUntil?:number;
-    artifactCooldown?:number;
-    weaponPowerCooldown?:number;
-    offhandCooldown?:number;
   };
   quests: { active: ActiveQuest[]; completed: string[] };
   trackedQuest: string | null;
@@ -113,8 +88,8 @@ export function savePreview(): { name: string; level: number; cls: ClassId; race
   }
 }
 
-export function saveGame(game: Game): boolean {
-  if (game.screen !== 'playing' || !game.player || game.encounters.isPractice) return false;
+export function saveGame(game: Game): void {
+  if (game.screen !== 'playing' || !game.player) return;
   const p = game.player;
   const mapStates: Record<string, SavedMapState> = {};
   for (const [id, st] of game.mapStates) {
@@ -129,14 +104,7 @@ export function saveGame(game: Game): boolean {
     };
   }
   const data: SaveData = {
-    version: 2,
-    now: game.now,
-    itemMigrations: game.itemMigrationReport,
-    campaign: game.campaign.snapshot(),
-    activities: game.activities.snapshot(),
-    naval: game.naval.snapshot(),
-    encounters: game.encounters.snapshot(),
-    powers:game.powers.snapshot(),
+    version: 1,
     savedAt: Date.now(),
     seed: game.seed,
     mapId: game.map.id,
@@ -152,26 +120,15 @@ export function saveGame(game: Game): boolean {
       flags: [...p.flags], discovered: [...p.discovered], waystones: [...p.waystones],
       killCounts: p.killCounts, bossesKilled: [...p.bossesKilled], warrantsUsed: p.warrantsUsed, clearedDungeons: [...p.clearedDungeons],
       shrinesTended: p.shrinesTended, quickItem: p.quickItem, playTime: p.playTime, deaths: p.deaths,
-      reviveUsed:p.reviveUsed,regen:p.regen,cooldowns:p.cooldowns,resistances:p.resistances,statuses:p.statuses,buffs:p.buffs,shield:p.shield,shieldUntil:p.shieldUntil,
-      artifactCooldown:p.artifactCooldown,weaponPowerCooldown:p.weaponPowerCooldown,offhandCooldown:p.offhandCooldown,
     },
     quests: game.quests.serialize(),
     trackedQuest: game.trackedQuest,
     mapStates,
   };
   try {
-    const serialized=JSON.stringify(data);
-    const previous=localStorage.getItem(KEY);
-    let legacy=false;try{legacy=!!previous&&JSON.parse(previous).version===1;}catch{/* A damaged previous entry must not prevent a fresh save. */}
-    if(legacy && previous && !localStorage.getItem(BACKUP_KEY)) localStorage.setItem(BACKUP_KEY,previous);
-    localStorage.setItem(RECOVERY_KEY,serialized);
-    if(localStorage.getItem(RECOVERY_KEY)!==serialized) throw new Error('Save verification failed');
-    localStorage.setItem(KEY,serialized);
-    localStorage.removeItem(RECOVERY_KEY);
-    return true;
+    localStorage.setItem(KEY, JSON.stringify(data));
   } catch {
-    game.toast('Your game could not be saved', 'Browser storage is full or unavailable. Keep this tab open and free some storage.', '#d9553f');
-    return false;
+    /* quota or private mode — ignore */
   }
 }
 
@@ -184,13 +141,7 @@ export function loadGame(game: Game): boolean {
   } catch {
     return false;
   }
-  if (!data || (data.version !== 1 && data.version !== 2) || !data.player || !Number.isFinite(data.seed)) return false;
-  invalidateChunks();
-  game.encounters.restore(undefined);
-  game.naval.reset();
-  game.campaign.reset();
-  game.activities.reset();
-  game.services.reset();
+  if (!data || data.version !== 1) return false;
 
   const sp = data.player;
   game.seed = data.seed;
@@ -218,14 +169,12 @@ export function loadGame(game: Game): boolean {
   // dropped. Re-reading it against them is what lets a balance pass, or a new
   // signature move, reach the axe already in the player's hands rather than
   // only the next one they find.
-  game.itemMigrationReport=data.itemMigrations??[];
-  const restoreItem=(item:Item):Item=>{const report=normalizeItemCurve(item);if(report?.legacyRollsEstimated&&!game.itemMigrationReport.some(r=>r.uid===item.uid))game.itemMigrationReport.push(report);return refreshFromTemplate(item);};
-  player.inventory = (sp.inventory ?? []).map(restoreItem);
-  player.storage = (sp.storage ?? []).map(restoreItem);
+  player.inventory = (sp.inventory ?? []).map(refreshFromTemplate);
+  player.storage = (sp.storage ?? []).map(refreshFromTemplate);
   player.equipment = sp.equipment ?? player.equipment;
   for (const slot of Object.keys(player.equipment) as EquipSlot[]) {
     const it = player.equipment[slot];
-    if (it) player.equipment[slot] = restoreItem(it);
+    if (it) player.equipment[slot] = refreshFromTemplate(it);
   }
   player.reputation = { ...player.reputation, ...sp.reputation };
   player.flags = new Set(sp.flags ?? []);
@@ -239,10 +188,6 @@ export function loadGame(game: Game): boolean {
   player.quickItem = sp.quickItem ?? null;
   player.playTime = sp.playTime ?? 0;
   player.deaths = sp.deaths ?? 0;
-  player.reviveUsed=sp.reviveUsed??false;player.regen=sp.regen??null;
-  player.cooldowns=sp.cooldowns??{};player.resistances=sp.resistances??{};player.statuses=sp.statuses??[];player.buffs=sp.buffs??[];
-  player.shield=sp.shield??0;player.shieldUntil=sp.shieldUntil??0;
-  player.artifactCooldown=sp.artifactCooldown??0;player.weaponPowerCooldown=sp.weaponPowerCooldown??0;player.offhandCooldown=sp.offhandCooldown??0;
   player.hp = Math.min(sp.hp, player.maxHp);
   player.mp = Math.min(sp.mp, player.maxMp);
   player.sp = Math.min(sp.sp, player.maxSp);
@@ -264,30 +209,16 @@ export function loadGame(game: Game): boolean {
     });
   }
 
-  game.now = Math.max(0,data.now ?? 0);
-  game.lastAutosave=game.now;
-  game.campaign.restore(data.campaign);
-  game.activities.restore(data.activities);
-  game.naval.restore(data.naval);
-  game.naval.buildDeck();
   game.clock = data.clock;
   game.day = data.day;
   game.screen = 'playing';
   game.panel = null;
   game.setMap(data.mapId);
-  const valid=Number.isFinite(sp.x)&&Number.isFinite(sp.y)&&sp.x>=0&&sp.y>=0&&sp.x<game.map.w*32&&sp.y<game.map.h*32;
-  const safe = game.naval.aboard && valid ? {x:sp.x,y:sp.y} : game.findStandingSpot(valid?sp.x:480*32,valid?sp.y:448*32);
-  player.x=safe.x;player.y=safe.y;
-  game.camera.x=player.x;game.camera.y=player.y;
-  game.encounters.restore(data.encounters);
-  game.encounters.onMapEntered();
-  game.powers.restore(data.powers);
-  if(player.equipment.mainHand?.aegeanPower)player.weaponPowerCooldown=game.powers.cooldown(player.equipment.mainHand);
-  if(player.equipment.offHand?.aegeanPower)player.offhandCooldown=game.powers.cooldown(player.equipment.offHand);
-  if(player.equipment.accessory?.aegeanPower)player.artifactCooldown=game.powers.cooldown(player.equipment.accessory);
-  game.naval.populateDeck();
+  player.x = sp.x;
+  player.y = sp.y;
+  game.camera.x = sp.x;
+  game.camera.y = sp.y;
   game.catchUpBounties();
-  if(data.version===1&&game.itemMigrationReport.length)game.toast('Your save is ready for Achaea','Legacy equipment now uses the stable forge curve. Review the migration record in the Chronicle; your original save is backed up on the next successful save.','#e7c778');
   game.toast('Game loaded', `${player.name}, level ${player.level}`, '#6fd0e8');
   game.touch();
   return true;

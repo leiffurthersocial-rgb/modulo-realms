@@ -1,17 +1,13 @@
 import { RNG, fbm, ridge } from '../core/rng';
 import {
-  LEGACY_LOCATIONS as LOCATIONS, LEGACY_LOCATION_BY_ID as LOCATION_BY_ID, VILLAGE_TX, VILLAGE_TY,
-  LEGACY_WORLD_H as WORLD_H, LEGACY_WORLD_W as WORLD_W, type LocationDef,
+  LOCATIONS, LOCATION_BY_ID, VILLAGE_TX, VILLAGE_TY, WORLD_H, WORLD_W, type LocationDef,
 } from '../../data/locations';
+import { MAX_CONTENT_LEVEL } from '../../data/balance';
 import { T, isSolid } from './tiles';
 import { TILE } from './tiles';
 import { buildPropGrid, createMap, getTile, setTile, type GameMap, type PropInstance } from './map';
 import { buildAshvale, drainFor } from './village';
 import { buildSettlement } from './settlements';
-import { appendAegean } from './aegean';
-
-// Saved legacy spawn/chest identities must not follow expansion balance caps.
-const MAX_CONTENT_LEVEL = 75;
 
 export const REGION_CENTRAL = 0;
 export const REGION_NORTH = 1;
@@ -1024,7 +1020,7 @@ function connectLocations(ctx: GenCtx): void {
   ensureConnectivity(ctx, true);
 }
 
-export function generateLegacyOverworld(seed: number): GameMap {
+export function generateOverworld(seed: number): GameMap {
   const map = createMap({
     id: 'overworld',
     name: 'Ashvale Valley',
@@ -1163,9 +1159,4 @@ export function generateLegacyOverworld(seed: number): GameMap {
   return map;
 }
 
-/** The legacy pass has frozen bounds, lists and RNG order. Expansion runs afterward. */
-export function generateOverworld(seed: number): GameMap {
-  return appendAegean(generateLegacyOverworld(seed), seed);
-}
-
-export const worldPixelSize = { w: WORLD_W * 2 * TILE, h: WORLD_H * TILE };
+export const worldPixelSize = { w: WORLD_W * TILE, h: WORLD_H * TILE };

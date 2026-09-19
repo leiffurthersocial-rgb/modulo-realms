@@ -3,7 +3,6 @@ import type { Look } from '../game/art/characters';
 import type { CreatureKind } from '../game/art/creatures';
 import type { FactionId } from './races';
 import type { EnemyRole } from './balance';
-import { AEGEAN_ENEMIES } from './aegean/enemies';
 
 export type DamageElement = 'physical' | 'fire' | 'frost' | 'arcane' | 'shadow' | 'holy' | 'poison';
 
@@ -150,8 +149,6 @@ export interface EnemyDef {
   boss?: BossDef;
   /** Undead take extra holy damage; beasts extra poison, etc. */
   tags?: string[];
-  /** Greek field enemies carry a readable tactical move instead of a tint only. */
-  tactic?: 'charge' | 'feint' | 'piper' | 'firetrail' | 'volley' | 'zone' | 'snatch' | 'bind' | 'guard' | 'revive' | 'lure' | 'surface';
 }
 
 const humanLook = (over: Partial<Look>): Look => ({
@@ -1552,5 +1549,5 @@ export const BOSSES: EnemyDef[] = [
   },
 ];
 
-export const ALL_ENEMIES: EnemyDef[] = [...ENEMIES, ...BOSSES, ...AEGEAN_ENEMIES];
+export const ALL_ENEMIES: EnemyDef[] = [...ENEMIES, ...BOSSES];
 export const ENEMY_BY_ID: Record<string, EnemyDef> = Object.fromEntries(ALL_ENEMIES.map((e) => [e.id, e]));

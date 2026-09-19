@@ -1,4 +1,3 @@
-import { AEGEAN_NPCS } from './aegean/npcs';
 import { PAL } from '../game/art/palette';
 import type { Look } from '../game/art/characters';
 import type { DialogueChoice, DialogueNode } from '../game/dialogue/types';
@@ -1007,7 +1006,6 @@ export const NPCS: NpcDef[] = [
     ],
   },
   ...WANDERING_TRADERS,
-  ...AEGEAN_NPCS,
 ];
 
 export const NPC_BY_ID: Record<string, NpcDef> = Object.fromEntries(NPCS.map((n) => [n.id, n]));

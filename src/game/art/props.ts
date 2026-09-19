@@ -1,7 +1,6 @@
 import { RNG } from '../core/rng';
 import { PAL, mix, shade, withAlpha } from './palette';
 import { Px, strip, type Canvas } from './pixel';
-import { getAegeanProp } from './aegean';
 
 export interface PropArt {
   /** Sheet containing `frames` horizontally laid out frames. */
@@ -1429,8 +1428,6 @@ const FALLBACK: Gen = () => {
 };
 
 export function getProp(name: string): PropArt {
-  const aegean = getAegeanProp(name);
-  if (aegean) return aegean;
   let a = cache.get(name);
   if (!a) {
     const gen = GEN[name] ?? FALLBACK;

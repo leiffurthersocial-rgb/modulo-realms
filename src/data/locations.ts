@@ -1,10 +1,5 @@
-import { AEGEAN_LOCATIONS, AEGEAN_REGIONS } from './aegean/world';
-
 export type RegionId = 'central' | 'north' | 'east' | 'south' | 'west' | 'deepnorth' | 'farwest' | 'fareast' | 'farsouth'
-  | 'sunkenwest' | 'stormeast' | 'emberdeep'
-  | 'aegean_threshold' | 'aegean_arcadia' | 'aegean_olympus' | 'aegean_rivers'
-  | 'aegean_delphi' | 'aegean_coast' | 'aegean_sparta' | 'aegean_lerna'
-  | 'aegean_ash' | 'aegean_cyclades' | 'aegean_pelagic' | 'aegean_asterion';
+  | 'sunkenwest' | 'stormeast' | 'emberdeep';
 
 export interface RegionDef {
   id: RegionId;
@@ -30,7 +25,6 @@ export const REGIONS: RegionDef[] = [
   { id: 'sunkenwest', index: 9, name: 'The Drowning Reach', blurb: 'The Gloaming runs out into black water that is still rising. What grew here kept growing after it drowned.', level: [52, 62], color: '#22333a', music: 'forest' },
   { id: 'stormeast', index: 10, name: 'The Stormreach', blurb: 'Past the salt the sky stops clearing. Lightning walks the flats on legs, and it has been walking them a long time.', level: [58, 68], color: '#4b4470', music: 'north' },
   { id: 'emberdeep', index: 11, name: 'The Emberdeep', blurb: 'The floor of the world, where the Cinderwastes finally give out. Everything here is lit from underneath.', level: [64, 75], color: '#5c1f1c', music: 'desert' },
-  ...AEGEAN_REGIONS,
 ];
 
 export const REGION_BY_INDEX: RegionDef[] = REGIONS.slice().sort((a, b) => a.index - b.index);
@@ -47,8 +41,6 @@ export interface DungeonSpec {
   miniboss?: string;
   enemies: string[];
   name: string;
-  /** A bespoke encounter generator, independent of the legacy room maze. */
-  encounter?: string;
 }
 
 export interface LocationDef {
@@ -66,15 +58,11 @@ export interface LocationDef {
   /** Starts discovered on the world map. */
   known?: boolean;
   level?: number;
-  travelPolicy?: 'waystone' | 'port' | 'checkpoint' | 'none';
-  gate?: string;
-  /** Parent map for a nested entrance; omitted means the surface overworld. */
-  surfaceMap?: string;
 }
 
 /**
- * The preserved western world is 960 tiles wide and 1088 tall. Achaea adds
- * exactly another 960 columns to the east; no established coordinates move.
+ * The overworld is 960 tiles wide and 1088 tall — roughly 30,700 by 34,800
+ * pixels, and about four times the area of the original valley.
  *
  * It has grown three times, always outward from Ashvale rather than around it,
  * so nothing already placed has ever moved relative to the town. The first
@@ -87,14 +75,12 @@ export interface LocationDef {
  * did in the previous draft; y was not touched, because the world only grew
  * downward.
  */
-export const LEGACY_WORLD_W = 960;
-export const LEGACY_WORLD_H = 1088;
-export const WORLD_W = LEGACY_WORLD_W * 2;
-export const WORLD_H = LEGACY_WORLD_H;
+export const WORLD_W = 960;
+export const WORLD_H = 1088;
 export const VILLAGE_TX = 480;
 export const VILLAGE_TY = 448;
 
-export const LEGACY_LOCATIONS: LocationDef[] = [
+export const LOCATIONS: LocationDef[] = [
   // settlements
   { id: 'ashvale', name: 'Ashvale', kind: 'town', tx: 480, ty: 448, region: 'central', desc: 'The last town in the valley with a working forge and a full inn.', known: true, radius: 29, level: 1 },
   { id: 'northwatch', name: 'Northwatch', kind: 'village', tx: 477, ty: 307, region: 'north', desc: 'A clanhold of stone huts wedged against the crag wall.', radius: 19, level: 10 },
@@ -276,12 +262,10 @@ export const LEGACY_LOCATIONS: LocationDef[] = [
   { id: 'the_long_vent', name: 'The Long Vent', kind: 'ruin', tx: 760, ty: 1040, region: 'emberdeep', level: 70, desc: 'It breathes out for six hours and in for six hours, and nothing grows on the out side.' },
 ];
 
-export const LOCATIONS: LocationDef[] = [...LEGACY_LOCATIONS, ...AEGEAN_LOCATIONS];
-export const LEGACY_LOCATION_BY_ID: Record<string, LocationDef> = Object.fromEntries(LEGACY_LOCATIONS.map((l) => [l.id, l]));
 export const LOCATION_BY_ID: Record<string, LocationDef> = Object.fromEntries(LOCATIONS.map((l) => [l.id, l]));
 export const DUNGEONS = LOCATIONS.filter((l) => !!l.dungeon);
 
 /** Sites that carry a waystone, in travel-menu order. */
 export const WAYSTONE_SITES: LocationDef[] = LOCATIONS.filter(
-  (l) => l.travelPolicy ? l.travelPolicy === 'waystone' : l.kind === 'town' || l.kind === 'village' || l.kind === 'dungeon' || l.kind === 'cave',
+  (l) => l.kind === 'town' || l.kind === 'village' || l.kind === 'dungeon' || l.kind === 'cave',
 );

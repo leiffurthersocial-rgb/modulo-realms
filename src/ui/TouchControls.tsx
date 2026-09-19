@@ -154,7 +154,6 @@ export default function TouchControls({ game }: { game: Game }) {
 
       <div className="touch-menus">
         <Btn game={game} label="BAG" onTap={() => game.togglePanel('inventory')} className="tiny" />
-        <Btn game={game} label="OATH" onTap={() => game.togglePanel('chronicle')} className="tiny" />
         <Btn game={game} label="MAP" onTap={() => game.togglePanel('map')} className="tiny" />
         <Btn game={game} label="II" onTap={() => game.togglePanel('pause')} className="tiny" />
       </div>
@@ -179,7 +178,7 @@ export default function TouchControls({ game }: { game: Game }) {
           })}
         </div>
         <div className="touch-row">
-          {mh?.weaponPower || mh?.aegeanPower ? (
+          {mh?.weaponPower ? (
             <Btn
               game={game}
               className="small relic"
@@ -192,10 +191,10 @@ export default function TouchControls({ game }: { game: Game }) {
             game={game}
             className="small"
             icon={p.equipment.accessory ? getIconUrl(p.equipment.accessory.icon, { metal: p.equipment.accessory.iconMetal }) : null}
-            label={game.naval.aboard?'DECK':p.equipment.accessory ? undefined : 'ART'}
-            disabled={!game.naval.aboard&&!p.equipment.accessory?.artifact&&!p.equipment.accessory?.aegeanPower}
+            label={p.equipment.accessory ? undefined : 'ART'}
+            disabled={!p.equipment.accessory?.artifact}
             cooldown={p.artifactCooldown}
-            onTap={() => game.naval.aboard?game.naval.enterDeck():game.useArtifact()}
+            onTap={() => game.useArtifact()}
           />
           <Btn
             game={game}
@@ -214,8 +213,6 @@ export default function TouchControls({ game }: { game: Game }) {
           />
         </div>
         <div className="touch-row main">
-          <Btn game={game} className="small" label="BRACE" action="brace" />
-          <Btn game={game} className="small" label="TARGET" action="target" />
           <Btn game={game} className="wide" label="USE" action="interact" />
           <Btn game={game} className="med" label="ROLL" action="dash" />
           <Btn game={game} className="med" label="HEAVY" action="heavy" />

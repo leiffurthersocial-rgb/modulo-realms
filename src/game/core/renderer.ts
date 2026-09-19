@@ -8,14 +8,11 @@ import { getTileset, TILE_VARIANTS } from '../art/tileset';
 import { drawProjectile } from '../combat/projectiles';
 import { RARITY_COLOR } from '../items/types';
 import type { Enemy } from '../entities/enemy';
-import { T, TILE, TILES, isWall, isWater } from '../world/tiles';
+import { T, TILE, TILES, isWall } from '../world/tiles';
 import { propsInRect, type GameMap } from '../world/map';
 import type { Game } from './game';
 import { LOCATIONS } from '../../data/locations';
 
-const identities = new WeakMap<GameMap,number>();
-let nextIdentity=1;
-function mapIdentity(map:GameMap):number {let id=identities.get(map);if(!id){id=nextIdentity++;identities.set(map,id);}return id;}
 const CHUNK = 16;
 const CHUNK_PX = CHUNK * TILE;
 
@@ -36,7 +33,7 @@ function tileVariant(tx: number, ty: number): number {
 }
 
 function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
-  const key = `${map.id}:${mapIdentity(map)}:${cx},${cy}`;
+  const key = `${map.id}:${cx},${cy}`;
   const hit = chunkCache.get(key);
   if (hit) return hit;
 
@@ -103,7 +100,7 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
 
   chunkCache.set(key, canvas);
   chunkOrder.push(key);
-  if (chunkOrder.length > 32) {
+  if (chunkOrder.length > 90) {
     const old = chunkOrder.shift()!;
     chunkCache.delete(old);
   }
@@ -156,7 +153,6 @@ function applyMacroVariation(g: CanvasRenderingContext2D, map: GameMap, cx: numb
 
 export function invalidateChunks(mapId?: string): void {
   if (!mapId) {
-    minimapCache.clear();
     chunkCache.clear();
     chunkOrder.length = 0;
     return;
@@ -237,7 +233,7 @@ function enemySheet(e: Enemy): CharacterSheet {
 const minimapCache = new Map<string, HTMLCanvasElement>();
 
 export function getMinimap(map: GameMap, step = 2): HTMLCanvasElement {
-  const key = `${map.id}:${mapIdentity(map)}:${step}`;
+  const key = `${map.id}:${step}`;
   const hit = minimapCache.get(key);
   if (hit) return hit;
   const w = Math.ceil(map.w / step);
@@ -260,7 +256,6 @@ export function getMinimap(map: GameMap, step = 2): HTMLCanvasElement {
     }
   }
   g.putImageData(img, 0, 0);
-  if(minimapCache.size>=12) minimapCache.delete(minimapCache.keys().next().value!);
   minimapCache.set(key, c);
   return c;
 }
@@ -323,7 +318,7 @@ export function render(game: Game): void {
       for (let tx = tx0; tx <= tx1; tx++) {
         if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) continue;
         const id = map.tiles[ty * map.w + tx];
-        if (!isWater(id)) continue;
+        if (id !== T.WATER && id !== T.DEEP_WATER && id !== T.SWAMP_WATER) continue;
         const phase = Math.sin(t * 1.6 + tx * 0.6 + ty * 0.4);
         if (phase < 0.55) continue;
         g.fillStyle = id === T.SWAMP_WATER ? PAL.toxic : PAL.foam;
@@ -504,11 +499,8 @@ export function render(game: Game): void {
     });
   }
 
-  game.encounters.draw(g);
-  game.activities.draw(g);
   // player
-  if(game.naval.aboard) drawables.push({y:player.y,draw:()=>game.naval.draw(g)});
-  else {
+  {
     const sheet = getCharacterSheet(player.look());
     drawables.push({
       y: player.y + 1,
@@ -525,12 +517,12 @@ export function render(game: Game): void {
           g.stroke();
           g.restore();
         }
-        if (player.blocking || player.bracing) {
+        if (player.blocking) {
           g.save();
           g.globalAlpha = 0.5;
           g.strokeStyle = PAL.steel;
           g.lineWidth = 3;
-          const aim = player.bracing ? player.facing : Math.atan2(game.input.world.y - player.y, game.input.world.x - player.x);
+          const aim = Math.atan2(game.input.world.y - player.y, game.input.world.x - player.x);
           g.beginPath();
           g.arc(player.x, player.y - 8, 26, aim - 0.7, aim + 0.7);
           g.stroke();

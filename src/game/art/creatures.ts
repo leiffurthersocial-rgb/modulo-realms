@@ -4,10 +4,7 @@ import { CH_W, CH_H, CH_FEET, SHEET_COLS, type CharacterSheet } from './characte
 
 export type CreatureKind =
   | 'wolf' | 'spider' | 'bat' | 'slime' | 'wisp' | 'golem' | 'treant'
-  | 'scorpion' | 'wraith' | 'crawler' | 'boar' | 'serpent'
-  | 'lion' | 'stag' | 'satyr' | 'centaur' | 'harpy' | 'hydra' | 'automaton'
-  | 'hoplite' | 'cyclops' | 'crab' | 'ketos' | 'octopus' | 'bull' | 'geryon'
-  | 'cerberus' | 'medusa' | 'minotaur' | 'chimera';
+  | 'scorpion' | 'wraith' | 'crawler' | 'boar' | 'serpent';
 
 export interface CreatureStyle {
   kind: CreatureKind;
@@ -115,121 +112,6 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
   const { primary, secondary, accent, eye } = s;
 
   switch (s.kind) {
-    case 'lion':
-    case 'bull':
-    case 'stag':
-    case 'cerberus':
-    case 'chimera': {
-      quadruped(p, s, dir, pose, { bodyW: 25, bodyH: 13, legH: 9, headR: 6, maned: s.kind !== 'stag', tail: 'thin' });
-      const hy = F - 24 + pose.bob;
-      if (s.kind === 'bull' || s.kind === 'stag') {
-        for (const side of [-1, 1]) {
-          p.line(cx + side * 5, hy, cx + side * 11, hy - 9, accent);
-          p.line(cx + side * 11, hy - 9, cx + side * 8, hy - 13, accent);
-          if (s.kind === 'stag') { p.line(cx + side * 9, hy - 6, cx + side * 15, hy - 8, accent); }
-        }
-      }
-      if (s.kind === 'cerberus' || s.kind === 'chimera') {
-        for (const side of [-1, 1]) {
-          p.ellipse(cx + side * 9, hy + 3, 5, 6, side < 0 && s.kind === 'chimera' ? secondary : primary);
-          p.fill(cx + side * 9 - 2, hy + 1, 2, 2, eye);
-          p.poly([[cx + side * 9 - 4, hy], [cx + side * 9 - 3, hy - 8], [cx + side * 9 + 1, hy]], accent);
-        }
-        if (s.kind === 'chimera') p.line(cx - 10, F - 12, cx - 16, F - 31, '#73a56d');
-      }
-      break;
-    }
-    case 'hydra': {
-      p.ellipse(cx, F - 4, 16, 6, secondary);
-      for (let head = 0; head < 5; head++) {
-        const hx = cx + (head - 2) * 7;
-        const hy = F - 24 - (head % 2) * 8 + Math.sin(pose.t * 6 + head) * 2;
-        p.line(cx + (head - 2) * 3, F - 7, hx, hy, primary);
-        p.line(cx + (head - 2) * 3 + 2, F - 7, hx + 2, hy, accent);
-        p.ellipse(hx, hy, 4, 5, primary);
-        p.fill(hx - 2, hy - 2, 2, 2, eye); p.fill(hx + 1, hy - 2, 2, 2, eye);
-        p.poly([[hx - 3, hy + 2], [hx, hy + 6 + pose.lunge * 2], [hx + 3, hy + 2]], secondary);
-      }
-      break;
-    }
-    case 'harpy': {
-      const yy = F - 24 + pose.bob;
-      const flap = Math.sin(pose.t * Math.PI * 2) * 5;
-      for (const side of [-1, 1]) {
-        p.poly([[cx + side * 3, yy + 2], [cx + side * 18, yy - 9 + flap], [cx + side * 12, yy + 9], [cx + side * 3, yy + 12]], secondary);
-        for (let feather = 0; feather < 4; feather++) p.line(cx + side * 6, yy + 5, cx + side * (17 - feather * 2), yy - 5 + flap + feather * 4, accent);
-        p.line(cx + side * 3, yy + 12, cx + side * 6, F - 1, accent);
-      }
-      p.ellipse(cx, yy + 5, 5, 10, primary); p.circle(cx, yy - 4, 5, primary);
-      p.fill(cx - 3, yy - 5, 2, 2, eye); p.fill(cx + 1, yy - 5, 2, 2, eye);
-      p.poly([[cx - 2, yy - 1], [cx, yy + 3], [cx + 2, yy - 1]], accent);
-      break;
-    }
-    case 'satyr':
-    case 'centaur':
-    case 'automaton':
-    case 'hoplite':
-    case 'cyclops':
-    case 'minotaur':
-    case 'geryon':
-    case 'medusa': {
-      const yy = F - 31 + pose.bob;
-      const stride = pose.walk ? Math.sin(pose.t * Math.PI * 2) * 3 : 0;
-      if (s.kind === 'centaur') {
-        p.ellipse(cx, F - 9, 14, 7, secondary);
-        for (const ox of [-11, -4, 4, 11]) p.line(cx + ox, F - 8, cx + ox + stride * (ox < 0 ? 1 : -1), F, secondary);
-      } else if (s.kind === 'medusa') {
-        for (let j = 0; j < 12; j++) p.ellipse(cx - 10 + j * 2, F - 3 + Math.sin(j + pose.t * 6) * 2, 4, 3, secondary);
-      } else {
-        p.fill(cx - 7 - stride, F - 12, 5, 12, secondary); p.fill(cx + 2 + stride, F - 12, 5, 12, secondary);
-      }
-      p.fill(cx - 9, yy + 10, 18, 16, primary);
-      p.fill(cx - 7, yy + 11, 3, 14, shade(primary, 1.3));
-      p.ellipse(cx, yy + 4, s.kind === 'minotaur' ? 9 : 7, 8, primary);
-      if (s.kind === 'cyclops') p.ellipse(cx, yy + 3, 4, 2, eye);
-      else { p.fill(cx - 4, yy + 3, 3, 2, eye); p.fill(cx + 2, yy + 3, 3, 2, eye); }
-      if (s.kind === 'satyr' || s.kind === 'minotaur') {
-        for (const side of [-1, 1]) p.poly([[cx + side * 5, yy], [cx + side * 12, yy - 6], [cx + side * 8, yy + 5]], accent);
-      }
-      if (s.kind === 'medusa') {
-        for (let j = 0; j < 7; j++) { const xx = cx - 10 + j * 3; p.line(cx, yy, xx, yy - 6 + j % 3, secondary); p.circle(xx, yy - 6 + j % 3, 2, '#7bae72'); }
-      }
-      if (s.kind === 'geryon') {
-        for (const side of [-1, 1]) { p.fill(cx + side * 10 - 4, yy + 10, 8, 16, secondary); p.circle(cx + side * 10, yy + 4, 5, primary); p.set(cx + side * 10, yy + 3, eye); }
-      }
-      if (s.kind === 'hoplite' || s.kind === 'automaton') {
-        p.fill(cx - 8, yy - 2, 16, 3, accent); p.fill(cx - 1, yy - 8, 3, 7, '#a53635');
-        p.ellipse(cx - 11, yy + 19, 7, 10, secondary); p.ellipse(cx - 11, yy + 18, 5, 8, accent);
-        p.line(cx + 12, F, cx + 12 + pose.lunge * 4, yy - 5, accent);
-      } else { p.line(cx - 9, yy + 12, cx - 15 - pose.lunge * 3, yy + 23, primary); p.line(cx + 9, yy + 12, cx + 15 + pose.lunge * 3, yy + 23, primary); }
-      break;
-    }
-    case 'crab': {
-      const yy = F - 10;
-      for (const side of [-1, 1]) {
-        for (let j = 0; j < 4; j++) p.line(cx + side * 8, yy + j, cx + side * (17 - j), F - j, secondary);
-        p.ellipse(cx + side * 14, yy - 6 - pose.lunge * 3, 6, 4, primary);
-        p.poly([[cx + side * 14, yy - 6], [cx + side * 19, yy - 12], [cx + side * 18, yy - 4]], accent);
-      }
-      p.ellipse(cx, yy, 12, 8, primary); p.line(cx - 5, yy - 5, cx - 7, yy - 11, secondary); p.line(cx + 5, yy - 5, cx + 7, yy - 11, secondary);
-      p.circle(cx - 7, yy - 11, 2, eye); p.circle(cx + 7, yy - 11, 2, eye);
-      break;
-    }
-    case 'ketos':
-    case 'octopus': {
-      const yy = F - 15 + pose.bob;
-      if (s.kind === 'octopus') {
-        for (let arm = 0; arm < 8; arm++) { const a = arm / 8 * Math.PI * 2; const sx = cx + Math.cos(a) * 5, sy = yy + 6; const tx = cx + Math.cos(a) * 18, ty = F - 1 + Math.sin(a + pose.t * 6) * 3; p.line(sx, sy, tx, ty, secondary); p.line(sx + 1, sy, tx + 1, ty, accent); }
-        p.ellipse(cx, yy - 3, 10, 13, primary);
-      } else {
-        p.ellipse(cx, yy, 17, 10, primary);
-        p.poly([[cx - 12, yy], [cx - 19, yy - 13], [cx - 17, yy + 7]], secondary);
-        p.poly([[cx - 3, yy - 5], [cx + 3, yy - 21], [cx + 8, yy - 5]], accent);
-        p.fill(cx + 8, yy + 3, 9, 3, secondary);
-      }
-      p.fill(cx - 4, yy - 4, 3, 2, eye); p.fill(cx + 3, yy - 4, 3, 2, eye);
-      break;
-    }
     case 'wolf':
       quadruped(p, s, dir, pose, { bodyW: 22, bodyH: 11, legH: 8, headR: 5, maned: true, tail: 'bushy' });
       break;
@@ -498,13 +380,6 @@ export function getCreatureSheet(style: CreatureStyle): CharacterSheet {
 }
 
 export const CREATURE_PALETTES: Record<string, Pick<CreatureStyle, 'primary' | 'secondary' | 'accent' | 'eye'>> = {
-  aegean_earth: { primary: '#b38a50', secondary: '#70512d', accent: '#e7c983', eye: '#ffe6a8' },
-  aegean_stone: { primary: '#928777', secondary: '#54535a', accent: '#d5c7a0', eye: '#dff3ff' },
-  aegean_storm: { primary: '#7678aa', secondary: '#38395e', accent: '#adcbef', eye: '#fcfcff' },
-  aegean_bronze: { primary: '#ba8c43', secondary: '#635030', accent: '#f0d893', eye: '#82d5df' },
-  aegean_fire: { primary: '#a55a35', secondary: '#3a272e', accent: '#eaae52', eye: '#fff1a2' },
-  aegean_shade: { primary: '#8ba9ae', secondary: '#334952', accent: '#b2d5cb', eye: '#c7faed' },
-  aegean_sea: { primary: '#4e93a3', secondary: '#284957', accent: '#95d3d1', eye: '#ffd99f' },
   wolf: { primary: '#6b6a74', secondary: '#4a4955', accent: '#8f8e99', eye: PAL.flameLit },
   direwolf: { primary: '#3e3a48', secondary: '#282430', accent: '#5a5568', eye: PAL.ember },
   frostwolf: { primary: '#a9c2d4', secondary: '#7d95ab', accent: PAL.white, eye: PAL.frost },

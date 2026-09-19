@@ -4,7 +4,7 @@ import { Px } from './pixel';
 export type WeaponKind =
   | 'sword' | 'greatsword' | 'axe' | 'greataxe' | 'hammer' | 'mace' | 'dagger' | 'spear'
   | 'bow' | 'crossbow' | 'staff' | 'wand' | 'tome' | 'scythe' | 'claws' | 'shield'
-  | 'flail' | 'halberd' | 'rapier' | 'warpick' | 'orb' | 'javelin' | 'chainblades' | 'none';
+  | 'flail' | 'halberd' | 'rapier' | 'warpick' | 'orb' | 'none';
 
 export interface WeaponStyle {
   kind: WeaponKind;
@@ -49,31 +49,6 @@ export function drawWeapon(w: WeaponStyle, scale = 1): Px {
   let p: Px;
 
   switch (w.kind) {
-    case 'javelin': {
-      p = new Px(34, 12);
-      wrap(p, 2, 5, 22, 2, grip);
-      p.fill(2, 5, 22, 1, light);
-      p.poly([[22, 3], [34, 6], [22, 9], [25, 6]], metal);
-      p.poly([[23, 4], [32, 6], [25, 6]], edge);
-      p.fill(8, 4, 1, 4, brass);
-      p.fill(12, 4, 1, 4, brass);
-      p.fill(3, 8, 5, 1, PAL.blood);
-      break;
-    }
-    case 'chainblades': {
-      p = new Px(35, 18);
-      wrap(p, 0, 7, 7, 3, grip);
-      for (let i = 0; i < 5; i++) {
-        const x = 8 + i * 3;
-        const y = 8 + (i % 2 ? 2 : 0);
-        p.ellipse(x, y, 2.5, 1.5, dark);
-        p.fill(x - 1, y - 1, 2, 1, light);
-      }
-      p.poly([[21, 8], [29, 2], [35, 3], [28, 9], [32, 15], [25, 13]], metal);
-      p.poly([[24, 7], [30, 3], [33, 3], [27, 8]], edge);
-      p.poly([[24, 11], [28, 12], [31, 15], [25, 13]], dark);
-      break;
-    }
     case 'sword': {
       p = new Px(26, 10);
       wrap(p, 1, 4, 5, 3, grip);
@@ -404,6 +379,4 @@ export const METAL_BY_TIER: Record<string, string> = {
   epic: mix(PAL.steel, PAL.arcaneLit, 0.45),
   legendary: PAL.gold,
   mythic: mix(PAL.gold, PAL.ember, 0.45),
-  olympian: '#d7c893',
-  primordial: '#83abc3',
 };

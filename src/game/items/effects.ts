@@ -1,5 +1,4 @@
 import { PAL } from '../art/palette';
-import type { StatKey } from './types';
 
 export type EffectTrigger = 'onHit' | 'onCrit' | 'onKill' | 'onDamaged' | 'passive';
 
@@ -36,73 +35,3 @@ export const EFFECTS: EffectDef[] = [
 ];
 
 export const EFFECT_BY_ID: Record<string, EffectDef> = Object.fromEntries(EFFECTS.map((e) => [e.id, e]));
-
-/** Authored powers are deliberately outside the random EFFECTS pool. */
-export type AegeanPowerEvent = 'active' | 'brace' | 'dodge' | 'stagger' | 'interrupt' | 'hazardExit' | 'hit';
-export type AegeanPowerAction =
-  | { type: 'damage'; shape: 'line' | 'arc' | 'nova' | 'chain'; multiplier: number; range: number; targets?: number; status?: 'poison' | 'burn' | 'slow'; duration?: number; stacks?: number }
-  | { type: 'restore'; resource: 'health' | 'mana' | 'stamina'; amount: number; percent?: number }
-  | { type: 'buff'; stat: StatKey; amount: number; duration: number }
-  | { type: 'ward'; reduction: number; duration: number; reflect?: boolean }
-  | { type: 'mark'; duration: number; bonus: number }
-  | { type: 'move'; mode: 'markReturn' | 'retreat' | 'gatherAllies'; range: number; duration: number }
-  | { type: 'cleanse'; status: 'petrify' | 'fear' | 'poison' | 'curse' | 'slow' }
-  | { type: 'displace'; distance: number; range: number; bossScale: number }
-  | { type: 'projectileWard'; duration: number; multiplier: number }
-  | { type: 'field'; radius: number; duration: number; mana?: number; health?: number; damageReduction?: number }
-  | { type: 'cycle'; manaCost: number; patterns: Array<{ shape: 'line' | 'arc' | 'nova'; multiplier: number; range: number }> };
-export interface AegeanPowerDef {
-  id: string;
-  name: string;
-  trigger: AegeanPowerEvent;
-  cooldown: number;
-  /** The event earns a finite active window; a normal activation cannot fake the event. */
-  requiresEvent?: Exclude<AegeanPowerEvent, 'active'>;
-  window?: number;
-  charges?: number;
-  condition?: 'marked' | 'exposed' | 'alternatingRange' | 'threeOpenings' | 'reach';
-  actions: AegeanPowerAction[];
-}
-const power = (id: string, name: string, trigger: AegeanPowerEvent, cooldown: number, actions: AegeanPowerAction[], extra: Partial<AegeanPowerDef> = {}): AegeanPowerDef => ({ id, name, trigger, cooldown, actions, ...extra });
-const strike = (shape: 'line' | 'arc' | 'nova' | 'chain', multiplier: number, range: number): AegeanPowerAction => ({ type: 'damage', shape, multiplier, range });
-const ward = (reduction: number, duration: number): AegeanPowerAction => ({ type: 'ward', reduction, duration });
-const restore = (resource: 'health' | 'mana' | 'stamina', amount: number): AegeanPowerAction => ({ type: 'restore', resource, amount });
-const AEGEAN_POWER_LIST: AegeanPowerDef[] = [
-  power('aegean_spacing', 'Dawn Measure', 'active', 9, [{ type: 'mark', duration: 5, bonus: .18 }, strike('line', 1.45, 112)], { condition: 'reach' }),
-  power('aegean_hunt_counter', 'Nemean Counter', 'active', 10, [strike('arc', 1.9, 88), { type: 'buff', stat: 'critChance', amount: 12, duration: 3 }], { requiresEvent: 'dodge', window: 5 }),
-  power('aegean_hydra_venom', 'Last Venom', 'active', 11, [{ type: 'damage', shape: 'line', multiplier: 1.25, range: 72, status: 'poison', duration: 5, stacks: 3 }], { condition: 'exposed' }),
-  power('aegean_hunt_mark', 'Silver Quarry', 'active', 12, [{ type: 'mark', duration: 6, bonus: .28 }, strike('line', 1.6, 440)]),
-  power('aegean_javelin_recall', 'Recall the Thunder', 'active', 11, [strike('line', 1.8, 310), restore('stamina', 20)], { charges: 3 }),
-  power('aegean_forge_shock', 'The Smith’s Measure', 'active', 12, [strike('nova', 1.45, 115)], { requiresEvent: 'stagger', window: 5 }),
-  power('aegean_oracle_field', 'Delphic Breath', 'active', 15, [{ type: 'field', radius: 85, duration: 5, mana: 30 }, strike('line', 1.1, 300)]),
-  power('aegean_chain_retreat', 'Promethean Recoil', 'active', 10, [strike('arc', 1.7, 142), { type: 'move', mode: 'retreat', range: 60, duration: .25 }], { condition: 'alternatingRange' }),
-  power('aegean_tether_sever', 'Cut the Labyrinth', 'active', 14, [strike('arc', 2.3, 108)], { requiresEvent: 'interrupt', window: 6 }),
-  power('aegean_threefold', 'Threefold Breach', 'active', 12, [strike('line', 2.2, 92), { type: 'mark', duration: 4, bonus: .22 }], { condition: 'threeOpenings', charges: 3 }),
-  power('aegean_quarry_crush', 'The Quarry Answers', 'active', 15, [strike('nova', 1.85, 94)], { requiresEvent: 'stagger', window: 6 }),
-  power('aegean_bronze_ricochet', 'Bronze Return', 'active', 10, [{ type: 'mark', duration: 5, bonus: .1 }, { type: 'damage', shape: 'chain', multiplier: 1.4, range: 320, targets: 2 }]),
-  power('aegean_royal_counter', 'Royal Counter', 'active', 13, [strike('line', 2.5, 128), ward(.2, 2)], { requiresEvent: 'brace', window: 5, charges: 3 }),
-  power('aegean_dawn_pursuit', 'The Last Pursuit', 'active', 12, [strike('arc', 2.2, 90), { type: 'buff', stat: 'moveSpeed', amount: 35, duration: 3 }, ward(.2, 3)], { requiresEvent: 'interrupt', window: 6 }),
-  power('aegean_storm_shot', 'Storm-Cleared Sky', 'active', 14, [strike('line', 2.6, 480)], { condition: 'marked' }),
-  power('aegean_flame_cycle', 'Three First Flames', 'active', 10, [{ type: 'cycle', manaCost: 30, patterns: [{ shape: 'line', multiplier: 2.4, range: 360 }, { shape: 'arc', multiplier: 1.9, range: 180 }, { shape: 'nova', multiplier: 1.6, range: 125 }] }]),
-  power('aegean_oath_combo', 'Twin Oath', 'active', 12, [strike('arc', 2.4, 156), restore('stamina', 24)], { condition: 'alternatingRange', charges: 3 }),
-  power('aegean_standard_stance', 'Stand Unbroken', 'active', 18, [{ type: 'field', radius: 125, duration: 5, damageReduction: .25 }, { type: 'move', mode: 'gatherAllies', range: 125, duration: 5 }]),
-  power('aegean_aspis_brace', 'Spartan Economy', 'active', 12, [ward(.3, 2), restore('stamina', 22)], { requiresEvent: 'brace', window: 5 }),
-  power('aegean_lyre_pulse', 'Quiet the Volley', 'active', 16, [{ type: 'projectileWard', duration: 3, multiplier: .5 }, restore('mana', 18)]),
-  power('aegean_clear_mind', 'Clear Mind', 'active', 15, [{ type: 'cleanse', status: 'petrify' }, ward(.2, 3)], { requiresEvent: 'brace', window: 5 }),
-  power('aegean_spirit_passage', 'The Shortest Road', 'active', 16, [{ type: 'move', mode: 'gatherAllies', range: 240, duration: 4 }, restore('mana', 24)]),
-  power('aegean_soul_lantern', 'Returning Light', 'active', 20, [{ type: 'field', radius: 85, duration: 6, health: .14 }]),
-  power('aegean_talos_heat', 'Stored Sun', 'active', 16, [{ type: 'damage', shape: 'nova', multiplier: 1.6, range: 120, status: 'burn', duration: 3 }], { requiresEvent: 'brace', window: 6, charges: 1 }),
-  power('aegean_mirror_counter', 'Last Dawn Reflection', 'active', 17, [{ type: 'ward', reduction: .35, duration: 2, reflect: true }, { type: 'buff', stat: 'abilityPower', amount: 20, duration: 3 }], { requiresEvent: 'brace', window: 4 }),
-  power('aegean_companion_guard', 'The Last Companion', 'active', 17, [ward(.35, 3), strike('line', 1.75, 100)], { requiresEvent: 'brace', window: 5, charges: 1 }),
-  power('aegean_mantle_resolve', 'Nemean Resolve', 'brace', 9, [restore('stamina', 16)]),
-  power('aegean_boar_resolve', 'Erymanthian Resolve', 'brace', 12, [{ type: 'cleanse', status: 'slow' }, ward(.18, 3)]),
-  power('aegean_amazon_discipline', 'Amazon Discipline', 'dodge', 10, [restore('stamina', 14), { type: 'move', mode: 'gatherAllies', range: 110, duration: 2 }]),
-  power('aegean_stygian_escape', 'Stygian Escape', 'hazardExit', 12, [{ type: 'cleanse', status: 'fear' }, ward(.22, 3)]),
-  power('aegean_oath_guard', 'One Unbroken Guard', 'brace', 12, [ward(.32, 3)], { charges: 1 }),
-  power('aegean_ariadne_return', 'Ariadne’s Return', 'active', 20, [{ type: 'move', mode: 'markReturn', range: 160, duration: 4 }]),
-  power('aegean_atlas_relief', 'A Moment Unburdened', 'active', 22, [ward(.28, 4), restore('stamina', 35), restore('mana', 20)], { requiresEvent: 'dodge', window: 6 }),
-  power('aegean_orphic_rally', 'The Gathering Song', 'active', 20, [{ type: 'move', mode: 'gatherAllies', range: 300, duration: 5 }, ward(.2, 4), restore('health', 80)]),
-  power('aegean_tide_wave', 'The Returning Tide', 'active', 20, [strike('nova', 1.2, 150), { type: 'displace', distance: 80, range: 150, bossScale: 0 }, ward(.2, 3)]),
-  power('aegean_ember_oath', 'First Oath', 'active', 18, [{ type: 'buff', stat: 'abilityPower', amount: 25, duration: 4 }, ward(.22, 4)], { requiresEvent: 'interrupt', window: 6 }),
-];
-export const AEGEAN_POWERS: Record<string, AegeanPowerDef> = Object.fromEntries(AEGEAN_POWER_LIST.map(def => [def.id, def]));

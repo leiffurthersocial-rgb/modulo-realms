@@ -42,11 +42,9 @@ export const RARITY_POWER: Record<Rarity, number> = {
   // The spread is deliberately narrow: a relic should be a better weapon,
   // not a different game.
   mythic: 1.38,
-  olympian: 1.52,
-  primordial: 1.68,
 };
 
-const RANGED_KINDS = new Set<WeaponKind>(['bow', 'crossbow', 'javelin']);
+const RANGED_KINDS = new Set<WeaponKind>(['bow', 'crossbow']);
 const MAGIC_KINDS = new Set<WeaponKind>(['staff', 'wand', 'tome', 'orb']);
 
 /**
@@ -63,7 +61,6 @@ export const CLASS_POWER = { melee: 1.0, ranged: 0.7, magic: 0.78 } as const;
 export const SHAPE_POWER: Partial<Record<WeaponKind, number>> = {
   greatsword: 0.92, greataxe: 0.92, halberd: 0.92, scythe: 0.92, flail: 0.94, claws: 0.96,
   dagger: 1.05, rapier: 1.05, spear: 1.04, warpick: 1.05,
-  chainblades: 0.92,
 };
 
 export const weaponClass = (kind: WeaponKind): keyof typeof CLASS_POWER =>
@@ -163,18 +160,6 @@ export const LEVEL_BANDS: Array<{ region: string; from: number; to: number; note
   { region: 'sunkenwest', from: 52, to: 62, note: 'The Drowning Reach — where the Gloaming runs into water' },
   { region: 'stormeast', from: 58, to: 68, note: 'The Stormreach — past the salt, under a sky that never clears' },
   { region: 'emberdeep', from: 64, to: 75, note: 'The Emberdeep — the bottom of the world, and the last of it' },
-  { region: 'aegean_threshold', from: 76, to: 80, note: 'Marble Threshold — veteran country' },
-  { region: 'aegean_arcadia', from: 78, to: 85, note: 'Arcadian Wilds — the sacred hunt' },
-  { region: 'aegean_olympus', from: 87, to: 94, note: 'Olympian Escarpment — snow and thunder' },
-  { region: 'aegean_rivers', from: 80, to: 87, note: 'Two Rivers — mills and drowned estates' },
-  { region: 'aegean_delphi', from: 84, to: 90, note: 'Delphic Heights — the oracle' },
-  { region: 'aegean_coast', from: 80, to: 89, note: 'Bronze Coast — the first sea' },
-  { region: 'aegean_sparta', from: 88, to: 95, note: 'Lacedaemon — the oath road' },
-  { region: 'aegean_lerna', from: 84, to: 92, note: 'Lerna — reeds and poison' },
-  { region: 'aegean_ash', from: 92, to: 97, note: 'Ashen Peninsula — the descent' },
-  { region: 'aegean_cyclades', from: 88, to: 96, note: 'Shattered Cyclades — the mythic islands' },
-  { region: 'aegean_pelagic', from: 94, to: 100, note: 'Pelagic Deep — monster waters' },
-  { region: 'aegean_asterion', from: 99, to: 100, note: 'Asterion — the last oath' },
 ];
 
 /**
@@ -210,9 +195,6 @@ export const REGION_DIFFICULTY: Record<string, number> = {
   sunkenwest: 1.18,
   stormeast: 1.23,
   emberdeep: 1.3,
-  aegean_threshold: 1.38, aegean_arcadia: 1.4, aegean_rivers: 1.42, aegean_coast: 1.43,
-  aegean_delphi: 1.46, aegean_olympus: 1.5, aegean_sparta: 1.52, aegean_lerna: 1.5,
-  aegean_ash: 1.56, aegean_cyclades: 1.56, aegean_pelagic: 1.62, aegean_asterion: 1.7,
 };
 
 /**
@@ -237,9 +219,6 @@ export const REGION_BOSS_DIFFICULTY: Record<string, number> = {
   sunkenwest: 1.65,
   stormeast: 1.8,
   emberdeep: 2.0,
-  aegean_threshold: 2.1, aegean_arcadia: 2.15, aegean_rivers: 2.15, aegean_coast: 2.2,
-  aegean_delphi: 2.25, aegean_olympus: 2.3, aegean_sparta: 2.35, aegean_lerna: 2.3,
-  aegean_ash: 2.4, aegean_cyclades: 2.4, aegean_pelagic: 2.5, aegean_asterion: 2.65,
 };
 
 /**
@@ -250,7 +229,7 @@ export const REGION_BOSS_DIFFICULTY: Record<string, number> = {
 export const ENDGAME_LEVEL = 68;
 
 /** The last level there is content for. */
-export const MAX_CONTENT_LEVEL = 100;
+export const MAX_CONTENT_LEVEL = 75;
 
 /* ------------------------------------------------------------------ */
 /* Enemies                                                             */

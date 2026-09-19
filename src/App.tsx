@@ -1,5 +1,3 @@
-import AegeanPanel from './ui/AegeanPanel';
-import './ui/aegean.css';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Game } from './game/core/game';
 import { render } from './game/core/renderer';
@@ -63,20 +61,16 @@ export default function App() {
 
     let raf = 0;
     let last = performance.now();
-    let accumulator = 0;
-    const visibility = () => { last=performance.now(); accumulator=0; if(document.hidden&&g.screen==='playing') {saveGame(g);g.input.clearVirtual();g.setPanel('pause');} };
-    document.addEventListener('visibilitychange',visibility);
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
-      // Battery saver renders at 30fps while fixed 60Hz simulation keeps
-      // the same committed attacks and movement on both render settings.
+      // Battery saver runs the whole loop at 30fps rather than 60. The frame
+      // is skipped outright — no update, no render — which is what actually
+      // saves power; drawing less per frame at 60fps would not.
       const elapsed = (t - last) / 1000;
       if (g.settings.batterySaver && elapsed < 1 / 32) return;
       const dt = Math.min(0.1, elapsed);
       last = t;
-      if(document.hidden) return;
-      accumulator=Math.min(accumulator+dt,1/15);
-      while(accumulator>=1/60){g.update(1/60);accumulator-=1/60;}
+      g.update(dt);
       if (g.screen === 'playing' || g.screen === 'dead') render(g);
     };
     raf = requestAnimationFrame(loop);
@@ -101,7 +95,6 @@ export default function App() {
     setGame(g);
     return () => {
       cancelAnimationFrame(raf);
-      document.removeEventListener('visibilitychange',visibility);
       window.removeEventListener('resize', resize);
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
@@ -189,7 +182,6 @@ function UiLayer({ game }: { game: Game }) {
       {game.panel === 'forge' ? <ForgePanel game={game} /> : null}
       {game.panel === 'remake' ? <RemakePanel game={game} /> : null}
       {game.panel === 'crown' ? <CrownPanel game={game} /> : null}
-      {game.panel === 'chronicle' || game.panel === 'shipyard' ? <AegeanPanel game={game} /> : null}
       {game.panel === 'debug' ? <DebugPanel game={game} /> : null}
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
       {game.panel === 'help' ? <HelpPanel game={game} /> : null}

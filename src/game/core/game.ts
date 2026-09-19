@@ -1,10 +1,3 @@
-import { AegeanServices } from '../aegean/services';
-import { AegeanPowers } from '../aegean/powers';
-import { AegeanActivities } from '../aegean/activities';
-import { invalidateChunks } from './renderer';
-import { AegeanCampaign } from '../aegean/campaign';
-import { NavalSystem } from '../aegean/naval';
-import { AegeanEncounterDirector } from '../aegean/encounters';
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
 import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
@@ -20,9 +13,9 @@ import { FxSystem } from '../combat/fx';
 import { makeProjectile, type Projectile } from '../combat/projectiles';
 import { Enemy } from '../entities/enemy';
 import { NpcEntity } from '../entities/npcEntity';
-import { applyStatus, resetEntityIds, statusSpeedMul, type Entity } from '../entities/entity';
+import { applyStatus, resetEntityIds, type Entity } from '../entities/entity';
 import { MAX_SLOTS, addItem, addTemplate, countItem, equip, removeByDefId, removeItem, unequip } from '../items/inventory';
-import { makeItem, relevelItem, type ItemCurveMigration, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
+import { makeItem, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
 import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, RARITY_LABEL, type EquipSlot, type Item, type Rarity } from '../items/types';
@@ -30,7 +23,7 @@ import { DEFAULT_SWING_ARC, MAX_LEVEL, Player, SWING_ARC, skillPointsFor, type P
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
 import { buildInterior, interiorEntry } from '../world/interiors';
-import { boxHitsTerrain, findOpenNear, propsInRect, type GameMap, type PropInstance, type SpawnPoint } from '../world/map';
+import { boxHitsTerrain, findOpenNear, propsInRect, type GameMap, type PropInstance } from '../world/map';
 import { T, TILE, TILES, blocksProjectiles } from '../world/tiles';
 import { generateOverworld } from '../world/worldgen';
 import { Input } from './input';
@@ -40,7 +33,7 @@ import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'chronicle' | 'shipyard' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -161,14 +154,7 @@ export class Game implements WorldCtx {
   canvas: HTMLCanvasElement;
   g: CanvasRenderingContext2D;
   input = new Input();
-  campaign = new AegeanCampaign(this);
-  activities = new AegeanActivities(this);
-  services = new AegeanServices(this);
-  naval = new NavalSystem(this);
-  powers = new AegeanPowers(this);
-  encounters = new AegeanEncounterDirector(this);
 
-  itemMigrationReport: ItemCurveMigration[] = [];
   seed = 1337;
   screen: GameScreen = 'title';
   panel: UiPanel = null;
@@ -213,7 +199,6 @@ export class Game implements WorldCtx {
   oneShot = false;
   lastAutosave = 0;
   bossTarget: Enemy | null = null;
-  lockedTarget: number | null = null;
   /** Black screen wipe used for doors, stairs and fast travel. */
   fade = { alpha: 0, target: 0, speed: 3.2, pending: null as null | (() => void), label: '' };
   /** Quest the player asked to be guided to. */
@@ -225,7 +210,6 @@ export class Game implements WorldCtx {
   /** Seconds after taking damage before a waystone can be used again. */
   readonly travelLockoutAfterDamage = 3;
   activeSpawns = new Map<string, Enemy[]>();
-  private spawnGrids = new WeakMap<GameMap, Map<string,SpawnPoint[]>>();
   /**
    * Kill streak. Chain kills inside the window and the rewards escalate — the
    * pitch climbs, the XP multiplies, and the screen tells you about it. This
@@ -329,20 +313,12 @@ export class Game implements WorldCtx {
 
   newGame(init: PlayerInit, seed = Math.floor(Math.random() * 1e9)): void {
     resetEntityIds();
-    invalidateChunks();
     this.seed = seed;
-    this.itemMigrationReport=[];
     this.maps.clear();
     this.mapStates.clear();
     this.shopStock.clear();
     this.quests = new QuestLog();
     this.player = new Player(init);
-    this.campaign.reset();
-    this.activities.reset();
-    this.services.reset();
-    this.naval.reset();
-    this.encounters.restore(undefined);
-    this.now = 0;
 
     const world = generateOverworld(seed);
     this.maps.set('overworld', world);
@@ -359,7 +335,6 @@ export class Game implements WorldCtx {
     this.player.gold = 90;
 
     this.setMap('overworld');
-    this.powers.reset();
     const home = world.portals.find((p) => p.to === 'int_home');
     this.player.x = home ? home.x + home.w / 2 : VILLAGE_TX * TILE;
     this.player.y = home ? home.y + home.h + 26 : VILLAGE_TY * TILE;
@@ -413,9 +388,6 @@ export class Game implements WorldCtx {
 
   setMap(id: string): void {
     this.map = this.getMap(id);
-    this.activities.install(this.map);
-    this.services.install(this.map);
-    this.activities.onMapEntered();
     const st = this.mapState(id);
     this.enemies = [];
     this.projectiles = [];
@@ -433,19 +405,13 @@ export class Game implements WorldCtx {
     // being someone sitting on a wall, and will take the rematch.
     this.duelling = null;
     this.npcs = NPCS.filter((n) => n.map === id).map((n) => new NpcEntity(n));
-    for (const n of this.npcs) {n.updateSchedule(this.hour);if(n.def.id.startsWith('aegean_')){const safe=this.findStandingSpot(n.x,n.y);n.x=safe.x;n.y=safe.y;n.anchorX=safe.x;n.anchorY=safe.y;n.destX=safe.x;n.destY=safe.y;}}
+    for (const n of this.npcs) n.updateSchedule(this.hour);
     this.updateMusic(true);
-    this.encounters.onMapEntered();
   }
-
-  completeAegean(id: string, repeat = false): void { this.campaign.complete(id, repeat); }
-  aegeanHas(id: string): boolean { return this.campaign.has(id); }
 
   /** Fade to black, swap the map, fade back in. */
   travel(mapId: string, x: number, y: number, label?: string): void {
     if (this.fade.pending) return;
-    const reason = this.campaign.access(mapId);
-    if (reason) { this.toast('The way is sealed', reason, '#e7c778'); return; }
     this.fade.target = 1;
     this.fade.label = label ?? '';
     audio.play('door', 0.7);
@@ -460,7 +426,6 @@ export class Game implements WorldCtx {
     this.camera.x = this.player.x;
     this.camera.y = this.player.y;
     this.player.invuln = Math.max(this.player.invuln, 0.8);
-    if(mapId.startsWith('aegean_')&&!this.encounters.isPractice)this.campaign.setCheckpoint();
     this.toast(this.map.name, undefined, PAL.cloth);
     this.autosave();
     this.touch();
@@ -489,10 +454,6 @@ export class Game implements WorldCtx {
   updateMusic(force = false): void {
     let track: MusicTrack = 'world';
     if (this.screen === 'title' || this.screen === 'creation') track = 'title';
-    else if(this.map.id==='aegean_leonidas')track='oath';
-    else if(this.map.id==='aegean_army')track='phalanx';
-    else if(this.naval.aboard)track=this.naval.danger>=3?'storm':'aegean';
-    else if(['aegean_acheron','aegean_asphodel','aegean_persephone','aegean_hades','aegean_tartarus','aegean_cerberus','aegean_titan'].includes(this.map.id))track='underworld';
     else if (this.bossTarget && !this.bossTarget.dead) track = 'boss';
     else if (this.map.kind === 'interior') track = 'village';
     else if (this.map.kind === 'dungeon' || this.map.kind === 'cave') track = 'dungeon';
@@ -506,8 +467,6 @@ export class Game implements WorldCtx {
         track = (REGION_BY_INDEX[reg]?.music ?? 'world') as MusicTrack;
       }
     }
-    if(track==='world'&&this.map.id==='overworld'&&this.player.x>=960*TILE)track='aegean';
-    if(track==='village'&&this.map.id==='overworld'&&this.player.x>=960*TILE)track='polis';
     if (force || track !== this.lastMapMusic) {
       this.lastMapMusic = track;
       audio.playMusic(track);
@@ -592,8 +551,8 @@ export class Game implements WorldCtx {
     audio.play(name, volume);
   }
 
-  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: 'circle' | 'ring' | 'cone' | 'line' = 'circle', angle = 0, halfWidth = 13): void {
-    this.fx.telegraph(x, y, r, duration, color, shape, angle, halfWidth);
+  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: 'circle' | 'ring' | 'cone' | 'line' = 'circle', angle = 0): void {
+    this.fx.telegraph(x, y, r, duration, color, shape, angle);
   }
 
   ringAt(x: number, y: number, r: number, color: string): void {
@@ -674,8 +633,6 @@ export class Game implements WorldCtx {
     const p = this.player;
     // a little headroom under the true reach, so a locked target that drifts
     // outward is still inside the shot when it lands
-    const selected=this.enemies.find(e=>e.id===this.lockedTarget&&!e.dead&&!e.friendly&&dist2(e.x,e.y,p.x,p.y)<700*700);
-    if(selected) return selected;
     const lockRange = range || Math.max(p.isRangedWeapon() ? 0 : 420, this.weaponReach() * 0.92);
     let best: Enemy | null = null;
     let bestScore = Infinity;
@@ -769,7 +726,6 @@ export class Game implements WorldCtx {
       if (opts.element === 'frost') dmg *= 0.55;
       if (opts.element === 'fire') dmg *= 1.45;
     }
-    if(this.player.statuses.some(s=>s.kind==='curse'))dmg*=.8;
     dmg = Math.max(1, dmg);
 
     // Some fights are not allowed to be deleted. A boss with a hit cap takes
@@ -791,12 +747,6 @@ export class Game implements WorldCtx {
       }
     }
 
-    if(!this.encounters.isDamageAllowed(e))return;
-    dmg=this.powers.onHit(e,dmg,opts);
-    if(e.dead)return;
-    if(cap)dmg=Math.min(dmg,e.maxHp*cap);
-    dmg = this.encounters.modifyDamage(e, dmg, opts);
-    if (dmg <= 0) return;
     e.hp -= dmg;
     e.flash = 1;
     e.hurtTime = 0.18;
@@ -822,9 +772,7 @@ export class Game implements WorldCtx {
 
   private killEnemy(e: Enemy, opts: DamageOpts): void {
     e.dead = true;
-    if (this.encounters.onEnemyKilled(e)) return;
     const p = this.player;
-    if (!e.friendly) p.flags.add(`feat:enemy:${e.def.id}`);
     this.fx.spawn(e.x, e.y - e.radius * 0.5, 22, PAL.blood, { speed: 140, life: 0.6, size: 3 });
     audio.play('die', 0.45);
     if (e.friendly) return;
@@ -916,8 +864,6 @@ export class Game implements WorldCtx {
       if (this.map.kind === 'dungeon' || this.map.kind === 'cave') {
         const st = this.mapState(this.map.id);
         st.cleared = true;
-        p.clearedDungeons.add(this.map.id);
-        p.flags.add(`feat:dungeon:${this.map.id}`);
         for (const qid of this.quests.onClear(this.map.id)) this.questProgressToast(qid);
       }
     }
@@ -1019,7 +965,6 @@ export class Game implements WorldCtx {
     if (remaining.length === 0) {
       st.cleared = true;
       this.player.clearedDungeons.add(this.map.id);
-      this.player.flags.add(`feat:dungeon:${this.map.id}`);
       this.toast(`${this.map.name} cleared`, 'Nothing else moves down here.', PAL.goldLit);
       for (const qid of this.quests.onClear(this.map.id)) this.questProgressToast(qid);
     }
@@ -1030,7 +975,6 @@ export class Game implements WorldCtx {
     if (p.dead || this.godMode) return;
     if (p.invuln > 0) return;
 
-    if (this.naval.aboard) { this.naval.damage(amount); return; }
     const stats = p.stats();
     // dodge
     let dodge = p.hasEffect('windward') ? 0.12 : 0;
@@ -1046,8 +990,7 @@ export class Game implements WorldCtx {
       return;
     }
 
-    let dmg = (opts.trueDamage ? amount : amount * damageTaken(stats.defense, p.level)) + (opts.trueDamageAmount ?? 0);
-    if (p.bracing && p.sp >= 8) { dmg *= 0.6; p.sp -= p.flags.has('aegean:mastery:resolve') ? 4 : 8; }
+    let dmg = amount * damageTaken(stats.defense, p.level);
     const lastStand = p.enchantPower('final_shout');
     if (lastStand > 0 && p.hp / p.maxHp < 0.25) dmg *= 1 - lastStand / 100;
     if (p.blocking && p.equipment.offHand?.weaponKind === 'shield' && p.sp > 0) {
@@ -1056,7 +999,7 @@ export class Game implements WorldCtx {
       this.fx.ring(p.x, p.y, 34, PAL.steel);
       audio.play('ui_big', 0.4);
     }
-    dmg = this.powers.onHurt(Math.max(1, dmg),opts);
+    dmg = Math.max(1, dmg);
 
     if (p.shield > 0) {
       const absorbed = Math.min(p.shield, dmg);
@@ -1072,11 +1015,6 @@ export class Game implements WorldCtx {
       this.shake(Math.min(10, 2 + dmg * 0.12));
       audio.play('hurt', 0.5);
       this.lastDamageTaken = this.now;
-      if(opts.knockback && opts.fromX !== undefined && opts.fromY !== undefined) {
-        const a=Math.atan2(p.y-opts.fromY,p.x-opts.fromX);
-        const force=opts.knockback*this.powers.knockbackMultiplier*(p.bracing?.45:1);
-        p.knockX=Math.cos(a)*force;p.knockY=Math.sin(a)*force;
-      }
     }
     // Invulnerability after a hit is what stops a single overlapping attack
     // from chain-killing you. At 0.45s it was also a hard cap of about two
@@ -1119,28 +1057,16 @@ export class Game implements WorldCtx {
   }
 
   respawnPlayer(): void {
-    if(this.encounters.isPractice){this.encounters.returnToAntechamber();this.screen='playing';this.player.dead=false;this.touch();return;}
     const p = this.player;
-    if(this.naval.state.deck){p.dead=false;this.screen='playing';this.naval.wreck();this.touch();return;}
     p.dead = false;
     p.reviveUsed = false;
     p.statuses = [];
     p.hp = p.maxHp * 0.6;
     p.mp = p.maxMp * 0.5;
     p.sp = p.maxSp;
-    const lost = this.encounters.isPractice ? 0 : Math.floor(p.gold * (this.map.id.startsWith('aegean_') ? 0.01 : 0.1));
+    const lost = Math.floor(p.gold * 0.1);
     p.gold -= lost;
     this.screen = 'playing';
-    if (this.campaign.state.checkpoint && (this.map.id.startsWith('aegean_') || p.x >= 960 * TILE)) {
-      const cp = this.campaign.state.checkpoint;
-      this.naval.state.aboard = false;
-      this.setMap(cp.map);
-      const safe = this.findStandingSpot(cp.x, cp.y);
-      p.x=safe.x; p.y=safe.y; p.hp=p.maxHp; p.mp=p.maxMp; p.invuln=3;
-      this.camera.x=p.x; this.camera.y=p.y;
-      this.toast('The oath is not over', 'You return to your last sanctuary. Completed trials remain recorded.', '#e7c778');
-      this.autosave(); this.touch(); return;
-    }
     this.setMap('overworld');
     const home = this.map.portals.find((pt) => pt.to === 'int_home');
     this.player.x = home ? home.x + home.w / 2 : VILLAGE_TX * TILE;
@@ -1193,7 +1119,6 @@ export class Game implements WorldCtx {
   /* ---------------- player actions ---------------- */
 
   basicAttack(power = false): void {
-    if (this.encounters.suppressOffense || this.naval.aboard) return;
     const p = this.player;
     if (p.attackTimer > 0) return;
     const stats = p.stats();
@@ -1211,7 +1136,6 @@ export class Game implements WorldCtx {
       this.floatText(p.x, p.y - 40, 'Out of mana', PAL.arcaneLit, 12);
       return;
     }
-    if(!this.powers.consumeAttack(p.equipment.mainHand))return;
     p.sp -= staminaCost;
 
     const aim = this.aimAngle();
@@ -1423,7 +1347,6 @@ export class Game implements WorldCtx {
   }
 
   useAbility(index: number): void {
-    if (this.encounters.suppressOffense || this.naval.aboard) return;
     const p = this.player;
     const ab = p.abilities[index];
     if (!ab) return;
@@ -1537,7 +1460,6 @@ export class Game implements WorldCtx {
           if (ab.element === 'frost') e.applyStatusFrom('chill', 0.45, ab.duration ?? 4, PAL.frost, this.now);
           if (ab.id === 'drain') healed += roll.dmg * 0.3;
         }
-        healed = Math.min(healed, p.maxHp * 0.3);
         if (healed > 0) {
           p.hp = Math.min(p.maxHp, p.hp + healed);
           this.floatText(p.x, p.y - 44, `+${Math.round(healed)}`, '#6fbf5a', 13);
@@ -1554,7 +1476,7 @@ export class Game implements WorldCtx {
         this.fx.telegraph(gx, gy, r, 0.65, ab.color, 'circle');
         this.groundZones.push({
           x: gx, y: gy, r, until: this.now + 0.65 + duration, next: this.now + 0.65,
-          dps: ab.id === 'meteor' || ab.id === 'rain' ? power : power * 1.2 / Math.max(1, duration),
+          dps: power / Math.max(1, duration) * (ab.id === 'meteor' ? duration : 1.2),
           element: ab.element ?? 'physical', color: ab.color, burst: ab.id === 'meteor' || ab.id === 'rain',
           delay: 0.65,
         });
@@ -1643,7 +1565,6 @@ export class Game implements WorldCtx {
    * than tapped, and that is handled in the input pass.
    */
   useOffhand(): void {
-    if (this.encounters.suppressOffense || this.naval.aboard) return;
     const p = this.player;
     const off = p.equipment.offHand;
     if (!off) {
@@ -1651,7 +1572,6 @@ export class Game implements WorldCtx {
       this.useQuickItem();
       return;
     }
-    if(off.aegeanPower){this.powers.activate(off);p.offhandCooldown=this.powers.cooldown(off);return;}
     if (off.weaponKind === 'shield') {
       this.floatText(p.x, p.y - 44, 'Hold to block', PAL.fog, 11);
       return;
@@ -1848,10 +1768,8 @@ export class Game implements WorldCtx {
    * picking the axe up changes how you fight rather than how hard you hit.
    */
   useWeaponPower(): void {
-    if (this.encounters.suppressOffense || this.naval.aboard) return;
     const p = this.player;
     const item = p.equipment.mainHand;
-    if(item?.aegeanPower){this.powers.activate(item);p.weaponPowerCooldown=this.powers.cooldown(item);return;}
     const power = item?.weaponPower;
     if (!power) {
       this.floatText(p.x, p.y - 44, 'This weapon has no art', PAL.fog, 11);
@@ -1954,10 +1872,8 @@ export class Game implements WorldCtx {
   }
 
   useArtifact(): void {
-    if (this.encounters.suppressOffense || this.naval.aboard) return;
     const p = this.player;
     const item = p.equipment.accessory;
-    if(item?.aegeanPower){this.powers.activate(item);p.artifactCooldown=this.powers.cooldown(item);return;}
     if (!item?.artifact) {
       this.floatText(p.x, p.y - 44, 'No artifact equipped', PAL.fog, 11);
       return;
@@ -2104,9 +2020,6 @@ export class Game implements WorldCtx {
     const item = p.inventory.find((i) => i.uid === uid);
     if (!item || !item.consume) return;
     const c = item.consume;
-    if(c.cooldownGroup && (p.cooldowns[`consume:${c.cooldownGroup}`]??0)>0){this.toast('Still recovering',`${Math.ceil(p.cooldowns[`consume:${c.cooldownGroup}`])} seconds before another recovery draught.`,'#d4a465');return;}
-    if(c.cooldownGroup)p.cooldowns[`consume:${c.cooldownGroup}`]=c.cooldown??18;
-    if(c.resistance)p.resistances[c.resistance.status]={until:this.now+c.resistance.duration,multiplier:c.resistance.multiplier};
     if (c.health) p.hp = Math.min(p.maxHp, p.hp + c.health);
     if (c.healthPct) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * c.healthPct);
     if (c.mana) p.mp = Math.min(p.maxMp, p.mp + c.mana);
@@ -2116,7 +2029,7 @@ export class Game implements WorldCtx {
       p.buffs = p.buffs.filter((b) => b.id !== `item_${item.defId}`);
       p.buffs.push({ id: `item_${item.defId}`, name: c.buff.name, stat: c.buff.stat, amount: c.buff.amount, until: this.now + c.buff.duration, color: PAL.flameLit });
     }
-    if(!this.encounters.isPractice) removeItem(p.inventory, uid, 1);
+    removeItem(p.inventory, uid, 1);
     this.fx.spawn(p.x, p.y - 10, 12, '#6fbf5a', { speed: 70, life: 0.6, size: 2, gravity: -80 });
     audio.play('drink', 0.6);
     this.touch();
@@ -2545,8 +2458,7 @@ export class Game implements WorldCtx {
     if (choice.actions) {
       for (const a of choice.actions) {
         switch (a.type) {
-          case 'chronicle': this.dialogue=null;this.setPanel('chronicle');break;
-      case 'end':
+          case 'end':
             this.closeAll();
             return;
           case 'shop':
@@ -2903,8 +2815,6 @@ export class Game implements WorldCtx {
 
   /** Where the tracked quest wants the player to go, in world pixels. */
   trackedTarget(): { x: number; y: number; name: string } | null {
-    const activity=this.activities.active;
-    if(activity) { const marker=this.map.props.find(p=>p.data?.activity===activity.id&&p.data.index===0); return marker?{x:marker.x,y:marker.y,name:activity.name}:{x:activity.tx*TILE,y:activity.ty*TILE,name:activity.name}; }
     if (!this.trackedQuest) return null;
     const def = QUEST_BY_ID[this.trackedQuest];
     if (!def?.marker) return null;
@@ -2922,8 +2832,6 @@ export class Game implements WorldCtx {
   travelToWaystone(siteId: string): void {
     const loc = LOCATION_BY_ID[siteId];
     if (!loc || !this.player.waystones.has(siteId)) return;
-    if (this.naval.aboard || (loc.travelPolicy && loc.travelPolicy !== 'waystone') || this.campaign.onIsland()) { this.toast('Travel requires a ship', 'Use the harbour to leave or reach an island.', '#66cdd6'); return; }
-    const reason=this.campaign.access(siteId); if(reason){this.toast('The way is sealed',reason,'#e7c778');return;}
     const lockout = this.travelLockoutRemaining();
     if (lockout > 0) {
       this.toast('Too dangerous to travel', `Wait ${lockout.toFixed(1)}s after taking damage.`, '#d9553f');
@@ -3151,19 +3059,6 @@ export class Game implements WorldCtx {
         this.touch();
         break;
       }
-      case 'aegean': {
-        if(this.services.interact(prop)) break;
-        if(this.activities.interact(prop)) break;
-        if(this.encounters.interact(prop)) break;
-        const action=String(prop.data?.action??'');
-        if(action==='helm') this.naval.returnHelm();
-        else if(action==='dock') this.setPanel('shipyard');
-        else if(action==='storage') this.setPanel('storage');
-        else if(action==='shop') { const keeper=NPC_BY_ID[`${prop.data?.settlement}_keeper`];if(keeper?.shop)this.openShop(keeper); }
-        else if(action==='rest') { this.campaign.setCheckpoint(); this.player.hp=this.player.maxHp;this.player.mp=this.player.maxMp;this.player.sp=this.player.maxSp;this.player.statuses=[];this.toast('Sanctuary remembered','Your next defeat returns you here.','#e7c778');this.autosave(); }
-        else this.setPanel('chronicle');
-        break;
-      }
       case 'notice':
         this.panel = 'quests';
         this.touch();
@@ -3228,7 +3123,6 @@ export class Game implements WorldCtx {
       rarity: opts.rarity,
       qty: opts.qty ?? 1,
       plain: opts.plain,
-      provenance: {source:'debug',id:'debug'},
     });
     const ok = addItem(this.player.inventory, item);
     if (!ok) this.toast('Bag full', undefined, '#e8763a');
@@ -3240,7 +3134,7 @@ export class Game implements WorldCtx {
   debugEquip(templateId: string, opts: { level?: number; rarity?: Rarity } = {}): void {
     const t = TEMPLATE_BY_ID[templateId];
     if (!t?.slot) return;
-    const item = makeItem(templateId, { level: opts.level ?? t.level, rarity: opts.rarity, provenance:{source:'debug',id:'debug'} });
+    const item = makeItem(templateId, { level: opts.level ?? t.level, rarity: opts.rarity });
     const previous = this.player.equipment[t.slot];
     this.player.equipment[t.slot] = item;
     if (previous) addItem(this.player.inventory, previous);
@@ -3585,7 +3479,11 @@ export class Game implements WorldCtx {
     }
     this.spendIngots(cost.ingots);
     p.gold -= cost.gold;
-    relevelItem(item,item.level+1);
+    item.level += 1;
+    for (const key of ['damage', 'defense', 'maxHealth', 'maxMana'] as const) {
+      if (item.stats[key] !== undefined) item.stats[key] = Math.round(item.stats[key]! * 1.11 + 1);
+    }
+    item.value = Math.round(item.value * 1.15);
     this.fx.spawn(p.x, p.y - 10, 24, PAL.flameLit, { speed: 120, life: 0.7, size: 3, gravity: -30 });
     audio.play('levelup', 0.6);
     this.toast('Reforged', `${item.name} is now level ${item.level}.`, PAL.goldLit);
@@ -3784,7 +3682,11 @@ export class Game implements WorldCtx {
     p.warrantsUsed += 1;
     item.rarity = check.next;
     item.enchantSlots = Math.max(item.enchantSlots, RARITY_ENCHANT_SLOTS[check.next]);
-    relevelItem(item,item.level);
+    const scale = 1.18;
+    for (const key of ['damage', 'defense', 'maxHealth', 'maxMana', 'abilityPower'] as const) {
+      if (item.stats[key] !== undefined) item.stats[key] = Math.round(item.stats[key]! * scale + 1);
+    }
+    item.value = Math.round(item.value * 1.6);
     const template = TEMPLATE_BY_ID[item.defId];
     item.enchants = (template?.fixedEnchants ?? []).map((e) => ({ ...e }));
     rollEnchants(item, new RNG(Math.floor(Math.random() * 1e9)));
@@ -3871,7 +3773,7 @@ export class Game implements WorldCtx {
     // long frame from stepping the world half a second at 4x.
     const dt = Math.min(0.05, dtRaw) * this.timeScale;
     this.dt = dt;
-
+    this.now += dt;
     this.fx.budget = this.settings.batterySaver ? 0.35 : 1;
     if (this.screenFlash.alpha > 0) this.screenFlash.alpha = Math.max(0, this.screenFlash.alpha - dt * 2.4);
     if (this.streak > 0 && this.now > this.streakUntil) this.streak = 0;
@@ -3903,18 +3805,12 @@ export class Game implements WorldCtx {
       return;
     }
 
-    this.now += dt;
     this.clock = (this.clock + dt) % DAY_SECONDS;
     if (this.clock < dt) this.day++;
     this.player.playTime += dt;
 
     this.updatePlayer(dt);
     this.updateSpawns();
-    this.encounters.update(dt);
-    this.campaign.update(dt);
-    this.services.update(dt);
-    this.activities.update(dt);
-    this.powers.update(dt);
     this.updateChests();
     for (const e of this.enemies) e.update(this);
     this.enemies = this.enemies.filter((e) => !e.dead);
@@ -3968,7 +3864,6 @@ export class Game implements WorldCtx {
     if (i.wasPressed('quests', true)) this.togglePanel('quests');
     if (i.wasPressed('character', true)) this.togglePanel('character');
     if (i.wasPressed('skills', true)) this.togglePanel('skills');
-    if (i.wasPressed('chronicle', true)) this.togglePanel('chronicle');
     if (i.wasPressed('debug', true)) { this.debug = !this.debug; this.touch(); }
     if (i.wasPressed('minimap', true)) { this.showMinimap = !this.showMinimap; this.touch(); }
   }
@@ -4023,17 +3918,10 @@ export class Game implements WorldCtx {
       }
     }
 
-    if (this.naval.aboard) { this.naval.update(dt); return; }
-    p.bracing=this.input.isDown('brace') && p.sp>0;
     // input
     const mv = this.input.moveVector();
-    if(!p.bracing && (mv.x || mv.y)) p.facing=Math.atan2(mv.y,mv.x);
-    if(this.input.wasPressed('target')) {
-      const targets=this.enemies.filter(e=>!e.dead&&!e.friendly&&dist2(e.x,e.y,p.x,p.y)<700*700).sort((a,b)=>a.id-b.id);
-      const idx=targets.findIndex(e=>e.id===this.lockedTarget); this.lockedTarget=targets[(idx+1)%targets.length]?.id??null;
-    }
     const speedTile = TILES[this.mapTileAt(p.x, p.y)]?.speed ?? 1;
-    const baseSpeed = stats.moveSpeed * speedTile * 1.15 * statusSpeedMul(p) * (p.bracing ? .38 : 1);
+    const baseSpeed = stats.moveSpeed * speedTile * 1.15;
     const targetVx = mv.x * baseSpeed;
     const targetVy = mv.y * baseSpeed;
     p.vx = damp(p.vx, targetVx, 16, dt);
@@ -4049,11 +3937,10 @@ export class Game implements WorldCtx {
     }
 
     // sprint / dodge roll
-    if (this.input.wasPressed('dash') && p.sp >= 18 && p.dashTimer <= 0 && !p.statuses.some(s=>s.kind==='stun')) {
+    if (this.input.wasPressed('dash') && p.sp >= 18 && p.dashTimer <= 0) {
       const dir = mv.x !== 0 || mv.y !== 0 ? Math.atan2(mv.y, mv.x) : this.aim;
       const cost = p.hasPerk('pathfinder') ? 12 : 18;
       p.sp -= cost;
-      this.powers.onDodge();
       p.dashVx = Math.cos(dir) * 620;
       p.dashVy = Math.sin(dir) * 620;
       p.dashTimer = 0.2;
@@ -4062,8 +3949,7 @@ export class Game implements WorldCtx {
       audio.play('step', 0.4);
     }
 
-    this.moveWithCollision(p, (p.vx+p.knockX) * dt, (p.vy+p.knockY) * dt);
-    p.knockX*=Math.exp(-12*dt);p.knockY*=Math.exp(-12*dt);
+    this.moveWithCollision(p, p.vx * dt, p.vy * dt);
 
     if (moving) {
       p.anim = p.attackTimer > p.animTime && p.anim === 'attack' ? 'attack' : 'walk';
@@ -4077,24 +3963,21 @@ export class Game implements WorldCtx {
       p.anim = 'idle';
     }
 
-    if(p.bracing) p.dir=dirFromAngle(p.facing);
     // aim in world space (mouse is optional; keyboard play uses facing + soft lock)
     this.input.world.x = this.camera.x + (this.input.mouse.x - this.canvas.width / 2) / this.camera.zoom;
     this.input.world.y = this.camera.y + (this.input.mouse.y - this.canvas.height / 2) / this.camera.zoom;
     if (mv.x !== 0 || mv.y !== 0) this.aim = Math.atan2(mv.y, mv.x);
     else if (this.input.hasMouse && this.input.mouseIdle < 1.6) this.aim = angleTo(p.x, p.y, this.input.world.x, this.input.world.y);
 
-    const locked=this.enemies.find(e=>e.id===this.lockedTarget&&!e.dead);
-    if(locked) this.aim=angleTo(p.x,p.y,locked.x,locked.y);
     // combat input
     // Right mouse used to both block and heavy-attack, so a shield user swung
     // every time they raised their guard. With a shield up it blocks and
     // nothing else; without one it is still the heavy swing.
     const hasShield = p.equipment.offHand?.weaponKind === 'shield';
-    p.blocking = !this.encounters.suppressOffense && hasShield && (this.input.isDown('offhand') || this.input.mouseDown[2]);
+    p.blocking = hasShield && (this.input.isDown('offhand') || this.input.mouseDown[2]);
     if (this.input.isDown('attack') || this.input.mouseDown[0]) this.basicAttack(false);
     if (this.input.wasPressed('heavy') || (!hasShield && this.input.mousePressed[2])) this.basicAttack(true);
-    if (this.input.wasPressed('offhand') && (!hasShield || !!p.equipment.offHand?.aegeanPower)) this.useOffhand();
+    if (this.input.wasPressed('offhand') && !hasShield) this.useOffhand();
     if (this.input.wasPressed('artifact')) this.useArtifact();
     if (this.input.wasPressed('weaponPower')) this.useWeaponPower();
     if (this.input.wasPressed('potion')) this.useQuickItem();
@@ -4212,12 +4095,7 @@ export class Game implements WorldCtx {
   private updateSpawns(): void {
     const st = this.mapState(this.map.id);
     const p = this.player;
-    let grid=this.spawnGrids.get(this.map);
-    if(!grid){grid=new Map();for(const sp of this.map.spawns){const key=`${Math.floor(sp.x/512)},${Math.floor(sp.y/512)}`;const bucket=grid.get(key)??[];bucket.push(sp);grid.set(key,bucket);}this.spawnGrids.set(this.map,grid);}
-    for(const [id,actors] of this.activeSpawns){if(actors.length&&actors.every(e=>e.dead||(!e.isBoss&&dist2(e.x,e.y,p.x,p.y)>DESPAWN_DIST*DESPAWN_DIST))){for(const e of actors)e.dead=true;this.activeSpawns.delete(id);}}
-    const nearby:SpawnPoint[]=[];
-    for(let y=Math.floor((p.y-ACTIVATE_DIST)/512);y<=Math.floor((p.y+ACTIVATE_DIST)/512);y++)for(let x=Math.floor((p.x-ACTIVATE_DIST)/512);x<=Math.floor((p.x+ACTIVATE_DIST)/512);x++){const bucket=grid.get(`${x},${y}`);if(bucket)nearby.push(...bucket);}
-    for (const sp of nearby) {
+    for (const sp of this.map.spawns) {
       if (st.killedSpawns.has(sp.id)) continue;
       if (sp.boss && p.bossesKilled.has(sp.enemy)) continue;
       const d = dist(p.x, p.y, sp.x, sp.y);
@@ -4341,8 +4219,7 @@ export class Game implements WorldCtx {
           const p = this.player;
           if (dist2(pr.x, pr.y, p.x, p.y - 8) < (p.radius + pr.radius * 0.3) ** 2) {
             pr.dead = true;
-            this.damagePlayer(pr.damage, { trueDamageAmount: pr.trueDamageAmount, element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
-            if (pr.element === 'shadow' && this.regionAtPlayer()?.startsWith('aegean_')) applyStatus(p,'curse',.2,8,'#bda4d5',this.now);
+            this.damagePlayer(pr.damage, { element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
             if (pr.element === 'poison') applyStatus(p, 'poison', pr.damage * 0.25, 5, PAL.toxic, this.now);
             if (pr.element === 'fire') applyStatus(p, 'burn', pr.damage * 0.25, 4, PAL.flame, this.now);
             if (pr.element === 'frost') applyStatus(p, 'chill', 0.3, 3, PAL.frost, this.now);
@@ -4441,7 +4318,6 @@ export class Game implements WorldCtx {
     const p = this.player;
     const bonus = p.hasPerk('keensight') ? 1.15 : 1;
     for (const loc of LOCATIONS) {
-      if(loc.surfaceMap)continue;
       if (p.discovered.has(loc.id)) continue;
       const r = (loc.radius ?? 10) * TILE * bonus;
       if (dist2(p.x, p.y, loc.tx * TILE, loc.ty * TILE) < r * r) {
@@ -4452,7 +4328,7 @@ export class Game implements WorldCtx {
         // stone and pressing use was a second, sillier gate on top of it, and
         // the only thing it ever achieved was a long walk back to a landmark
         // somebody had already stood in.
-        const gate = (!loc.travelPolicy || loc.travelPolicy === 'waystone') && WAYSTONE_SITES.some((w) => w.id === loc.id) && !p.waystones.has(loc.id);
+        const gate = WAYSTONE_SITES.some((w) => w.id === loc.id) && !p.waystones.has(loc.id);
         if (gate) p.waystones.add(loc.id);
         this.toast(
           `Discovered: ${loc.name}`,
@@ -4498,15 +4374,10 @@ export class Game implements WorldCtx {
 
   private updateCamera(dt: number): void {
     const p = this.player;
-    const baseZoom=this.canvas.width>1700?2.5:this.canvas.width>1100?2:1.75;
-    const royal=this.map.id==='aegean_leonidas'&&this.bossTarget&&!this.bossTarget.dead?this.bossTarget:null;
-    const wide=royal||this.map.id==='aegean_army';
-    this.camera.zoom=damp(this.camera.zoom,wide?Math.min(baseZoom,1.25):this.naval.aboard?Math.min(baseZoom,1.55):baseZoom,4,dt);
     const halfW = this.canvas.width / 2 / this.camera.zoom;
     const halfH = this.canvas.height / 2 / this.camera.zoom;
     let tx = p.x;
     let ty = p.y - 10;
-    if(royal&&dist(p.x,p.y,royal.x,royal.y)<650){tx=p.x*.72+royal.x*.28;ty=p.y*.72+(royal.y-130)*.28;}
     const mapW = this.map.w * TILE;
     const mapH = this.map.h * TILE;
     if (mapW > halfW * 2) tx = clamp(tx, halfW, mapW - halfW);

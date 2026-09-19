@@ -55,7 +55,6 @@ export default function Hud({ game }: { game: Game }) {
             <img src={getIconUrl('gold')} alt="" />
             {p.gold.toLocaleString()}
           </div>
-          <button className="chip action" onClick={()=>game.setPanel('chronicle')}>H · Chronicle</button>
           {p.skillPoints > 0 ? (
             <button className="chip action" onClick={() => game.setPanel('skills')}>
               <span className="chip-dot" />
@@ -85,8 +84,6 @@ export default function Hud({ game }: { game: Game }) {
         </div>
       </div>
 
-      {!game.naval.aboard && (game.encounters.active || game.activities.active) ? <div className="aegean-status"><strong>{game.encounters.active?game.encounters.objective:game.activities.objective}</strong><small>{game.encounters.active?game.encounters.status:'E at the central marker explains the current step.'}</small></div> : null}
-      {game.naval.aboard ? <div className="aegean-status"><strong>{game.naval.definition?.name} · {game.naval.dangerLabel}</strong><progress value={game.naval.vessel?.hull??0} max={game.naval.definition?.hull??1}/><small>Hull {Math.ceil(game.naval.vessel?.hull??0)} · Space volley · G ram · B brace · E dock · R deck</small></div> : null}
       {game.bossTarget && !game.bossTarget.dead ? (
         <div className={`boss-bar${game.bossTarget.warded ? ' warded' : ''}`}>
           <div className="bname">{game.bossTarget.def.name}</div>
@@ -173,7 +170,7 @@ export default function Hud({ game }: { game: Game }) {
           // not triggered — so a countdown left over from whatever was in
           // this slot before must not bleed onto it after a swap.
           const isShield = p.equipment.offHand?.weaponKind === 'shield';
-          const cd = isShield&&!p.equipment.offHand?.aegeanPower ? 0 : p.offhandCooldown;
+          const cd = isShield ? 0 : p.offhandCooldown;
           return (
             <button
               className={`slot ${p.equipment.offHand ? (cd <= 0 ? 'ready' : '') : 'locked'}`}
@@ -210,9 +207,9 @@ export default function Hud({ game }: { game: Game }) {
           </button>
         ) : null}
         <button
-          className={`slot ${(game.naval.aboard||p.equipment.accessory?.artifact) ? 'ready' : 'locked'}`}
-          title={game.naval.aboard?'Fight boarders on deck (R)':p.equipment.accessory?.artifact ? `${p.equipment.accessory.artifact.name} (R) — ${p.equipment.accessory.artifact.desc}` : 'No artifact equipped'}
-          onClick={() => game.naval.aboard?game.naval.enterDeck():game.useArtifact()}
+          className={`slot ${p.equipment.accessory?.artifact ? 'ready' : 'locked'}`}
+          title={p.equipment.accessory?.artifact ? `${p.equipment.accessory.artifact.name} (R) — ${p.equipment.accessory.artifact.desc}` : 'No artifact equipped'}
+          onClick={() => game.useArtifact()}
         >
           <span className="key">R</span>
           {p.equipment.accessory ? (

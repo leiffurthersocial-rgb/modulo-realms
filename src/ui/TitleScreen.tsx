@@ -28,7 +28,7 @@ export default function TitleScreen({ hasSave, onNew, onContinue, onSettings }: 
           </div>
           <h2>Realms of Ash</h2>
           <div className="title-tag">
-            From the Ashvale valley to the shores of mythic Achaea.
+            An open-world fantasy RPG in the Ashvale valley.
           </div>
         </div>
 
@@ -49,7 +49,7 @@ export default function TitleScreen({ hasSave, onNew, onContinue, onSettings }: 
       </div>
 
       <div className="title-foot">
-        WASD move &middot; Mouse aim &middot; Click attack &middot; E interact &middot; H Chronicle &middot; I bag &middot; M map &middot; ESC menu
+        WASD move &middot; Mouse aim &middot; Click attack &middot; E interact &middot; I bag &middot; M map &middot; ESC menu
       </div>
     </div>
   );

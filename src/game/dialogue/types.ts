@@ -3,7 +3,6 @@ import type { FactionId, RaceId } from '../../data/races';
 
 export type DialogueAction =
   | { type: 'end' }
-  | { type: 'chronicle' }
   | { type: 'goto'; node: string }
   | { type: 'shop' }
   | { type: 'train' }
