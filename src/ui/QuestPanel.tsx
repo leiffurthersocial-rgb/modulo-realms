@@ -54,7 +54,7 @@ export default function QuestPanel({ game }: { game: Game }) {
                     {complete ? <span className="main-tag" style={{ background: 'var(--uncommon)' }}>READY</span> : null}
                   </div>
                   <div className="qi-meta">
-                    Level {q.level} · {NPC_BY_ID[q.giver]?.name ?? 'Unknown'}
+                    Level {q.level} · {q.fieldAdventure ? 'Found in the world' : NPC_BY_ID[q.giver]?.name ?? 'Unknown'}
                     {game.trackedQuest === q.id ? <span className="tracking-tag">TRACKED</span> : null}
                   </div>
                 </button>
@@ -67,7 +67,7 @@ export default function QuestPanel({ game }: { game: Game }) {
               <>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, color: 'var(--gold)' }}>{sel.name}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
-                  Level {sel.level} · Given by {NPC_BY_ID[sel.giver]?.name ?? '—'}
+                  Level {sel.level} · {sel.fieldAdventure ? 'Found in the world' : `Given by ${NPC_BY_ID[sel.giver]?.name ?? '—'}`}
                   {sel.marker && LOCATION_BY_ID[sel.marker] ? ` · ${LOCATION_BY_ID[sel.marker].name}` : ''}
                 </div>
                 {game.quests.isActive(sel.id) ? (
@@ -80,7 +80,7 @@ export default function QuestPanel({ game }: { game: Game }) {
                   </button>
                 ) : null}
                 <p style={{ fontSize: 13, lineHeight: 1.65, color: '#ded5ca', marginTop: 12 }}>{sel.summary}</p>
-                <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--muted)', fontStyle: 'italic' }}>{sel.detail}</div>
+                {sel.detail !== sel.summary ? <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--muted)', fontStyle: 'italic' }}>{sel.detail}</div> : null}
 
                 <div className="section-h">Objectives</div>
                 <div className="obj-list">
@@ -126,7 +126,7 @@ export default function QuestPanel({ game }: { game: Game }) {
 
                 {tab === 'rumours' ? (
                   <div style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)' }}>
-                    Speak to {NPC_BY_ID[sel.giver]?.name ?? 'the giver'} to take this on.
+                    {sel.fieldAdventure ? 'Explore this place to begin. Rewards are paid when the work is done.' : <>Speak to {NPC_BY_ID[sel.giver]?.name ?? 'the giver'} to take this on.</>}
                   </div>
                 ) : null}
               </>

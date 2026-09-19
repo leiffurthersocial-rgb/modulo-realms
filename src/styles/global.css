@@ -963,6 +963,8 @@ canvas.world {
 /* quests */
 
 .quest-layout { display: grid; grid-template-columns: 268px 1fr; flex: 1; min-height: 0; }
+.quest-layout > * { min-width: 0; min-height: 0; }
+.shipyard-layout { grid-template-columns: minmax(120px, 0.65fr) minmax(0, 1.35fr); }
 .quest-item {
   padding: 10px 12px; border-bottom: 1px solid rgba(74, 59, 82, 0.5);
   cursor: pointer; transition: background 0.12s;
@@ -1454,4 +1456,14 @@ canvas.world {
 @media (max-width: 720px) {
   .crown-row { flex-direction: column; align-items: stretch; }
   .cr-actions { justify-content: flex-end; }
+}
+
+/* Keep the existing list/detail panels usable on a portrait phone. */
+@media (max-width: 560px) {
+  .modal-scrim { padding: 8px; }
+  .modal { max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
+  .quest-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(100px, 0.4fr) minmax(0, 1fr); }
+  .quest-layout > :first-child { border-bottom: 1px solid var(--edge); }
+  .quest-layout .forge-action { flex-wrap: wrap; }
+  .skill-branches { grid-template-columns: minmax(0, 1fr); }
 }

@@ -49,10 +49,39 @@ export const T = {
   ICE_WALL: 46,
   SAND_FLOOR: 47,
   SAND_WALL: 48,
+  AEGEAN_GRASS: 49,
+  MARBLE: 50,
+  MARBLE_WALL: 51,
+  TERRACOTTA: 52,
+  AEGEAN_SHALLOWS: 53,
+  AEGEAN_SEA: 54,
+  BASALT: 55,
+  ASPHODEL: 56,
+  STYGIAN: 57,
+  BRONZE_FLOOR: 58,
+  THYME_SCRUB: 59,
+  LAUREL_FLOOR: 60,
+  OLYMPIAN_MEADOW: 61,
+  LIMESTONE: 62,
+  LIMESTONE_CRAG: 63,
+  GOLDEN_TERRACE: 64,
+  EUROTAS_EARTH: 65,
+  REED_BANK: 66,
+  DELTA_SILT: 67,
+  LERNA_POOL: 68,
+  PUMICE: 69,
+  OBSIDIAN: 70,
+  OBSIDIAN_CRAG: 71,
+  STORM_HEATH: 72,
+  GOLDEN_GARDEN: 73,
+  SHELL_BEACH: 74,
+  BLACK_BEACH: 75,
+  AEGEAN_SPRING: 76,
+  VINEYARD_SOIL: 77,
 } as const;
 
 export type TileId = number;
-export const TILE_COUNT = 49;
+export const TILE_COUNT = 78;
 
 export interface TileDef {
   id: TileId;
@@ -66,6 +95,8 @@ export interface TileDef {
   blend: number;
   /** Footstep sound family. */
   step: 'grass' | 'dirt' | 'stone' | 'wood' | 'water' | 'sand' | 'snow';
+  /** Shore material controls how ocean waves break against this land. */
+  shore?: 'sand' | 'shingle' | 'rock';
   /** Minimap colour. */
   map: string;
   /** Tiles with the same texture family blend seamlessly (no seam drawn). */
@@ -97,6 +128,37 @@ function reg(t: TileDef) {
 reg(d(T.VOID, 'Void', { solid: true, map: '#05040a', blend: 0 }));
 reg(d(T.DEEP_WATER, 'Deep Water', { solid: true, water: true, map: '#152a45', blend: 60, step: 'water', family: 'water' }));
 reg(d(T.WATER, 'Water', { solid: true, water: true, map: '#1f4a6d', blend: 58, step: 'water', family: 'water' }));
+reg(d(T.AEGEAN_GRASS, 'Olive meadow', { map: '#819667', blend: 23, family: 'aegean-grass' }));
+reg(d(T.MARBLE, 'Sunlit marble', { map: '#d9cfac', blend: 42, step: 'stone' }));
+reg(d(T.MARBLE_WALL, 'Painted marble wall', { solid: true, map: '#9c987e', blend: 95, step: 'stone' }));
+reg(d(T.TERRACOTTA, 'Terracotta earth', { map: '#b67d53', blend: 27, step: 'dirt' }));
+reg(d(T.AEGEAN_SHALLOWS, 'Aegean shallows', { solid: true, water: true, map: '#388c9a', blend: 58, step: 'water', family: 'water' }));
+reg(d(T.AEGEAN_SEA, 'Aegean sea', { solid: true, water: true, map: '#204667', blend: 60, step: 'water', family: 'water' }));
+reg(d(T.BASALT, 'Basalt', { map: '#514c52', blend: 35, step: 'stone' }));
+reg(d(T.ASPHODEL, 'Asphodel meadow', { map: '#898d82', blend: 25, step: 'grass' }));
+reg(d(T.STYGIAN, 'Stygian river', { solid: true, water: true, map: '#3f5365', blend: 62, step: 'water', family: 'water' }));
+reg(d(T.BRONZE_FLOOR, 'Oath bronze', { map: '#897444', blend: 43, step: 'stone' }));
+// The eastern landscape has its own materials. Reusing the original movement
+// and blending rules does not mean reusing its forest, snow, desert or bog art.
+reg(d(T.THYME_SCRUB, 'Thyme and silver scrub', { map: '#969568', blend: 23, family: 'aegean-herbs' }));
+reg(d(T.LAUREL_FLOOR, 'Sacred laurel grove', { map: '#546e58', blend: 25, family: 'aegean-grove' }));
+reg(d(T.OLYMPIAN_MEADOW, 'Olympian alpine flowers', { map: '#a3ad8b', blend: 24, speed: 0.92, family: 'aegean-alpine' }));
+reg(d(T.LIMESTONE, 'Weathered limestone', { shore: 'rock', map: '#c5bc9c', blend: 35, step: 'stone' }));
+reg(d(T.LIMESTONE_CRAG, 'Limestone escarpment', { shore: 'rock', solid: true, map: '#a49e8d', blend: 70, step: 'stone' }));
+reg(d(T.GOLDEN_TERRACE, 'Golden terrace', { map: '#b2a365', blend: 24, family: 'aegean-dry-grass' }));
+reg(d(T.EUROTAS_EARTH, 'Red earth of the Eurotas', { map: '#ad6f52', blend: 29, step: 'dirt' }));
+reg(d(T.REED_BANK, 'Lerna reed bank', { map: '#83915d', blend: 26, step: 'dirt', speed: 0.9 }));
+reg(d(T.DELTA_SILT, 'River silt', { map: '#9a8b69', blend: 28, step: 'dirt', speed: 0.72 }));
+reg(d(T.LERNA_POOL, 'Lerna reed pool', { water: true, map: '#517f77', blend: 56, step: 'water', speed: 0.55, family: 'aegean-marsh' }));
+reg(d(T.PUMICE, 'Pumice drift', { shore: 'shingle', map: '#aaa096', blend: 36, step: 'sand', speed: 0.96 }));
+reg(d(T.OBSIDIAN, 'Obsidian flow', { shore: 'rock', map: '#494950', blend: 35, step: 'stone' }));
+reg(d(T.OBSIDIAN_CRAG, 'Fractured obsidian', { shore: 'rock', solid: true, map: '#383e49', blend: 70, step: 'stone' }));
+reg(d(T.STORM_HEATH, 'Oathbound storm heath', { map: '#737e7d', blend: 25, family: 'aegean-heath' }));
+reg(d(T.GOLDEN_GARDEN, 'Hesperidean golden garden', { map: '#a3ad64', blend: 25, family: 'aegean-garden' }));
+reg(d(T.SHELL_BEACH, 'Aegean shell sand', { shore: 'sand', map: '#d9cba2', blend: 40, step: 'sand', speed: 0.94 }));
+reg(d(T.BLACK_BEACH, 'Volcanic black sand', { shore: 'sand', map: '#69676a', blend: 40, step: 'sand', speed: 0.94 }));
+reg(d(T.AEGEAN_SPRING, 'Karst spring water', { solid: true, water: true, map: '#427f8a', blend: 58, step: 'water', family: 'water' }));
+reg(d(T.VINEYARD_SOIL, 'Terraced vineyard soil', { map: '#89684d', blend: 31, step: 'dirt', speed: 0.9 }));
 reg(d(T.SAND, 'Sand', { map: '#c9a86b', blend: 40, step: 'sand', speed: 0.94 }));
 reg(d(T.GRASS, 'Grass', { map: '#4e7a3c', blend: 20, step: 'grass' }));
 reg(d(T.GRASS_DARK, 'Woodland', { map: '#3a5c33', blend: 22, step: 'grass' }));

@@ -8,11 +8,17 @@ import { getTileset, TILE_VARIANTS } from '../art/tileset';
 import { drawProjectile } from '../combat/projectiles';
 import { RARITY_COLOR } from '../items/types';
 import type { Enemy } from '../entities/enemy';
-import { T, TILE, TILES, isWall } from '../world/tiles';
+import { T, TILE, TILES, isWater } from '../world/tiles';
+import { drawTerrainRelief } from './terrainRelief';
+import { drawMarine, isMarine } from './marine';
+import { drawMarineDepth } from './marineDepth';
 import { propsInRect, type GameMap } from '../world/map';
 import type { Game } from './game';
 import { LOCATIONS } from '../../data/locations';
 
+const identities = new WeakMap<GameMap,number>();
+let nextIdentity=1;
+function mapIdentity(map:GameMap):number {let id=identities.get(map);if(!id){id=nextIdentity++;identities.set(map,id);}return id;}
 const CHUNK = 16;
 const CHUNK_PX = CHUNK * TILE;
 
@@ -27,13 +33,20 @@ const NEIGHBORS: Array<[number, number]> = [
   [0, -1], [1, 0], [0, 1], [-1, 0], [-1, -1], [1, -1], [1, 1], [-1, 1],
 ];
 
+let marineBankMasks: Uint8ClampedArray[] | undefined;
+function getMarineBankMasks(): Uint8ClampedArray[] {
+  // Read the eight tiny static masks once; no per-frame canvas readbacks.
+  return marineBankMasks ??= getTileset().masks.map(mask =>
+    (mask as HTMLCanvasElement).getContext('2d')!.getImageData(0, 0, TILE, TILE).data);
+}
+
 function tileVariant(tx: number, ty: number): number {
   const h = (Math.imul(tx, 374761393) ^ Math.imul(ty, 668265263)) >>> 0;
   return (h >>> 13) % TILE_VARIANTS;
 }
 
 function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
-  const key = `${map.id}:${cx},${cy}`;
+  const key = `${map.id}:${mapIdentity(map)}:${cx},${cy}`;
   const hit = chunkCache.get(key);
   if (hit) return hit;
 
@@ -53,7 +66,8 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
       const v = tileVariant(tx, ty);
       const dx = x * TILE;
       const dy = y * TILE;
-      g.drawImage(ts.sheet, v * TILE, id * TILE, TILE, TILE, dx, dy, TILE, TILE);
+      if (isMarine(id)) drawMarineDepth(g, ts.sheet, map, tx, ty, v, dx, dy, TILE);
+      else g.drawImage(ts.sheet, v * TILE, id * TILE, TILE, TILE, dx, dy, TILE, TILE);
 
       const def = TILES[id];
       // blend higher-priority neighbours over this tile
@@ -65,7 +79,14 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
         const nid = map.tiles[ny * map.w + nx];
         if (nid === id) continue;
         const ndef = TILES[nid];
-        if (!ndef || ndef.blend <= def.blend) continue;
+        if (!ndef) continue;
+        // The shelf has a broad continuous depth gradient of its own.
+        if (isMarine(id) && isMarine(nid)) continue;
+        const dryBank = isMarine(id) && !ndef.water && nid !== T.VOID;
+        // Land overlaps the sea at the shore. Painting water over land made
+        // the blue edge look like a raised slab, especially south of a beach.
+        if (isMarine(nid) && !def.water) continue;
+        if (!dryBank && ndef.blend <= def.blend) continue;
         if (ndef.family && ndef.family === def.family) continue;
         if (ndef.solid && !def.solid && ndef.blend >= 90) continue;
         scratchG.clearRect(0, 0, TILE, TILE);
@@ -77,22 +98,9 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
         g.drawImage(scratch, dx, dy);
       }
 
-      // wall faces and drop shadows give the tiles depth
-      if (isWall(id)) {
-        const belowId = ty + 1 < map.h ? map.tiles[(ty + 1) * map.w + tx] : T.VOID;
-        if (!isWall(belowId)) {
-          g.drawImage(ts.faces, v * TILE, id * TILE, TILE, TILE, dx, dy + TILE - 14, TILE, 14);
-        }
-      } else {
-        const aboveId = ty > 0 ? map.tiles[(ty - 1) * map.w + tx] : T.VOID;
-        if (isWall(aboveId)) {
-          const grad = g.createLinearGradient(0, dy, 0, dy + 10);
-          grad.addColorStop(0, 'rgba(8,6,12,0.45)');
-          grad.addColorStop(1, 'rgba(8,6,12,0)');
-          g.fillStyle = grad;
-          g.fillRect(dx, dy, TILE, 10);
-        }
-      }
+      const belowId = ty + 1 < map.h ? map.tiles[(ty + 1) * map.w + tx] : T.VOID;
+      const aboveId = ty > 0 ? map.tiles[(ty - 1) * map.w + tx] : T.VOID;
+      drawTerrainRelief(g, ts.faces, id, belowId, aboveId, dx, dy, v, TILE);
     }
   }
 
@@ -100,7 +108,7 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
 
   chunkCache.set(key, canvas);
   chunkOrder.push(key);
-  if (chunkOrder.length > 90) {
+  if (chunkOrder.length > 32) {
     const old = chunkOrder.shift()!;
     chunkCache.delete(old);
   }
@@ -153,6 +161,7 @@ function applyMacroVariation(g: CanvasRenderingContext2D, map: GameMap, cx: numb
 
 export function invalidateChunks(mapId?: string): void {
   if (!mapId) {
+    minimapCache.clear();
     chunkCache.clear();
     chunkOrder.length = 0;
     return;
@@ -233,7 +242,7 @@ function enemySheet(e: Enemy): CharacterSheet {
 const minimapCache = new Map<string, HTMLCanvasElement>();
 
 export function getMinimap(map: GameMap, step = 2): HTMLCanvasElement {
-  const key = `${map.id}:${step}`;
+  const key = `${map.id}:${mapIdentity(map)}:${step}`;
   const hit = minimapCache.get(key);
   if (hit) return hit;
   const w = Math.ceil(map.w / step);
@@ -256,6 +265,7 @@ export function getMinimap(map: GameMap, step = 2): HTMLCanvasElement {
     }
   }
   g.putImageData(img, 0, 0);
+  if(minimapCache.size>=12) minimapCache.delete(minimapCache.keys().next().value!);
   minimapCache.set(key, c);
   return c;
 }
@@ -301,7 +311,13 @@ export function render(game: Game): void {
   for (let cy = c0y; cy <= c1y; cy++) {
     for (let cx = c0x; cx <= c1x; cx++) {
       if (cx < 0 || cy < 0 || cx * CHUNK >= map.w || cy * CHUNK >= map.h) continue;
-      g.drawImage(renderChunk(map, cx, cy), cx * CHUNK_PX, cy * CHUNK_PX);
+      // Shared pixel-aligned edges prevent faint gaps between cached chunks
+      // when the naval or boss camera uses a fractional zoom.
+      const x0 = Math.round(cx * CHUNK_PX * zoom) / zoom;
+      const y0 = Math.round(cy * CHUNK_PX * zoom) / zoom;
+      const x1 = Math.round((cx + 1) * CHUNK_PX * zoom) / zoom;
+      const y1 = Math.round((cy + 1) * CHUNK_PX * zoom) / zoom;
+      g.drawImage(renderChunk(map, cx, cy), x0, y0, x1 - x0, y1 - y0);
     }
   }
 
@@ -318,7 +334,7 @@ export function render(game: Game): void {
       for (let tx = tx0; tx <= tx1; tx++) {
         if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) continue;
         const id = map.tiles[ty * map.w + tx];
-        if (id !== T.WATER && id !== T.DEEP_WATER && id !== T.SWAMP_WATER) continue;
+        if (!isWater(id) || isMarine(id)) continue;
         const phase = Math.sin(t * 1.6 + tx * 0.6 + ty * 0.4);
         if (phase < 0.55) continue;
         g.fillStyle = id === T.SWAMP_WATER ? PAL.toxic : PAL.foam;
@@ -328,15 +344,18 @@ export function render(game: Game): void {
       }
     }
     g.restore();
+    if ((map.id === 'overworld' && left + viewW >= 960 * TILE) || map.id.startsWith('aegean_'))
+      drawMarine(g, map, left, top, viewW, viewH, t, getMarineBankMasks());
   }
 
   // gather drawables
   const drawables: Drawable[] = [];
-  propsInRect(map, left - 140, top - 200, left + viewW + 140, top + viewH + 140, propIdx);
+  // Include the full 372×266 royal temple while retaining spatial buckets.
+  propsInRect(map, left - 200, top - 200, left + viewW + 200, top + viewH + 300, propIdx);
 
   for (const i of propIdx) {
     const prop = map.props[i];
-    if (prop.x < left - 160 || prop.x > left + viewW + 160 || prop.y < top - 260 || prop.y > top + viewH + 200) continue;
+    if (prop.x < left - 210 || prop.x > left + viewW + 210 || prop.y < top - 260 || prop.y > top + viewH + 300) continue;
     if (prop.art.startsWith('bld:')) {
       const art = getBuilding(prop.art.slice(4));
       const dx = Math.round(prop.x - art.w / 2);
@@ -499,8 +518,11 @@ export function render(game: Game): void {
     });
   }
 
+  game.encounters.draw(g);
+  game.activities.draw(g);
   // player
-  {
+  if(game.naval.aboard) drawables.push({y:player.y,draw:()=>game.naval.draw(g)});
+  else {
     const sheet = getCharacterSheet(player.look());
     drawables.push({
       y: player.y + 1,
@@ -517,12 +539,12 @@ export function render(game: Game): void {
           g.stroke();
           g.restore();
         }
-        if (player.blocking) {
+        if (player.blocking || player.bracing) {
           g.save();
           g.globalAlpha = 0.5;
           g.strokeStyle = PAL.steel;
           g.lineWidth = 3;
-          const aim = Math.atan2(game.input.world.y - player.y, game.input.world.x - player.x);
+          const aim = player.bracing ? player.facing : Math.atan2(game.input.world.y - player.y, game.input.world.x - player.x);
           g.beginPath();
           g.arc(player.x, player.y - 8, 26, aim - 0.7, aim + 0.7);
           g.stroke();

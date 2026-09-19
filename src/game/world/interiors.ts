@@ -1,3 +1,4 @@
+import { buildAegeanInterior } from './aegeanInteriors';
 import { RNG } from '../core/rng';
 import { T, TILE } from './tiles';
 import { buildPropGrid, createMap, fillRect, setTile, type GameMap, type PropInstance } from './map';
@@ -136,6 +137,8 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
 }
 
 export function buildInterior(id: string, name: string, returnX: number, returnY: number): GameMap {
+  const greek = buildAegeanInterior(id, returnX, returnY);
+  if (greek) return greek;
   const spec = SPECS[id] ?? defaultSpec(name);
   const rng = new RNG(`interior:${id}`);
   const map = createMap({

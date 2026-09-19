@@ -26,6 +26,7 @@ export class QuestLog {
 
   canAccept(def: QuestDef, player: Player): boolean {
     if (this.isActive(def.id) || this.isCompleted(def.id)) return false;
+    if (def.fieldAdventure?.requires.some(id => !player.flags.has(id.includes(':') ? id : `aegean:complete:${id}`))) return false;
     const pre = def.prereq;
     if (!pre) return true;
     if (pre.quest && !this.isCompleted(pre.quest)) return false;

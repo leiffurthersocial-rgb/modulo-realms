@@ -4,6 +4,7 @@ import { getIconUrl } from '../game/art/icons';
 import { QUEST_BY_ID } from '../data/quests';
 import { xpToNext } from '../game/player/player';
 import SpritePreview from './SpritePreview';
+import { MASTERIES } from '../game/aegean/mastery';
 
 /** Cheap ticker so the HUD refreshes without re-rendering the whole tree every frame. */
 function useTicker(hz = 15): number {
@@ -24,7 +25,12 @@ export default function Hud({ game }: { game: Game }) {
   const quick = p.inventory.find((i) => i.type === 'consumable' && (p.quickItem ? i.defId === p.quickItem : true))
     ?? p.inventory.find((i) => i.type === 'consumable');
 
-  const tracked = game.quests.active.slice(0, 3);
+  const fieldQuest = game.trackedQuest && QUEST_BY_ID[game.trackedQuest]?.fieldAdventure
+    ? game.quests.get(game.trackedQuest) : undefined;
+  const tracked = fieldQuest
+    ? [fieldQuest, ...game.quests.active.filter(q => q.id !== fieldQuest.id)].slice(0, 3)
+    : game.quests.active.slice(0, 3);
+  const heroicChoices = [80, 85, 90, 95, 100].filter((level) => p.level >= level && !MASTERIES.some((m) => m.level === level && p.flags.has(`aegean:mastery:${m.id}`))).length;
 
   return (
     <div className="hud">
@@ -43,6 +49,7 @@ export default function Hud({ game }: { game: Game }) {
               <Bar cls="hp" value={p.hp} max={p.maxHp} label={`${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`} shield={p.shield} />
               <Bar cls="mp" value={p.mp} max={p.maxMp} label={`${Math.ceil(p.mp)} / ${Math.round(p.maxMp)}`} />
               <Bar cls="sp" value={p.sp} max={p.maxSp} label={`${Math.ceil(p.sp)} / ${Math.round(p.maxSp)}`} />
+              {game.naval.aboard ? <Bar cls="hp" value={game.naval.vessel?.hull ?? 0} max={game.naval.definition?.hull ?? 1} label={`Hull ${Math.ceil(game.naval.vessel?.hull ?? 0)} / ${game.naval.definition?.hull ?? 0}`} /> : null}
             </div>
             <div className="xp-row">
               <Bar cls="xp" value={p.xp} max={xpToNext(p.level)} label="" />
@@ -55,6 +62,9 @@ export default function Hud({ game }: { game: Game }) {
             <img src={getIconUrl('gold')} alt="" />
             {p.gold.toLocaleString()}
           </div>
+          {heroicChoices > 0 ? (
+            <button className="chip action" onClick={() => game.setPanel('skills')}><span className="chip-dot" />{heroicChoices} heroic talent{heroicChoices > 1 ? 's' : ''}</button>
+          ) : null}
           {p.skillPoints > 0 ? (
             <button className="chip action" onClick={() => game.setPanel('skills')}>
               <span className="chip-dot" />
@@ -103,9 +113,22 @@ export default function Hud({ game }: { game: Game }) {
         </div>
       ) : null}
 
-      {tracked.length ? (
+      {tracked.length || game.encounters.active || game.naval.aboard ? (
         <div className="quest-tracker">
-          <h4>Journal</h4>
+          {game.naval.aboard ? (
+            <div style={{ marginBottom: 8 }}>
+              <h4>{game.naval.definition?.name}</h4>
+              <div className="qname">{game.naval.dangerLabel}</div>
+              <div className="obj">E to dock · R to board the deck</div>
+            </div>
+          ) : null}
+          {game.encounters.active ? (
+            <div style={{ marginBottom: 8 }}>
+              <div className="qname">{game.encounters.objective}</div>
+              <div className="obj">{game.encounters.status}</div>
+            </div>
+          ) : null}
+          {tracked.length ? <h4>Journal</h4> : null}
           {tracked.map((aq) => {
             const def = QUEST_BY_ID[aq.id];
             if (!def) return null;
@@ -170,7 +193,7 @@ export default function Hud({ game }: { game: Game }) {
           // not triggered — so a countdown left over from whatever was in
           // this slot before must not bleed onto it after a swap.
           const isShield = p.equipment.offHand?.weaponKind === 'shield';
-          const cd = isShield ? 0 : p.offhandCooldown;
+          const cd = isShield&&!p.equipment.offHand?.aegeanPower ? 0 : p.offhandCooldown;
           return (
             <button
               className={`slot ${p.equipment.offHand ? (cd <= 0 ? 'ready' : '') : 'locked'}`}
@@ -207,9 +230,9 @@ export default function Hud({ game }: { game: Game }) {
           </button>
         ) : null}
         <button
-          className={`slot ${p.equipment.accessory?.artifact ? 'ready' : 'locked'}`}
-          title={p.equipment.accessory?.artifact ? `${p.equipment.accessory.artifact.name} (R) — ${p.equipment.accessory.artifact.desc}` : 'No artifact equipped'}
-          onClick={() => game.useArtifact()}
+          className={`slot ${(game.naval.aboard||p.equipment.accessory?.artifact) ? 'ready' : 'locked'}`}
+          title={game.naval.aboard?'Fight boarders on deck (R)':p.equipment.accessory?.artifact ? `${p.equipment.accessory.artifact.name} (R) — ${p.equipment.accessory.artifact.desc}` : 'No artifact equipped'}
+          onClick={() => game.naval.aboard?game.naval.enterDeck():game.useArtifact()}
         >
           <span className="key">R</span>
           {p.equipment.accessory ? (

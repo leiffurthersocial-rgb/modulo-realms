@@ -127,10 +127,10 @@ function plankTile(rng: RNG, base: string, dark: string, light: string, vertical
   return p;
 }
 
-function waterTile(rng: RNG, deep: boolean): Px {
+function waterTile(rng: RNG, deep: boolean, colors?: readonly [string, string]): Px {
   const p = new Px(S, S);
-  const base = deep ? PAL.deep : PAL.water;
-  const light = deep ? PAL.water : PAL.waterLit;
+  const base = colors?.[0] ?? (deep ? PAL.deep : PAL.water);
+  const light = colors?.[1] ?? (deep ? PAL.water : PAL.waterLit);
   p.fillAll(base);
   for (let i = 0; i < 6; i++) {
     p.ellipse(rng.int(0, S), rng.int(0, S), rng.int(4, 9), rng.int(2, 4), mix(base, light, 0.25));
@@ -141,6 +141,24 @@ function waterTile(rng: RNG, deep: boolean): Px {
     const w = rng.int(3, 7);
     p.fill(x, y, w, 1, mix(light, PAL.foam, 0.2));
     if (rng.bool(0.5)) p.fill(x + 2, y + 1, Math.max(2, w - 3), 1, mix(base, light, 0.5));
+  }
+  return p;
+}
+
+/** Ocean depth and small capillary ripples sit underneath the world-space
+ * moving swells. Bright stationary pond glints would compete with the surf. */
+function oceanTile(rng: RNG, deep: boolean): Px {
+  const base = deep ? '#204667' : '#388c9a';
+  const light = deep ? '#497a91' : '#82c2bc';
+  const p = new Px(S, S);
+  p.fillAll(base);
+  for (let n = 0; n < 7; n++) {
+    p.ellipse(rng.int(-4, S + 4), rng.int(0, S), rng.int(5, 14), rng.int(1, 3), mix(base, light, rng.range(.08, .2)));
+  }
+  for (let n = 0; n < 6; n++) {
+    const x = rng.int(0, S - 6), y = rng.int(0, S - 2), w = rng.int(2, 5);
+    p.fill(x, y, w, 1, mix(base, light, .25));
+    if (rng.bool(.4)) p.fill(x + w, y + 1, 2, 1, mix(base, light, .16));
   }
   return p;
 }
@@ -207,12 +225,201 @@ function wallFace(rng: RNG, base: string, dark: string, light: string): Px {
   return p;
 }
 
+/** Low Mediterranean plants grow as woody cushions, with exposed mineral soil
+ * between them. This is deliberately different from the western grass blades. */
+function mediterraneanCover(rng: RNG, kind: 'thyme' | 'laurel' | 'alpine' | 'golden' | 'heath' | 'garden'): Px {
+  const colors = {
+    thyme: ['#92916a', '#676d4c', '#b4b595'],
+    laurel: ['#546d58', '#364d42', '#839478'],
+    alpine: ['#a3ab8b', '#748470', '#d1ceb0'],
+    golden: ['#b0a165', '#81734c', '#d4c28a'],
+    heath: ['#737d7b', '#495d60', '#9fa6a0'],
+    garden: ['#a1ab69', '#6c8153', '#c4c98a'],
+  } as const;
+  const [base, dark, light] = colors[kind];
+  const p = noiseGround(new Px(S, S), base, dark, light, rng, .13);
+  if (kind === 'laurel') {
+    // Leaf mould, russet fallen leaves and the pale exposed roots of old groves.
+    for (let n = 0; n < 13; n++) {
+      const x = rng.int(1, 29), y = rng.int(2, 29);
+      p.line(x - 1, y + 1, x + 2, y - 1, n % 3 ? '#71816a' : '#ad9770');
+      p.set(x, y, '#a4ac88');
+      p.set(x + 1, y + 1, '#42594a');
+    }
+    if (rng.bool(.7)) {
+      const x = rng.int(3, 25), y = rng.int(7, 23);
+      p.line(x, y, x + 5, y - 2, '#8b8a6c');
+      p.line(x + 3, y - 1, x + 7, y + 2, '#6f7258');
+    }
+  } else if (kind === 'golden') {
+    // Wind-combed stubble, seed heads and little limestone fragments.
+    for (let n = 0; n < 15; n++) {
+      const x = rng.int(2, 29), y = rng.int(5, 30), h = rng.int(2, 5);
+      p.line(x, y, x + 1, y - h, dark);
+      p.fill(x, y - h, 2, 1, n % 3 ? light : '#baad7b');
+    }
+    for (let n = 0; n < 4; n++) p.fill(rng.int(0, 30), rng.int(0, 31), 2, 1, '#c4baa0');
+  } else {
+    const clumps = kind === 'alpine' ? 6 : kind === 'garden' ? 9 : 8;
+    for (let n = 0; n < clumps; n++) {
+      const x = rng.int(1, 30), y = rng.int(2, 30), w = rng.int(2, 4);
+      p.ellipse(x, y, w, rng.int(1, 2), dark);
+      p.fill(x - w + 1, y - 1, w + 1, 1, mix(base, light, .65));
+      p.set(x + 1, y - 2, light);
+      if (kind === 'thyme' && n < 3) {
+        p.set(x, y - 2, '#aa92ac');
+        p.set(x + 2, y - 1, '#c0a4be');
+      }
+      if (kind === 'heath') {
+        p.line(x, y + 1, x - 2, y - 3, '#839290');
+        if (n < 3) p.set(x - 2, y - 3, '#a897ac');
+      }
+      if (kind === 'alpine' && n < 3) {
+        p.set(x - 1, y - 2, n % 2 ? '#afb0ce' : '#f0e5b8');
+        p.set(x + 1, y - 2, n % 2 ? '#ceccdf' : '#d9c979');
+      }
+      if (kind === 'garden' && n < 4) {
+        p.set(x, y - 3, '#e4c365');
+        p.set(x - 1, y - 2, '#f0d994');
+        p.set(x + 1, y - 2, '#c7a74b');
+      }
+    }
+    // Grey-white grit is exposed through the cushions, never a snow blanket.
+    if (kind === 'thyme' || kind === 'alpine') for (let n = 0; n < 5; n++) {
+      const x = rng.int(0, 30), y = rng.int(0, 30);
+      p.fill(x, y, 2, 1, '#c4bfa4');
+      p.set(x + 1, y + 1, '#8c907c');
+    }
+  }
+  return p;
+}
+
+function limestoneTile(rng: RNG, crag: boolean): Px {
+  const p = noiseGround(new Px(S, S), crag ? '#a6a18e' : '#c4bd9f', '#8e8b79', '#e0d8bb', rng, .10);
+  // Water-worn bedding planes, broken angular flakes and rust in hairline seams.
+  for (let n = 0; n < (crag ? 6 : 4); n++) {
+    const x = rng.int(-5, 26), y = rng.int(2, 28), w = rng.int(8, 18), h = rng.int(3, 7);
+    p.poly([[x,y+2],[x+3,y],[x+w,y+1],[x+w-2,y+h],[x+1,y+h+1]], crag ? '#aaa58f' : '#d1c8aa');
+    p.line(x + 3, y, x + w - 1, y + 1, '#e1dac0');
+    p.line(x + 1, y + h + 1, x + w - 2, y + h, crag ? '#767a70' : '#a69d81');
+    if (rng.bool(.7)) p.line(x + 4, y + 2, x + 7, y + h - 1, '#aaa181');
+  }
+  for (let n = 0; n < 5; n++) p.set(rng.int(0, 31), rng.int(0, 31), '#bcab7b');
+  if (!crag && rng.bool(.4)) { const x=rng.int(4,24), y=rng.int(4,24); p.line(x,y,x+3,y-1,'#929471'); p.set(x+2,y-2,'#b0ac84'); }
+  return p;
+}
+
+function riverbankTile(rng: RNG, kind: 'reed' | 'silt' | 'pool'): Px {
+  const pool = kind === 'pool';
+  const p = noiseGround(new Px(S,S), pool ? '#527e76' : kind === 'reed' ? '#83915e' : '#9a8b6a', pool ? '#3e645e' : '#657455', pool ? '#82a294' : '#b7ad7b', rng, .13);
+  if (pool) {
+    for (let n=0;n<5;n++) {
+      const x=rng.int(2,25), y=rng.int(3,29);
+      p.fill(x,y,rng.int(3,7),1,'#789e90'); p.set(x+2,y+1,'#648c81');
+    }
+  } else {
+    // Fine braided sediment deposits, not the old dark poison-marsh texture.
+    for (let n=0;n<4;n++) {
+      const y=rng.int(2,28);
+      for(let x=0;x<S;x++) p.set(x,y+Math.round(Math.sin((x+n*9)*.22)*2),kind==='reed'?'#929b6b':'#b2a17a');
+    }
+  }
+  for (let n=0;n<(kind==='reed'?9:3);n++) {
+    const x=rng.int(2,29), y=rng.int(6,30), h=rng.int(3,6);
+    p.line(x,y,x+1,y-h,'#617e55');
+    p.line(x,y-1,x-2,y-4,'#8f9e69');
+    p.set(x+1,y-h,'#c1b787');
+  }
+  return p;
+}
+
+function volcanicTile(rng: RNG, kind: 'pumice' | 'flow' | 'crag'): Px {
+  const pumice = kind === 'pumice';
+  const p = noiseGround(new Px(S,S), pumice?'#aaa096':'#484951', pumice?'#827e77':'#303742', pumice?'#cec1af':'#717887', rng, .14);
+  if (pumice) {
+    // Vesicles in pale porous stones, with a sunlit lip on each cavity.
+    for(let n=0;n<20;n++) {
+      const x=rng.int(1,29),y=rng.int(1,29),w=rng.int(1,3);
+      p.fill(x,y,w,2,'#817e79'); p.fill(x,y-1,w,1,'#c6bcab'); p.set(x+1,y+1,'#94908a');
+    }
+  } else {
+    // Conchoidal glass fractures; thin blue-grey highlights follow their curves.
+    for(let n=0;n<(kind==='crag'?7:4);n++) {
+      const x=rng.int(-3,27), y=rng.int(-3,27), w=rng.int(5,13), h=rng.int(4,10);
+      p.poly([[x,y+1],[x+w-3,y],[x+w,y+h-2],[x+3,y+h]],'#39424d');
+      p.line(x,y+1,x+w-3,y,'#79818e');
+      p.line(x+w-3,y,x+w,y+h-2,'#596b7a');
+      p.line(x+3,y+h,x+w-2,y+h-2,'#292e38');
+    }
+    for(let n=0;n<3;n++) { const x=rng.int(1,29), y=rng.int(1,29); p.fill(x,y,2,1,'#94725a'); }
+  }
+  return p;
+}
+
+function aegeanBeach(rng: RNG, black: boolean): Px {
+  const base=black?'#69686c':'#d6c9a3', dark=black?'#50565e':'#b6ab88', light=black?'#8d9092':'#ede0bd';
+  const p=noiseGround(new Px(S,S),base,dark,light,rng,.18);
+  // Low sand bars laid down by water, shell fragments and a strand of sea grass.
+  for(let n=0;n<3;n++) {
+    const y=rng.int(2,27);
+    for(let x=0;x<S;x++) { const yy=y+Math.round(Math.sin((x+n*17)*.15)*1.2); p.set(x,yy,mix(base,light,.5)); p.set(x,yy+1,mix(base,dark,.3)); }
+  }
+  for(let n=0;n<3;n++) {
+    const x=rng.int(2,28),y=rng.int(3,28);
+    p.fill(x,y,3,1,black?'#adada3':'#eae4cf'); p.fill(x+1,y-1,2,1,black?'#c5bbb0':'#fff1da'); p.set(x+2,y+1,black?'#777b7a':'#b7a685');
+  }
+  if(rng.bool(.45)) { const x=rng.int(4,24),y=rng.int(5,24); p.line(x,y,x+5,y+1,black?'#77827a':'#9c9a73'); p.set(x+3,y-1,black?'#89978a':'#adab80'); }
+  return p;
+}
+
+function vineyardTile(rng: RNG): Px {
+  const p=noiseGround(new Px(S,S),'#8a694e','#624f3d','#af8d66',rng,.16);
+  // Narrow diagonal hoe marks and pale pebbles distinguish the terrace plots
+  // from the original horizontal wheat-field furrows.
+  for(let n=-2;n<5;n++) {
+    p.line(n*9,0,n*9+12,31,'#6e553e');
+    p.line(n*9+1,0,n*9+13,31,'#a47e58');
+  }
+  for(let n=0;n<9;n++) { const x=rng.int(0,30), y=rng.int(0,30); p.fill(x,y,2,1,'#c1af88'); }
+  return p;
+}
+
+function eurotasTile(rng: RNG): Px {
+  const p=noiseGround(new Px(S,S),'#ad7052','#835039','#ce9870',rng,.16);
+  for(let n=0;n<5;n++) {
+    const x=rng.int(1,27),y=rng.int(3,27);
+    p.line(x,y,x+4,y-1,'#815c43'); p.line(x+4,y-1,x+6,y+2,'#94664a');
+    p.fill(x+1,y+3,2,1,'#d3b087');
+  }
+  for(let n=0;n<3;n++) { const x=rng.int(1,28), y=rng.int(3,28); p.line(x,y,x+1,y-3,'#837a50'); p.set(x+2,y-3,'#b2a66f'); }
+  return p;
+}
+
 /* ------------------------------------------------------------------ */
 /* Per-tile generators                                                 */
 /* ------------------------------------------------------------------ */
 
 function generateTile(id: number, rng: RNG): Px {
   switch (id) {
+    case T.THYME_SCRUB: return mediterraneanCover(rng, 'thyme');
+    case T.LAUREL_FLOOR: return mediterraneanCover(rng, 'laurel');
+    case T.OLYMPIAN_MEADOW: return mediterraneanCover(rng, 'alpine');
+    case T.GOLDEN_TERRACE: return mediterraneanCover(rng, 'golden');
+    case T.STORM_HEATH: return mediterraneanCover(rng, 'heath');
+    case T.GOLDEN_GARDEN: return mediterraneanCover(rng, 'garden');
+    case T.LIMESTONE: return limestoneTile(rng, false);
+    case T.LIMESTONE_CRAG: return limestoneTile(rng, true);
+    case T.REED_BANK: return riverbankTile(rng, 'reed');
+    case T.DELTA_SILT: return riverbankTile(rng, 'silt');
+    case T.LERNA_POOL: return riverbankTile(rng, 'pool');
+    case T.PUMICE: return volcanicTile(rng, 'pumice');
+    case T.OBSIDIAN: return volcanicTile(rng, 'flow');
+    case T.OBSIDIAN_CRAG: return volcanicTile(rng, 'crag');
+    case T.SHELL_BEACH: return aegeanBeach(rng, false);
+    case T.BLACK_BEACH: return aegeanBeach(rng, true);
+    case T.AEGEAN_SPRING: return waterTile(rng, false, ['#427e88', '#79a9ad']);
+    case T.VINEYARD_SOIL: return vineyardTile(rng);
+    case T.EUROTAS_EARTH: return eurotasTile(rng);
     case T.DEEP_WATER: return waterTile(rng, true);
     case T.WATER: return waterTile(rng, false);
     case T.SAND: {
@@ -456,7 +663,42 @@ function generateTile(id: number, rng: RNG): Px {
     }
     default: {
       const p = new Px(S, S);
-      p.fillAll(PAL.charcoal);
+      const greek: Record<number, [string, string, string]> = {
+        [T.AEGEAN_GRASS]: ['#819667', '#687f50', '#a6b884'],
+        [T.MARBLE]: ['#d9cfac', '#b2aa90', '#eee6cc'],
+        [T.MARBLE_WALL]: ['#a9a388', '#767666', '#e5d9b5'],
+        [T.TERRACOTTA]: ['#b67d53', '#91563d', '#d2a675'],
+        [T.AEGEAN_SHALLOWS]: ['#388c9a', '#256977', '#79b9b6'],
+        [T.AEGEAN_SEA]: ['#204667', '#18364e', '#3d6e88'],
+        [T.BASALT]: ['#514c52', '#37353c', '#726772'],
+        [T.ASPHODEL]: ['#898d82', '#626e69', '#b0bba6'],
+        [T.STYGIAN]: ['#3f5365', '#27374a', '#7a8da6'],
+        [T.BRONZE_FLOOR]: ['#897444', '#594d36', '#b69a5a'],
+      };
+      const colors = greek[id];
+      if (!colors) return p.fillAll(PAL.charcoal);
+      if (id === T.AEGEAN_GRASS || id === T.ASPHODEL)
+        return grassTile(rng, colors[0], colors[1], colors[2], id === T.ASPHODEL ? .8 : 1);
+      if (id === T.BASALT) return rockTile(rng, colors[0], colors[1], colors[2]);
+      if (id === T.AEGEAN_SEA || id === T.AEGEAN_SHALLOWS) return oceanTile(rng, id === T.AEGEAN_SEA);
+      if (id === T.STYGIAN)
+        return waterTile(rng, true, [colors[0], colors[2]]);
+      if (id === T.MARBLE || id === T.BRONZE_FLOOR) {
+        const stone = cobbleTile(rng, colors[0], colors[1], colors[2], id === T.MARBLE ? 11 : 8);
+        for (let n=0;n<3;n++) {
+          const x=rng.int(1,30), y=rng.int(2,29);
+          stone.line(x,y,x+rng.int(-4,4),y+3,mix(colors[0],colors[1],.55));
+        }
+        return stone;
+      }
+      noiseGround(p, colors[0], colors[1], colors[2], rng, .12);
+      if (id === T.MARBLE || id === T.MARBLE_WALL || id === T.BRONZE_FLOOR) {
+        p.line(0, 15, 31, 15, colors[1]).line(15, 0, 15, 15, colors[1]).line(7, 16, 7, 31, colors[1]);
+        if (id === T.MARBLE_WALL) p.fill(0, 3, 32, 3, '#944a3c').fill(0, 7, 32, 2, '#b49d59');
+      }
+      if (id === T.AEGEAN_SEA || id === T.AEGEAN_SHALLOWS || id === T.STYGIAN) {
+        for (let n = 0; n < 3; n++) p.line(rng.int(1, 12), 5 + n * 10, rng.int(18, 30), 5 + n * 10, colors[2]);
+      }
       return p;
     }
   }
@@ -514,7 +756,9 @@ export function getTileset(): Tileset {
   const g = ctx2d(sheet);
   for (let id = 0; id < TILE_COUNT; id++) {
     for (let v = 0; v < VARIANTS; v++) {
-      const p = generateTile(id, rng);
+      // New materials use their own streams: adding Greek tiles must never
+      // shift the original wall faces or transition-mask pixels.
+      const p = generateTile(id, id >= T.AEGEAN_GRASS ? new RNG(`aegean-material:${id}:${v}`) : rng);
       g.drawImage(p.canvas, v * S, id * S);
     }
   }
@@ -539,6 +783,19 @@ export function getTileset(): Tileset {
     const id = Number(idStr);
     for (let v = 0; v < VARIANTS; v++) {
       fg.drawImage(wallFace(rng, cols[0], cols[1], cols[2]).canvas, v * S, id * S);
+    }
+  }
+
+  for (const id of [T.LIMESTONE_CRAG, T.OBSIDIAN_CRAG]) {
+    for (let v = 0; v < VARIANTS; v++) {
+      const faceRng = new RNG(`aegean-face:${id}:${v}`);
+      const face = id === T.LIMESTONE_CRAG
+        ? limestoneTile(faceRng, true)
+        : volcanicTile(faceRng, 'crag');
+      face.tint(id === T.LIMESTONE_CRAG ? '#686f67' : '#202c3a', .28);
+      face.fill(0, 0, S, 1, id === T.LIMESTONE_CRAG ? '#ccc6ae' : '#77818b');
+      face.shadeBottom(12, .45);
+      fg.drawImage(face.canvas, v * S, id * S);
     }
   }
 

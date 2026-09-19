@@ -1,3 +1,9 @@
+import { readExpansionSave } from './rejoinRollback';
+import type { AegeanPowersSave } from '../aegean/powers';
+import type { ActivitiesSave } from '../aegean/activities';
+import type { CampaignSnapshot } from '../aegean/campaign';
+import type { NavalSave } from '../aegean/naval';
+import { invalidateChunks } from '../core/renderer';
 import type { ClassId } from '../../data/classes';
 import type { FactionId, RaceId } from '../../data/races';
 import type { Look } from '../art/characters';
@@ -6,17 +12,14 @@ import { buildInterior } from '../world/interiors';
 import { generateOverworld } from '../world/worldgen';
 import { Player } from '../player/player';
 import { QuestLog, type ActiveQuest } from '../quests/questlog';
-import { refreshFromTemplate } from '../items/loot';
+import { refreshFromTemplate, normalizeItemCurve, restoreLegacyItemMigration, type ItemCurveMigration } from '../items/loot';
 import type { EquipSlot, Item } from '../items/types';
-import { VILLAGE_TX, VILLAGE_TY } from '../../data/locations';
-import { TILE } from '../world/tiles';
-import { boxHitsTerrain } from '../world/map';
-import { SAVE_KEY as KEY, preserveExpansionSave, readPlayableSave, writePlayableSave, type RecoverySource } from './rollbackRecovery';
 
+const KEY = 'modulo-realms-save-v1';
+const BACKUP_KEY = 'modulo-realms-save-pre-aegean';
+const RECOVERY_KEY = 'modulo-realms-save-recovery';
 const SETTINGS_KEY = 'modulo-realms-settings-v1';
-const recoverySessions = new WeakMap<Game, { player: Player; source: RecoverySource }>();
 let loadError = '';
-
 export const getLoadError = (): string => loadError;
 
 interface SavedMapState {
@@ -31,8 +34,14 @@ interface SavedMapState {
 }
 
 export interface SaveData {
-  version: 1;
+  version: 1 | 2;
   now?: number;
+  itemMigrations?: ItemCurveMigration[];
+  campaign?: CampaignSnapshot;
+  activities?: ActivitiesSave;
+  naval?: NavalSave;
+  powers?: AegeanPowersSave;
+  encounters?: ReturnType<Game['encounters']['snapshot']>;
   savedAt: number;
   seed: number;
   mapId: string;
@@ -71,6 +80,17 @@ export interface SaveData {
     quickItem: string | null;
     playTime: number;
     deaths: number;
+    cooldowns?:Record<string,number>;
+    resistances?:Player['resistances'];
+    statuses?:Player['statuses'];
+    buffs?:Player['buffs'];
+    reviveUsed?:boolean;
+    regen?:Player['regen'];
+    shield?:number;
+    shieldUntil?:number;
+    artifactCooldown?:number;
+    weaponPowerCooldown?:number;
+    offhandCooldown?:number;
   };
   quests: { active: ActiveQuest[]; completed: string[] };
   trackedQuest: string | null;
@@ -87,15 +107,17 @@ export function hasSave(): boolean {
 
 export function savePreview(): { name: string; level: number; cls: ClassId; race: RaceId; savedAt: number; map: string } | null {
   try {
-    const { data } = readPlayableSave(localStorage);
+    const loaded = readExpansionSave(localStorage);
+    if (!loaded) return null;
+    const data = loaded.data;
     return { name: data.player.name, level: data.player.level, cls: data.player.cls, race: data.player.race, savedAt: data.savedAt, map: data.mapId };
   } catch {
     return null;
   }
 }
 
-export function saveGame(game: Game): void {
-  if (game.screen !== 'playing' || !game.player) return;
+export function saveGame(game: Game): boolean {
+  if (game.screen !== 'playing' || !game.player || game.encounters.isPractice) return false;
   const p = game.player;
   const mapStates: Record<string, SavedMapState> = {};
   for (const [id, st] of game.mapStates) {
@@ -110,8 +132,14 @@ export function saveGame(game: Game): void {
     };
   }
   const data: SaveData = {
-    version: 1,
+    version: 2,
     now: game.now,
+    itemMigrations: game.itemMigrationReport,
+    campaign: game.campaign.snapshot(),
+    activities: game.activities.snapshot(),
+    naval: game.naval.snapshot(),
+    encounters: game.encounters.snapshot(),
+    powers:game.powers.snapshot(),
     savedAt: Date.now(),
     seed: game.seed,
     mapId: game.map.id,
@@ -127,25 +155,35 @@ export function saveGame(game: Game): void {
       flags: [...p.flags], discovered: [...p.discovered], waystones: [...p.waystones],
       killCounts: p.killCounts, bossesKilled: [...p.bossesKilled], warrantsUsed: p.warrantsUsed, clearedDungeons: [...p.clearedDungeons],
       shrinesTended: p.shrinesTended, quickItem: p.quickItem, playTime: p.playTime, deaths: p.deaths,
+      reviveUsed:p.reviveUsed,regen:p.regen,cooldowns:p.cooldowns,resistances:p.resistances,statuses:p.statuses,buffs:p.buffs,shield:p.shield,shieldUntil:p.shieldUntil,
+      artifactCooldown:p.artifactCooldown,weaponPowerCooldown:p.weaponPowerCooldown,offhandCooldown:p.offhandCooldown,
     },
     quests: game.quests.serialize(),
     trackedQuest: game.trackedQuest,
     mapStates,
   };
   try {
-    const session = recoverySessions.get(game);
-    writePlayableSave(localStorage, data, session?.player === p ? session.source : undefined);
-  } catch (error) {
-    game.toast('Your game could not be saved', error instanceof Error ? error.message : 'Browser storage is unavailable. Keep this tab open.', '#d9553f');
+    const serialized=JSON.stringify(data);
+    const previous=localStorage.getItem(KEY);
+    let legacy=false;try{legacy=!!previous&&JSON.parse(previous).version===1;}catch{/* A damaged previous entry must not prevent a fresh save. */}
+    if(legacy && previous && !localStorage.getItem(BACKUP_KEY)) localStorage.setItem(BACKUP_KEY,previous);
+    localStorage.setItem(RECOVERY_KEY,serialized);
+    if(localStorage.getItem(RECOVERY_KEY)!==serialized) throw new Error('Save verification failed');
+    localStorage.setItem(KEY,serialized);
+    if(localStorage.getItem(KEY)!==serialized) throw new Error('Save verification failed');
+    localStorage.removeItem(RECOVERY_KEY);
+    return true;
+  } catch {
+    game.toast('Your game could not be saved', 'Browser storage is full or unavailable. Keep this tab open and free some storage.', '#d9553f');
+    return false;
   }
 }
 
 export function loadGame(game: Game): boolean {
   loadError = '';
-  try {
-    return loadGameChecked(game);
-  } catch (error) {
-    loadError = error instanceof Error ? error.message : 'This saved game could not be loaded. Your saved data has not been changed.';
+  try { return loadGameChecked(game); }
+  catch (error) {
+    loadError = error instanceof Error ? error.message : 'The game could not be loaded. Your saved copies have not been changed.';
     game.screen = 'title';
     game.touch();
     return false;
@@ -154,15 +192,16 @@ export function loadGame(game: Game): boolean {
 
 function loadGameChecked(game: Game): boolean {
   let data: SaveData;
-  let source: RecoverySource | undefined;
-  let heldItems = 0;
-  try {
-    ({ data, source, heldItems } = readPlayableSave(localStorage));
-    if (source) preserveExpansionSave(localStorage, source);
-  } catch (error) {
-    if (error instanceof DOMException) throw new Error('Browser storage is full or unavailable. The original save is untouched; free some storage and try Continue again.');
-    throw error;
-  }
+  const loaded = readExpansionSave(localStorage);
+  if (!loaded) throw new Error('There is no saved game in this browser.');
+  data = loaded.data;
+  if (!data || (data.version !== 1 && data.version !== 2) || !data.player || !Number.isFinite(data.seed)) return false;
+  invalidateChunks();
+  game.encounters.restore(undefined);
+  game.naval.reset();
+  game.campaign.reset();
+  game.activities.reset();
+  game.services.reset();
 
   const sp = data.player;
   game.seed = data.seed;
@@ -190,12 +229,14 @@ function loadGameChecked(game: Game): boolean {
   // dropped. Re-reading it against them is what lets a balance pass, or a new
   // signature move, reach the axe already in the player's hands rather than
   // only the next one they find.
-  player.inventory = (sp.inventory ?? []).map(refreshFromTemplate);
-  player.storage = (sp.storage ?? []).map(refreshFromTemplate);
+  game.itemMigrationReport=data.itemMigrations??[];
+  const restoreItem=(item:Item):Item=>{restoreLegacyItemMigration(item,game.itemMigrationReport);const report=normalizeItemCurve(item);if(report?.legacyRollsEstimated&&!game.itemMigrationReport.some(r=>r.uid===item.uid))game.itemMigrationReport.push(report);return refreshFromTemplate(item);};
+  player.inventory = (sp.inventory ?? []).map(restoreItem);
+  player.storage = (sp.storage ?? []).map(restoreItem);
   player.equipment = sp.equipment ?? player.equipment;
   for (const slot of Object.keys(player.equipment) as EquipSlot[]) {
     const it = player.equipment[slot];
-    if (it) player.equipment[slot] = refreshFromTemplate(it);
+    if (it) player.equipment[slot] = restoreItem(it);
   }
   player.reputation = { ...player.reputation, ...sp.reputation };
   player.flags = new Set(sp.flags ?? []);
@@ -209,12 +250,14 @@ function loadGameChecked(game: Game): boolean {
   player.quickItem = sp.quickItem ?? null;
   player.playTime = sp.playTime ?? 0;
   player.deaths = sp.deaths ?? 0;
+  player.reviveUsed=sp.reviveUsed??false;player.regen=sp.regen??null;
+  player.cooldowns=sp.cooldowns??{};player.resistances=sp.resistances??{};player.statuses=sp.statuses??[];player.buffs=sp.buffs??[];
+  player.shield=sp.shield??0;player.shieldUntil=sp.shieldUntil??0;
+  player.artifactCooldown=sp.artifactCooldown??0;player.weaponPowerCooldown=sp.weaponPowerCooldown??0;player.offhandCooldown=sp.offhandCooldown??0;
   player.hp = Math.min(sp.hp, player.maxHp);
   player.mp = Math.min(sp.mp, player.maxMp);
   player.sp = Math.min(sp.sp, player.maxSp);
   game.player = player;
-  if (source) recoverySessions.set(game, { player, source });
-  else recoverySessions.delete(game);
 
   game.quests = QuestLog.deserialize(data.quests ?? { active: [], completed: [] });
   game.trackedQuest = data.trackedQuest ?? null;
@@ -232,30 +275,29 @@ function loadGameChecked(game: Game): boolean {
     });
   }
 
-  game.clock = Number.isFinite(data.clock) ? data.clock : 0;
-  game.day = Number.isFinite(data.day) ? data.day : 1;
-  game.now = data.now ?? 0;
-  game.panel = null;
-  const savedMap = game.getMap(data.mapId);
-  let returnedHome = savedMap.id !== data.mapId || !Number.isFinite(sp.x) || !Number.isFinite(sp.y)
-    || sp.x < 0 || sp.y < 0 || sp.x >= savedMap.w * TILE || sp.y >= savedMap.h * TILE;
-  game.setMap(returnedHome ? 'overworld' : data.mapId);
-  let position = returnedHome ? { x: 0, y: 0 } : game.findStandingSpot(sp.x, sp.y);
-  if (returnedHome || boxHitsTerrain(game.map, position.x, position.y, 10, 7)) {
-    returnedHome = true;
-    game.setMap('overworld');
-    const home = world.portals.find((p) => p.to === 'int_home');
-    position = game.findStandingSpot(home ? home.x + home.w / 2 : VILLAGE_TX * TILE,
-      home ? home.y + home.h + 26 : VILLAGE_TY * TILE);
-  }
-  player.x = position.x;
-  player.y = position.y;
-  game.camera.x = player.x;
-  game.camera.y = player.y;
+  game.now = Math.max(0,data.now ?? 0);
+  game.lastAutosave=game.now;
+  game.campaign.restore(data.campaign);
+  game.activities.restore(data.activities);
+  game.naval.restore(data.naval);
+  game.naval.buildDeck();
+  game.clock = data.clock;
+  game.day = data.day;
   game.screen = 'playing';
+  game.panel = null;
+  game.setMap(data.mapId);
+  if (game.recoverSavedPosition(sp.x, sp.y))
+    game.toast('Safe ground', 'The landscape has changed. Your gear and progress are intact.', '#6fd0e8');
+  game.encounters.restore(data.encounters);
+  game.encounters.onMapEntered();
+  game.powers.restore(data.powers);
+  if(player.equipment.mainHand?.aegeanPower)player.weaponPowerCooldown=game.powers.cooldown(player.equipment.mainHand);
+  if(player.equipment.offHand?.aegeanPower)player.offhandCooldown=game.powers.cooldown(player.equipment.offHand);
+  if(player.equipment.accessory?.aegeanPower)player.artifactCooldown=game.powers.cooldown(player.equipment.accessory);
+  game.naval.populateDeck();
   game.catchUpBounties();
+  if(loaded.rejoined) game.toast('Your adventure is restored', 'Your latest progress and stored Greek equipment are together again.', '#6fd0e8');
   game.toast('Game loaded', `${player.name}, level ${player.level}`, '#6fd0e8');
-  if (source) game.toast('Your character is safe', `${returnedHome ? 'You are back in Ashvale. ' : ''}Greek progress${heldItems ? ` and ${heldItems} Greek item${heldItems === 1 ? '' : 's'}` : ''} stays backed up. This version saves your continued adventure separately.`, '#6fd0e8');
   game.touch();
   return true;
 }

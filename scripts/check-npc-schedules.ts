@@ -9,7 +9,7 @@ import { createMap } from '../src/game/world/map';
 import { ASHVALE_BUILDINGS } from '../src/game/world/village';
 import { TILE, T } from '../src/game/world/tiles';
 
-const residents = NPCS.filter((n) => n.map === 'overworld' && n.schedule?.length);
+const residents = NPCS.filter((n) => n.map === 'overworld' && n.tx < 960 && n.schedule?.length);
 assert.equal(residents.length, 5, 'Exercise all five scheduled Ashvale residents');
 const inn = ASHVALE_BUILDINGS.find((b) => b.id === 'inn')!;
 const map = createMap({ id: 'schedule-test', name: 'Open ground', w: WORLD_W, h: WORLD_H });

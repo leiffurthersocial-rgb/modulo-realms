@@ -5,6 +5,8 @@ import { LOOT_LEVEL_REACH } from '../data/balance';
 import { EQUIP_SLOT_ORDER, type Item } from '../game/items/types';
 import { getIconUrl } from '../game/art/icons';
 import ItemCard, { itemIcon, rarityColor } from './ItemCard';
+import { TEMPLATE_BY_ID } from '../data/items';
+import ForgeRecipeDetails, { localForgeWork } from './ForgeRecipes';
 
 /**
  * The anvil: push gear a level higher, or rebind its enchantments with a rune.
@@ -17,14 +19,16 @@ export default function ForgePanel({ game }: { game: Game }) {
   const equipped = EQUIP_SLOT_ORDER.map((s) => p.equipment[s]).filter((i): i is Item => !!i);
   const bagged = p.inventory.filter((i) => i.type === 'weapon' || i.type === 'armor' || i.type === 'accessory');
   const all = [...equipped, ...bagged];
-  const [sel, setSel] = useState<string | null>(all[0]?.uid ?? null);
-  const item = sel ? game.findGear(sel) : undefined;
+  const work = localForgeWork(game);
+  const [sel, setSel] = useState<string | null>(work.find((w) => w.reward)?.id ?? all[0]?.uid ?? work[0]?.id ?? null);
+  const recipe = work.find((w) => w.id === sel);
+  const item = sel && !recipe ? game.findGear(sel) : undefined;
 
   const runes = countItem(p.inventory, 'mat_rune');
   const ingots = game.ingotsHeld();
   const ore = countItem(p.inventory, 'mat_iron_ore');
   const smelt = game.smeltCost();
-  const cap = game.reforgeCap();
+  const cap = item?.defId.startsWith('aegean_') ? Math.min(100, game.reforgeCap()) : game.reforgeCap();
   const maxed = item ? item.level >= cap : false;
   const reforge = item ? game.reforgeCost(item) : null;
   const rebind = item ? game.enchantCost(item) : null;
@@ -47,6 +51,24 @@ export default function ForgePanel({ game }: { game: Game }) {
 
         <div className="quest-layout">
           <div className="scroll" style={{ borderRight: '1px solid var(--edge)', overflowY: 'auto', padding: 10 }}>
+            {work.length ? (
+              <>
+                <div className="section-h">The smith&apos;s work</div>
+                {work.map((w) => {
+                  const t = TEMPLATE_BY_ID[w.item];
+                  return (
+                    <button key={w.id} className={`shop-row ${sel === w.id ? 'sel' : ''}`} style={{ width: '100%', textAlign: 'left', background: sel === w.id ? 'rgba(216,176,106,0.1)' : 'none', border: '1px solid transparent' }} onClick={() => setSel(w.id)}>
+                      <img src={getIconUrl(t.icon, { metal: t.metal })} alt="" />
+                      <span className="sr-name" style={{ color: rarityColor(t.rarity) }}>
+                        {w.name}
+                        <span className="sr-meta">{w.reward ? 'Choose one · earned reward' : `${w.recipe!.gold.toLocaleString()} gold`}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+                <div className="section-h">Your equipment</div>
+              </>
+            ) : null}
             {all.length === 0 ? (
               <div style={{ color: 'var(--muted)', fontSize: 12.5, padding: 10 }}>You carry nothing worth working.</div>
             ) : null}
@@ -72,7 +94,9 @@ export default function ForgePanel({ game }: { game: Game }) {
           </div>
 
           <div className="inv-col scroll" style={{ overflowY: 'auto' }}>
-            {item ? (
+            {recipe ? (
+              <ForgeRecipeDetails game={game} work={recipe} onMade={() => { if (recipe.reward || recipe.recipe?.flag) setSel(all[0]?.uid ?? null); }} />
+            ) : item ? (
               <>
                 <ItemCard item={item} />
                 <div className="divider" style={{ margin: '14px 0' }} />

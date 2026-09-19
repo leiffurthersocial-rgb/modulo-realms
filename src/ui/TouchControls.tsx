@@ -178,7 +178,7 @@ export default function TouchControls({ game }: { game: Game }) {
           })}
         </div>
         <div className="touch-row">
-          {mh?.weaponPower ? (
+          {mh?.weaponPower || mh?.aegeanPower ? (
             <Btn
               game={game}
               className="small relic"
@@ -191,10 +191,10 @@ export default function TouchControls({ game }: { game: Game }) {
             game={game}
             className="small"
             icon={p.equipment.accessory ? getIconUrl(p.equipment.accessory.icon, { metal: p.equipment.accessory.iconMetal }) : null}
-            label={p.equipment.accessory ? undefined : 'ART'}
-            disabled={!p.equipment.accessory?.artifact}
+            label={game.naval.aboard?'DECK':p.equipment.accessory ? undefined : 'ART'}
+            disabled={!game.naval.aboard&&!p.equipment.accessory?.artifact&&!p.equipment.accessory?.aegeanPower}
             cooldown={p.artifactCooldown}
-            onTap={() => game.useArtifact()}
+            onTap={() => game.naval.aboard?game.naval.enterDeck():game.useArtifact()}
           />
           <Btn
             game={game}
@@ -213,6 +213,12 @@ export default function TouchControls({ game }: { game: Game }) {
           />
         </div>
         <div className="touch-row main">
+          {game.naval.aboard || game.map.id.startsWith('aegean_') || game.regionAtPlayer()?.startsWith('aegean_') ? (
+            <>
+              <Btn game={game} className="small" label="BRACE" action="brace" />
+              <Btn game={game} className="small" label="TARGET" action="target" />
+            </>
+          ) : null}
           <Btn game={game} className="wide" label="USE" action="interact" />
           <Btn game={game} className="med" label="ROLL" action="dash" />
           <Btn game={game} className="med" label="HEAVY" action="heavy" />

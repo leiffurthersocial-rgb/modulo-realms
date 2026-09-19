@@ -13,9 +13,9 @@ import type { ClassId } from '../../data/classes';
  * genuinely one-of-a-kind do not sit in the same colour as a legendary that
  * fell out of a chest.
  */
-export type Rarity = 'common' | 'rare' | 'superRare' | 'epic' | 'legendary' | 'mythic';
+export type Rarity = 'common' | 'rare' | 'superRare' | 'epic' | 'legendary' | 'mythic' | 'olympian' | 'primordial';
 
-export const RARITY_ORDER: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary', 'mythic'];
+export const RARITY_ORDER: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary', 'mythic', 'olympian', 'primordial'];
 
 /** The tiers a random drop can actually be. Mythic is placed by hand only. */
 export const ROLLABLE_RARITIES: Rarity[] = ['common', 'rare', 'superRare', 'epic', 'legendary'];
@@ -29,6 +29,8 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   // A hot crimson that no other tier is anywhere near, so a mythic reads as
   // itself at a glance — on the ground, in the pack and in the toast.
   mythic: '#ff4f6e',
+  olympian: '#efe0a3',
+  primordial: '#b9dcff',
 };
 
 export const RARITY_LABEL: Record<Rarity, string> = {
@@ -38,20 +40,22 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   epic: 'Epic',
   legendary: 'Legendary',
   mythic: 'Mythic',
+  olympian: 'Olympian',
+  primordial: 'Primordial',
 };
 
 export const RARITY_MULT: Record<Rarity, number> = {
-  common: 1, rare: 1.26, superRare: 1.58, epic: 1.95, legendary: 2.5, mythic: 2.9,
+  common: 1, rare: 1.26, superRare: 1.58, epic: 1.95, legendary: 2.5, mythic: 2.9, olympian: 3.2, primordial: 3.54,
 };
 
 /** Number of random stat affixes rolled onto an item of each rarity. */
 export const RARITY_AFFIXES: Record<Rarity, number> = {
-  common: 0, rare: 1, superRare: 2, epic: 3, legendary: 4, mythic: 4,
+  common: 0, rare: 1, superRare: 2, epic: 3, legendary: 4, mythic: 4, olympian: 4, primordial: 4,
 };
 
 /** How many enchantment slots an item of each rarity carries. */
 export const RARITY_ENCHANT_SLOTS: Record<Rarity, number> = {
-  common: 0, rare: 1, superRare: 1, epic: 2, legendary: 3, mythic: 3,
+  common: 0, rare: 1, superRare: 1, epic: 2, legendary: 3, mythic: 3, olympian: 4, primordial: 4,
 };
 
 /** Four slots only: one armour piece, a weapon, an off-hand and an artifact. */
@@ -113,6 +117,34 @@ export interface ConsumeEffect {
   healthPct?: number;
   buff?: { stat: StatKey; amount: number; duration: number; name: string };
   cure?: boolean;
+  /** Shared recovery clock; the runtime refuses use while this group is cooling down. */
+  cooldownGroup?: 'recovery';
+  cooldown?: number;
+  resistance?: { status: 'poison' | 'curse' | 'fear'; multiplier: number; duration: number };
+}
+
+export interface ItemProvenance {
+  source: 'reward' | 'craft' | 'debug';
+  /** Permanent encounter or recipe ID; never inferred from a display name. */
+  id: string;
+  region?: string;
+}
+
+export interface ItemAffixRoll {
+  name: string;
+  stat: StatKey;
+  flat: number;
+  perLevel: number;
+  roll: number;
+}
+
+export interface ItemCurveState {
+  version: 2;
+  affixes: ItemAffixRoll[];
+  /** Legacy rolls lacking their original random seed are retained as bounded flat bonuses. */
+  legacyBonuses?: Stats;
+  legacyAtLevel?: number;
+  reforges: number;
 }
 
 /** An enchantment rolled onto an item, with its level. */
@@ -166,6 +198,11 @@ export interface Item {
    * than offered.
    */
   noReroll?: boolean;
+  provenance?: ItemProvenance;
+  /** Separate roll data prevents a forge operation from multiplying the entire snapshot. */
+  curve?: ItemCurveState;
+  /** Typed behaviour is registered in AEGEAN_POWERS; this ID is not descriptive text. */
+  aegeanPower?: string;
   /** Artifacts have an activated power used from the off-hand/artifact key. */
   artifact?: { id: string; name: string; cooldown: number; desc: string };
   /**

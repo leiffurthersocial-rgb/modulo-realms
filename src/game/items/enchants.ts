@@ -92,7 +92,7 @@ export function hostFor(item: Pick<Item, 'type' | 'weaponKind'>): EnchantHost | 
   if (item.type === 'accessory') return 'artifact';
   if (item.type !== 'weapon') return null;
   const k = item.weaponKind;
-  if (k === 'bow' || k === 'crossbow') return 'ranged';
+  if (k === 'bow' || k === 'crossbow' || k === 'javelin') return 'ranged';
   if (k === 'staff' || k === 'wand' || k === 'tome' || k === 'scythe') return 'magic';
   return 'melee';
 }
