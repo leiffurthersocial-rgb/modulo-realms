@@ -6,6 +6,7 @@
  *
  *   npx tsx scripts/check-content.ts
  */
+import { AEGEAN_MAP_IDS } from '../src/data/aegean/world';
 import { NPCS } from '../src/data/npcs';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../src/data/enemies';
 import { TEMPLATE_BY_ID } from '../src/data/items';
@@ -45,7 +46,8 @@ for (const loc of LOCATIONS) {
   if (!d) continue;
   if (mapIds.has(d.mapId)) fail(`${loc.id}: duplicate dungeon mapId "${d.mapId}"`);
   mapIds.add(d.mapId);
-  if (!d.enemies.length) fail(`${loc.id}: no enemies listed`);
+  // Authored Aegean actors belong to the encounter director, not random spawn lists.
+  if (!d.enemies.length && !AEGEAN_MAP_IDS.includes(d.mapId)) fail(`${loc.id}: no enemies listed`);
   for (const id of d.enemies) if (!ENEMY_BY_ID[id]) fail(`${loc.id}: unknown enemy "${id}"`);
   if (d.boss && !ENEMY_BY_ID[d.boss]) fail(`${loc.id}: unknown boss "${d.boss}"`);
   if (d.miniboss && !ENEMY_BY_ID[d.miniboss]) fail(`${loc.id}: unknown miniboss "${d.miniboss}"`);
@@ -67,3 +69,5 @@ for (const r of Object.keys(REGION_BY_ID)) {
 }
 
 console.log(bad ? `\n${bad} broken reference(s).` : '\nEvery reference resolves.');
+
+if (bad) process.exitCode = 1;

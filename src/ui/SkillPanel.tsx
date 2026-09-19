@@ -2,6 +2,7 @@ import type { Game } from '../game/core/game';
 import { CLASSES, SKILL_BRANCHES } from '../data/classes';
 import { getIconUrl } from '../game/art/icons';
 import { useState } from 'react';
+import { MASTERIES } from '../game/aegean/mastery';
 
 export default function SkillPanel({ game }: { game: Game }) {
   const p = game.player;
@@ -107,6 +108,31 @@ export default function SkillPanel({ game }: { game: Game }) {
               );
             })}
           </div>
+
+          {p.level >= 80 ? (
+            <>
+              <div className="section-h">Heroic talents</div>
+              <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }}>Choose one permanent talent every five levels, from level 80.</p>
+              {[80, 85, 90, 95, 100].filter((level) => level <= p.level).map((level) => {
+                const choices = MASTERIES.filter((m) => m.level === level);
+                const chosen = choices.find((m) => p.flags.has(`aegean:mastery:${m.id}`));
+                return (
+                  <div key={level}>
+                    <div className="branch-title" style={{ textAlign: 'left', marginTop: 12 }}>Level {level}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                      {(chosen ? [chosen] : choices).map((m) => (
+                        <div className={`skill-node ${chosen ? 'maxed' : 'available'}`} key={m.id}>
+                          <div className="sn-head"><span className="sn-name">{m.name}</span>{chosen ? <span className="sn-pts">Mastered</span> : null}</div>
+                          <div className="sn-desc">{m.description}</div>
+                          {!chosen ? <button className="btn small sn-buy" onClick={() => game.campaign.selectMastery(m.id)}>Learn talent</button> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : null}
 
           <div className="section-h">Talent branches</div>
           <div className="skill-branches">

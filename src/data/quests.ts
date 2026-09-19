@@ -1,5 +1,7 @@
 import type { ClassId } from './classes';
 import type { FactionId, RaceId } from './races';
+import { AEGEAN_QUESTS } from './aegean/quests';
+export { AEGEAN_CHAPTERS, AEGEAN_STORIES, AEGEAN_CONTRACTS, AEGEAN_DISCOVERIES, AEGEAN_COMMISSIONS } from './aegean/progression';
 
 export type Objective =
   | { type: 'kill'; enemy: string; count: number; label: string }
@@ -40,6 +42,8 @@ export interface QuestDef {
    * turns into a queue of errands waiting at an NPC.
    */
   auto?: boolean;
+  /** Progress and rewards come from the adventure itself, not an NPC hand-in. */
+  fieldAdventure?: { kind: 'activity' | 'encounter'; id: string; requires: string[] };
 }
 
 export const QUESTS: QuestDef[] = [
@@ -126,6 +130,7 @@ export const QUESTS: QuestDef[] = [
     rewards: { xp: 950, gold: 550, loot: { level: 9, rarity: 'superRare' }, rep: [{ faction: 'alliance', amount: 15 }, { faction: 'bandits', amount: -15 }] },
     marker: 'cutter_camp',
   },
+  ...AEGEAN_QUESTS,
 ];
 
 export const QUEST_BY_ID: Record<string, QuestDef> = Object.fromEntries(QUESTS.map((q) => [q.id, q]));

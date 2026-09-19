@@ -5,7 +5,7 @@ import {
 import { ENEMY_BY_ID, type BossAttack, type BossPhase, type EnemyDef } from '../../data/enemies';
 import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
 import type { WorldCtx } from '../core/world';
-import { boxHitsTerrain } from '../world/map';
+import { boxHitsTerrain, type MovementProfile } from '../world/map';
 import { applyStatus, newEntityId, statusSpeedMul, type Entity, type StatusEffect } from './entity';
 
 export type AIState = 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | 'return' | 'dead';
@@ -45,6 +45,16 @@ export class Enemy implements Entity {
   wardShown = -99;
   windupTime = 0;
   windupAttack: BossAttack | null = null;
+  /** The warning and impact share one immutable geometry, including rain points. */
+  attackGeometry: { x: number; y: number; angle: number; range: number; points: Array<{ x: number; y: number }> } | null = null;
+  lastImpact: { id: string; x: number; y: number; at: number; angle: number } | null = null;
+  /** Authored encounters own tactics; status ticks and committed attacks still run. */
+  scripted = false;
+  tacticTime = 2;
+  tacticUses = 0;
+  guardUntil = 0;
+  /** Explicit spawn context chooses navigation; land variants remain on foot. */
+  movementProfile: MovementProfile = 'foot';
   elite: boolean;
   isBoss: boolean;
   phase = 0;
@@ -146,7 +156,7 @@ export class Enemy implements Entity {
   }
 
   get speed(): number {
-    const phaseMul = this.isBoss && this.def.boss ? this.def.boss.phases[this.phase].speed : 1;
+    const phaseMul = this.isBoss && this.def.boss ? (this.def.boss.phases[this.phase]?.speed ?? 1) : 1;
     return this.def.speed * phaseMul * statusSpeedMul(this);
   }
 
@@ -162,9 +172,9 @@ export class Enemy implements Entity {
     const map = ctx.map;
     const hw = this.radius * 0.7;
     const hh = this.radius * 0.5;
-    if (!boxHitsTerrain(map, this.x + dx, this.y, hw, hh)) this.x += dx;
+    if (!boxHitsTerrain(map, this.x + dx, this.y, hw, hh, this.movementProfile)) this.x += dx;
     else this.stuckTimer += ctx.dt;
-    if (!boxHitsTerrain(map, this.x, this.y + dy, hw, hh)) this.y += dy;
+    if (!boxHitsTerrain(map, this.x, this.y + dy, hw, hh, this.movementProfile)) this.y += dy;
     else this.stuckTimer += ctx.dt;
   }
 
@@ -202,6 +212,74 @@ export class Enemy implements Entity {
     this.moveBy(ctx, (dx / len) * sp, (dy / len) * sp);
     this.dir = dirFromVector(dx, dy, this.dir);
     this.anim = 'walk';
+  }
+
+  driveTo(ctx: WorldCtx, x: number, y: number, speed = 1): void {
+    this.steer(ctx, x, y, speed);
+  }
+
+  private updateTactic(ctx: WorldCtx): void {
+    const tactic = this.def.tactic;
+    if (!tactic || this.scripted || this.friendly || this.dead) return;
+    this.tacticTime -= ctx.dt;
+    if (this.tacticTime > 0 || this.windupAttack || dist(this.x, this.y, ctx.player.x, ctx.player.y) > 420) return;
+    this.tacticTime = 6 + (this.id % 4);
+    this.tacticUses++;
+    const a: BossAttack = { id: `tactic_${tactic}`, name: this.def.name, shape: 'circle', windup: 1.15, cooldown: 7, power: 1.2, radius: 90, element: 'physical', color: '#d5bc7c' };
+    switch (tactic) {
+      case 'charge': a.shape = 'dash'; a.range = 245; a.windup = 1.2; break;
+      case 'feint':
+        if (this.tacticUses % 2) { this.driveTo(ctx, this.x + Math.cos(this.id) * 130, this.y + Math.sin(this.id) * 130, 2); this.tacticTime = 1.5; return; }
+        a.shape = 'cone'; a.radius = 110; a.windup = 0.9; break;
+      case 'piper':
+        for (const e of ctx.enemies as Enemy[]) if (!e.dead && !e.friendly && dist(this.x, this.y, e.x, e.y) < 180) { e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.06); }
+        ctx.floatText(this.x, this.y - 45, 'Piper restores the pack', '#b5d98b', 11);
+        a.shape = 'projectile'; a.count = 1; a.range = 340; a.element = 'arcane'; break;
+      case 'firetrail': a.shape = 'rain'; a.count = 3; a.radius = 43; a.element = 'fire'; a.color = '#e08d43'; break;
+      case 'volley': a.shape = 'projectile'; a.count = 5; a.range = 430; a.windup = 1.3; break;
+      case 'zone': a.shape = 'rain'; a.count = 2; a.radius = 68; a.element = 'arcane'; a.color = '#9db5ee'; a.windup = 1.7; break;
+      case 'snatch': a.shape = 'line'; a.range = 360; a.radius = 18; a.power = 1.8; break;
+      case 'bind': a.shape = 'ring'; a.radius = 135; a.windup = 1.6; a.element = 'shadow'; break;
+      case 'guard': this.guardUntil = ctx.now + 3; a.shape = 'cone'; a.radius = 120; a.windup = 1.6; break;
+      case 'revive':
+        if (this.tacticUses <= 2) { ctx.summon('aegean_oath_shade', this.x + 40, this.y, this.level - 2, 20); ctx.floatText(this.x, this.y - 44, 'A name is called', '#a2d5d4', 11); }
+        a.shape = 'projectile'; a.count = 2; a.element = 'shadow'; a.range = 350; break;
+      case 'lure': a.shape = 'rain'; a.count = 1; a.radius = 110; a.windup = 2; a.element = 'shadow'; break;
+      case 'surface': a.shape = 'line'; a.range = 340; a.radius = 40; a.windup = 1.5; this.guardUntil = ctx.now + 1.5; break;
+    }
+    this.queueAttack(ctx, a);
+  }
+
+  /** Used by both the ordinary boss AI and the authored encounter director. */
+  queueAttack(ctx: WorldCtx, attack: BossAttack): boolean {
+    if (this.dead || this.windupAttack || this.windupTime > 0 || this.attackCd > 0) return false;
+    this.windupAttack = attack;
+    this.windupTime = attack.windup;
+    this.anim = attack.shape === 'summon' ? 'cast' : 'attack';
+    this.animTime = 0;
+    const angle = angleTo(this.x, this.y, ctx.player.x, ctx.player.y);
+    const points = attack.shape === 'rain' ? Array.from({ length: attack.count ?? 4 }, () => ({
+      x: ctx.player.x + (Math.random() - 0.5) * 260,
+      y: ctx.player.y + (Math.random() - 0.5) * 260,
+    })) : [];
+    // Greek charges commit to their full lane. Existing bosses retain their
+    // gap-closing dash distance; its warning now stores that same endpoint.
+    const fullRange = attack.range ?? (attack.shape === 'line' ? 400 : 300);
+    const range = attack.shape === 'dash' && !this.def.id.startsWith('aegean_')
+      ? Math.min(fullRange, Math.max(70, dist(this.x, this.y, ctx.player.x, ctx.player.y))) : fullRange;
+    this.attackGeometry = { x: this.x, y: this.y, angle, range, points };
+    if (attack.shape === 'rain') {
+      for (const pt of points) ctx.telegraph(pt.x, pt.y, attack.radius ?? 70, attack.windup, attack.color, 'circle');
+    } else if (attack.shape === 'cone') {
+      ctx.telegraph(this.x, this.y, attack.radius ?? 130, attack.windup, attack.color, 'cone', angle);
+    } else if (attack.shape === 'dash' || attack.shape === 'line') {
+      ctx.telegraph(this.x, this.y, range, attack.windup, attack.color, 'line', angle,
+        attack.shape === 'dash' ? this.radius + 10 : attack.radius ?? 24);
+    } else if (attack.shape === 'circle' || attack.shape === 'ring') {
+      ctx.telegraph(this.x, this.y, attack.radius ?? 140, attack.windup, attack.color, 'circle');
+    }
+    ctx.playSound('boss_windup', 0.4);
+    return true;
   }
 
   private canSeePlayer(ctx: WorldCtx): boolean {
@@ -247,7 +325,12 @@ export class Enemy implements Entity {
     } else {
       const d = dist(this.x, this.y, p.x, p.y);
       if (d < this.def.attackRange + p.radius + this.radius * 0.4) {
+        const contact = !p.dead && p.invuln <= 0;
         ctx.damagePlayer(this.damage, { element: this.def.element ?? 'physical', fromX: this.x, fromY: this.y, knockback: 90, label: this.displayName });
+        if (contact && !p.dead) {
+          if (['aegean_oath_shade', 'aegean_burial_priest', 'aegean_jailer'].includes(this.def.id)) applyStatus(p, 'curse', .2, 8, '#ae83c8', ctx.now);
+          if (this.def.id === 'aegean_kere') applyStatus(p, 'fear', .25, 4, '#a6a0bb', ctx.now);
+        }
       }
       ctx.particles(this.x + (p.x - this.x) * 0.4, this.y + (p.y - this.y) * 0.4, 5, '#e8763a', { speed: 70, life: 0.25, size: 2 });
       ctx.playSound('swing', 0.35);
@@ -284,36 +367,7 @@ export class Enemy implements Entity {
         return true;
       });
       const pick = (inRange.length ? inRange : usable)[Math.floor(Math.random() * (inRange.length ? inRange.length : usable.length))];
-      this.windupAttack = pick;
-      this.windupTime = pick.windup;
-      this.anim = pick.shape === 'summon' ? 'cast' : 'attack';
-      this.animTime = 0;
-      const dmgMul = boss.phases[this.phase].damage;
-      void dmgMul;
-      switch (pick.shape) {
-        case 'circle':
-          ctx.telegraph(this.x, this.y, pick.radius ?? 120, pick.windup, pick.color, 'circle');
-          break;
-        case 'ring':
-          ctx.telegraph(this.x, this.y, pick.radius ?? 200, pick.windup, pick.color, 'circle');
-          break;
-        case 'cone':
-          ctx.telegraph(this.x, this.y, pick.radius ?? 130, pick.windup, pick.color, 'cone', angleTo(this.x, this.y, p.x, p.y));
-          break;
-        case 'dash':
-          ctx.telegraph(this.x, this.y, pick.range ?? 300, pick.windup, pick.color, 'line', angleTo(this.x, this.y, p.x, p.y));
-          break;
-        case 'rain':
-          for (let i = 0; i < (pick.count ?? 4); i++) {
-            const rx = p.x + (Math.random() - 0.5) * 260;
-            const ry = p.y + (Math.random() - 0.5) * 260;
-            ctx.telegraph(rx, ry, pick.radius ?? 70, pick.windup + i * 0.12, pick.color, 'circle');
-          }
-          break;
-        default:
-          break;
-      }
-      ctx.playSound('boss_windup', 0.4);
+      this.queueAttack(ctx, pick);
     }
 
     // movement between attacks
@@ -382,7 +436,7 @@ export class Enemy implements Entity {
     return over <= 0 ? 1 : 1 + over * (boss.enrageRate ?? 0.02);
   }
 
-  private resolveBossAttack(ctx: WorldCtx): void {
+  private resolveLegacyBossAttack(ctx: WorldCtx): void {
     const a = this.windupAttack!;
     const boss = this.def.boss!;
     const p = ctx.player;
@@ -485,6 +539,123 @@ export class Enemy implements Entity {
     ctx.playSound('boss_hit', 0.5);
   }
 
+  private resolveBossAttack(ctx: WorldCtx): void {
+    // The expansion director's attack contract must not rebalance old bosses.
+    if (!this.def.id.startsWith('aegean_')) { this.resolveLegacyBossAttack(ctx); return; }
+    const a = this.windupAttack!;
+    const boss = this.def.boss;
+    const p = ctx.player;
+    const dmg = this.damage * a.power * (boss?.phases[this.phase]?.damage ?? 1) * this.enrageMul;
+    const geometry = this.attackGeometry ?? { x: this.x, y: this.y, angle: angleTo(this.x, this.y, p.x, p.y), range: a.range ?? (a.shape === 'line' ? 400 : 300), points: [] };
+    const angle = geometry.angle;
+    // Armour-ignoring bite, applied wherever the attack connects. A dodge
+    // roll still avoids it; nothing you wear reduces it.
+    const tax = a.lifeTax ? ctx.player.maxHp * a.lifeTax * this.enrageMul : 0;
+
+    switch (a.shape) {
+      case 'circle':
+      case 'ring': {
+        const r = a.radius ?? 140;
+        ctx.ringAt(geometry.x, geometry.y, r, a.color);
+        ctx.shake(a.shape === 'ring' ? 12 : 7);
+        ctx.particles(geometry.x, geometry.y, 34, a.color, { speed: 240, life: 0.6, size: 4 });
+        if (dist(geometry.x, geometry.y, p.x, p.y) < r + p.radius) {
+          ctx.damagePlayer(dmg, { trueDamageAmount: tax, element: a.element, fromX: geometry.x, fromY: geometry.y, knockback: 220, label: a.name });
+        }
+        break;
+      }
+      case 'cone': {
+        const r = a.radius ?? 130;
+        const d = dist(geometry.x, geometry.y, p.x, p.y);
+        if (d < r + p.radius && angleBetween(angle, angleTo(geometry.x, geometry.y, p.x, p.y)) < 0.55) {
+          ctx.damagePlayer(dmg, { trueDamageAmount: tax, element: a.element, fromX: geometry.x, fromY: geometry.y, knockback: 160, label: a.name });
+        }
+        ctx.particles(geometry.x + Math.cos(angle) * r * 0.5, geometry.y + Math.sin(angle) * r * 0.5, 22, a.color, { speed: 200, life: 0.45, size: 3, angle, spread: 1.2 });
+        ctx.shake(5);
+        break;
+      }
+      case 'projectile': {
+        const count = a.count ?? 5;
+        for (let i = 0; i < count; i++) {
+          const off = (i / Math.max(1, count - 1) - 0.5) * 0.9;
+          ctx.spawnProjectile({
+            x: geometry.x, y: geometry.y - this.radius * 0.6,
+            angle: angle + off,
+            speed: 260,
+            damage: dmg,
+            trueDamageAmount: tax,
+            radius: 26,
+            range: a.range ?? 500,
+            element: a.element,
+            color: a.color,
+            friendly: false,
+            sprite: a.element === 'physical' ? 'shard' : 'bolt',
+          });
+        }
+        break;
+      }
+      case 'dash': {
+        // A dash closes the gap; it does not jump over it. `a.range` is how
+        // far it CAN travel, not how far it always travels — unclamped, a
+        // boss standing next to you with a 620px dash lands 400px behind you
+        // and spends the next four seconds walking back, which makes it
+        // untouchable in melee rather than dangerous.
+        const range = geometry.range;
+        let hit = false;
+        // Sweep the complete committed path, never teleport through a wall.
+        for (let step = 8; step <= range; step += 8) {
+          const tx = geometry.x + Math.cos(angle) * step;
+          const ty = geometry.y + Math.sin(angle) * step;
+          if (boxHitsTerrain(ctx.map, tx, ty, this.radius * 0.7, this.radius * 0.5, this.movementProfile)) break;
+          this.x = tx; this.y = ty;
+          if (dist(tx, ty, p.x, p.y) < this.radius + p.radius + 10) hit = true;
+        }
+        if (hit) {
+          ctx.damagePlayer(dmg, { trueDamageAmount: tax, element: a.element, fromX: geometry.x, fromY: geometry.y, knockback: 200, label: a.name });
+        }
+        ctx.shake(6);
+        break;
+      }
+      case 'rain': {
+        for (const { x: rx, y: ry } of geometry.points) {
+          ctx.ringAt(rx, ry, a.radius ?? 70, a.color);
+          ctx.particles(rx, ry, 16, a.color, { speed: 170, life: 0.5, size: 3 });
+          if (dist(rx, ry, p.x, p.y) < (a.radius ?? 70) + p.radius) {
+            ctx.damagePlayer(dmg * 0.7, { trueDamageAmount: tax, element: a.element, fromX: rx, fromY: ry, knockback: 90, label: a.name });
+          }
+        }
+        ctx.shake(7);
+        break;
+      }
+      case 'line': {
+        const dx = p.x - geometry.x, dy = p.y - geometry.y;
+        const along = dx * Math.cos(angle) + dy * Math.sin(angle);
+        const across = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
+        ctx.particles(geometry.x, geometry.y, 26, a.color, { angle, spread: 0.05, speed: 500, life: 0.7 });
+        if (along >= -p.radius && along <= geometry.range + p.radius && across <= (a.radius ?? 24) + p.radius) {
+          ctx.damagePlayer(dmg, { trueDamageAmount: tax, element: a.element, fromX: geometry.x, fromY: geometry.y, label: a.name });
+        }
+        break;
+      }
+      case 'summon': {
+        const n = a.count ?? 2;
+        for (let i = 0; i < n; i++) {
+          const ang = (i / n) * Math.PI * 2;
+          ctx.summon(a.summon ?? 'skeleton', this.x + Math.cos(ang) * 90, this.y + Math.sin(ang) * 90, this.level - 2);
+        }
+        ctx.floatText(this.x, this.y - this.radius * 2, a.name, a.color, 13);
+        break;
+      }
+    }
+
+    this.bossCooldowns[a.id] = a.cooldown;
+    this.lastImpact = { id: a.id, x: a.shape === 'dash' ? this.x : geometry.x, y: a.shape === 'dash' ? this.y : geometry.y, at: ctx.now, angle };
+    this.attackCd = 1.1;
+    this.windupAttack = null;
+    this.attackGeometry = null;
+    ctx.playSound('boss_hit', 0.5);
+  }
+
   /* ---------------- main update ---------------- */
 
   update(ctx: WorldCtx): void {
@@ -549,6 +720,11 @@ export class Enemy implements Entity {
       }
       return;
     }
+
+    if (this.scripted) return;
+
+    this.updateTactic(ctx);
+    if (this.windupAttack) return;
 
     if (this.friendly) {
       this.updateFriendly(ctx);

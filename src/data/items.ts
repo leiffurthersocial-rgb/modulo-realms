@@ -5,6 +5,7 @@ import type { ClassId } from './classes';
 import type { ArmorLook, ConsumeEffect, EquipSlot, ItemType, Rarity, Stats } from '../game/items/types';
 import type { RegionId } from './locations';
 import { armorDefenseAt, weaponDamage, weaponDps } from './balance';
+import { AEGEAN_ITEMS } from './aegean/content';
 
 export interface ItemTemplate {
   id: string;
@@ -34,6 +35,10 @@ export interface ItemTemplate {
   noReroll?: boolean;
   /** Excluded from random loot tables. */
   noDrop?: boolean;
+  /** Canonical AEGEAN_POWERS entry; activation is interpreted by the gameplay runtime. */
+  aegeanPower?: string;
+  /** Crafting/reward provenance must name an allowed island source. */
+  islandOnly?: boolean;
   /** Only rolls as loot inside these regions. */
   regions?: RegionId[];
 }
@@ -743,7 +748,7 @@ export const QUEST_ITEMS: ItemTemplate[] = [
 ];
 
 export const ALL_TEMPLATES: ItemTemplate[] = [
-  ...WEAPONS, ...ARMOR, ...OFFHANDS, ...ARTIFACTS, ...UNIQUES, ...CONSUMABLES, ...MATERIALS, ...QUEST_ITEMS,
+  ...WEAPONS, ...ARMOR, ...OFFHANDS, ...ARTIFACTS, ...UNIQUES, ...CONSUMABLES, ...MATERIALS, ...QUEST_ITEMS, ...AEGEAN_ITEMS,
 ];
 
 export const TEMPLATE_BY_ID: Record<string, ItemTemplate> = Object.fromEntries(ALL_TEMPLATES.map((t) => [t.id, t]));

@@ -127,10 +127,10 @@ function plankTile(rng: RNG, base: string, dark: string, light: string, vertical
   return p;
 }
 
-function waterTile(rng: RNG, deep: boolean): Px {
+function waterTile(rng: RNG, deep: boolean, colors?: readonly [string, string]): Px {
   const p = new Px(S, S);
-  const base = deep ? PAL.deep : PAL.water;
-  const light = deep ? PAL.water : PAL.waterLit;
+  const base = colors?.[0] ?? (deep ? PAL.deep : PAL.water);
+  const light = colors?.[1] ?? (deep ? PAL.water : PAL.waterLit);
   p.fillAll(base);
   for (let i = 0; i < 6; i++) {
     p.ellipse(rng.int(0, S), rng.int(0, S), rng.int(4, 9), rng.int(2, 4), mix(base, light, 0.25));
@@ -456,7 +456,41 @@ function generateTile(id: number, rng: RNG): Px {
     }
     default: {
       const p = new Px(S, S);
-      p.fillAll(PAL.charcoal);
+      const greek: Record<number, [string, string, string]> = {
+        [T.AEGEAN_GRASS]: ['#819667', '#687f50', '#a6b884'],
+        [T.MARBLE]: ['#d9cfac', '#b2aa90', '#eee6cc'],
+        [T.MARBLE_WALL]: ['#a9a388', '#767666', '#e5d9b5'],
+        [T.TERRACOTTA]: ['#b67d53', '#91563d', '#d2a675'],
+        [T.AEGEAN_SHALLOWS]: ['#388c9a', '#256977', '#79b9b6'],
+        [T.AEGEAN_SEA]: ['#204667', '#18364e', '#3d6e88'],
+        [T.BASALT]: ['#514c52', '#37353c', '#726772'],
+        [T.ASPHODEL]: ['#898d82', '#626e69', '#b0bba6'],
+        [T.STYGIAN]: ['#3f5365', '#27374a', '#7a8da6'],
+        [T.BRONZE_FLOOR]: ['#897444', '#594d36', '#b69a5a'],
+      };
+      const colors = greek[id];
+      if (!colors) return p.fillAll(PAL.charcoal);
+      if (id === T.AEGEAN_GRASS || id === T.ASPHODEL)
+        return grassTile(rng, colors[0], colors[1], colors[2], id === T.ASPHODEL ? .8 : 1);
+      if (id === T.BASALT) return rockTile(rng, colors[0], colors[1], colors[2]);
+      if (id === T.AEGEAN_SEA || id === T.AEGEAN_SHALLOWS || id === T.STYGIAN)
+        return waterTile(rng, id !== T.AEGEAN_SHALLOWS, [colors[0], colors[2]]);
+      if (id === T.MARBLE || id === T.BRONZE_FLOOR) {
+        const stone = cobbleTile(rng, colors[0], colors[1], colors[2], id === T.MARBLE ? 11 : 8);
+        for (let n=0;n<3;n++) {
+          const x=rng.int(1,30), y=rng.int(2,29);
+          stone.line(x,y,x+rng.int(-4,4),y+3,mix(colors[0],colors[1],.55));
+        }
+        return stone;
+      }
+      noiseGround(p, colors[0], colors[1], colors[2], rng, .12);
+      if (id === T.MARBLE || id === T.MARBLE_WALL || id === T.BRONZE_FLOOR) {
+        p.line(0, 15, 31, 15, colors[1]).line(15, 0, 15, 15, colors[1]).line(7, 16, 7, 31, colors[1]);
+        if (id === T.MARBLE_WALL) p.fill(0, 3, 32, 3, '#944a3c').fill(0, 7, 32, 2, '#b49d59');
+      }
+      if (id === T.AEGEAN_SEA || id === T.AEGEAN_SHALLOWS || id === T.STYGIAN) {
+        for (let n = 0; n < 3; n++) p.line(rng.int(1, 12), 5 + n * 10, rng.int(18, 30), 5 + n * 10, colors[2]);
+      }
       return p;
     }
   }

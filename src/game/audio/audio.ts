@@ -3,7 +3,7 @@
  * no licensing questions, and every cue can be retuned from the tables below.
  */
 
-export type MusicTrack = 'title' | 'village' | 'world' | 'forest' | 'north' | 'desert' | 'dungeon' | 'boss';
+export type MusicTrack = 'title' | 'village' | 'world' | 'forest' | 'north' | 'desert' | 'dungeon' | 'boss' | 'aegean' | 'polis' | 'storm' | 'underworld' | 'phalanx' | 'oath' | 'grove' | 'oracle' | 'seafarer' | 'lacedaemon';
 
 interface TrackDef {
   /** Semitone offsets from the root, cycled as a chord progression. */
@@ -19,9 +19,33 @@ interface TrackDef {
   scale: number[];
   drums: boolean;
   swing: number;
+  /** Authored eight-note phrases; null is a rest. Old-world tracks keep their original improvisation. */
+  phrases?: Array<Array<number | null>>;
+  percussion?: 'frame' | 'oar' | 'march' | 'tempest';
+  ambience?: 'surf' | 'wind' | 'embers' | 'shadows';
 }
 
 const TRACKS: Record<MusicTrack, TrackDef> = {
+  aegean: { chords:[[0,7,12],[-2,5,10],[3,7,12],[0,5,7]],root:57,bpm:82,lead:'triangle',pad:'sine',leadGain:.085,padGain:.055,scale:[0,2,3,5,7,9,10,12],drums:false,swing:.14,
+    phrases:[[0,null,7,9,7,null,3,2],[0,2,5,null,7,null,5,null],[3,null,7,10,9,7,3,null],[2,3,5,null,2,null,0,null]] },
+  polis: { chords:[[0,4,7],[5,9,12],[-2,5,9],[0,7,12]],root:62,bpm:108,lead:'triangle',pad:'sine',leadGain:.08,padGain:.05,scale:[0,2,4,7,9,12],drums:true,swing:.18,
+    phrases:[[0,4,7,null,9,7,4,null],[5,9,12,9,7,null,5,null],[2,5,9,null,7,5,2,null],[4,2,0,null,7,null,0,null]],percussion:'frame' },
+  grove: { chords:[[0,3,7],[-2,3,8],[0,5,9],[-5,2,7]],root:57,bpm:70,lead:'sine',pad:'triangle',leadGain:.07,padGain:.052,scale:[0,2,3,5,7,9,10],drums:false,swing:.12,
+    phrases:[[7,null,10,9,null,7,3,null],[5,null,3,null,2,3,5,null],[9,7,null,5,3,null,2,null],[2,null,0,null,null,7,0,null]],ambience:'wind' },
+  oracle: { chords:[[0,5,7],[-2,3,8],[1,5,8],[0,7,12]],root:55,bpm:62,lead:'sine',pad:'sine',leadGain:.065,padGain:.064,scale:[0,1,3,5,7,8,10],drums:false,swing:.04,
+    phrases:[[12,null,7,null,5,3,null,null],[10,null,8,7,null,3,null,null],[8,null,5,null,1,3,null,null],[7,null,5,3,1,null,0,null]],ambience:'wind' },
+  seafarer: { chords:[[0,7,12],[5,9,12],[-2,5,10],[0,4,7]],root:59,bpm:88,lead:'triangle',pad:'sine',leadGain:.076,padGain:.05,scale:[0,2,4,5,7,9,10],drums:true,swing:.1,
+    phrases:[[7,null,9,7,4,null,2,null],[5,9,null,12,9,null,7,null],[5,null,10,9,7,5,2,null],[4,7,9,null,7,null,0,null]],percussion:'oar',ambience:'surf' },
+  lacedaemon: { chords:[[0,7,12],[-2,5,10],[0,3,7],[-5,2,7]],root:47,bpm:92,lead:'triangle',pad:'sine',leadGain:.067,padGain:.055,scale:[0,2,3,5,7,10,12],drums:true,swing:0,
+    phrases:[[0,null,7,null,7,5,3,null],[2,null,5,null,10,7,5,null],[3,2,0,null,7,null,3,null],[2,null,5,3,2,null,0,null]],percussion:'march' },
+  storm: { chords:[[0,1,7],[-5,0,6],[-2,3,7],[1,6,8]],root:43,bpm:114,lead:'sine',pad:'sawtooth',leadGain:.06,padGain:.043,scale:[0,1,3,6,7,10,12],drums:true,swing:0,
+    phrases:[[0,1,null,7,6,null,3,1],[0,null,6,7,6,3,null,0],[10,7,6,null,3,1,0,null],[1,6,8,7,6,null,1,null]],percussion:'tempest',ambience:'surf' },
+  underworld: { chords:[[0,3,8],[-1,4,7],[-5,0,6],[0,1,7]],root:40,bpm:54,lead:'sine',pad:'triangle',leadGain:.045,padGain:.055,scale:[0,1,3,5,6,8,11],drums:false,swing:.04,
+    phrases:[[12,null,null,8,null,3,null,null],[11,null,7,null,null,4,null,null],[6,null,null,5,3,null,null,null],[1,null,7,null,1,null,0,null]],ambience:'shadows' },
+  phalanx: { chords:[[0,7,12],[0,5,10],[-2,5,10],[0,3,7]],root:45,bpm:120,lead:'square',pad:'triangle',leadGain:.042,padGain:.047,scale:[0,3,5,7,10,12],drums:true,swing:0,
+    phrases:[[0,0,7,null,0,0,7,null],[5,5,10,null,7,5,0,null],[3,3,5,7,10,null,7,null],[7,5,3,null,0,0,0,null]],percussion:'march' },
+  oath: { chords:[[0,7,12],[1,5,8],[-5,0,7],[-1,3,6]],root:38,bpm:126,lead:'sawtooth',pad:'sine',leadGain:.039,padGain:.059,scale:[0,1,3,5,7,8,11,12],drums:true,swing:0,
+    phrases:[[0,null,7,12,11,7,3,null],[1,5,8,null,7,5,1,null],[0,0,7,null,12,11,7,null],[3,1,6,5,3,1,0,null]],percussion:'march',ambience:'embers' },
   title: { chords: [[0, 7, 12], [-3, 4, 9], [-5, 2, 7], [-1, 4, 11]], root: 55, bpm: 64, lead: 'triangle', pad: 'sine', leadGain: 0.1, padGain: 0.09, scale: [0, 2, 3, 5, 7, 10, 12], drums: false, swing: 0.1 },
   village: { chords: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [0, 4, 7]], root: 62, bpm: 96, lead: 'triangle', pad: 'sine', leadGain: 0.1, padGain: 0.06, scale: [0, 2, 4, 7, 9, 12], drums: false, swing: 0.16 },
   world: { chords: [[0, 4, 7], [-3, 2, 5], [-5, 0, 4], [2, 5, 9]], root: 58, bpm: 84, lead: 'triangle', pad: 'sine', leadGain: 0.085, padGain: 0.08, scale: [0, 2, 4, 5, 7, 9, 11], drums: false, swing: 0.12 },
@@ -31,6 +55,20 @@ const TRACKS: Record<MusicTrack, TrackDef> = {
   dungeon: { chords: [[0, 3, 6], [-2, 1, 8], [-5, 0, 3], [-1, 2, 6]], root: 45, bpm: 68, lead: 'sine', pad: 'sawtooth', leadGain: 0.05, padGain: 0.055, scale: [0, 1, 3, 5, 6, 8, 10], drums: true, swing: 0 },
   boss: { chords: [[0, 3, 7], [1, 5, 8], [-2, 3, 6], [0, 4, 7]], root: 41, bpm: 132, lead: 'sawtooth', pad: 'square', leadGain: 0.06, padGain: 0.05, scale: [0, 1, 3, 5, 6, 8, 10], drums: true, swing: 0 },
 };
+
+/** Greek places use related, individually composed themes; old-region routing is untouched. */
+export function aegeanMusicForRegion(region: string, town = false): MusicTrack | undefined {
+  if (!region.startsWith('aegean_')) return;
+  if (town) return region === 'aegean_sparta' ? 'lacedaemon' : 'polis';
+  return ({
+    aegean_threshold: 'aegean', aegean_rivers: 'aegean',
+    aegean_arcadia: 'grove', aegean_lerna: 'grove',
+    aegean_delphi: 'oracle', aegean_olympus: 'oracle',
+    aegean_coast: 'seafarer', aegean_cyclades: 'seafarer',
+    aegean_sparta: 'lacedaemon', aegean_ash: 'underworld',
+    aegean_pelagic: 'storm', aegean_asterion: 'oath',
+  } as Record<string, MusicTrack>)[region] ?? 'aegean';
+}
 
 const midi = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
 
@@ -148,14 +186,40 @@ export class AudioManager {
     }
     // melody
     const melodyChance = def.drums ? 0.45 : 0.55;
-    if ((inBar % 2 === 0 || Math.random() < 0.28) && Math.random() < melodyChance) {
+    if (def.phrases) {
+      const phrase = def.phrases[Math.floor(step / 8) % def.phrases.length];
+      const semi = phrase[inBar];
+      if (semi !== null && semi !== undefined) {
+        const jitter = def.swing * (inBar % 2) * (60 / def.bpm / 2);
+        const sustained = phrase[(inBar + 1) % 8] === null;
+        this.tone(def.lead, midi(def.root + 12 + semi), when + jitter,
+          (60 / def.bpm / 2) * (sustained ? 1.65 : .8), def.leadGain * (inBar % 2 ? .82 : 1), this.musicGain, .018);
+      }
+      // Sparse filtered air gives each setting room; one finite voice every
+      // four bars, with no additional timers or downloaded audio buffers.
+      if (step % 32 === 0 && def.ambience) {
+        const [duration, gain, filter] = def.ambience === 'surf' ? [2.6,.023,420]
+          : def.ambience === 'wind' ? [2.2,.012,1600]
+          : def.ambience === 'embers' ? [1.8,.016,800] : [3,.017,220];
+        this.noise(when, duration, gain, filter, 'lowpass');
+      }
+    } else if ((inBar % 2 === 0 || Math.random() < 0.28) && Math.random() < melodyChance) {
       const deg = def.scale[Math.floor(Math.random() * def.scale.length)];
       const octave = Math.random() < 0.3 ? 12 : 0;
       const jitter = def.swing * (inBar % 2) * (60 / def.bpm / 2);
       this.tone(def.lead, midi(def.root + 12 + deg + octave), when + jitter, 0.26, def.leadGain, this.musicGain, 0.01);
     }
     // percussion
-    if (def.drums) {
+    if (def.percussion) {
+      if (inBar === 0 || inBar === 4) {
+        this.tone('sine', def.percussion === 'march' ? 78 : 105, when, .19, .045, this.musicGain, .008);
+        this.noise(when, .08, .045, 320, 'lowpass');
+      }
+      if (def.percussion === 'frame' && (inBar === 3 || inBar === 6)) this.noise(when, .055, .026, 1900, 'bandpass');
+      if (def.percussion === 'oar' && (inBar === 2 || inBar === 6)) this.noise(when, .19, .019, 700, 'lowpass');
+      if (def.percussion === 'march' && (inBar === 2 || inBar === 6 || inBar === 7)) this.noise(when, .065, .032, 1350, 'bandpass');
+      if (def.percussion === 'tempest' && (inBar === 1 || inBar === 3 || inBar === 6)) this.noise(when, .17, .035, 480, 'lowpass');
+    } else if (def.drums) {
       if (inBar === 0 || inBar === 4) this.noise(when, 0.14, 0.09, 180, 'lowpass');
       if (inBar === 2 || inBar === 6) this.noise(when, 0.07, 0.045, 5000, 'highpass');
     }
@@ -202,6 +266,30 @@ export class AudioManager {
     const out = this.sfxGain;
     const v = volume;
     switch (name) {
+      case 'ship_oar':
+        this.noise(t, .22, .06 * v, 560, 'lowpass', out);
+        this.tone('triangle', 130, t, .08, .022 * v, out);
+        break;
+      case 'ship_ram':
+        this.noise(t, .28, .19 * v, 430, 'lowpass', out);
+        this.tone('triangle', 90, t, .27, .12 * v, out);
+        this.tone('sine', 186, t + .035, .35, .035 * v, out);
+        break;
+      case 'ship_dock':
+        this.noise(t, .2, .08 * v, 320, 'lowpass', out);
+        this.tone('triangle', 210, t + .08, .16, .045 * v, out);
+        break;
+      case 'storm_thunder':
+        this.noise(t, .85, .2 * v, 300, 'lowpass', out);
+        this.noise(t + .13, .6, .08 * v, 680, 'lowpass', out);
+        break;
+      case 'bronze_gate':
+      case 'oath_bell':
+        [196, 392, 529].forEach((f, i) => this.tone('sine', f, t, 1.05 - i * .16, (.09 - i * .024) * v, out, .008));
+        break;
+      case 'phalanx_horn':
+        [147, 196, 220].forEach((f, i) => this.tone('triangle', f, t + i * .22, .45, .075 * v, out, .06));
+        break;
       case 'swing':
         this.noise(t, 0.13, 0.16 * v, 1400, 'bandpass', out);
         break;

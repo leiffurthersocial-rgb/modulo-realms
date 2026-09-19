@@ -1,6 +1,6 @@
 import type { Dir4 } from '../core/math';
 
-export type StatusKind = 'burn' | 'poison' | 'chill' | 'stun' | 'bleed';
+export type StatusKind = 'burn' | 'poison' | 'chill' | 'stun' | 'bleed' | 'curse' | 'fear';
 
 export interface StatusEffect {
   kind: StatusKind;
@@ -37,6 +37,8 @@ export const newEntityId = (): number => nextId++;
 export const resetEntityIds = (): void => { nextId = 1; };
 
 export function applyStatus(e: Entity, kind: StatusKind, power: number, duration: number, color: string, now: number): void {
+  const resistance=(e as Entity & {resistances?:Record<string,{until:number;multiplier:number}>}).resistances?.[kind];
+  if(resistance&&resistance.until>now)duration*=resistance.multiplier;
   const existing = e.statuses.find((s) => s.kind === kind);
   if (existing) {
     existing.power = Math.max(existing.power, power);
@@ -53,6 +55,7 @@ export function statusSpeedMul(e: Entity): number {
   for (const s of e.statuses) {
     if (s.kind === 'chill') mul *= 1 - s.power;
     if (s.kind === 'stun') mul = 0;
+    if (s.kind === 'fear') mul *= .75;
   }
   return mul;
 }

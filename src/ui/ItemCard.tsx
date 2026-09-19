@@ -127,7 +127,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
           <div className="divider" />
           <div className="ic-effect" style={{ borderLeftColor: 'var(--gold)' }}>
             <strong style={{ color: 'var(--gold)' }}>{item.artifact.name}</strong>
-            {' '}(R, {item.artifact.cooldown}s) — {item.artifact.desc}
+            {' '}({item.slot === 'offHand' ? 'F' : 'R'}, {item.artifact.cooldown}s) — {item.artifact.desc}
           </div>
         </>
       ) : null}

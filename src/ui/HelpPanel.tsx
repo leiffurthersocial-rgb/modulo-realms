@@ -190,7 +190,7 @@ export default function HelpPanel({ game }: { game: Game }) {
                 <P>
                   <b style={{ color: '#ff4f6e' }}>Mythic</b> is not a tier loot can roll into, and not something the
                   crown&apos;s warrant can raise a thing to. A handful of weapons in the whole world wear it. You will
-                  know.
+                  know. Above Mythic, Olympian relics come from the monsters and ruins of Achaea. Primordial equipment can only be earned and forged on Asterion, beyond the Three Hundred and the storm. Neither tier appears in random loot; both hold four enchantments.
                 </P>
                 <P>
                   The top tiers are <b>gated behind your level</b>. A legendary is effectively unavailable below level
@@ -305,6 +305,18 @@ export default function HelpPanel({ game }: { game: Game }) {
                   late gear is meant to be something you save for rather than something you pick up in passing.
                 </P>
 
+                <H>The eastern sea</H>
+                <P>
+                  The harbours of Achaea sell ships. Speak to a shipwright to buy, repair or fit one, then embark at
+                  the dock. Steer with <K>WASD</K>, fire with <K>Space</K>, ram with <K>G</K> and brace with <K>B</K>.
+                  Hold <K>Shift</K> for a rowing burst, use <K>E</K> to dock, or <K>R</K> to fight boarders on deck.
+                  The further you sail from the mainland, the worse the monsters get.
+                </P>
+                <P>
+                  Greek bounties appear in your journal as you find their places, just like the valley&apos;s.
+                  Bring trophies back to a local anvil to see what the smith can make from them.
+                </P>
+
                 <H>Doors worth opening</H>
                 <P>
                   In every settlement, buildings you can use have their own rooflines, a trade sign and a lit name plate
@@ -326,15 +338,15 @@ export default function HelpPanel({ game }: { game: Game }) {
               <>
                 <H>Levels and skill points</H>
                 <P>
-                  Experience comes from fighting, finding places, and finishing bounties. The cap is <b>level 75</b>,
+                  Experience comes from fighting, finding places, and finishing bounties. The cap is <b>level 100</b>,
                   and getting there is meant to take a long time: a level costs roughly sixteen kills in the opening
                   hour and settles at about eighty-five from the early twenties onward. Elites pay three times what
                   ordinary enemies do and bosses seven and a half, so clearing a dungeon is worth a real slice of a
                   level and grinding field trash is the slowest way to do anything.
                 </P>
                 <P>
-                  Every level pays a skill point, every third level pays two, and every tenth pays five. That is 120
-                  points by the cap, against trees that hold 162 — so <b>no build ever finishes one</b>. Each class has
+                  Up to level 75, every level pays a skill point, every third level pays two, and every tenth pays five. That is 120
+                  points by level 75, against trees that hold 162 — so <b>no build ever finishes one</b>. Each class has
                   three talent branches seven tiers deep plus a shared Mastery branch, and five abilities that unlock
                   as you go, the last at level 22.
                 </P>
@@ -350,6 +362,11 @@ export default function HelpPanel({ game }: { game: Game }) {
                   their own and much larger multiplier and are among the hardest fights in the game. Rank-and-file
                   enemies are meant to be texture: two or three hits for a weak one, a few seconds for an ordinary one.
                   Bosses are where the difficulty lives.
+                </P>
+
+                <P>
+                  Beyond the eastern hills lies Achaea. Anyone can walk there, but its beasts are stronger than anything
+                  in the valley. At levels 80, 85, 90, 95 and 100, the skills panel offers a choice of heroic talents.
                 </P>
 
                 <H>Changing your mind</H>

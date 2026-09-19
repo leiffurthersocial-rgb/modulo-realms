@@ -35,7 +35,7 @@ function DungeonMap({ game }: { game: Game }) {
     if (!canvas) return;
     const src = getMinimap(map, 1);
     const aspect = map.w / map.h;
-    const h = Math.min(Math.min(window.innerHeight - 280, 620), Math.min(window.innerWidth - 380, 620) / aspect);
+    const h = Math.max(160,Math.min(window.innerHeight - 280, 620, Math.max(280,window.innerWidth - 70) / aspect));
     const w = h * aspect;
     setSize({ w, h });
     canvas.width = w;
@@ -53,12 +53,14 @@ function DungeonMap({ game }: { game: Game }) {
     top: `${(py / (map.h * TILE)) * 100}%`,
   });
   const st = game.mapState(map.id);
-  const boss = map.spawns.find((sp) => sp.boss);
-  const bossDown = boss ? st.everKilled.has(boss.id) : false;
+  const spawnBoss = map.spawns.find((sp) => sp.boss);
+  const boss = spawnBoss ?? game.bossTarget ?? (map.encounterNodes?.boss?.[0] ? {...map.encounterNodes.boss[0],id:map.id} : undefined);
+  const bossDown = st.cleared || (spawnBoss ? st.everKilled.has(spawnBoss.id) : false);
+  const objectives=map.props.filter(p=>p.interact==='aegean'&&p.data?.action==='objective');
 
   return (
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(860px, 96vw)' }}>
+      <div className="modal panel" style={{ width: 'min(860px, calc(100vw - 48px))' }}>
         <div className="panel-title">
           <span>{map.name}</span>
           <span className="sub">
@@ -90,6 +92,7 @@ function DungeonMap({ game }: { game: Game }) {
                   <span className="dm-boss" style={bossDown ? { opacity: 0.35 } : undefined} />
                 </div>
               ) : null}
+              {objectives.map((o,i)=><span key={`objective-${i}`} title={o.label} style={{position:'absolute',...pos(o.x,o.y),transform:'translate(-50%,-50%)',background:o.data?.complete?'#408464':'#b5944e',color:'#fff',border:'1px solid #ffedb2',fontSize:10,width:16,height:16,textAlign:'center',borderRadius:3}}>{i+1}</span>)}
               {map.chests.filter((c) => !st.opened.has(c.id)).map((c) => (
                 <div key={c.id} style={{ position: 'absolute', ...pos(c.x, c.y), transform: 'translate(-50%,-50%)' }}>
                   <span className="dm-chest" />
@@ -110,6 +113,7 @@ function DungeonMap({ game }: { game: Game }) {
             <span><i className="dm-exit" />The way out</span>
             <span><i className="dm-boss" />Boss room</span>
             <span><i className="dm-chest" />Unopened chest</span>
+            {objectives.length?<span>Numbered markers: encounter mechanisms</span>:null}
             <span><i style={{ background: '#fdf8ef', borderRadius: '50%' }} />You</span>
           </div>
         </div>
@@ -125,14 +129,16 @@ function WorldMap({ game }: { game: Game }) {
   // own aspect rather than to a square. Everything below positions in
   // percentages of this box, so it follows whatever shape the world takes.
   const [size, setSize] = useState({ w: 440, h: 605 });
+  const [zoom,setZoom]=useState(1);
+  const scroll=useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const src = getMinimap(world, 1);
     const aspect = world.w / world.h;
-    const maxH = Math.min(window.innerHeight - 260, 660);
-    const maxW = Math.min(window.innerWidth - 420, 660);
+    const maxH = Math.max(180,Math.min(window.innerHeight - 260, 660))*zoom;
+    const maxW = Math.max(280,Math.min(window.innerWidth - 100, 850))*zoom;
     const h = Math.min(maxH, maxW / aspect);
     const w = h * aspect;
     setSize({ w, h });
@@ -150,6 +156,7 @@ function WorldMap({ game }: { game: Game }) {
     g.fillRect(0, 0, w, h);
     g.restore();
     for (const loc of LOCATIONS) {
+      if(loc.surfaceMap)continue;
       if (!game.player.discovered.has(loc.id)) continue;
       const x = (loc.tx / world.w) * w;
       const y = (loc.ty / world.h) * h;
@@ -162,7 +169,7 @@ function WorldMap({ game }: { game: Game }) {
       g.arc(x, y, r, 0, Math.PI * 2);
       g.fill();
     }
-  }, [world, game.player.discovered.size, game.uiVersion]);
+  }, [world, game.player.discovered.size, game.uiVersion, zoom]);
 
   const toPct = (tx: number, ty: number) => ({ left: `${(tx / world.w) * 100}%`, top: `${(ty / world.h) * 100}%` });
   const mapCoords = game.worldCoords();
@@ -171,9 +178,9 @@ function WorldMap({ game }: { game: Game }) {
 
   return (
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(1000px, 96vw)' }}>
+      <div className="modal panel" style={{ width: 'min(1000px, calc(100vw - 48px))' }}>
         <div className="panel-title">
-          <span>Ashvale Valley</span>
+          <span>Ashvale &amp; the Aegean</span>
           <span className="sub">
             {game.player.discovered.size} / {LOCATIONS.length} places found · {game.timeLabel} ·{' '}
             {mapCoords.isDoor ? 'Door ' : ''}{mapCoords.x}, {mapCoords.y}
@@ -181,10 +188,11 @@ function WorldMap({ game }: { game: Game }) {
           <button className="close-x" onClick={() => game.closeAll()}>×</button>
         </div>
         <div className="map-panel">
-          <div className="map-canvas-wrap" style={{ padding: 16 }}>
+          <div style={{display:'flex',gap:10,padding:10,flexWrap:'wrap'}}><label>Atlas zoom <input aria-label="Atlas zoom" type="range" min="1" max="4" step=".5" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/></label><button className="btn" onClick={()=>{if(scroll.current){scroll.current.scrollLeft=game.player.x/(world.w*TILE)*size.w-scroll.current.clientWidth/2;scroll.current.scrollTop=game.player.y/(world.h*TILE)*size.h-scroll.current.clientHeight/2;}}}>Find me</button><span>Scroll to explore the atlas</span></div>
+          <div ref={scroll} className="map-canvas-wrap" style={{ padding:16,overflow:'auto',maxHeight:'55vh',display:'block' }}>
             <div style={{ position: 'relative', width: size.w, height: size.h }}>
               <canvas ref={ref} style={{ position: 'absolute', inset: 0, border: '1px solid var(--edge)' }} />
-              {LOCATIONS.filter((l) => game.player.discovered.has(l.id)).map((l) => {
+              {LOCATIONS.filter((l) => !l.surfaceMap&&game.player.discovered.has(l.id)).map((l) => {
                 const pos = toPct(l.tx, l.ty);
                 const isQuest = markers.some((m) => m.location === l.id);
                 const tracked = trackedMarker === l.id;
@@ -207,7 +215,7 @@ function WorldMap({ game }: { game: Game }) {
                       }}
                     />
                     {attuned ? <span className="waystone-ring" /> : null}
-                    <span className="map-marker-label" style={tracked ? { color: '#f0c93c' } : undefined}>{l.name}</span>
+                    <span className="map-marker-label" style={zoom<2&&!attuned&&!tracked?{display:'none'}:tracked ? { color: '#f0c93c' } : undefined}>{l.name}</span>
                   </div>
                 );
               })}

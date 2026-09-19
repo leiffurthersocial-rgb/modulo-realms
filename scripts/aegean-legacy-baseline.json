@@ -1,0 +1,21 @@
+{
+  "baseCommit": "d39d75a",
+  "seed": 1337,
+  "w": 960,
+  "h": 1088,
+  "maxContentLevel": 75,
+  "counts": {
+    "props": 95369,
+    "portals": 44,
+    "spawns": 2850,
+    "chests": 99
+  },
+  "sha256": {
+    "tiles": "63e8d8345ccd32613eb9ce0896b353f565c28f53580d77fd630122f82fcc6a93",
+    "regions": "b17bef8ce88be0f80794f5baf83e23f4ec8e8c53fdba4e0b2b7deb2248c3f95c",
+    "props": "2c51d9307f52b63df1c2160dd873d774c36b553bc8678cfc533e72e87799a4a1",
+    "portals": "d2c22ca98d4dba94b68246a0836b9ba6f7d4d42866d5ed55de4be25de5904cdb",
+    "spawns": "8be9f19fa4a8f11f497ce86cecc9979cfd4b6cd0a0ee270066e5ed87f4f88501",
+    "chests": "085da26618841ea8d72dd931ca432f1b105ed361f7f665143c77ed990b3df1aa"
+  }
+}
