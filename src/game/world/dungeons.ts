@@ -2,6 +2,7 @@ import { RNG } from '../core/rng';
 import type { DungeonSpec, LocationDef } from '../../data/locations';
 import { T, TILE } from './tiles';
 import { buildPropGrid, createMap, fillRect, getTile, setTile, type GameMap, type PropInstance } from './map';
+import { generateAegeanDungeon } from './aegeanDungeons';
 
 interface Theme {
   floor: number;
@@ -57,6 +58,7 @@ function carveCorridor(map: GameMap, floor: number, ax: number, ay: number, bx: 
 }
 
 export function generateDungeon(loc: LocationDef, seed: number): GameMap {
+  if (loc.dungeon?.encounter?.startsWith('aegean_')) return generateAegeanDungeon(loc, seed);
   const spec = loc.dungeon!;
   const theme = THEMES[spec.theme];
   const rng = new RNG(`${seed}:${spec.mapId}`);

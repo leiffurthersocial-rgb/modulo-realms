@@ -4,7 +4,7 @@ export type ActionName =
   | 'up' | 'down' | 'left' | 'right'
   | 'attack' | 'heavy' | 'offhand' | 'artifact' | 'potion'
   | 'interact' | 'inventory' | 'map' | 'quests' | 'character' | 'skills'
-  | 'pause' | 'dash' | 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'slot5' | 'weaponPower' | 'debug' | 'minimap' | 'travel';
+  | 'pause' | 'dash' | 'slot1' | 'slot2' | 'slot3' | 'slot4' | 'slot5' | 'weaponPower' | 'debug' | 'minimap' | 'travel' | 'brace' | 'target' | 'chronicle';
 
 export const DEFAULT_BINDINGS: Record<ActionName, string[]> = {
   up: ['KeyW', 'ArrowUp'],
@@ -33,6 +33,9 @@ export const DEFAULT_BINDINGS: Record<ActionName, string[]> = {
   debug: ['F3'],
   minimap: ['KeyN'],
   travel: ['KeyT'],
+  brace: ['KeyB'],
+  target: ['KeyX'],
+  chronicle: ['KeyH'],
 };
 
 /**

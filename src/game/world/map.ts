@@ -1,4 +1,4 @@
-import { TILE, isSolid, isWall, tileSpeed, T, type TileId } from './tiles';
+import { TILE, isSolid, isWall, isWater, tileSpeed, T, type TileId } from './tiles';
 
 export type MapKind = 'overworld' | 'interior' | 'dungeon' | 'cave';
 
@@ -99,6 +99,16 @@ export interface GameMap {
   regions?: Uint8Array;
   bossId?: string;
   parent?: string;
+  /** Authored encounter/controller ID. */
+  encounter?: string;
+  /** World-pixel anchors shared by authored geometry and encounter simulation. */
+  encounterNodes?: Record<string, Array<{ x: number; y: number }>>;
+  /** Distance through marine water to the connected mainland; 65535 is unreachable. */
+  offshore?: Uint16Array;
+  /** 0 sea, 1 Greek mainland, 2..17 smaller islands, 18 Asterion. */
+  landmasses?: Uint8Array;
+  /** Generation identity used by terrain/minimap caches. */
+  revision?: string;
 }
 
 export const PROP_CELL = 256;
@@ -179,14 +189,23 @@ export function speedAtPx(map: GameMap, x: number, y: number): number {
 }
 
 /** Axis-aligned box test against terrain only. */
-export function boxHitsTerrain(map: GameMap, x: number, y: number, hw: number, hh: number): boolean {
+export type MovementProfile = 'foot' | 'ship' | 'swimmer' | 'flying';
+
+export function tilePassable(id: TileId, profile: MovementProfile = 'foot'): boolean {
+  if (id === T.VOID) return false;
+  if (profile === 'ship' || profile === 'swimmer') return isWater(id) && id !== T.SWAMP_WATER;
+  if (profile === 'flying') return (!isSolid(id) || isWater(id) || id === T.PIT) && id !== T.MOUNTAIN && id !== T.SNOW_ROCK;
+  return !isSolid(id);
+}
+
+export function boxHitsTerrain(map: GameMap, x: number, y: number, hw: number, hh: number, profile: MovementProfile = 'foot'): boolean {
   const x0 = Math.floor((x - hw) / TILE);
   const x1 = Math.floor((x + hw) / TILE);
   const y0 = Math.floor((y - hh) / TILE);
   const y1 = Math.floor((y + hh) / TILE);
   for (let ty = y0; ty <= y1; ty++) {
     for (let tx = x0; tx <= x1; tx++) {
-      if (isSolid(getTile(map, tx, ty))) return true;
+      if (!tilePassable(getTile(map, tx, ty), profile)) return true;
     }
   }
   return false;
@@ -197,14 +216,14 @@ export function isWallAt(map: GameMap, tx: number, ty: number): boolean {
 }
 
 /** Nearest walkable pixel position to (x, y), searched in rings. */
-export function findOpenNear(map: GameMap, x: number, y: number, hw = 8, hh = 6, maxRings = 24): { x: number; y: number } {
-  if (!boxHitsTerrain(map, x, y, hw, hh)) return { x, y };
+export function findOpenNear(map: GameMap, x: number, y: number, hw = 8, hh = 6, maxRings = 24, profile: MovementProfile = 'foot'): { x: number; y: number } {
+  if (!boxHitsTerrain(map, x, y, hw, hh, profile)) return { x, y };
   for (let r = 1; r <= maxRings; r++) {
     for (let i = 0; i < r * 8; i++) {
       const a = (i / (r * 8)) * Math.PI * 2;
       const nx = x + Math.cos(a) * r * TILE * 0.6;
       const ny = y + Math.sin(a) * r * TILE * 0.6;
-      if (!boxHitsTerrain(map, nx, ny, hw, hh)) return { x: nx, y: ny };
+      if (!boxHitsTerrain(map, nx, ny, hw, hh, profile)) return { x: nx, y: ny };
     }
   }
   return { x, y };

@@ -30,6 +30,7 @@ export interface Telegraph {
   duration: number;
   color: string;
   shape: 'circle' | 'ring' | 'cone' | 'line';
+  halfWidth: number;
   angle: number;
 }
 
@@ -83,8 +84,8 @@ export class FxSystem {
     this.texts.push({ x: x + (Math.random() - 0.5) * 10, y, vy: -42, text, color, life: 0.95, size });
   }
 
-  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: Telegraph['shape'] = 'circle', angle = 0): void {
-    this.telegraphs.push({ x, y, r, t: 0, duration, color, shape, angle });
+  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: Telegraph['shape'] = 'circle', angle = 0, halfWidth = 13): void {
+    this.telegraphs.push({ x, y, r, t: 0, duration, color, shape, angle, halfWidth });
   }
 
   ring(x: number, y: number, r: number, color: string): void {
@@ -142,7 +143,7 @@ export class FxSystem {
         g.arc(tg.x, tg.y, tg.r, tg.angle - 0.55, tg.angle + 0.55);
         g.closePath();
       } else if (tg.shape === 'line') {
-        const w = 26;
+        const w = tg.halfWidth * 2;
         g.translate(tg.x, tg.y);
         g.rotate(tg.angle);
         g.rect(0, -w / 2, tg.r, w);

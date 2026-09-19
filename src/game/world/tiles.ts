@@ -49,10 +49,20 @@ export const T = {
   ICE_WALL: 46,
   SAND_FLOOR: 47,
   SAND_WALL: 48,
+  AEGEAN_GRASS: 49,
+  MARBLE: 50,
+  MARBLE_WALL: 51,
+  TERRACOTTA: 52,
+  AEGEAN_SHALLOWS: 53,
+  AEGEAN_SEA: 54,
+  BASALT: 55,
+  ASPHODEL: 56,
+  STYGIAN: 57,
+  BRONZE_FLOOR: 58,
 } as const;
 
 export type TileId = number;
-export const TILE_COUNT = 49;
+export const TILE_COUNT = 59;
 
 export interface TileDef {
   id: TileId;
@@ -97,6 +107,16 @@ function reg(t: TileDef) {
 reg(d(T.VOID, 'Void', { solid: true, map: '#05040a', blend: 0 }));
 reg(d(T.DEEP_WATER, 'Deep Water', { solid: true, water: true, map: '#152a45', blend: 60, step: 'water', family: 'water' }));
 reg(d(T.WATER, 'Water', { solid: true, water: true, map: '#1f4a6d', blend: 58, step: 'water', family: 'water' }));
+reg(d(T.AEGEAN_GRASS, 'Olive meadow', { map: '#819667', blend: 23, family: 'aegean-grass' }));
+reg(d(T.MARBLE, 'Sunlit marble', { map: '#d9cfac', blend: 42, step: 'stone' }));
+reg(d(T.MARBLE_WALL, 'Painted marble wall', { solid: true, map: '#9c987e', blend: 95, step: 'stone' }));
+reg(d(T.TERRACOTTA, 'Terracotta earth', { map: '#b67d53', blend: 27, step: 'dirt' }));
+reg(d(T.AEGEAN_SHALLOWS, 'Aegean shallows', { solid: true, water: true, map: '#388c9a', blend: 58, step: 'water', family: 'water' }));
+reg(d(T.AEGEAN_SEA, 'Aegean sea', { solid: true, water: true, map: '#204667', blend: 60, step: 'water', family: 'water' }));
+reg(d(T.BASALT, 'Basalt', { map: '#514c52', blend: 35, step: 'stone' }));
+reg(d(T.ASPHODEL, 'Asphodel meadow', { map: '#898d82', blend: 25, step: 'grass' }));
+reg(d(T.STYGIAN, 'Stygian river', { solid: true, water: true, map: '#3f5365', blend: 62, step: 'water', family: 'water' }));
+reg(d(T.BRONZE_FLOOR, 'Oath bronze', { map: '#897444', blend: 43, step: 'stone' }));
 reg(d(T.SAND, 'Sand', { map: '#c9a86b', blend: 40, step: 'sand', speed: 0.94 }));
 reg(d(T.GRASS, 'Grass', { map: '#4e7a3c', blend: 20, step: 'grass' }));
 reg(d(T.GRASS_DARK, 'Woodland', { map: '#3a5c33', blend: 22, step: 'grass' }));

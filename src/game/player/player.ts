@@ -1,3 +1,4 @@
+import { MASTERIES } from '../aegean/mastery';
 import { CLASS_BY_ID, type AbilityDef, type ClassDef, type ClassId } from '../../data/classes';
 import { RACE_BY_ID, type FactionId, type RaceId } from '../../data/races';
 import { PAL } from '../art/palette';
@@ -24,7 +25,7 @@ export const EQUIP_SLOTS: EquipSlot[] = EQUIP_SLOT_ORDER;
  * listing it here used to leave it silently melee — an orb with 340 range then
  * swung a 340-pixel melee cone that hit half the screen.
  */
-export const RANGED_KINDS = new Set<WeaponKind>(['bow', 'crossbow', 'staff', 'wand', 'tome', 'orb']);
+export const RANGED_KINDS = new Set<WeaponKind>(['bow', 'crossbow', 'staff', 'wand', 'tome', 'orb', 'javelin']);
 export const MAGIC_KINDS = new Set<WeaponKind>(['staff', 'wand', 'tome', 'orb']);
 
 /**
@@ -33,6 +34,7 @@ export const MAGIC_KINDS = new Set<WeaponKind>(['staff', 'wand', 'tome', 'orb'])
  * it is pointed at. Unlisted kinds use the default.
  */
 export const SWING_ARC: Partial<Record<WeaponKind, number>> = {
+  chainblades: 1.8,
   dagger: 0.75, rapier: 0.6, spear: 0.7, warpick: 0.85,
   greatsword: 1.9, greataxe: 2.0, halberd: 1.8, scythe: 2.1, flail: 1.6, claws: 1.5,
 };
@@ -40,6 +42,7 @@ export const DEFAULT_SWING_ARC = 1.15;
 
 /** Which attribute a weapon kind scales with, overriding the class default. */
 export const WEAPON_STAT: Partial<Record<WeaponKind, 'strength' | 'dexterity' | 'intelligence'>> = {
+  javelin: 'dexterity', chainblades: 'dexterity',
   bow: 'dexterity', crossbow: 'dexterity', dagger: 'dexterity', claws: 'dexterity', rapier: 'dexterity',
   staff: 'intelligence', wand: 'intelligence', tome: 'intelligence', scythe: 'intelligence', orb: 'intelligence',
   greatsword: 'strength', greataxe: 'strength', hammer: 'strength', flail: 'strength',
@@ -47,7 +50,7 @@ export const WEAPON_STAT: Partial<Record<WeaponKind, 'strength' | 'dexterity' | 
 };
 
 /** The level there is no growing past. */
-export const MAX_LEVEL = 75;
+export const MAX_LEVEL = 100;
 
 /** The most swings a second anything can reach, whatever it is holding. */
 export const MAX_ATTACK_RATE = 4.5;
@@ -81,6 +84,7 @@ export const xpToNext = (level: number): number => {
  * holds a hundred and sixty-two, so no build ever buys everything.
  */
 export function skillPointsFor(level: number): number {
+  if (level > 75) return 0;
   let n = 1;
   if (level % 3 === 0) n += 1;
   if (level % 10 === 0) n += 3;
@@ -123,6 +127,7 @@ export class Player implements Entity {
   anim = 'idle';
   animTime = 0;
   statuses: StatusEffect[] = [];
+  resistances: Record<string,{until:number;multiplier:number}> = {};
   knockX = 0;
   knockY = 0;
 
@@ -176,6 +181,8 @@ export class Player implements Entity {
   weaponPowerCooldown = 0;
   offhandCooldown = 0;
   blocking = false;
+  bracing = false;
+  facing = Math.PI / 2;
   dashVx = 0;
   dashVy = 0;
   dashTimer = 0;
@@ -283,6 +290,12 @@ export class Player implements Entity {
       if (b.stat in out) (out as unknown as Record<string, number>)[b.stat] += b.amount;
     }
 
+    for (const mastery of MASTERIES) if(this.flags.has(`aegean:mastery:${mastery.id}`)) {
+      for(const [key,value] of Object.entries(mastery.stats)) if(key in out) (out as unknown as Record<string,number>)[key]+=value;
+      if(mastery.id==='vigor') out.maxHealth*=1.14;
+      if(mastery.id==='mercy') out.maxHealth*=1.18;
+      if(mastery.id==='clarity') out.maxMana*=1.15;
+    }
     if (levels.protection) out.defense *= 1 + enchantValue('protection', levels.protection) / 100;
     out.maxHealth += out.vitality * 5;
     out.maxStamina += out.dexterity * 1.5;

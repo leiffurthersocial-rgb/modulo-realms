@@ -25,7 +25,9 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
               Open debug menu
             </button>
           ) : null}
-          <button className="btn" onClick={() => { saveGame(game); game.toast('Game saved', undefined, '#6fbf5a'); }}>Save game</button>
+          <button className="btn" onClick={() => { if(saveGame(game)) game.toast('Game saved', undefined, '#6fbf5a'); }}>Save game</button>
+          <button className="btn" onClick={() => game.setPanel('chronicle')}>Aegean Chronicle</button>
+          {game.map.id==='aegean_leonidas'?<><button className="btn" onClick={()=>{game.encounters.returnToAntechamber();game.closeAll();}}>Return to the antechamber</button>{Array.from({length:game.encounters.practicePhase+1},(_,phase)=><button className="btn" key={phase} onClick={()=>{game.encounters.returnToAntechamber();game.encounters.startPractice(phase);game.closeAll();}}>Practice phase {phase+1} (no rewards)</button>)}</>:null}
           <button className="btn" onClick={() => game.setPanel('character')}>Character</button>
           <button className="btn" onClick={() => game.setPanel('quests')}>Journal</button>
           <button className="btn" onClick={() => game.setPanel('help')}>How to play</button>
@@ -33,7 +35,7 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
           <button
             className="btn danger"
             onClick={() => {
-              saveGame(game);
+              if(!saveGame(game)) return;
               game.screen = 'title';
               game.closeAll();
             }}
