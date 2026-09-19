@@ -246,64 +246,186 @@ canvas.world {
   position: absolute;
   inset: 0;
   /* Establishes its own stacking context so the z-index:2 children below
-     (title-main, title-menu, title-foot) stay scoped inside it instead of
-     escaping to compete with sibling overlays like the settings modal. */
+     stay scoped inside it instead of escaping to compete with sibling
+     overlays like the settings modal. */
   z-index: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 26px;
-  background:
-    radial-gradient(120% 80% at 50% 12%, rgba(90, 60, 120, 0.35), transparent 60%),
-    radial-gradient(90% 60% at 50% 100%, rgba(180, 90, 40, 0.22), transparent 62%),
-    linear-gradient(180deg, #0a0812, #14101c 55%, #090710);
+  overflow: hidden;
+  background: #05040d;
   animation: fade-in 0.7s ease;
 }
 
+/* The vista is the background now rather than a texture behind one, so it
+   is drawn at full strength and the text gets its own scrim instead. */
 .title-art {
   position: absolute;
   inset: 0;
-  opacity: 0.4;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   image-rendering: pixelated;
   pointer-events: none;
 }
 
-.title-main { position: relative; text-align: center; z-index: 2; }
+/* Darkens the left third, where the words go, and leaves the shrine and the
+   valley on the right where you can actually see them. */
+.title-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(100deg, rgba(5, 4, 13, 0.9) 0%, rgba(5, 4, 13, 0.72) 32%, rgba(5, 4, 13, 0.12) 62%, transparent 82%),
+    linear-gradient(180deg, rgba(5, 4, 13, 0.55), transparent 28%, transparent 68%, rgba(5, 4, 13, 0.75));
+}
+
+.title-body {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 34px;
+  padding: 0 clamp(28px, 7vw, 104px);
+  max-width: 720px;
+}
+
+.title-main { position: relative; animation: rise 0.8s ease both; }
+
+.title-kicker {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.44em;
+  text-transform: uppercase;
+  color: #7a6a92;
+  margin-bottom: 10px;
+  text-indent: 0.44em;
+}
 
 .title-main h1 {
   font-family: var(--font-display);
-  font-size: clamp(46px, 9vw, 104px);
+  font-size: clamp(54px, 10vw, 118px);
   margin: 0;
-  letter-spacing: 0.1em;
-  background: linear-gradient(180deg, #fff3d6 10%, var(--gold) 48%, #8a5a28 92%);
+  line-height: 0.92;
+  letter-spacing: 0.06em;
+  background: linear-gradient(180deg, #fff6de 6%, var(--gold) 46%, #a8661f 78%, #6d3d15 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  text-shadow: 0 6px 28px rgba(232, 160, 60, 0.28);
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.55));
+  animation: title-ember 5.5s ease-in-out infinite;
+}
+
+/* A rule with a lit stone in the middle of it, the same shape as a waystone
+   seen end on. Ties the words to the thing standing on the ridge. */
+.title-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 10px;
+  max-width: 420px;
+}
+.title-rule .tr-line {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, rgba(232, 194, 122, 0.45), transparent);
+}
+.title-rule .tr-gem {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--gold);
+  box-shadow: 0 0 10px 2px rgba(232, 160, 60, 0.5);
+  animation: title-gem 3.2s ease-in-out infinite;
 }
 
 .title-main h2 {
   font-family: var(--font-display);
-  font-size: clamp(15px, 2.4vw, 25px);
-  letter-spacing: 0.42em;
-  margin: 2px 0 0;
-  color: #cbb9d6;
+  font-size: clamp(15px, 2.4vw, 26px);
+  letter-spacing: 0.4em;
+  margin: 0;
+  color: #d4c4e2;
   text-transform: uppercase;
-  text-indent: 0.42em;
+  text-indent: 0.4em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
 }
 
 .title-tag {
   color: var(--muted);
-  font-size: 13.5px;
-  margin-top: 14px;
+  font-size: 13px;
+  margin-top: 16px;
   letter-spacing: 0.03em;
+  max-width: 380px;
+  line-height: 1.6;
 }
 
-.title-menu { display: flex; flex-direction: column; gap: 10px; width: 300px; z-index: 2; }
-.title-menu .btn { padding: 12px; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--font-display); }
-.title-foot { position: absolute; bottom: 16px; font-size: 11px; color: #6d6478; text-align: center; width: 100%; z-index: 2; }
-.save-note { font-size: 11.5px; color: var(--muted); text-align: center; }
+.title-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 268px;
+  animation: rise 0.8s ease 0.12s both;
+}
+
+.title-menu .btn {
+  padding: 12px 16px;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: var(--font-display);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+/* A lit edge that runs up the left side on hover, so the menu feels like
+   part of the same firelit scene rather than a web form on top of it. */
+.title-menu .btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gold);
+  transform: scaleY(0);
+  transition: transform 0.18s ease;
+}
+.title-menu .btn:hover::before { transform: scaleY(1); }
+.title-menu .btn:hover { padding-left: 20px; }
+
+.title-foot {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: #6d6478;
+  text-align: center;
+}
+
+.save-note { font-size: 11.5px; color: var(--muted); padding-left: 2px; }
+
+@keyframes title-ember {
+  0%, 100% { filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 18px rgba(232, 160, 60, 0.18)); }
+  50% { filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 30px rgba(232, 160, 60, 0.42)); }
+}
+@keyframes title-gem {
+  0%, 100% { box-shadow: 0 0 8px 1px rgba(232, 160, 60, 0.4); }
+  50% { box-shadow: 0 0 14px 3px rgba(232, 160, 60, 0.75); }
+}
+
+@media (max-width: 720px) {
+  .title-body { max-width: none; padding: 0 22px; }
+  /* A portrait window crops most of a 16:9 vista away, so aim the crop at
+     the shrine and the figure rather than at the middle of the frame. */
+  .title-art { object-position: 64% 50%; }
+  .title-scrim {
+    background:
+      linear-gradient(180deg, rgba(5, 4, 13, 0.82) 0%, rgba(5, 4, 13, 0.6) 45%, rgba(5, 4, 13, 0.85) 100%);
+  }
+}
 
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
