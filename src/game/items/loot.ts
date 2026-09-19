@@ -1,11 +1,12 @@
 import { RNG } from '../core/rng';
-import { meleeDpsAt, merchantMarkupAt, valuePremiumAt } from '../../data/balance';
+import { MAX_CONTENT_LEVEL, RARITY_POWER, meleeDpsAt, merchantMarkupAt, valuePremiumAt } from '../../data/balance';
 import { DROPPABLE, REGION_RELICS, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
+import { AEGEAN_ISLAND_ITEM_SOURCES } from '../../data/aegean/content';
 import { candidateEnchants } from './enchants';
 import { EFFECTS } from './effects';
 import {
-  RARITY_AFFIXES, RARITY_ENCHANT_SLOTS, RARITY_MULT, RARITY_ORDER, ROLLABLE_RARITIES,
-  type Item, type Rarity, type RolledEnchant, type StatKey,
+  RARITY_AFFIXES, RARITY_COLOR, RARITY_ENCHANT_SLOTS, RARITY_MULT, RARITY_ORDER, ROLLABLE_RARITIES,
+  type Item, type ItemAffixRoll, type ItemProvenance, type Rarity, type RolledEnchant, type StatKey, type Stats,
 } from './types';
 
 let uidCounter = 0;
@@ -82,6 +83,8 @@ const RARITY_WEIGHTS: Record<Rarity, number> = {
   // Never rolled. Mythic is placed by hand, on named relics, and this zero is
   // the guarantee: raise it and it becomes a drop tier like any other.
   mythic: 0,
+  olympian: 0,
+  primordial: 0,
 };
 
 /**
@@ -134,8 +137,8 @@ export function rollRarity(rng: RNG, magicFind = 0, luckBias = 0, level = 99): R
  * a weapon written for that level is worth, which is the whole point of having
  * a curve.
  */
-function scaleStats(template: ItemTemplate, level: number, rarity: Rarity): Item['stats'] {
-  const step = RARITY_MULT[rarity] / RARITY_MULT[template.rarity];
+export function scaleStats(template: ItemTemplate, level: number, rarity: Rarity): Item['stats'] {
+  const step = RARITY_POWER[rarity] / RARITY_POWER[template.rarity];
   const from = Math.max(1, template.level);
   const dmgScale = meleeDpsAt(level) / meleeDpsAt(from);
   const defScale = (3 + level * 2.1) / (3 + from * 2.1);
@@ -184,19 +187,33 @@ export interface MakeItemOpts {
   qty?: number;
   /** Skip random affixes and enchantment rolls (shop stock, quest rewards). */
   plain?: boolean;
+  provenance?: ItemProvenance;
+}
+
+export function validItemProvenance(templateId: string, provenance?: ItemProvenance): boolean {
+  const t = TEMPLATE_BY_ID[templateId];
+  if (!t) return false;
+  if (t.rarity !== 'primordial' && !t.islandOnly) return true;
+  if (provenance?.source === 'debug') return true;
+  if (!provenance || !AEGEAN_ISLAND_ITEM_SOURCES[templateId]?.includes(provenance.id)) return false;
+  // A supplied region is authoritative. The campaign also checks physical location before craft.
+  return !provenance.region || provenance.region === 'aegean_asterion';
 }
 
 export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
   const t = TEMPLATE_BY_ID[templateId];
   if (!t) throw new Error(`Unknown item template: ${templateId}`);
+  if (!validItemProvenance(templateId, opts.provenance)) throw new Error(`Island provenance required for ${templateId}`);
   const rng = opts.rng ?? new RNG(Math.floor(Math.random() * 1e9));
-  const level = Math.max(1, Math.round(opts.level ?? t.level));
+  const level = Math.max(1, Math.min(MAX_CONTENT_LEVEL, Math.round(opts.level ?? t.level)));
   let rarity = opts.rarity ?? t.rarity;
   if (RARITY_ORDER.indexOf(t.rarity) > RARITY_ORDER.indexOf(rarity)) rarity = t.rarity;
+  if ((rarity === 'olympian' || rarity === 'primordial') && t.rarity !== rarity) throw new Error('Divine rarities require their own authored template');
 
   const stats = scaleStats(t, level, rarity);
   const effects = [...(t.effects ?? [])];
   let name = t.name;
+  const affixes: ItemAffixRoll[] = [];
 
   const isGear = t.type === 'weapon' || t.type === 'armor' || t.type === 'accessory';
   if (isGear && !opts.plain) {
@@ -210,7 +227,9 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
       if (!candidates.length) continue;
       const a = rng.weighted(candidates, candidates.map((c) => c.weight));
       used.add(a.name);
-      addStat(stats, a.stat, a.flat + a.perLevel * level * rng.range(0.75, 1.25));
+      const roll = rng.range(0.75, 1.25);
+      addStat(stats, a.stat, a.flat + a.perLevel * level * roll);
+      affixes.push({ name: a.name, stat: a.stat, flat: a.flat, perLevel: a.perLevel, roll });
       if (a.suffix && !suffixName) suffixName = a.name;
       else if (!a.suffix && !prefixName) prefixName = a.name;
     }
@@ -220,11 +239,11 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     // duel to you throws away the only thing that made it that sword. The
     // template's OWN rarity is the test, not the rolled one, so an ordinary
     // blade rolled up to legendary still gets its affixes.
-    const named = t.rarity === 'legendary' || t.rarity === 'mythic';
+    const named = RARITY_ORDER.indexOf(t.rarity) >= RARITY_ORDER.indexOf('legendary');
     if (!named && prefixName) name = `${prefixName} ${name}`;
     if (!named && suffixName) name = `${name} ${suffixName}`;
 
-    const effectChance = { common: 0, rare: 0.1, superRare: 0.4, epic: 0.75, legendary: 1, mythic: 1 }[rarity];
+    const effectChance = { common: 0, rare: 0.1, superRare: 0.4, epic: 0.75, legendary: 1, mythic: 1, olympian: 0, primordial: 0 }[rarity];
     if (rng.bool(effectChance)) {
       const pool = EFFECTS.filter((e) => e.minLevel <= level + 2 && !effects.includes(e.id));
       if (pool.length) effects.push(rng.pick(pool).id);
@@ -255,7 +274,7 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     icon: t.icon,
     iconMetal: t.metal,
     iconAccent: t.accent,
-    glow: t.glow ?? (rarity === 'legendary' ? '#f0c93c' : rarity === 'mythic' ? '#ff4f6e' : undefined),
+    glow: t.glow ?? (RARITY_ORDER.indexOf(rarity) >= 4 ? RARITY_COLOR[rarity] : undefined),
     rarity,
     level,
     value,
@@ -273,6 +292,9 @@ export function makeItem(templateId: string, opts: MakeItemOpts = {}): Item {
     artifact: t.artifact,
     weaponPower: t.weaponPower,
     noReroll: t.noReroll,
+    provenance: opts.provenance,
+    aegeanPower: t.aegeanPower,
+    curve: isGear ? { version: 2, affixes, reforges: 0 } : undefined,
   };
 
   if (isGear && !opts.plain) rollEnchants(item, rng);
@@ -309,6 +331,76 @@ export const sellValue = (item: Item, priceMod = 1): number =>
 export const buyValue = (item: Item, priceMod = 1): number =>
   Math.max(1, Math.round(item.value * merchantMarkupAt(item.level) * priceMod));
 
+export interface ItemCurveMigration {
+  uid: string;
+  previousStats: Stats;
+  currentStats: Stats;
+  previousValue: number;
+  currentValue: number;
+  /** Legacy saves never recorded exact rolls or forge counts; these are bounded estimates. */
+  legacyRollsEstimated: boolean;
+}
+
+const curveValue = (template: ItemTemplate, level: number, rarity: Rarity): number => Math.max(1, Math.round(
+  template.value * RARITY_MULT[rarity] * Math.max(.2, 1 + (level - template.level) * .1) * valuePremiumAt(level),
+));
+
+function rebuildItemStats(item: Item, template: ItemTemplate): Stats {
+  const stats = scaleStats(template, item.level, item.rarity);
+  for (const a of item.curve?.affixes ?? []) addStat(stats, a.stat, a.flat + a.perLevel * item.level * a.roll);
+  // Legacy bonuses are saved separately, so repeated load/reforge cannot compound them.
+  const scale = (3 + item.level * 2.1) / (3 + (item.curve?.legacyAtLevel ?? item.level) * 2.1);
+  for (const [key, value] of Object.entries(item.curve?.legacyBonuses ?? {}) as Array<[StatKey, number]>) {
+    addStat(stats, key, value * Math.min(2.2, scale));
+  }
+  return stats;
+}
+
+/**
+ * Versioned migration. New items retain exact rolls. Old snapshots cannot reveal
+ * affixes that overlapped an old base or their unknown forge history: preserve the
+ * observable positive bonus within the legal affix envelope, and report the loss
+ * of exactness so save migration can display/record it rather than hide it.
+ */
+export function normalizeItemCurve(item: Item): ItemCurveMigration | null {
+  const template = TEMPLATE_BY_ID[item.defId];
+  if (!template || !['weapon', 'armor', 'accessory'].includes(item.type)) return null;
+  const previousStats = { ...item.stats };
+  const previousValue = item.value;
+  const legacy = item.curve?.version !== 2;
+  item.level = Math.max(1, Math.min(MAX_CONTENT_LEVEL, Math.round(item.level)));
+  if (legacy) {
+    const base = scaleStats(template, item.level, item.rarity);
+    const bonus: Stats = {};
+    for (const [key, value] of Object.entries(item.stats) as Array<[StatKey, number]>) {
+      if (!Number.isFinite(value) || key === 'damage' || key === 'range' || (key === 'attackSpeed' && item.slot === 'mainHand')) continue;
+      const pool = [...PREFIXES, ...SUFFIXES].filter(a => a.stat === key && affixAllowedOn(a, template));
+      const cap = pool.sort((a, b) => (b.flat + b.perLevel * item.level * 1.25) - (a.flat + a.perLevel * item.level * 1.25))
+        .slice(0, RARITY_AFFIXES[item.rarity]).reduce((sum, a) => sum + a.flat + a.perLevel * item.level * 1.25, 0);
+      const retained = Math.max(0, Math.min(cap, value - (base[key] ?? 0)));
+      if (retained > 0) bonus[key] = Math.round(retained * 10) / 10;
+    }
+    item.curve = { version: 2, affixes: [], legacyBonuses: bonus, legacyAtLevel: item.level, reforges: 0 };
+  }
+  item.stats = rebuildItemStats(item, template);
+  item.value = curveValue(template, item.level, item.rarity);
+  const changed = previousValue !== item.value || JSON.stringify(previousStats) !== JSON.stringify(item.stats);
+  return changed || legacy ? { uid: item.uid, previousStats, currentStats: { ...item.stats }, previousValue, currentValue: item.value, legacyRollsEstimated: legacy } : null;
+}
+
+/** One curve reconstruction, never eleven-percent multiplication of a snapshot. */
+export function relevelItem(item: Item, targetLevel: number): Item {
+  const template = TEMPLATE_BY_ID[item.defId];
+  if (!template || !['weapon', 'armor', 'accessory'].includes(item.type)) return item;
+  normalizeItemCurve(item);
+  const next = Math.max(1, Math.min(MAX_CONTENT_LEVEL, Math.round(targetLevel)));
+  item.curve!.reforges += Math.max(0, next - item.level);
+  item.level = next;
+  item.stats = rebuildItemStats(item, template);
+  item.value = curveValue(template, item.level, item.rarity);
+  return item;
+}
+
 /**
  * Bring an item saved by an older build back into line with its template.
  *
@@ -334,19 +426,9 @@ export function refreshFromTemplate(item: Item): Item {
   const t = TEMPLATE_BY_ID[item.defId];
   if (!t) return item;
 
-  // Stats the template defines are re-priced outright. Trying to preserve an
-  // affix roll on top of them by subtracting "what the base used to be" cannot
-  // work: the template's own numbers are exactly what a balance pass changed,
-  // so the old base is unknowable and the subtraction produces nonsense —
-  // during development it produced negative damage. Stats the template does
-  // NOT define are pure affix rolls and are left completely alone, which is
-  // where almost every affix lands anyway. The cost is that an affix which
-  // happened to stack onto a stat the template also grants is folded back in,
-  // and that is a fair price for gear that actually obeys the current curve.
-  const scaled = scaleStats(t, item.level, item.rarity);
-  for (const [k, v] of Object.entries(scaled) as Array<[StatKey, number]>) {
-    item.stats[k] = v;
-  }
+  // Version 2 retains exact affix rolls; legacy snapshots keep only recoverable,
+  // bounded bonuses. Save loading records the migration before this refresh.
+  normalizeItemCurve(item);
 
   item.weaponPower = t.weaponPower;
   item.artifact = t.artifact;
@@ -359,6 +441,9 @@ export function refreshFromTemplate(item: Item): Item {
   item.desc = t.desc;
   item.noReroll = t.noReroll;
   item.consume = t.consume;
+  item.aegeanPower = t.aegeanPower;
+  item.enchantSlots = Math.max(RARITY_ENCHANT_SLOTS[item.rarity], item.enchants.length, t.fixedEnchants?.length ?? 0);
+  item.glow = t.glow ?? (RARITY_ORDER.indexOf(item.rarity) >= 4 ? RARITY_COLOR[item.rarity] : undefined);
   // Intrinsic effects belong to the template; anything the roll added on top
   // is kept.
   for (const e of t.effects ?? []) if (!item.effects.includes(e)) item.effects.push(e);

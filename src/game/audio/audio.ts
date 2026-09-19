@@ -3,7 +3,7 @@
  * no licensing questions, and every cue can be retuned from the tables below.
  */
 
-export type MusicTrack = 'title' | 'village' | 'world' | 'forest' | 'north' | 'desert' | 'dungeon' | 'boss';
+export type MusicTrack = 'title' | 'village' | 'world' | 'forest' | 'north' | 'desert' | 'dungeon' | 'boss' | 'aegean' | 'polis' | 'storm' | 'underworld' | 'phalanx' | 'oath';
 
 interface TrackDef {
   /** Semitone offsets from the root, cycled as a chord progression. */
@@ -22,6 +22,12 @@ interface TrackDef {
 }
 
 const TRACKS: Record<MusicTrack, TrackDef> = {
+  aegean: { chords:[[0,7,12],[-2,5,10],[3,7,12],[0,5,7]],root:57,bpm:82,lead:'triangle',pad:'sine',leadGain:.085,padGain:.055,scale:[0,2,3,5,7,9,10,12],drums:false,swing:.14 },
+  polis: { chords:[[0,4,7],[5,9,12],[-2,5,9],[0,7,12]],root:62,bpm:108,lead:'triangle',pad:'sine',leadGain:.09,padGain:.05,scale:[0,2,4,7,9,12],drums:true,swing:.18 },
+  storm: { chords:[[0,1,7],[-5,0,6],[-2,3,7],[1,6,8]],root:43,bpm:114,lead:'sine',pad:'sawtooth',leadGain:.065,padGain:.05,scale:[0,1,3,6,7,10,12],drums:true,swing:0 },
+  underworld: { chords:[[0,3,8],[-1,4,7],[-5,0,6],[0,1,7]],root:40,bpm:54,lead:'sine',pad:'triangle',leadGain:.045,padGain:.07,scale:[0,1,3,5,6,8,11],drums:false,swing:.04 },
+  phalanx: { chords:[[0,7,12],[0,5,10],[-2,5,10],[0,3,7]],root:45,bpm:120,lead:'square',pad:'triangle',leadGain:.045,padGain:.05,scale:[0,3,5,7,10,12],drums:true,swing:0 },
+  oath: { chords:[[0,7,12],[1,5,8],[-5,0,7],[-1,3,6]],root:38,bpm:126,lead:'sawtooth',pad:'sine',leadGain:.045,padGain:.065,scale:[0,1,3,5,7,8,11,12],drums:true,swing:0 },
   title: { chords: [[0, 7, 12], [-3, 4, 9], [-5, 2, 7], [-1, 4, 11]], root: 55, bpm: 64, lead: 'triangle', pad: 'sine', leadGain: 0.1, padGain: 0.09, scale: [0, 2, 3, 5, 7, 10, 12], drums: false, swing: 0.1 },
   village: { chords: [[0, 4, 7], [5, 9, 12], [7, 11, 14], [0, 4, 7]], root: 62, bpm: 96, lead: 'triangle', pad: 'sine', leadGain: 0.1, padGain: 0.06, scale: [0, 2, 4, 7, 9, 12], drums: false, swing: 0.16 },
   world: { chords: [[0, 4, 7], [-3, 2, 5], [-5, 0, 4], [2, 5, 9]], root: 58, bpm: 84, lead: 'triangle', pad: 'sine', leadGain: 0.085, padGain: 0.08, scale: [0, 2, 4, 5, 7, 9, 11], drums: false, swing: 0.12 },

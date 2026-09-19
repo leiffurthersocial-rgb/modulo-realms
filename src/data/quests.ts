@@ -1,5 +1,8 @@
 import type { ClassId } from './classes';
 import type { FactionId, RaceId } from './races';
+// The Chronicle uses permanent feat objectives and encounter-local retries, so
+// it shares the quest data entrypoint without duplicating payouts in QuestLog.
+export { AEGEAN_CHAPTERS, AEGEAN_STORIES, AEGEAN_CONTRACTS, AEGEAN_DISCOVERIES, AEGEAN_COMMISSIONS } from './aegean/progression';
 
 export type Objective =
   | { type: 'kill'; enemy: string; count: number; label: string }
