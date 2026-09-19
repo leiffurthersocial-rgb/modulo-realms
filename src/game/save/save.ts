@@ -8,9 +8,16 @@ import { Player } from '../player/player';
 import { QuestLog, type ActiveQuest } from '../quests/questlog';
 import { refreshFromTemplate } from '../items/loot';
 import type { EquipSlot, Item } from '../items/types';
+import { VILLAGE_TX, VILLAGE_TY } from '../../data/locations';
+import { TILE } from '../world/tiles';
+import { boxHitsTerrain } from '../world/map';
+import { SAVE_KEY as KEY, preserveExpansionSave, readPlayableSave, writePlayableSave, type RecoverySource } from './rollbackRecovery';
 
-const KEY = 'modulo-realms-save-v1';
 const SETTINGS_KEY = 'modulo-realms-settings-v1';
+const recoverySessions = new WeakMap<Game, { player: Player; source: RecoverySource }>();
+let loadError = '';
+
+export const getLoadError = (): string => loadError;
 
 interface SavedMapState {
   opened: string[];
@@ -25,6 +32,7 @@ interface SavedMapState {
 
 export interface SaveData {
   version: 1;
+  now?: number;
   savedAt: number;
   seed: number;
   mapId: string;
@@ -79,9 +87,7 @@ export function hasSave(): boolean {
 
 export function savePreview(): { name: string; level: number; cls: ClassId; race: RaceId; savedAt: number; map: string } | null {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw) as SaveData;
+    const { data } = readPlayableSave(localStorage);
     return { name: data.player.name, level: data.player.level, cls: data.player.cls, race: data.player.race, savedAt: data.savedAt, map: data.mapId };
   } catch {
     return null;
@@ -105,6 +111,7 @@ export function saveGame(game: Game): void {
   }
   const data: SaveData = {
     version: 1,
+    now: game.now,
     savedAt: Date.now(),
     seed: game.seed,
     mapId: game.map.id,
@@ -126,22 +133,36 @@ export function saveGame(game: Game): void {
     mapStates,
   };
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
-  } catch {
-    /* quota or private mode — ignore */
+    const session = recoverySessions.get(game);
+    writePlayableSave(localStorage, data, session?.player === p ? session.source : undefined);
+  } catch (error) {
+    game.toast('Your game could not be saved', error instanceof Error ? error.message : 'Browser storage is unavailable. Keep this tab open.', '#d9553f');
   }
 }
 
 export function loadGame(game: Game): boolean {
-  let data: SaveData;
+  loadError = '';
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return false;
-    data = JSON.parse(raw) as SaveData;
-  } catch {
+    return loadGameChecked(game);
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : 'This saved game could not be loaded. Your saved data has not been changed.';
+    game.screen = 'title';
+    game.touch();
     return false;
   }
-  if (!data || data.version !== 1) return false;
+}
+
+function loadGameChecked(game: Game): boolean {
+  let data: SaveData;
+  let source: RecoverySource | undefined;
+  let heldItems = 0;
+  try {
+    ({ data, source, heldItems } = readPlayableSave(localStorage));
+    if (source) preserveExpansionSave(localStorage, source);
+  } catch (error) {
+    if (error instanceof DOMException) throw new Error('Browser storage is full or unavailable. The original save is untouched; free some storage and try Continue again.');
+    throw error;
+  }
 
   const sp = data.player;
   game.seed = data.seed;
@@ -192,6 +213,8 @@ export function loadGame(game: Game): boolean {
   player.mp = Math.min(sp.mp, player.maxMp);
   player.sp = Math.min(sp.sp, player.maxSp);
   game.player = player;
+  if (source) recoverySessions.set(game, { player, source });
+  else recoverySessions.delete(game);
 
   game.quests = QuestLog.deserialize(data.quests ?? { active: [], completed: [] });
   game.trackedQuest = data.trackedQuest ?? null;
@@ -209,17 +232,30 @@ export function loadGame(game: Game): boolean {
     });
   }
 
-  game.clock = data.clock;
-  game.day = data.day;
-  game.screen = 'playing';
+  game.clock = Number.isFinite(data.clock) ? data.clock : 0;
+  game.day = Number.isFinite(data.day) ? data.day : 1;
+  game.now = data.now ?? 0;
   game.panel = null;
-  game.setMap(data.mapId);
-  player.x = sp.x;
-  player.y = sp.y;
-  game.camera.x = sp.x;
-  game.camera.y = sp.y;
+  const savedMap = game.getMap(data.mapId);
+  let returnedHome = savedMap.id !== data.mapId || !Number.isFinite(sp.x) || !Number.isFinite(sp.y)
+    || sp.x < 0 || sp.y < 0 || sp.x >= savedMap.w * TILE || sp.y >= savedMap.h * TILE;
+  game.setMap(returnedHome ? 'overworld' : data.mapId);
+  let position = returnedHome ? { x: 0, y: 0 } : game.findStandingSpot(sp.x, sp.y);
+  if (returnedHome || boxHitsTerrain(game.map, position.x, position.y, 10, 7)) {
+    returnedHome = true;
+    game.setMap('overworld');
+    const home = world.portals.find((p) => p.to === 'int_home');
+    position = game.findStandingSpot(home ? home.x + home.w / 2 : VILLAGE_TX * TILE,
+      home ? home.y + home.h + 26 : VILLAGE_TY * TILE);
+  }
+  player.x = position.x;
+  player.y = position.y;
+  game.camera.x = player.x;
+  game.camera.y = player.y;
+  game.screen = 'playing';
   game.catchUpBounties();
   game.toast('Game loaded', `${player.name}, level ${player.level}`, '#6fd0e8');
+  if (source) game.toast('Your character is safe', `${returnedHome ? 'You are back in Ashvale. ' : ''}Greek progress${heldItems ? ` and ${heldItems} Greek item${heldItems === 1 ? '' : 's'}` : ''} stays backed up. This version saves your continued adventure separately.`, '#6fd0e8');
   game.touch();
   return true;
 }

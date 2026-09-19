@@ -5,12 +5,13 @@ import TitleArt from './TitleArt';
 interface Props {
   game: Game;
   hasSave: boolean;
+  loadError?: string;
   onNew: () => void;
   onContinue: () => void;
   onSettings: () => void;
 }
 
-export default function TitleScreen({ hasSave, onNew, onContinue, onSettings }: Props) {
+export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onSettings }: Props) {
   const preview = hasSave ? savePreview() : null;
   return (
     <div className="title-screen">
@@ -33,16 +34,17 @@ export default function TitleScreen({ hasSave, onNew, onContinue, onSettings }: 
         </div>
 
         <div className="title-menu">
-          {preview ? (
+          {hasSave ? (
             <>
               <button className="btn primary" onClick={onContinue}>
                 Continue
               </button>
-              <div className="save-note">
+              {preview ? <div className="save-note">
                 {preview.name} &middot; Level {preview.level} {preview.cls} &middot; saved {timeAgo(preview.savedAt)}
-              </div>
+              </div> : null}
             </>
           ) : null}
+          {loadError ? <div className="save-note" role="alert" style={{ color: '#ef9b83', maxWidth: 330 }}>{loadError}</div> : null}
           <button className="btn" onClick={onNew}>New Game</button>
           <button className="btn" onClick={onSettings}>Settings</button>
         </div>

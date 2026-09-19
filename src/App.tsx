@@ -5,7 +5,7 @@ import { audio } from './game/audio/audio';
 import { TILES } from './game/world/tiles';
 import { ALL_TEMPLATES } from './data/items';
 import { LOCATIONS } from './data/locations';
-import { hasSave, loadGame, loadSettings, saveGame, saveSettings } from './game/save/save';
+import { getLoadError, hasSave, loadGame, loadSettings, saveGame, saveSettings } from './game/save/save';
 import TitleScreen from './ui/TitleScreen';
 import CharacterCreation from './ui/CharacterCreation';
 import Hud from './ui/Hud';
@@ -115,6 +115,7 @@ export default function App() {
 function UiLayer({ game }: { game: Game }) {
   useSyncExternalStore(game.subscribe, game.getSnapshot);
   const [showSettings, setShowSettings] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     audio.setVolumes(game.settings.master, game.settings.music, game.settings.sfx);
@@ -126,8 +127,9 @@ function UiLayer({ game }: { game: Game }) {
         <TitleScreen
           game={game}
           hasSave={hasSave()}
+          loadError={loadError}
           onNew={() => { game.screen = 'creation'; audio.resume(); audio.playMusic('title'); game.touch(); }}
-          onContinue={() => { audio.resume(); loadGame(game); }}
+          onContinue={() => { audio.resume(); setLoadError(loadGame(game) ? '' : getLoadError()); }}
           onSettings={() => setShowSettings(true)}
         />
         {showSettings ? (

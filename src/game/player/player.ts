@@ -393,6 +393,8 @@ export class Player implements Entity {
 
   addXp(amount: number): number {
     let levels = 0;
+    // A character recovered from the withdrawn expansion keeps banked XP.
+    if (this.level > MAX_LEVEL) return 0;
     if (this.level >= MAX_LEVEL) { this.xp = 0; return 0; }
     this.xp += amount;
     while (this.level < MAX_LEVEL && this.xp >= xpToNext(this.level)) {
