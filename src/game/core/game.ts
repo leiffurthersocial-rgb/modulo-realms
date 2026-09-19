@@ -5,6 +5,7 @@ import { AegeanActivities } from '../aegean/activities';
 import { invalidateChunks } from './renderer';
 import { AegeanCampaign } from '../aegean/campaign';
 import { NavalSystem } from '../aegean/naval';
+import { aegeanEarnedWaystones, aegeanWaystoneAccess, aegeanWaystoneDestination, aegeanWaystonesInReach } from '../aegean/waypoints';
 import { AegeanEncounterDirector } from '../aegean/encounters';
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
@@ -2929,12 +2930,34 @@ export class Game implements WorldCtx {
     return Math.max(0, this.travelLockoutAfterDamage - (this.now - this.lastDamageTaken));
   }
 
+  waystoneDestination(siteId: string): { mapId: string; x: number; y: number } | undefined {
+    const loc = LOCATION_BY_ID[siteId];
+    if (!loc) return;
+    return aegeanWaystoneDestination(siteId) ?? {
+      mapId: 'overworld', x: (loc.tx - 6) * TILE + TILE / 2,
+      y: (loc.ty - 5) * TILE + TILE + 40,
+    };
+  }
+
+  private waystoneContext() {
+    return { visitedPorts: this.naval.state.visitedPorts,
+      armyDefeated: this.campaign.has('aegean_army'), aboard: this.naval.aboard };
+  }
+
+  waystoneAccessReason(siteId: string): string | null {
+    const loc = LOCATION_BY_ID[siteId];
+    if (this.naval.aboard) return 'Dock and step ashore before using a waystone.';
+    if (this.campaign.onIsland() || (loc?.travelPolicy && loc.travelPolicy !== 'waystone'))
+      return 'Reach or leave Asterion by ship through the storm sea.';
+    return aegeanWaystoneAccess(siteId, this.waystoneContext()) ?? this.campaign.access(siteId);
+  }
+
   /** Fast travel between attuned waystones. */
   travelToWaystone(siteId: string): void {
     const loc = LOCATION_BY_ID[siteId];
     if (!loc || !this.player.waystones.has(siteId)) return;
-    if (this.naval.aboard || (loc.travelPolicy && loc.travelPolicy !== 'waystone') || this.campaign.onIsland()) { this.toast('Travel requires a ship', 'Use the harbour to leave or reach an island.', '#66cdd6'); return; }
-    const reason=this.campaign.access(siteId); if(reason){this.toast('The way is sealed',reason,'#e7c778');return;}
+    const reason = this.waystoneAccessReason(siteId);
+    if (reason) { this.toast('Cannot use this waystone', reason, '#66cdd6'); return; }
     const lockout = this.travelLockoutRemaining();
     if (lockout > 0) {
       this.toast('Too dangerous to travel', `Wait ${lockout.toFixed(1)}s after taking damage.`, '#d9553f');
@@ -2942,9 +2965,8 @@ export class Game implements WorldCtx {
       return;
     }
     this.closeAll();
-    const wx = (loc.tx - 6) * TILE + TILE / 2;
-    const wy = (loc.ty - 5) * TILE + TILE;
-    this.travel('overworld', wx, wy + 40, loc.name);
+    const destination = this.waystoneDestination(siteId)!;
+    this.travel(destination.mapId, destination.x, destination.y, loc.name);
     this.currentWaystone = siteId;
   }
 
@@ -3150,8 +3172,11 @@ export class Game implements WorldCtx {
         break;
       case 'waystone': {
         const site = String(prop.data?.site ?? 'ashvale');
+        const reason = this.waystoneAccessReason(site);
+        if (reason) { this.toast('Cannot use this waystone', reason, '#66cdd6'); break; }
         this.currentWaystone = site;
-        if (!this.player.discovered.has(site)) this.player.discovered.add(site);
+        if (aegeanWaystoneDestination(site) && LOCATION_BY_ID[site]) this.discoverLocation(LOCATION_BY_ID[site]);
+        else if (!this.player.discovered.has(site)) this.player.discovered.add(site);
         if (!this.player.waystones.has(site)) {
           this.player.waystones.add(site);
           this.toast('Waystone attuned', `${LOCATION_BY_ID[site]?.name ?? 'This place'} is now a travel destination.`, '#4f9ce8');
@@ -3890,6 +3915,15 @@ export class Game implements WorldCtx {
         };
       }
     }
+    const port = this.naval.boardingPort();
+    if (port) {
+      const point = this.naval.boardingPoint(port);
+      const d = dist2(p.x, p.y, point.x, point.y);
+      if (!best || d < bestD) best = {
+        label: `Board ${this.naval.definition?.name ?? 'ship'}`, key: `board_${port.id}`,
+        x: point.x, y: point.y - 34, run: () => { this.naval.embark(); },
+      };
+    }
     return best;
   }
 
@@ -4525,34 +4559,49 @@ export class Game implements WorldCtx {
     }
   }
 
+  /** First visits keep the original XP and quest flow, regardless of which
+   * side of a settlement or dungeon the player reaches its stone from. */
+  private discoverLocation(loc: LocationDef): void {
+    const p = this.player;
+    if (p.discovered.has(loc.id)) return;
+    p.discovered.add(loc.id);
+    const xp = 25 + (loc.level ?? 1) * 10;
+    p.addXp(xp);
+    const gate = !aegeanWaystoneDestination(loc.id) && (!loc.travelPolicy || loc.travelPolicy === 'waystone') && WAYSTONE_SITES.some((w) => w.id === loc.id) && !p.waystones.has(loc.id);
+    if (gate) p.waystones.add(loc.id);
+    this.toast(`Discovered: ${loc.name}`, `${loc.desc}  (+${xp} XP)${gate ? ' · gate open' : ''}`, '#6fd0e8');
+    audio.play('discover', .6);
+    for (const qid of this.quests.onExplore(loc.id)) this.questProgressToast(qid);
+    this.offerAutoQuests(loc.id);
+    this.touch();
+  }
+
   private updateDiscovery(): void {
-    if (this.map.id !== 'overworld') return;
     const p = this.player;
     const bonus = p.hasPerk('keensight') ? 1.15 : 1;
-    for (const loc of LOCATIONS) {
-      if(loc.surfaceMap)continue;
-      if (p.discovered.has(loc.id)) continue;
+    if (this.map.id === 'overworld') for (const loc of LOCATIONS) {
+      if (loc.surfaceMap || p.discovered.has(loc.id)) continue;
       const r = (loc.radius ?? 10) * TILE * bonus;
-      if (dist2(p.x, p.y, loc.tx * TILE, loc.ty * TILE) < r * r) {
-        p.discovered.add(loc.id);
-        const xp = 25 + (loc.level ?? 1) * 10;
-        p.addXp(xp);
-        // Finding a place IS the work. Walking the last thirty metres to the
-        // stone and pressing use was a second, sillier gate on top of it, and
-        // the only thing it ever achieved was a long walk back to a landmark
-        // somebody had already stood in.
-        const gate = (!loc.travelPolicy || loc.travelPolicy === 'waystone') && WAYSTONE_SITES.some((w) => w.id === loc.id) && !p.waystones.has(loc.id);
-        if (gate) p.waystones.add(loc.id);
-        this.toast(
-          `Discovered: ${loc.name}`,
-          `${loc.desc}  (+${xp} XP)${gate ? ' · gate open' : ''}`,
-          '#6fd0e8',
-        );
-        audio.play('discover', 0.6);
-        for (const qid of this.quests.onExplore(loc.id)) this.questProgressToast(qid);
-        this.offerAutoQuests(loc.id);
-        this.touch();
-      }
+      if (dist2(p.x, p.y, loc.tx * TILE, loc.ty * TILE) < r * r)
+        this.discoverLocation(loc);
+    }
+    const context = this.waystoneContext();
+    for (const stone of aegeanWaystonesInReach(this.map.id, p.x, p.y, context)) {
+      if (p.waystones.has(stone.id)) continue;
+      const loc = LOCATION_BY_ID[stone.id];
+      if (loc) this.discoverLocation(loc);
+      p.waystones.add(stone.id);
+      this.toast('Waystone attuned', `${LOCATION_BY_ID[stone.id]?.name ?? 'This place'} is now a travel destination.`, '#4f9ce8');
+      audio.play('discover', .6);
+      this.touch();
+    }
+    // Old discoveries and actual docking visits remain earned. Backfill quietly:
+    // no repeat XP, and no unseen Underworld hubs or unvisited island shores.
+    for (const site of aegeanEarnedWaystones(p.discovered, context)) {
+      if (p.waystones.has(site)) continue;
+      p.discovered.add(site);
+      p.waystones.add(site);
+      this.touch();
     }
   }
 

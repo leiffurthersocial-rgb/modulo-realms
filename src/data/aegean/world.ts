@@ -954,7 +954,7 @@ export const AEGEAN_LOCATIONS: LocationDef[] = [
       desc,
       kind: "village",
       radius: 23,
-      travelPolicy: id === "kymene" ? "port" : "waystone",
+      travelPolicy: "waystone",
     }),
   ),
   ...AEGEAN_ADVENTURES.map(
@@ -968,7 +968,7 @@ export const AEGEAN_LOCATIONS: LocationDef[] = [
       desc: `${a.name}. ${a.verb[0].toUpperCase() + a.verb.slice(1)}: each place obeys its own rules.`,
       kind: "dungeon",
       radius: 12,
-      travelPolicy: "checkpoint",
+      travelPolicy: a.surfaceMap || a.region === "aegean_asterion" ? "checkpoint" : "waystone",
       gate: a.gate,
       surfaceMap: a.surfaceMap,
       dungeon: {
@@ -993,7 +993,7 @@ export const AEGEAN_LOCATIONS: LocationDef[] = [
       kind: "cave",
       desc: `${name} — a living realm below the living world.`,
       radius: 12,
-      travelPolicy: "checkpoint",
+      travelPolicy: "waystone",
       surfaceMap: parent === "overworld" ? undefined : parent,
       dungeon: {
         mapId: `aegean_${slug}`,
@@ -1004,6 +1004,22 @@ export const AEGEAN_LOCATIONS: LocationDef[] = [
         rooms: 0,
         enemies: [],
       },
+    }),
+  ),
+  // Harbours are separate map destinations: the island's dungeon and landing
+  // sometimes share a historic slug, so never reuse the naval port id here.
+  ...AEGEAN_PORTS.filter((p) => p.id !== "aegean_asterion").map(
+    (p): LocationDef => ({
+      id: `aegean_harbour_${p.id.slice(7)}`,
+      name: p.id === "aegean_ember_quay" ? "Ember Quay Harbour" : p.name,
+      tx: p.tx - 2,
+      ty: p.ty,
+      region: p.region,
+      level: p.island ? 92 : 85,
+      kind: "camp",
+      radius: 8,
+      desc: "A harbour waystone beside the moorings. Return here after reaching the landing in person.",
+      travelPolicy: "waystone",
     }),
   ),
   ...AEGEAN_ISLANDS.filter((i) => i.id !== "kymene").map(
@@ -1025,3 +1041,47 @@ export const AEGEAN_MAP_IDS = [
   ...AEGEAN_ADVENTURES.map((a) => a.id),
   ...AEGEAN_UNDERWORLD_IDS,
 ];
+
+
+export interface AegeanWaystone {
+  id: string;
+  mapId: string;
+  /** The stone's tile position; arrival is just south of its feet. */
+  tx: number;
+  ty: number;
+  radius: number;
+  /** Island waystones remember an actual landing, never an offshore glimpse. */
+  requiredPort?: string;
+  requiresArmy?: boolean;
+}
+
+const adventurePorts: Record<string, string> = {
+  aegean_bull: "aegean_crete",
+  aegean_minotaur: "aegean_crete",
+  aegean_hippolyta: "aegean_amazon",
+  aegean_geryon: "aegean_erytheia",
+  aegean_hesperides: "aegean_hesperides",
+  aegean_medusa: "aegean_gorgon",
+  aegean_talos: "aegean_thalke",
+  aegean_scylla: "aegean_sirens",
+};
+
+/** Original waystone travel, expanded to the places the Greek journey visits. */
+export const AEGEAN_WAYSTONES: AegeanWaystone[] = AEGEAN_LOCATIONS
+  .filter((loc) => loc.travelPolicy === "waystone")
+  .map((loc) => {
+    if (AEGEAN_UNDERWORLD_IDS.includes(loc.id))
+      return { id: loc.id, mapId: loc.id, tx: 9, ty: 81, radius: 9 };
+    const harbour = AEGEAN_PORTS.find((p) => `aegean_harbour_${p.id.slice(7)}` === loc.id);
+    if (harbour) return {
+      id: loc.id, mapId: "overworld", tx: loc.tx, ty: loc.ty + 3, radius: 8,
+      requiredPort: harbour.island ? harbour.id : undefined,
+      requiresArmy: harbour.gate === "army",
+    };
+    return {
+      id: loc.id, mapId: "overworld", tx: loc.tx - 6,
+      ty: loc.ty + (loc.kind === "village" ? -5 : 3),
+      radius: loc.radius ?? 12,
+      requiredPort: loc.id === "aegean_kymene" ? "aegean_kymene" : adventurePorts[loc.id],
+    };
+  });

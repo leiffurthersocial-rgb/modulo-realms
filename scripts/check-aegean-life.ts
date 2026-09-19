@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { PROP_NAMES } from "../src/game/art/props";
 import { AEGEAN_PROP_NAMES } from "../src/game/art/aegean";
 import { AEGEAN_NPCS } from "../src/data/aegean/npcs";
+import { NPC_BY_ID } from "../src/data/npcs";
 import { AEGEAN_LOCATIONS } from "../src/data/aegean/world";
 import { TEMPLATE_BY_ID } from "../src/data/items";
 import { NpcEntity } from "../src/game/entities/npcEntity";
@@ -17,10 +18,24 @@ import { buildInterior } from "../src/game/world/interiors";
 import { boxHitsTerrain, propsInRect } from "../src/game/world/map";
 
 const towns = AEGEAN_LOCATIONS.filter((l) => l.kind === "village");
-assert.equal(AEGEAN_NPCS.length, 48);
-assert.equal(new Set(AEGEAN_NPCS.map((n) => n.id)).size, 48);
+assert.equal(AEGEAN_NPCS.length, 57);
+assert.equal(new Set(AEGEAN_NPCS.map((n) => n.id)).size, 57);
 assert.equal(AEGEAN_NPCS.filter((n) => n.services?.includes("inn")).length, 16);
 for (const town of towns) {
+  const traders = AEGEAN_NPCS.filter((n) => n.map === `int_${town.id}_store`);
+  assert.equal(traders.length, 1, `${town.id}: trading post has a resident shopkeeper`);
+  const trader = traders[0];
+  assert.equal(NPC_BY_ID[trader.id], trader, `${town.id}: registered for dialogue and trade`);
+  assert.ok(trader.shop?.stock.length, `${town.id}: shop carries actual goods`);
+  assert.ok(trader.shop!.gold > 0, `${town.id}: shop can buy recovered goods`);
+  for (const category of ["weapon", "armor", "accessory", "consumable", "material", "misc"] as const)
+    assert.ok(trader.shop!.buys.includes(category), `${town.id}: accepts ${category}`);
+  const clerk = new NpcEntity(trader);
+  for (const hour of [0, 7, 12, 18, 23]) {
+    clerk.updateSchedule(hour);
+    assert.equal(clerk.anchorX, trader.tx * 32 + 16, `${town.id}: counter staffed at ${hour}:00`);
+    assert.equal(clerk.anchorY, trader.ty * 32 + 16, `${town.id}: counter staffed at ${hour}:00`);
+  }
   const locals = AEGEAN_NPCS.filter(
     (n) => n.map === "overworld" && n.id.startsWith(town.id + "_"),
   );
@@ -60,6 +75,10 @@ for (const n of AEGEAN_NPCS) {
   for (const stock of n.shop?.stock ?? [])
     assert.ok(TEMPLATE_BY_ID[stock.item], `${n.id}: valid stock ${stock.item}`);
 }
+const factor = AEGEAN_NPCS.find((n) => n.id === "aegean_thyra_factor");
+assert.equal(factor?.map, "int_aegean_thyra_market", "Gate Market has its own caravan trader");
+assert.ok(factor?.shop?.stock.some((entry) => entry.item === "aegean_bronze"));
+assert.ok(factor?.shop?.stock.some((entry) => entry.item === "food_bread"));
 
 // Keep the original soundtrack rows byte-for-byte intact, including timbre,
 // volume, scale, tempo and swing; Greek composition is an additive branch.
@@ -275,6 +294,7 @@ if (process.argv.includes("--world")) {
   const allArt = new Set([...PROP_NAMES, ...AEGEAN_PROP_NAMES]);
   for (const door of world.portals.filter(p => p.to.startsWith('int_aegean_'))) {
     const room = buildInterior(door.to, door.label, door.x + door.w/2, door.y + door.h + 22);
+    assert.ok(AEGEAN_NPCS.some((n) => n.map === door.to), `${door.to}: open service buildings must be inhabited`);
     for (const prop of room.props)
       assert.ok(allArt.has(prop.art), `${door.to}: ${prop.art} has real pixel art`);
   }
@@ -299,8 +319,22 @@ if (process.argv.includes("--world")) {
       }
     }
     assert.ok(seen.has(def.ty*room.w+def.tx),`${def.id}: reachable from the room's actual entrance`);
+    if (def.map.endsWith('_store')) {
+      const counter = room.props.find((p) => p.art === 'table');
+      assert.ok(counter, `${def.id}: trading counter exists`);
+      const playerX = counter.x, playerY = counter.y + 8;
+      assert.equal(boxHitsTerrain(room, playerX, playerY, 10, 7), false, `${def.id}: customer can stand at counter`);
+      assert.equal(room.props.some((p) => p.cw && p.ch && playerX+10>p.x-p.cw/2 && playerX-10<p.x+p.cw/2 && playerY+7>p.y-p.ch && playerY-7<p.y), false, `${def.id}: customer stands clear of furniture`);
+      // The last step is between tile centres, directly in front of the table.
+      // Test the reachable aisle below it, then the actual player's last step.
+      const approachY = Math.floor((playerY+32)/32)*32+16;
+      assert.ok(seen.has(Math.floor(approachY/32)*room.w+Math.floor(playerX/32)), `${def.id}: customer side connects to entrance`);
+      for(let y=approachY;y>=playerY;y-=4)
+        assert.equal(room.props.some((p) => p.cw && p.ch && playerX+10>p.x-p.cw/2 && playerX-10<p.x+p.cw/2 && y+7>p.y-p.ch && y-7<p.y), false, `${def.id}: unobstructed final step to counter`);
+      assert.ok(Math.hypot(playerX-(def.tx*32+16),playerY-(def.ty*32+16))+(def.wander??0)<56, `${def.id}: can talk across counter throughout idle wander`);
+    }
   }
 }
 console.log(
-  `Aegean life:48 distinct residents in8 towns,16 inhabited interiors,valid dialogue/stock/daily schedules,10 composed themes,original soundtrack preserved,7 finite cues and one timer passed${process.argv.includes("--world") ? ", including generated-town paths and house doors" : ""}.`,
+  `Aegean life:57 distinct residents in8 towns,25 inhabited interiors,8 staffed trading posts and caravan market,valid dialogue/stock/daily schedules,10 composed themes,original soundtrack preserved,7 finite cues and one timer passed${process.argv.includes("--world") ? ", including generated-town paths, house doors and reachable shop counters" : ""}.`,
 );

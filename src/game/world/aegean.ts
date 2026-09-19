@@ -4,6 +4,7 @@ import {
   AEGEAN_LOCATIONS,
   AEGEAN_PORTS,
   AEGEAN_TOWN_LAYOUTS,
+  AEGEAN_WAYSTONES,
   type AegeanPort,
 } from "../../data/aegean/world";
 import { RNG } from "../core/rng";
@@ -86,7 +87,7 @@ function buildPort(map: GameMap, p: AegeanPort): void {
     fillRect(map, p.tx + direction * s, p.ty - 1, 1, 3, T.FLOOR_WOOD);
   prop(map, p.tx, p.ty, "aegean_mooring", {
     interact: "aegean",
-    label: `Sail from ${p.name}`,
+    label: `Shipwright at ${p.name}`,
     data: { action: "dock", port: p.id },
     nameplate: p.name,
     nameplateColor: "#92d5de",
@@ -159,9 +160,17 @@ function town(map: GameMap, loc: (typeof AEGEAN_LOCATIONS)[number]): void {
   prop(map, x, y - 7, centreArt, {
     cw: 108,
     ch: 32,
-    nameplate: loc.name,
+    nameplate: id === "aegean_thyra" ? "GATE MARKET — TRADE HALL" : loc.name,
     nameplateColor: "#e2c787",
   });
+  if (id === "aegean_thyra") {
+    map.portals.push({
+      x: x * TILE - 2, y: (y - 6) * TILE + 2, w: 36, h: 36,
+      to: "int_aegean_thyra_market", tx: 0, ty: 0,
+      label: "Enter the Gate Market — buy and sell", kind: "door",
+    });
+    fillRect(map, x - 1, y - 5, 3, 3, T.ROAD);
+  }
   const services: Array<[number, number, string, string, string]> = [
     [-7, 3, "notice_board", "journal", "Read local rumours"],
     [7, 3, "aegean_anvil", "forge", "Visit the Greek forge"],
@@ -580,24 +589,27 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
         {
           cw: loc.id === "aegean_leonidas" ? 280 : 96,
           ch: 28,
-          nameplate: loc.name,
+          nameplate: loc.id === "aegean_army" ? "GATES OF THE LAST SHORE — THE THREE HUNDRED" : loc.name,
           nameplateColor: "#e2c787",
         },
       );
       prop(map, loc.tx - 3, loc.ty + 4, "aegean_scroll", {
         interact: "sign",
         label: `Read: ${loc.name}`,
-        data: { text: `${loc.name} — level ${loc.level}. ${loc.desc}` },
+        data: { text: loc.id === "aegean_army"
+          ? "The Three Hundred hold this pass. Enter the gate to challenge their army. Defeating them opens the Last Shore harbour and the sea route toward Leonidas. Cleared rally stages are remembered if you retreat."
+          : `${loc.name} — level ${loc.level}. ${loc.desc}` },
       });
       map.portals.push({
-        x: loc.tx * TILE - 18,
-        y: (loc.ty + 2) * TILE,
+        // Put the prompt at the visible doorway, not two tiles down the path.
+        x: loc.tx * TILE - 2,
+        y: loc.ty * TILE + 2,
         w: 36,
         h: 36,
         to: loc.dungeon.mapId,
         tx: 0,
         ty: 0,
-        label: `Enter ${loc.name}`,
+        label: loc.id === "aegean_army" ? "Challenge the Three Hundred" : `Enter ${loc.name}`,
         kind: "stairs",
         locked: loc.gate,
       });
@@ -632,6 +644,20 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
         2,
       );
     buildPort(map, p);
+  }
+  // Town stones already stand beside their square. The rest sit beside the
+  // dungeon approach or on the harbour apron, with a clear place to arrive.
+  for (const stone of AEGEAN_WAYSTONES) {
+    if (stone.mapId !== "overworld") continue;
+    const loc = AEGEAN_LOCATIONS.find((l) => l.id === stone.id)!;
+    if (loc.kind === "village") continue;
+    clearLanding(map, stone.tx, stone.ty + 1, 3);
+    path(map, stone.tx, stone.ty + 1, loc.tx, loc.ty + (loc.dungeon ? 3 : 0), 1);
+    prop(map, stone.tx, stone.ty, "waystone", {
+      interact: "waystone", label: `Travel from ${loc.name}`,
+      data: { site: loc.id }, light: 100, lightColor: "#76bac5",
+      cw: 28, ch: 14,
+    });
   }
   scatterAegeanScenery(map, seed);
   const rng = new RNG(`${seed}:aegean:actors:v1`);

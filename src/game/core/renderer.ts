@@ -520,9 +520,14 @@ export function render(game: Game): void {
 
   game.encounters.draw(g);
   game.activities.draw(g);
+  // A purchased hull remains beside its pier after the player steps ashore.
+  // The same drawable becomes the active boat, so boarding never duplicates it.
+  const shipPosition = game.naval.drawPosition;
+  if (shipPosition && shipPosition.x >= left - 160 && shipPosition.x <= left + viewW + 160 &&
+    shipPosition.y >= top - 160 && shipPosition.y <= top + viewH + 160)
+    drawables.push({ y: shipPosition.y, draw: () => game.naval.draw(g) });
   // player
-  if(game.naval.aboard) drawables.push({y:player.y,draw:()=>game.naval.draw(g)});
-  else {
+  if(!game.naval.aboard) {
     const sheet = getCharacterSheet(player.look());
     drawables.push({
       y: player.y + 1,

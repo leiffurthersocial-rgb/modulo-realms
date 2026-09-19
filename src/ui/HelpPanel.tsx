@@ -307,8 +307,9 @@ export default function HelpPanel({ game }: { game: Game }) {
 
                 <H>The eastern sea</H>
                 <P>
-                  The harbours of Achaea sell ships. Speak to a shipwright to buy, repair or fit one, then embark at
-                  the dock. Steer with <K>WASD</K>, fire with <K>Space</K>, ram with <K>G</K> and brace with <K>B</K>.
+                  The harbours of Achaea sell ships. Speak to a shipwright to buy, repair or fit one. Your ship waits
+                  beside the wooden pier. Choose <b>Board ship</b>, or walk to the pier&apos;s end and press <K>E</K> to
+                  step aboard and start sailing. Steer with <K>WASD</K>, fire with <K>Space</K>, ram with <K>G</K> and brace with <K>B</K>.
                   Hold <K>Shift</K> for a rowing burst, use <K>E</K> to dock, or <K>R</K> to fight boarders on deck.
                   The further you sail from the mainland, the worse the monsters get.
                 </P>

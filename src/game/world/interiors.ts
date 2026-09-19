@@ -1,4 +1,5 @@
 import { buildAegeanInterior } from './aegeanInteriors';
+import { buildAegeanMarket } from './aegeanMarket';
 import { RNG } from '../core/rng';
 import { T, TILE } from './tiles';
 import { buildPropGrid, createMap, fillRect, setTile, type GameMap, type PropInstance } from './map';
@@ -137,6 +138,8 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
 }
 
 export function buildInterior(id: string, name: string, returnX: number, returnY: number): GameMap {
+  const market = buildAegeanMarket(id, returnX, returnY);
+  if (market) return market;
   const greek = buildAegeanInterior(id, returnX, returnY);
   if (greek) return greek;
   const spec = SPECS[id] ?? defaultSpec(name);

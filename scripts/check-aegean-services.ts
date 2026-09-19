@@ -149,9 +149,14 @@ const game = {
   },
   naval: {
     aboard: false,
+    moorAt(port: (typeof AEGEAN_PORTS)[number]) {
+      this.state.lastPort = port.id;
+      this.state.mooredAt = port.id;
+    },
     state: {
       visitedPorts: [] as string[],
       lastPort: "",
+      mooredAt: "",
       shipX: 0,
       shipY: 0,
       deck: undefined as unknown,
@@ -297,6 +302,7 @@ const ferry = use("lighthouse_out");
 assert.equal(arrivals.length, 1);
 assert.equal(player.gold, 47500);
 assert.equal(game.naval.state.lastPort, "aegean_ember_quay");
+assert.equal(game.naval.state.mooredAt, "aegean_ember_quay");
 services.interact(ferry);
 assert.equal(player.gold, 47500, "A pending fade cannot charge a second fare");
 player.flags.add("aegean:shortcut:broken_oars");
