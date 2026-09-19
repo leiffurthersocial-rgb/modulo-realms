@@ -12,7 +12,9 @@ import {
   AEGEAN_MAP_IDS,
   AEGEAN_PORTS,
   AEGEAN_TOWN_LAYOUTS,
+  AEGEAN_WAYSTONES,
 } from "../src/data/aegean/world";
+import { aegeanWaystoneDestination } from "../src/game/aegean/waypoints";
 import { AEGEAN_ACTIVITIES } from "../src/data/aegean/progression";
 import { AEGEAN_PROP_NAMES } from "../src/game/art/aegean";
 import { PROP_NAMES } from "../src/game/art/props";
@@ -425,6 +427,14 @@ for (const loc of AEGEAN_LOCATIONS.filter((l) => !l.surfaceMap)) {
     `${loc.id}: foot route from its landing with prop collision`,
   );
 }
+for (const stone of AEGEAN_WAYSTONES.filter((stone) => stone.mapId === "overworld")) {
+  const arrival = aegeanWaystoneDestination(stone.id)!;
+  const mass = world.landmasses![Math.floor(arrival.y / TILE) * world.w + Math.floor(arrival.x / TILE)];
+  assert.ok(mass, `${stone.id}: waypoint arrival is on land`);
+  assert.equal(boxHitsTerrain(world, arrival.x, arrival.y, 9, 7), false, `${stone.id}: clear arrival terrain`);
+  assert.ok(reached(world, surfaceRoutes.get(mass)!, arrival.x, arrival.y), `${stone.id}: arrival reachable from its town or dock with prop collision`);
+  assert.equal(world.props.filter((p) => p.interact === "waystone" && p.data?.site === stone.id).length, 1, `${stone.id}: exactly one physical stone`);
+}
 for (const loc of AEGEAN_LOCATIONS.filter((l) => l.kind === "village")) {
   for (const [n, [dx, dy]] of AEGEAN_TOWN_LAYOUTS[loc.id]
     .slice(0, 3)
@@ -477,6 +487,13 @@ for (const id of AEGEAN_MAP_IDS) {
   prepareAegeanActivityGround(map, AEGEAN_ACTIVITIES);
   const entry = dungeonEntry(map),
     seen = flood(map, walkGrid(map, true), entry.x, entry.y);
+  const stone = AEGEAN_WAYSTONES.find((stone) => stone.mapId === id);
+  if (stone) {
+    const arrival = aegeanWaystoneDestination(stone.id)!;
+    assert.ok(reached(map, seen, arrival.x, arrival.y), `${id}: Underworld waypoint reachable from entry with prop collision`);
+    assert.equal(boxHitsTerrain(map, arrival.x, arrival.y, 9, 7), false, `${id}: clear Underworld arrival terrain`);
+    assert.equal(map.props.filter((p) => p.interact === "waystone" && p.data?.site === stone.id).length, 1, `${id}: physical Underworld stone`);
+  }
   if (id === "aegean_leonidas") {
     const anvil = map.props.find(p => p.interact === "aegean" && p.data?.action === "forge");
     assert.ok(anvil, "The island has a usable forge for earned recipes and royal choices");

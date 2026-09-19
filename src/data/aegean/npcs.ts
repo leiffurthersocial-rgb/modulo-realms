@@ -890,4 +890,117 @@ const indoor: NpcDef[] = settlements.flatMap((loc, town) =>
   ),
 );
 
-export const AEGEAN_NPCS: NpcDef[] = [...keepers, ...townsfolk, ...indoor];
+const STORE_TRADERS = [
+  {
+    name: "Ianthe", title: "Caravan Storekeeper",
+    greeting: '"Eudora keeps the road supplied. I keep the shelves supplied. Let us see what you need, and what you have brought back."',
+    counsel: '"Food, medicine and repair materials here. The forge works on your equipment, and the Split Amphora has beds. You can sell your spare finds at this counter."',
+    stock: ["aegean_bronze", "aegean_resin", "mat_cloth", "mat_leather"],
+  },
+  {
+    name: "Anthea", title: "Grove Herbalist",
+    greeting: '"Dry bundles on the left; sealed draughts on the right. Tell me what bit you before you buy the wrong bottle."',
+    counsel: '"The antitoxin is for poison. The resin goes to the forge as often as the still. Melia gathers in the grove; I keep her store open for returning hunters."',
+    stock: ["aegean_antitoxin", "aegean_resin", "antidote", "mat_herb"],
+  },
+  {
+    name: "Timon", title: "Granary Trader",
+    greeting: '"Grain in, flour out, boots off the sacks. There is room on the counter for whatever the river has left you."',
+    counsel: '"We supply the mills and the people who mend them. Keep your cloth dry and take antitoxin before you go looking through Lerna’s reeds."',
+    stock: ["aegean_antitoxin", "aegean_bronze", "mat_cloth", "mat_iron_ingot"],
+  },
+  {
+    name: "Kallianeira", title: "Scriptorium Keeper",
+    greeting: '"Ink stains the fingers. Oracle vapour is rather less forgiving. I sell lamps and draughts for the journey either way."',
+    counsel: '"The sanctuary lies beyond the town. Buy what you need before you descend; a serpent is unlikely to interrupt its work while you fetch another bottle."',
+    stock: ["aegean_moly", "aegean_resin", "potion_mana_m", "torch_off"],
+  },
+  {
+    name: "Philon", title: "Ropewalk Supplier",
+    greeting: '"Dry cloth, sound bronze, fresh provisions. Salt will test everything else soon enough."',
+    counsel: '"I provision crews here. Buy and board ships at the harbour mooring outside. A purchased hull waits on the water; it does not go into your bag."',
+    stock: ["aegean_resin", "aegean_bronze", "mat_cloth", "mat_leather"],
+  },
+  {
+    name: "Nikareta", title: "Quartermaster",
+    greeting: '"Count your supplies before the battle. Afterwards, count what came home. Both lists matter."',
+    counsel: '"The armoury is next door. This counter is for provisions and spare materials. I buy recovered equipment as well; useful bronze deserves another campaign."',
+    stock: ["aegean_bronze", "mat_leather", "potion_stamina", "aegean_antitoxin"],
+  },
+  {
+    name: "Euanthe", title: "Ferryman’s Supplier",
+    greeting: '"Fresh oil and sealed bottles. Nothing from the river goes back into our drinking jars."',
+    counsel: '"Take a light and a Moly Draught below the Last Shore. The inn keeps a lamp for you, and the forge will mend what the dark sends back."',
+    stock: ["aegean_moly", "aegean_resin", "torch_off", "potion_mana_m"],
+  },
+  {
+    name: "Ariste", title: "Net House Trader",
+    greeting: '"Come in out of the spray. Supplies on the shelves, things for sale on the counter. Wet boots can stay where they are."',
+    counsel: '"A spare length of cloth weighs less than a rescue. Stock up before leaving the harbour; the little islands rarely have somebody keeping a shop."',
+    stock: ["aegean_resin", "aegean_bronze", "mat_cloth", "potion_stamina"],
+  },
+];
+
+// Outdoor residents follow their town routines; each open trading-post door
+// also has its own resident shopkeeper, as the original inn has a resident host.
+// These clerks stay at their counters at night, so returning from an expedition
+// never means walking into an empty shop or chasing a merchant through town.
+const storekeepers: NpcDef[] = settlements.map((loc, town) => {
+  const trader = STORE_TRADERS[town];
+  return {
+    id: `${loc.id}_storekeeper`,
+    name: trader.name,
+    title: trader.title,
+    race: "human",
+    faction: town === 5 ? "alliance" : "guild",
+    personality: "Practical, attentive, and particular about keeping useful supplies in stock.",
+    map: `int_${loc.id}_store`,
+    tx: 9,
+    ty: 7,
+    look: { ...look(town + 4), shirt: SHIRTS[town], hair: town % 2 ? "#57402e" : "#302825" },
+    wander: 3,
+    greeting: [{ lines: [trader.greeting] }],
+    topics: [{ text: "What can I find here?", to: "supplies" }],
+    nodes: [{ id: "supplies", text: [trader.counsel] }],
+    shop: {
+      id: `${loc.id}_trading_post`,
+      name: `${trader.name}’s Trading Post`,
+      priceMod: 1.2,
+      stock: ["potion_health_l", "aegean_ambrosia", "food_bread", "food_meat", ...trader.stock]
+        .map((item) => ({ item, qty: 12 })),
+      buys: ["weapon", "armor", "accessory", "consumable", "material", "misc"],
+      gold: 500000,
+    },
+  };
+});
+
+const gateMarketTrader: NpcDef = {
+  id: "aegean_thyra_factor",
+  name: "Lysandra",
+  title: "Caravan Factor",
+  race: "human",
+  faction: "guild",
+  personality: "Keeps a fair balance and an exact account of every caravan.",
+  map: "int_aegean_thyra_market",
+  tx: 10,
+  ty: 6,
+  look: { ...look(3), shirt: "#a87143", hair: "#322727", hairStyle: "braid" },
+  wander: 4,
+  greeting: [{ lines: ['"Welcome to the Gate Market. Caravans bring goods from both sides of the eastern road. Buying, selling, or just finding your way?"'] }],
+  topics: [{ text: "What is the Gate Market for?", to: "market" }],
+  nodes: [{ id: "market", text: [
+    '"This is Thyra’s caravan trading hall. I buy travelling goods and sell provisions for the road. No invitation needed."',
+    '"The Split Amphora is the inn. Ianthe runs the trading post, and the forge handles your equipment. Activate the town waystone outside before you leave; it will bring you back to Thyra."',
+  ] }],
+  shop: {
+    id: "aegean_thyra_gate_market",
+    name: "Thyra Gate Market",
+    priceMod: 1.16,
+    stock: ["potion_health_s", "potion_mana_s", "potion_stamina", "food_bread", "food_cheese", "aegean_resin", "aegean_bronze"]
+      .map((item) => ({ item, qty: 16 })),
+    buys: ["weapon", "armor", "accessory", "consumable", "material", "misc"],
+    gold: 500000,
+  },
+};
+
+export const AEGEAN_NPCS: NpcDef[] = [...keepers, ...townsfolk, ...indoor, ...storekeepers, gateMarketTrader];

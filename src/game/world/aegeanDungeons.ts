@@ -1,6 +1,7 @@
 import {
   AEGEAN_ADVENTURE_BY_ID,
   AEGEAN_UNDERWORLD_IDS,
+  AEGEAN_WAYSTONES,
   type AegeanAdventure,
 } from "../../data/aegean/world";
 import type { LocationDef } from "../../data/locations";
@@ -1141,6 +1142,16 @@ export function generateAegeanDungeon(loc: LocationDef, seed: number): GameMap {
     data: { action: "checkpoint", encounter: id },
   });
   disc(b, ex + 5, ey - 1, 2);
+  const waystone = AEGEAN_WAYSTONES.find((stone) => stone.mapId === id);
+  if (waystone) {
+    disc(b, waystone.tx, waystone.ty + 1, 3);
+    line(b, [ex, ey], [waystone.tx, waystone.ty + 1], 1);
+    art(b, waystone.tx, waystone.ty, "waystone", {
+      interact: "waystone", label: `Travel from ${loc.name}`,
+      data: { site: loc.id }, light: 110, lightColor: "#76bac5",
+      cw: 28, ch: 14,
+    });
+  }
   if (slug === "leonidas") {
     // The island's earned equipment is made at a real anvil, before the arena.
     // Keep the workbench separate from the sparring stones and entry route.

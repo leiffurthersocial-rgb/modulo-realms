@@ -20,6 +20,8 @@ export interface NavalSave {
   aboard: boolean;
   heading: number;
   lastPort: string;
+  /** The selected hull's berth, separate from the crew's last safe harbour. */
+  mooredAt?: string;
   visitedPorts: string[];
   shipX: number;
   shipY: number;
@@ -90,6 +92,7 @@ export class NavalSystem {
   private spawn = 8;
   private storm = 0;
   private strikes: { x: number; y: number; at: number }[] = [];
+  private landedAt = -Infinity;
   /** Four small hull sprites and one oar, generated once; no gameplay state. */
   private hullArt = new Map<string, HTMLCanvasElement>();
   speed = 0;
@@ -144,26 +147,82 @@ export class NavalSystem {
     this.ram = 0;
     this.spawn = 8;
     this.storm = 0;
+    this.landedAt = -Infinity;
   }
   snapshot(): NavalSave {
-    return structuredClone(this.state);
+    const saved = structuredClone(this.state);
+    const port = this.mooredPort;
+    if (port && !saved.mooredAt) {
+      const berth = this.mooringPoint(port);
+      saved.mooredAt = port.id;
+      saved.lastPort = port.id;
+      saved.shipX = berth.x;
+      saved.shipY = berth.y;
+    }
+    return saved;
   }
   restore(data?: Partial<NavalSave>): void {
     this.reset();
     if (data) this.state = { ...this.state, ...data };
     if (!this.vessel) this.state.aboard = false;
   }
+  /** Old saves did not record purchases' berths. Recover at the player's
+   * current harbour when possible; the first voyage then persists the berth. */
+  get mooredPort(): AegeanPort | undefined {
+    if (this.aboard || this.state.deck || !this.vessel) return;
+    return AEGEAN_PORTS.find((pt) => pt.id === this.state.mooredAt) ??
+      (!this.state.mooredAt ? this.nearestPort(400) : undefined) ??
+      AEGEAN_PORTS.find((pt) => pt.id === this.state.lastPort);
+  }
+  boardingPoint(pt: AegeanPort): { x: number; y: number } {
+    const direction = pt.launch.x < pt.tx * 32 ? -1 : 1;
+    return { x: (pt.tx + direction * 4) * 32 + 16, y: pt.ty * 32 + 16 };
+  }
+  /** The old launch is a safe offshore waypoint, far outside the counter's
+   * camera. Berth beside the actual pier instead, without moving the pier. */
+  mooringPoint(pt: AegeanPort): { x: number; y: number } {
+    const map = this.game.map;
+    if (map.id !== 'overworld') return pt.launch;
+    const direction = pt.launch.x < pt.tx * 32 ? -1 : 1;
+    for (let offset = 6; offset <= Math.abs(pt.launch.x / 32 - pt.tx); offset++) {
+      const point = { x: (pt.tx + direction * offset) * 32 + 16, y: pt.launch.y };
+      if (!boxHitsTerrain(map, point.x, point.y, 16, 12, 'ship')) return point;
+    }
+    return pt.launch;
+  }
+  boardingPort(range = 80): AegeanPort | undefined {
+    if (this.game.map.id !== 'overworld' || this.game.now - this.landedAt < .3 ||
+      !this.vessel || this.vessel.hull <= 0) return;
+    const pt = this.mooredPort;
+    if (!pt || (pt.gate === 'army' && !this.game.campaign.has('aegean_army'))) return;
+    const point = this.boardingPoint(pt), p = this.game.player;
+    return Math.hypot(point.x - p.x, point.y - p.y) < range ? pt : undefined;
+  }
+  /** Called after a purchase, landing or a ferry carrying the player's hull. */
+  moorAt(pt: AegeanPort): void {
+    const point = this.mooringPoint(pt);
+    this.state.lastPort = pt.id;
+    this.state.mooredAt = pt.id;
+    this.state.shipX = point.x;
+    this.state.shipY = point.y;
+    this.state.heading = pt.launch.x < pt.tx * 32 ? Math.PI : 0;
+    this.speed = 0;
+  }
+  get drawPosition(): { x: number; y: number } | undefined {
+    if (this.game.map.id !== 'overworld' || !this.vessel) return;
+    if (this.aboard) return this.game.player;
+    const pt = this.mooredPort;
+    return pt ? this.mooringPoint(pt) : undefined;
+  }
   nearestPort(range = 130): AegeanPort | undefined {
     const g = this.game,
       p = g.player;
     if (g.map.id !== "overworld") return;
-    return AEGEAN_PORTS.find(
-      (pt) =>
-        Math.hypot(
-          (this.aboard ? pt.launch.x : pt.land.x) - p.x,
-          (this.aboard ? pt.launch.y : pt.land.y) - p.y,
-        ) < range,
-    );
+    return AEGEAN_PORTS.find((pt) => {
+      const point = this.aboard ? this.mooringPoint(pt) : pt.land;
+      return Math.hypot(point.x - p.x, point.y - p.y) < range ||
+        (this.aboard && Math.hypot(pt.launch.x - p.x, pt.launch.y - p.y) < range);
+    });
   }
   canStorm(): string | null {
     const c = this.game.campaign;
@@ -182,9 +241,12 @@ export class NavalSystem {
     const d = AEGEAN_SHIPS.find((s) => s.id === id),
       g = this.game,
       p = g.player;
-    if (!d || !this.nearestPort() || this.aboard) return false;
+    const pt = this.nearestPort();
+    if (!d || !pt || this.aboard) return false;
     if (this.state.fleet.some((s) => s.id === id)) {
       this.state.selected = id;
+      this.moorAt(pt);
+      g.autosave();
       g.touch();
       return true;
     }
@@ -194,7 +256,8 @@ export class NavalSystem {
     p.flags.add(`aegean:ship:${id.slice(7)}`);
     this.state.fleet.push({ id, hull: d.hull, fittings: [], cargo: [] });
     this.state.selected = id;
-    g.toast("Your ship is ready", d.name, "#66cdd6");
+    this.moorAt(pt);
+    g.toast(`${d.name} is moored at the pier`, 'Choose Board ship, or walk to the end of the wooden pier and press E.', "#66cdd6");
     g.autosave();
     g.touch();
     return true;
@@ -260,24 +323,24 @@ export class NavalSystem {
   }
   embark(): boolean {
     const g = this.game,
-      pt = this.nearestPort();
+      pt = this.boardingPort() ?? this.nearestPort();
     if (!pt || !this.vessel || this.vessel.hull <= 0 || this.aboard)
       return false;
     if (pt.gate === "army" && !g.campaign.has("aegean_army")) return false;
-    if (boxHitsTerrain(g.map, pt.launch.x, pt.launch.y, 16, 12, "ship")) {
+    const berth = this.mooringPoint(pt);
+    if (boxHitsTerrain(g.map, berth.x, berth.y, 16, 12, "ship")) {
       g.toast("Launch obstructed", "Use another harbour.", "#d9553f");
       return false;
     }
-    this.state.lastPort = pt.id;
+    this.moorAt(pt);
     this.state.aboard = true;
-    this.state.shipX = pt.launch.x;
-    this.state.shipY = pt.launch.y;
-    this.state.heading = pt.id === "aegean_asterion" ? Math.PI : 0;
-    g.player.x = pt.launch.x;
-    g.player.y = pt.launch.y;
+    g.player.x = berth.x;
+    g.player.y = berth.y;
+    g.player.vx = g.player.vy = 0;
     g.player.invuln = 2;
     g.playSound('ship_dock', 0.6);
     g.closeAll();
+    g.toast('At the helm', 'Steer with WASD or arrows. E near a harbour brings you ashore.', '#66cdd6');
     g.autosave();
     g.touch();
     return true;
@@ -297,8 +360,8 @@ export class NavalSystem {
       return false;
     }
     this.state.aboard = false;
-    this.state.lastPort = pt.id;
-    this.speed = 0;
+    this.moorAt(pt);
+    this.landedAt = g.now;
     g.player.x = pt.land.x;
     g.player.y = pt.land.y;
     g.player.vx = g.player.vy = 0;
@@ -345,6 +408,7 @@ export class NavalSystem {
     const pt =
       AEGEAN_PORTS.find((pt) => pt.id === this.state.lastPort) ??
       AEGEAN_PORTS[0];
+    this.moorAt(pt);
     p.x = pt.land.x;
     p.y = pt.land.y;
     v.hull = Math.max(1, Math.round((this.definition?.hull ?? 1000) * 0.4));
@@ -618,8 +682,8 @@ export class NavalSystem {
       g.toast("Something moves beneath the waves", e.def.name, "#66cdd6");
   }
   draw(ctx: CanvasRenderingContext2D): void {
-    if (!this.aboard) return;
-    const p = this.game.player;
+    const p = this.drawPosition;
+    if (!p) return;
     const skiff = this.state.selected.includes("skiff"),
       round = this.state.selected.includes("roundship"),
       storm = this.state.selected.includes("stormbreaker");
@@ -805,12 +869,14 @@ export class NavalSystem {
     ctx.save();
     ctx.imageSmoothingEnabled=false;
     ctx.translate(Math.round(p.x), Math.round(p.y));
-    ctx.rotate(this.state.heading);
+    const port = this.mooredPort;
+    const heading = port ? (port.launch.x < port.tx * 32 ? Math.PI : 0) : this.state.heading;
+    ctx.rotate(heading);
     ctx.scale(
       skiff ? 0.66 : round ? 0.85 : storm ? 1.18 : 1,
       round ? 1.22 : skiff ? 0.8 : 1,
     );
-    const motion=Math.min(1,Math.abs(this.speed)/(this.definition?.speed??220));
+    const motion=this.aboard ? Math.min(1,Math.abs(this.speed)/(this.definition?.speed??220)) : 0;
     // Low, broken foam follows the stern, leaving the monster silhouettes
     // readable beneath the surface. A moored hull does not row by itself.
     if(motion>.03) {

@@ -1,6 +1,6 @@
 # Greek expansion rebuild
 
-Status: offline review branch. Production has the original game plus a narrowly scoped Continue repair. The expansion must not be deployed as part of this rebuild without the owner's further instruction.
+Status: the rebuilt expansion was released on 19 September 2026 through PR #4 at the owner's request. This follow-up repairs Greek trading posts, the Gate Market, ship visibility and boarding, and waypoint coverage.
 
 ## Original game comes first
 
@@ -18,7 +18,7 @@ The Greek provinces no longer borrow western snow, poison bog, forest-floor or d
 
 Every named island has a distinct outline and a local composition: vineyards and palace ruins, bronze giant footprints, a petrified orchard, livestock pens, ruined wings, siren stacks, a flooded theatre, a caldera, a giant's table or sister-island histories. Asterion uses connected island routes and a terraced ascent to a monumental temple.
 
-Eight settlements have compact lanes, working stalls, house thresholds, gardens, storage, inns, forges and trade interiors. Forty-eight Greek residents have local dialogue, supplies and services; outdoor workers follow routes between their actual homes, work and evening gathering places. Furniture and paths must remain reachable using the real collision rules.
+Eight settlements have compact lanes, working stalls, house thresholds, gardens, storage, inns, forges and trade interiors. Fifty-seven Greek residents have local dialogue, supplies and services; outdoor workers follow routes between their actual homes, work and evening gathering places. Furniture and paths must remain reachable using the real collision rules.
 
 ## Art, sound and discovery
 
@@ -34,19 +34,29 @@ The 57 field activities use individually authored scenes. Small discoveries have
 
 The five Underworld areas also have their own environmental stories: cargo and customs ruins at Charon's quay; personal memorial plots in Asphodel; cultivated beds and a winter quarter in Persephone's garden; judgment desks and sealed tribute at Hades' court; boulders, an empty banquet and leaking-vessel imagery for the punishments in Tartarus. Existing lights, plants, furniture, stone and bronze props supply the detail while keeping the routes open.
 
+## Trading, ships and return travel
+
+All eight Greek trading posts have a named shopkeeper behind the counter at every hour, with ordinary buy/sell dialogue and local provisions. Thyra's Gate Market opens into a caravan trade hall with Lysandra, storage and a noticeboard that opens the existing Journal. There are 25 inhabited service interiors. The Gates of the Last Shore entrance explicitly offers the Three Hundred battle and explains how victory opens the harbour toward Leonidas. Dungeon prompts sit at the visible doors.
+
+Purchased ships remain visible beside their wooden piers, and their saved berth survives refresh. Existing purchases recover a berth without buying again. The Shipwright says **Board ship** and explains that it starts sailing; the same action appears with **E** at the end of the pier. Coming ashore does not immediately board again on the same key press. Ferries preserve a consistent ship berth.
+
+The Greek network has 51 waystones: eight towns, nineteen surface dungeon entrances, nineteen harbours and five Underworld hubs. An island becomes a return destination after actually docking there. Underworld stones are discovered and revisited inside their own maps. The army entrance supports retries before victory; its harbour opens after victory. Asterion remains accessible only by sea. Existing discovery and docking receipts retain earned travel without replaying discovery XP.
+
 ## Verification record
 
 Validated locally on 19 September 2026, using one build/test process at a time on the 8 GB Mac:
 
 | Check | Result |
 | --- | --- |
-| `npm run check:aegean` | All fourteen serial groups passed: references, original NPCs, content, recovery-save reconciliation, marine rendering, Greek residents/audio, world geometry, activity scenes, encounters, class diagnostics, services, real-Game integration, original-mechanics parity and original-art parity. |
+| `npm run check:aegean` | All fifteen serial groups passed: references, original NPCs, content, recovery-save reconciliation, marine rendering, Greek residents/audio, world geometry, waypoint coverage, activity scenes, encounters, class diagnostics, services, real-Game integration, original-mechanics parity and original-art parity. |
 | World geometry, seeds 1337 and 42 | Passed: exact map doubling; frozen original world outside the former eastern rim; twenty usable docks; no foot route to Asterion; connected entrances, objectives, activities and island anvil. |
 | Original-mechanics comparison against Git `d39d75a` | 615 loot cases, four forging/Crown/load sequences, Life Siphon, Arrow Rain and every original boss attack passed. |
 | Original-art comparison against Git `d39d75a` | Ordered Canvas2D drawing commands and source surfaces match for all 196 original tile variants, 48 wall faces and eight transition masks. All 76 variants of the 19 new materials have distinct drawing commands. |
 | Greek biome identity | Finished worlds reject copied western natural terrain inside Greek regions and require regional material signatures. The narrow old-world transition strip is explicitly exempt. Seeds 1337 and 42 pass. |
 | Marine rendering | Actual paint-call fixtures pass for all shore orientations, concave/convex coasts, tiny islands and channels, inland-water exclusion, run-up/retreat, camera continuity, cache eviction/revisions and exact clipping against all eight hard-bank masks. Static depth blending is checked for continuity and material boundaries. |
-| Activity scenes and residents | All 57 scenes, 176 interaction objects, 48 residents, actual outdoor paths and indoor furniture passed. Journal tracking resumes existing unfinished stories without erasing evidence or paying rewards. |
+| Activity scenes and residents | All 57 scenes, 176 interaction objects, 57 residents, actual outdoor paths and indoor furniture passed. Journal tracking resumes existing unfinished stories without erasing evidence or paying rewards. |
+| Trading and travel follow-up | All 25 service interiors inhabited; eight staffed stores; Gate Market threshold and buy/sell; 51 waystones; first-discovery XP and quests exactly once; island docking receipts; five actual Underworld destination maps; physical pier boarding, ferry mooring and legacy ship recovery passed. |
+| Browser trading and ship follow-up | Entered the Gate Market with E, spoke to Lysandra across the counter, opened her shop, checked the trading-post clerk, bought a Coastal Skiff through the Shipwright, saw it beside the pier, boarded and landed with E, then refreshed and pressed Continue with the same ship and gold. Acheron’s stone opened the ordinary travel menu and returned to Thyra. No application console errors. |
 | Production build | TypeScript and Vite passed. |
 | Built browser, desktop | Actual door entry, refresh → Continue, dock purchase → embark, earned recipe display, island royal weapon selection, heroic talent selection and original Pause actions checked. No browser errors reported. |
 | Built browser, 390 × 844 | Journal, Shipwright and Anvil inspected; lists/details scroll within the panel and no longer clip off the screen. |
@@ -54,7 +64,7 @@ Validated locally on 19 September 2026, using one build/test process at a time o
 
 Browser review used a separate local test character, controlled travel, invulnerability and explicit earned-reward fixtures to reach the relevant interfaces. Shoreline captures additionally disable local enemy spawning so the waves can be inspected without combat overlays. The surf recording captures the running game's canvas; the renderer and wave timing are unmodified. These are interaction and rendering checks, not a human victory over Leonidas. Audio checks cover arrangements, scheduler lifetime and finite cues; they do not constitute an independent listening review. Long-session pacing and difficulty across human playstyles still need playtesting.
 
-The live site remains on the original game plus Continue repair (`976cb01`, script `index-BFDKpKYF.js`). This branch must not be merged or promoted as part of the rebuild delivery.
+The expansion release replaced the temporary rollback through merge `01aa6e7` (PR #4). Production publication of these follow-up fixes uses the same production branch and requires a successful Vercel deployment plus an independent public-build check.
 
 ## Actual generated world and browser captures
 

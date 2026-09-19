@@ -61,7 +61,9 @@ export function buildAegeanInterior(id: string, returnX: number, returnY: number
   } else {
     for(const [x,y] of [[3,4],[7,4],[12,4],[15,4],[4,8],[14,8]])
       put(x,y,town==='delphi'?'bookshelf':rng.bool(.5)?'barrel':'crate',{cw:22,ch:12});
-    put(9,8,'table',{cw:40,ch:14});
+    // Leave a clear approach to the shopkeeper at (9,7), close enough to
+    // speak across the counter with the original interaction distance.
+    put(9,7.5,'table',{cw:40,ch:14});
     put(3,11,'sack');put(5,11,coastal?'aegean_fishing_net':'aegean_amphora');
     if(town==='nemean_hearth') put(14,11,'alchemy_table',{cw:32,ch:12});
     if(town==='potamoi') {put(13,6,'hay');put(2,9,'hay');}

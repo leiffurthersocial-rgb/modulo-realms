@@ -16,6 +16,7 @@ const checks = [
   "check-marine",
   "check-aegean-life",
   "check-aegean-world",
+  "check-aegean-waypoints",
   "check-aegean-activity-scenes",
   "check-aegean-encounters",
   "check-aegean-calibration",

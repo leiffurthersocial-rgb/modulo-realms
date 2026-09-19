@@ -87,7 +87,8 @@ const {
   AEGEAN_CHAMPION_IDS,
   AEGEAN_ACTIVITY_BY_ID,
 } = await import("../src/data/aegean/progression");
-const { AEGEAN_PORTS } = await import("../src/data/aegean/world");
+const { AEGEAN_PORTS, AEGEAN_WAYSTONES } = await import("../src/data/aegean/world");
+const { aegeanWaystoneDestination } = await import("../src/game/aegean/waypoints");
 const { AEGEAN_SHIPS } = await import("../src/data/aegean/content");
 const { AEGEAN_SERVICES } = await import("../src/game/aegean/services");
 const KEY = "modulo-realms-save-v1",
@@ -233,8 +234,33 @@ assert(
   "Ships cannot be purchased away from a harbour",
 );
 at(port.land);
+for (const harbour of AEGEAN_PORTS) {
+  const pier = game.naval.boardingPoint(harbour);
+  const berth = game.naval.mooringPoint(harbour);
+  assert(!boxHitsTerrain(game.map, pier.x, pier.y, 10, 7, 'foot'), `${harbour.name}: boarding point is on the wooden pier`);
+  assert(!boxHitsTerrain(game.map, berth.x, berth.y, 16, 12, 'ship'), `${harbour.name}: moored hull fits water`);
+  assert(Math.hypot(berth.x - pier.x, berth.y - pier.y) <= 96, `${harbour.name}: boat is visible immediately beside the pier`);
+}
 const beforeShip = game.player.gold;
 assert(game.naval.buy("aegean_skiff"));
+assert(!game.naval.aboard, 'Buying does not silently start sailing');
+assert.equal(game.naval.state.mooredAt, port.id);
+const purchasedBerth = game.naval.mooringPoint(port);
+assert.deepEqual(game.naval.drawPosition, purchasedBerth, 'Purchased hull is drawn while the owner is on foot');
+assert.deepEqual({ x: game.naval.state.shipX, y: game.naval.state.shipY }, purchasedBerth);
+const transforms: number[][] = [];
+const hullContext = canvas().getContext('2d')!;
+hullContext.translate = (x, y) => { transforms.push([x, y]); };
+game.naval.draw(hullContext);
+assert.deepEqual(transforms[0], [purchasedBerth.x, purchasedBerth.y], 'The real hull renderer paints the moored boat');
+const mooredSave = game.naval.snapshot();
+game.naval.restore(mooredSave);
+assert.deepEqual(game.naval.drawPosition, purchasedBerth, 'A saved mooring survives restore');
+const legacyMooring = { ...mooredSave, lastPort: 'aegean_ember_quay' };
+delete legacyMooring.mooredAt;
+game.naval.restore(legacyMooring);
+assert.equal(game.naval.mooredPort?.id, port.id, 'A pre-fix purchase with an unrelated default harbour is recovered at the current dock');
+game.naval.restore(mooredSave);
 assert.equal(
   beforeShip - game.player.gold,
   AEGEAN_SHIPS.find((s) => s.id === "aegean_skiff")!.cost,
@@ -250,8 +276,21 @@ assert(
   !game.naval.buy("aegean_stormbreaker"),
   "Gold alone cannot buy the storm route",
 );
-assert(game.naval.embark());
+at(game.naval.boardingPoint(port));
+assert.equal(game.naval.boardingPort()?.id, port.id, 'The pier tip exposes boarding without returning to the counter');
+const interactionHooks = game as unknown as {
+  findInteractable(): { label: string; run(): void } | null;
+  updateDiscovery(): void;
+  useProp(prop: PropInstance): void;
+  offerAutoQuests(location?: string, quiet?: boolean): void;
+};
+const boardAction = interactionHooks.findInteractable();
+assert(boardAction, 'The pier has a normal E interaction');
+assert.equal(boardAction?.label, `Board ${game.naval.definition!.name}`, 'The normal E prompt identifies the owned ship');
+boardAction.run();
 assert(game.naval.aboard);
+assert.equal(game.naval.mooredPort, undefined, 'An active ship is never also moored');
+assert.deepEqual({ x: game.player.x, y: game.player.y }, purchasedBerth, 'Boarding starts in the visible hull beside the pier');
 assert(
   boxHitsTerrain(game.map, game.player.x, game.player.y, 10, 8, "foot"),
   "The launch is marine water",
@@ -266,6 +305,10 @@ game.input.setVirtual("right", false);
 game.input.endFrame();
 assert(game.naval.dock());
 assert.deepEqual({ x: game.player.x, y: game.player.y }, port.land);
+assert.deepEqual(game.naval.drawPosition, purchasedBerth, 'Docking leaves the same ship beside the pier');
+at(game.naval.boardingPoint(port));
+assert.equal(game.naval.boardingPort(), undefined, 'The landing key press cannot immediately board again');
+at(port.land);
 assert(game.campaign.state.checkpoint?.map === "overworld");
 assert(game.naval.buy("aegean_roundship"));
 assert(game.naval.fit("lens"));
@@ -365,6 +408,8 @@ assert(
   "Ferry arrival is a real dry landing",
 );
 assert.equal(game.naval.state.lastPort, emberPort.id);
+assert.equal(game.naval.state.mooredAt, emberPort.id, 'The ferry brings the selected hull to the destination harbour');
+assert.deepEqual(game.naval.drawPosition, game.naval.mooringPoint(emberPort), 'The ferry leaves the visible hull at its destination pier');
 game.player.equipment.mainHand = javelin;
 const originalCrit = game.player.stats().critChance;
 game.player.flags.add("aegean:training:archery");
@@ -804,6 +849,166 @@ assert(game.naval.returnHelm());
 assert.equal(game.naval.state.deck, undefined);
 assertSafeHull();
 assert.equal(storage.getItem(BACKUP), original, "Recovery never changes the original backup");
+
+// Real Game interactions use the same port receipts and destination maps as the
+// waypoint layout. These scenarios reuse the existing generated world.
+game.naval.state.aboard = false;
+game.setMap('overworld');
+game.closeAll();
+game.fade.pending = null;
+game.fade.alpha = game.fade.target = 0;
+game.lastDamageTaken = -Infinity;
+const finishTravel = () => {
+  const pending = game.fade.pending;
+  assert(pending, 'An accepted journey schedules real map travel');
+  game.fade.pending = null;
+  pending();
+  game.fade.alpha = game.fade.target = 0;
+};
+const stonePosition = (id: string) => {
+  const stone = AEGEAN_WAYSTONES.find((entry) => entry.id === id);
+  assert(stone, `Missing waypoint ${id}`);
+  return { x: (stone.tx + .5) * 32, y: (stone.ty + 1) * 32 };
+};
+
+// Coming from the west reaches Thyra's offset stone before the town's
+// discovery circle. That first encounter still pays XP and advances/offers
+// quests once; stepping into town or using the stone must not pay again.
+const discoveryLevel = game.player.level, discoveryXp = game.player.xp;
+const exploreLocations: string[] = [], offeredLocations: Array<string | undefined> = [];
+const originalExplore = game.quests.onExplore;
+const originalOffer = interactionHooks.offerAutoQuests;
+game.quests.onExplore = function(location) {
+  exploreLocations.push(location);
+  return originalExplore.call(this, location);
+};
+interactionHooks.offerAutoQuests = function(location, quiet) {
+  offeredLocations.push(location);
+  return originalOffer.call(game, location, quiet);
+};
+try {
+  game.player.level = 76;
+  game.player.xp = 0;
+  game.player.discovered.delete('aegean_thyra');
+  game.player.waystones.delete('aegean_thyra');
+  assert(!game.player.hasPerk('keensight'), 'Fixture uses the normal discovery radius');
+  at({ x: 983 * 32, y: 401 * 32 });
+  assert(Math.hypot(983 - 1008, 401 - 405) > 23, 'West approach is outside the normal town radius');
+  interactionHooks.updateDiscovery();
+  assert(game.player.discovered.has('aegean_thyra'));
+  assert(game.player.waystones.has('aegean_thyra'));
+  assert.equal(game.player.xp, 785, 'The offset-stone first visit pays Thyra discovery XP');
+  assert.equal(exploreLocations.filter((id) => id === 'aegean_thyra').length, 1, 'The first stone visit advances exploration quests');
+  assert.equal(offeredLocations.filter((id) => id === 'aegean_thyra').length, 1, 'The first stone visit offers local quests');
+  at({ x: 1008 * 32, y: 405 * 32 });
+  interactionHooks.updateDiscovery();
+  const thyraStone = game.map.props.find((prop) => prop.interact === 'waystone' && prop.data?.site === 'aegean_thyra');
+  assert(thyraStone);
+  interactionHooks.useProp(thyraStone);
+  interactionHooks.updateDiscovery();
+  assert.equal(game.player.xp, 785, 'Entering town and reusing its stone cannot repeat XP');
+  assert.equal(exploreLocations.filter((id) => id === 'aegean_thyra').length, 1, 'Exploration callbacks run exactly once');
+  assert.equal(offeredLocations.filter((id) => id === 'aegean_thyra').length, 1, 'Local quest offers run exactly once');
+} finally {
+  game.quests.onExplore = originalExplore;
+  interactionHooks.offerAutoQuests = originalOffer;
+  game.player.level = discoveryLevel;
+  game.player.xp = discoveryXp;
+  game.closeAll();
+}
+
+// Backfill earned discoveries without pretending to rediscover them for XP.
+at({ x: 16, y: 16 });
+game.player.discovered.add('aegean_thyra');
+game.player.waystones.delete('aegean_thyra');
+game.player.discovered.delete('aegean_harbour_crete');
+game.player.waystones.delete('aegean_harbour_crete');
+game.naval.state.visitedPorts = ['aegean_crete'];
+const backfillXp = game.player.xp;
+interactionHooks.updateDiscovery();
+assert(game.player.waystones.has('aegean_thyra'), 'Existing mainland discoveries receive their new waystones');
+assert(game.player.waystones.has('aegean_harbour_crete'), 'A saved landing receipt receives its new harbour waystone');
+assert.equal(game.player.xp, backfillXp, 'Waystone backfill never replays discovery XP');
+
+const creteStone = game.map.props.find((prop) => prop.interact === 'waystone' && prop.data?.site === 'aegean_harbour_crete');
+assert(creteStone, 'Crete has a real installed waystone');
+game.player.waystones.delete('aegean_harbour_crete');
+game.naval.state.visitedPorts = [];
+at(stonePosition('aegean_harbour_crete'));
+interactionHooks.updateDiscovery();
+assert(!game.player.waystones.has('aegean_harbour_crete'), 'Seeing an island without docking does not unlock its harbour');
+interactionHooks.useProp(creteStone);
+assert(!game.player.waystones.has('aegean_harbour_crete'), 'Using an island stone cannot fabricate a landing receipt');
+game.naval.state.visitedPorts = ['aegean_crete'];
+game.naval.state.aboard = true;
+interactionHooks.updateDiscovery();
+interactionHooks.useProp(creteStone);
+assert(!game.player.waystones.has('aegean_harbour_crete'), 'Aboard a ship, discovery and use both leave the island stone locked');
+game.naval.state.aboard = false;
+interactionHooks.updateDiscovery();
+assert(game.player.waystones.has('aegean_harbour_crete'), 'A visited island attunes after stepping ashore');
+game.closeAll();
+
+// Surface discovery does not unlock every floor of the Underworld.
+at({ x: 16, y: 16 });
+game.player.discovered.add('aegean_acheron');
+game.player.waystones.delete('aegean_acheron');
+interactionHooks.updateDiscovery();
+assert(!game.player.waystones.has('aegean_acheron'), 'A surface entrance receipt cannot backfill an unseen Underworld waypoint');
+game.setMap('aegean_acheron');
+at(stonePosition('aegean_acheron'));
+interactionHooks.updateDiscovery();
+assert(game.player.waystones.has('aegean_acheron'), 'Reaching Acheron on its actual map attunes its waystone');
+const underworldXp = game.player.xp;
+interactionHooks.updateDiscovery();
+assert.equal(game.player.xp, underworldXp, 'Standing by the Underworld stone cannot repeat XP');
+game.setMap('overworld');
+at(port.land);
+game.travelToWaystone('aegean_acheron');
+finishTravel();
+const acheronDestination = aegeanWaystoneDestination('aegean_acheron')!;
+assert.equal(game.map.id, acheronDestination.mapId, 'Fast travel returns to Acheron, not the overworld at dungeon coordinates');
+assert(Math.hypot(game.player.x - acheronDestination.x, game.player.y - acheronDestination.y) < 80);
+assert(!boxHitsTerrain(game.map, game.player.x, game.player.y, 10, 7), 'The Underworld arrival is walkable');
+game.travelToWaystone('aegean_thyra');
+finishTravel();
+assert.equal(game.map.id, 'overworld');
+const thyraDestination = aegeanWaystoneDestination('aegean_thyra')!;
+assert(Math.hypot(game.player.x - thyraDestination.x, game.player.y - thyraDestination.y) < 80);
+
+game.player.waystones.add('aegean_island_asterion');
+game.travelToWaystone('aegean_island_asterion');
+assert.equal(game.fade.pending, null, 'Even a stale attunement cannot teleport to Leonidas island');
+at(islandPort.land);
+game.travelToWaystone('aegean_thyra');
+assert.equal(game.fade.pending, null, 'Asterion still requires a physical voyage home');
+
+// The Gate Market is an actual shop building with the normal trading flow.
+const marketDoor = game.map.portals.find((portal) => portal.to === 'int_aegean_thyra_market');
+assert(marketDoor);
+at({ x: marketDoor.x + marketDoor.w / 2, y: marketDoor.y + marketDoor.h / 2 });
+assert(!game.propBlocks(game.player.x, game.player.y, 10, 7), 'The Gate Market threshold is outside its facade collision');
+const marketAction = interactionHooks.findInteractable();
+assert(marketAction?.label.includes('Gate Market'), 'The normal E prompt opens the Gate Market threshold');
+marketAction.run();
+finishTravel();
+assert.equal(game.map.id, 'int_aegean_thyra_market');
+const factor = game.npcs.find((npc) => npc.def.id === 'aegean_thyra_factor');
+assert(factor, 'Lysandra is spawned inside the trading hall');
+game.openShop(factor.def);
+assert(game.shop, 'The caravan factor opens a trading window');
+assert.equal(game.shop?.shopId, 'aegean_thyra_gate_market');
+const bread = game.shop.stock.find((item) => item.defId === 'food_bread');
+assert(bread, 'The market stocks provisions');
+game.player.inventory = [];
+const tradingGold = game.player.gold;
+game.buyItem(bread.uid);
+assert.equal(countItem(game.player.inventory, 'food_bread'), 1, 'Buying from Lysandra uses the original inventory flow');
+assert(game.player.gold < tradingGold);
+const afterPurchaseGold = game.player.gold;
+game.sellItem(game.player.inventory.find((item) => item.defId === 'food_bread')!.uid);
+assert.equal(countItem(game.player.inventory, 'food_bread'), 0, 'Lysandra also buys travelling goods');
+assert(game.player.gold > afterPurchaseGold && game.player.gold < tradingGold);
 game.input.detach();
 console.log(
   "Aegean integration passed: real v1/v2 save migration, army/campaign/mastery/gear/resource persistence, provenance gates, ports/deck/wreck, rebuilt-coast/checkpoint recovery and activity retry/restore/repeat safety.",

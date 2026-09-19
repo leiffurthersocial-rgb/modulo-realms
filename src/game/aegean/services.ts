@@ -341,9 +341,7 @@ export class AegeanServices {
         ? service.ports[1]
         : service.ports[0];
       const port = AEGEAN_PORTS.find((port) => port.id === portId)!;
-      g.naval.state.lastPort = port.id;
-      g.naval.state.shipX = port.launch.x;
-      g.naval.state.shipY = port.launch.y;
+      g.naval.moorAt(port);
     }
     g.closeAll();
     g.touch(); // doTravel saves only after the destination is reached.
