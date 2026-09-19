@@ -254,6 +254,8 @@ export class AegeanPowers {
           continue;
         if (Math.hypot(projectile.x - p.x, projectile.y - p.y) > 170) continue;
         projectile.damage *= this.projectileWard.multiplier;
+        if (projectile.minHealthDamage !== undefined)
+          projectile.minHealthDamage *= this.projectileWard.multiplier;
         this.weakenedProjectiles.add(projectile.id);
         g.ringAt(projectile.x, projectile.y, 14, "#9cbbcc");
       }
@@ -319,7 +321,7 @@ export class AegeanPowers {
   }
 
   /** Called after ordinary mitigation, before shields/HP. True executions remain true. */
-  onHurt(amount: number, opts: DamageOpts = {}): number {
+  onHurt(amount: number, opts: DamageOpts = {}, retaliationScale = 1): number {
     const g = this.game,
       p = g.player;
     if (amount <= 0) return amount;
@@ -362,7 +364,7 @@ export class AegeanPowers {
           Math.hypot(enemy.x - opts.fromX!, enemy.y - opts.fromY!) < 80,
       );
       if (source)
-        g.damageEnemy(source, Math.min(amount * 0.5, p.attackPower()), {
+        g.damageEnemy(source, Math.min(amount * 0.5 * retaliationScale, p.attackPower()), {
           element: "holy",
           noProc: true,
           fromX: p.x,

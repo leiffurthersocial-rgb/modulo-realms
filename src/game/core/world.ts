@@ -7,6 +7,9 @@ export interface DamageOpts {
   element?: DamageElement;
   trueDamage?: boolean;
   trueDamageAmount?: number;
+  /** Greek hit floor as a share of max HP, after armour but before guards,
+   * wards and shields. Omitted by original enemies and player attacks. */
+  minHealthDamage?: number;
   crit?: boolean;
   knockback?: number;
   /** Source position, used for knockback direction. */
@@ -19,6 +22,9 @@ export interface DamageOpts {
 
 export interface ProjectileSpec {
   trueDamageAmount?: number;
+  /** Greek hit floor as a share of max HP, after armour but before guards,
+   * wards and shields. Omitted by original enemies and player attacks. */
+  minHealthDamage?: number;
   x: number;
   y: number;
   angle: number;

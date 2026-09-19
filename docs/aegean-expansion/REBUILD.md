@@ -1,6 +1,6 @@
 # Greek expansion rebuild
 
-Status: the rebuilt expansion was released on 19 September 2026 through PR #4 at the owner's request. This follow-up repairs Greek trading posts, the Gate Market, ship visibility and boarding, and waypoint coverage.
+Status: the rebuilt expansion was released on 19 September 2026 through PR #4 at the owner's request. Trading posts, the Gate Market, ship visibility and 51 waystones shipped through PR #5. This follow-up corrects Scylla, Medusa, Greek damage and sailing directions.
 
 ## Original game comes first
 
@@ -42,13 +42,23 @@ Purchased ships remain visible beside their wooden piers, and their saved berth 
 
 The Greek network has 51 waystones: eight towns, nineteen surface dungeon entrances, nineteen harbours and five Underworld hubs. An island becomes a return destination after actually docking there. Underworld stones are discovered and revisited inside their own maps. The army entrance supports retries before victory; its harbour opens after victory. Asterion remains accessible only by sea. Existing discovery and docking receipts retain earned travel without replaying discovery XP.
 
+## Combat and sailing follow-up
+
+Scylla's former six-second beacon holds could complete the encounter without fighting. Each beacon now lures two attackable heads; both must be defeated before its flame can be lit. Charybdis marks the occupied deck for damaging surges throughout the passage. The third flame binds the vortex and exposes Scylla for the final fight. Walking between flags, waiting or repeated interaction never grants victory. Unfinished attempts restart their combat objectives together; prior earned victories remain available for shrine rematches.
+
+Medusa's gaze now follows the direction of the rendered character, including diagonal attacks, instead of a stale movement heading. Her venom commits its first impact to the player's position when the warning appears, while the remaining pools scatter. Moving away still avoids the impact. Greek field damage rises 35–45% by enemy role, venom power rises from 1.2 to 1.65, and Leonidas receives an 11% increase while retaining his existing health and phase structure.
+
+Greek hits also have a minimum share of maximum health after armour, before bracing, blocking, wards and shield absorption. This is a floor rather than additional damage. It prevents extremely reforged original equipment from reducing endgame combat to negligible hits without changing original equipment or old-world attacks. The floor follows the attack's strength and caps at 45% before active defenses. Dodges and leaving a warning still avoid the hit entirely; projectile wards reduce both its raw damage and its minimum. Thorns and reflected wards use only the ordinary blow's share, so a large health pool cannot amplify retaliation.
+
+The Shipwright lists obtained and missing Stormbreaker requirements with their actual source routes: the two prerequisite labours and Greek-anvil recipe for Bronze Storm Ribs, the Hesperides trial for the star-sail, and Cerberus in the House of Hades for the keel-binding. Displayed forging cost and bronze counts come from the recipe and inventory. Sailing HUD, compass and E/USE prompt identify the nearest harbour approach and explain that beaches and cliffs are not landing places. Landing uses the standard interaction loop exactly once.
+
 ## Verification record
 
 Validated locally on 19 September 2026, using one build/test process at a time on the 8 GB Mac:
 
 | Check | Result |
 | --- | --- |
-| `npm run check:aegean` | All fifteen serial groups passed: references, original NPCs, content, recovery-save reconciliation, marine rendering, Greek residents/audio, world geometry, waypoint coverage, activity scenes, encounters, class diagnostics, services, real-Game integration, original-mechanics parity and original-art parity. |
+| `npm run check:aegean` | All seventeen serial groups passed: references, original NPCs, content, recovery-save reconciliation, marine rendering, Greek residents/audio, world geometry, waypoint coverage, activity scenes, encounters, actual damage, class diagnostics, services, shipbuilding/landing guidance, real-Game integration, original-mechanics parity and original-art parity. |
 | World geometry, seeds 1337 and 42 | Passed: exact map doubling; frozen original world outside the former eastern rim; twenty usable docks; no foot route to Asterion; connected entrances, objectives, activities and island anvil. |
 | Original-mechanics comparison against Git `d39d75a` | 615 loot cases, four forging/Crown/load sequences, Life Siphon, Arrow Rain and every original boss attack passed. |
 | Original-art comparison against Git `d39d75a` | Ordered Canvas2D drawing commands and source surfaces match for all 196 original tile variants, 48 wall faces and eight transition masks. All 76 variants of the 19 new materials have distinct drawing commands. |
@@ -56,6 +66,8 @@ Validated locally on 19 September 2026, using one build/test process at a time o
 | Marine rendering | Actual paint-call fixtures pass for all shore orientations, concave/convex coasts, tiny islands and channels, inland-water exclusion, run-up/retreat, camera continuity, cache eviction/revisions and exact clipping against all eight hard-bank masks. Static depth blending is checked for continuity and material boundaries. |
 | Activity scenes and residents | All 57 scenes, 176 interaction objects, 57 residents, actual outdoor paths and indoor furniture passed. Journal tracking resumes existing unfinished stories without erasing evidence or paying rewards. |
 | Trading and travel follow-up | All 25 service interiors inhabited; eight staffed stores; Gate Market threshold and buy/sell; 51 waystones; first-discovery XP and quests exactly once; island docking receipts; five actual Underworld destination maps; physical pier boarding, ferry mooring and legacy ship recovery passed. |
+| Combat follow-up | Scylla rejects passive flag visits, waiting, repeated interaction, one surviving head and unfinished-save shortcuts; six heads, three flames and final boss death complete the encounter. Rematches preserve prior wins without duplicate rewards. Medusa tests cover stationary venom, moving out, visible facing, diagonal aim and turning away. Real damage checks pass all six classes with original and Greek reforges, including legal original builds around 910,000 HP. Blocking, bracing, dodges, wards, absorption, projectile floors and non-amplified retaliation pass. |
+| Browser combat and guidance follow-up | Stormbreaker directions and the disabled purchase action scroll within the existing Shipwright. Bought a Coastal Skiff and boarded/landed with E; on an 844 × 390 touch layout the compact harbour compass stays visible until landing range, the USE prompt appears, and USE lands once. Visiting all three Scylla flags leaves 0/3 beacons and no victory; two attackable heads and Charybdis's warning render, and defeating the first pair allows only the first beacon. Full completion is covered by the automated encounter regression. |
 | Browser trading and ship follow-up | Entered the Gate Market with E, spoke to Lysandra across the counter, opened her shop, checked the trading-post clerk, bought a Coastal Skiff through the Shipwright, saw it beside the pier, boarded and landed with E, then refreshed and pressed Continue with the same ship and gold. Acheron’s stone opened the ordinary travel menu and returned to Thyra. No application console errors. |
 | Production build | TypeScript and Vite passed. |
 | Built browser, desktop | Actual door entry, refresh → Continue, dock purchase → embark, earned recipe display, island royal weapon selection, heroic talent selection and original Pause actions checked. No browser errors reported. |

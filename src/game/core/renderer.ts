@@ -834,15 +834,16 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
   g.setTransform(game.camera.zoom, 0, 0, game.camera.zoom, Math.round(-left * game.camera.zoom), Math.round(-top * game.camera.zoom));
 }
 
-/** A gold chevron at the screen edge pointing to the tracked quest. */
+/** The original compass points to a harbour while sailing, or the tracked quest on foot. */
 function drawTrackedCompass(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {
-  const target = game.trackedTarget();
+  const landing = game.naval.landingGuide();
+  const target = landing ? { ...landing.approach, name: `Harbour: ${landing.port.name}` } : game.trackedTarget();
   if (!target || game.map.id !== 'overworld') return;
   const p = game.player;
   const dx = target.x - p.x;
   const dy = target.y - p.y;
   const distPx = Math.hypot(dx, dy);
-  if (distPx < 260) return;
+  if (landing ? landing.inRange : distPx < 260) return;
 
   const angle = Math.atan2(dy, dx);
   const radius = Math.min(viewW, viewH) * 0.36;
@@ -871,6 +872,11 @@ function drawTrackedCompass(game: Game, g: CanvasRenderingContext2D, left: numbe
   g.textAlign = 'center';
   g.fillStyle = '#e8dfd2';
   g.fillText(`${target.name}  ${Math.round(distPx / 32)}m`, clampedX, clampedY + 20);
+  if (landing) {
+    // Landscape touch layouts hide the journal tracker and toast subtitles.
+    const useKey = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
+    g.fillText(`Harbours only · ${useKey} to land nearby`, clampedX, clampedY + 33);
+  }
   g.textAlign = 'left';
   g.restore();
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { Game } from '../game/core/game';
 import { AEGEAN_SHIPS } from '../data/aegean/content';
+import { AEGEAN_SHIPBUILDING_SOURCES } from '../data/aegean/shipbuilding';
 import { FITTINGS } from '../game/aegean/naval';
+import { countItem } from '../game/items/inventory';
 import { aegeanName } from './aegeanNames';
 
 /** The harbour counter uses the same list-and-detail layout as the anvil. */
@@ -52,7 +54,32 @@ export default function ShipyardPanel({ game }: { game: Game }) {
               <div className="obj-item"><span>Fittings</span><span>{ship.slots.combat} combat · {ship.slots.utility} utility</span></div>
               <div className="obj-item"><span>Ram</span><span>{ship.ram ? 'Bronze ram' : 'None'}</span></div>
             </div>
-            {!owned && missing.length ? <p className="help-p">The shipwright needs {missing.map(aegeanName).join(', ')} before this ship can be built.</p> : null}
+            {ship.requirements.length ? (
+              <>
+                <div className="section-h">What the shipwright needs</div>
+                {ship.requirements.map((id) => {
+                  const obtained = game.campaign.has(id);
+                  const source = AEGEAN_SHIPBUILDING_SOURCES[id];
+                  return (
+                    <div key={id} style={{ marginBottom: 12 }}>
+                      <div className={`obj-item ${obtained ? 'done' : ''}`}>
+                        <span>{aegeanName(id)}</span><span>{obtained ? 'Obtained' : 'Missing'}</span>
+                      </div>
+                      {!obtained ? source?.steps.map((step, i) => (
+                        <p className="help-p" key={i} style={{ margin: '5px 0', color: step.proof && game.campaign.has(step.proof) ? 'var(--muted)' : undefined }}>
+                          {step.proof && game.campaign.has(step.proof) ? 'Done — ' : ''}{step.text}
+                        </p>
+                      )) : null}
+                      {!obtained && source?.recipe ? (
+                        <p className="help-p" style={{ margin: '5px 0' }}>
+                          Forging cost: {source.recipe.gold.toLocaleString()} gold and {source.recipe.materials.map((m) => `${m.count} ${aegeanName(m.id)} (${countItem(game.player.inventory, m.id)}/${m.count} held)`).join(', ')}.
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </>
+            ) : null}
             {owned ? <p className="help-p">{ready ? `Your ${ship.name} is waiting beside the wooden pier.` : 'Bring this ship to the pier to see it beside the landing.'} Choose <b>Board ship</b> to step aboard and start sailing. You can also walk to the end of the pier and press <b>E</b>.</p> : null}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
               {!ready || !owned ? (
@@ -92,7 +119,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
                 {!FITTINGS.some((f) => game.campaign.has(f.requires)) ? <p className="help-p">Bring back trophies from Achaea&apos;s beasts and the shipwright can make fittings from them.</p> : null}
               </>
             ) : null}
-            <p className="help-p" style={{ marginTop: 16 }}>Steer with WASD, arrow keys or the movement stick. Press E near a harbour to come ashore. The shore is safer; out beyond the shelf, bring a sound hull and good supplies.</p>
+            <p className="help-p" style={{ marginTop: 16 }}>Steer with WASD, arrow keys or the movement stick. <b>You can only get off at a port.</b> Sail around an island to its wooden pier, approach the seaward end of the pier and press <b>E to land</b> when prompted. Beaches and cliffs are not landing places. The sailing display points you toward the nearest harbour.</p>
           </div>
         </div>
       </div>

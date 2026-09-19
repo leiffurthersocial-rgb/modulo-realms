@@ -310,12 +310,20 @@ export default function HelpPanel({ game }: { game: Game }) {
                   The harbours of Achaea sell ships. Speak to a shipwright to buy, repair or fit one. Your ship waits
                   beside the wooden pier. Choose <b>Board ship</b>, or walk to the pier&apos;s end and press <K>E</K> to
                   step aboard and start sailing. Steer with <K>WASD</K>, fire with <K>Space</K>, ram with <K>G</K> and brace with <K>B</K>.
-                  Hold <K>Shift</K> for a rowing burst, use <K>E</K> to dock, or <K>R</K> to fight boarders on deck.
+                  Hold <K>Shift</K> for a rowing burst, or <K>R</K> to fight boarders on deck.
                   The further you sail from the mainland, the worse the monsters get.
+                </P>
+                <P>
+                  <b>Islands can only be entered through a port.</b> Follow the harbour direction in the sailing display,
+                  circle the island to its wooden pier and approach until <b>Land at the harbour</b> appears. Press <K>E</K>
+                  to leave the ship and step onto the island. You cannot get off on a beach or against a cliff.
+                  Your first landing also lets you attune that island&apos;s waystones.
                 </P>
                 <P>
                   Greek bounties appear in your journal as you find their places, just like the valley&apos;s.
                   Bring trophies back to a local anvil to see what the smith can make from them.
+                  Select the <b>Stormbreaker</b> at a shipwright to see where each missing component comes from,
+                  which labours you have completed, and what it costs to forge the storm ribs.
                 </P>
 
                 <H>Doors worth opening</H>
