@@ -1055,6 +1055,14 @@ export class Game implements WorldCtx {
     }
 
     let dmg = (opts.trueDamage ? amount : amount * damageTaken(stats.defense, p.level)) + (opts.trueDamageAmount ?? 0);
+    const ordinaryDamage = dmg;
+    // Greek blows stay threatening even on very heavily reforged saves. This
+    // is a floor, not extra damage; ordinary active defenses still apply below.
+    if (opts.minHealthDamage && Number.isFinite(opts.minHealthDamage))
+      dmg = Math.max(dmg, p.maxHp * clamp(opts.minHealthDamage, 0, .45));
+    // Health-based pressure cannot turn a large health pool into free offense.
+    // Retaliation retains only the ordinary blow's share after active defenses.
+    const retaliationScale = dmg > 0 ? Math.min(1, ordinaryDamage / dmg) : 1;
     if (p.bracing && p.sp >= 8) { dmg *= 0.6; p.sp -= p.flags.has('aegean:mastery:resolve') ? 4 : 8; }
     const lastStand = p.enchantPower('final_shout');
     if (lastStand > 0 && p.hp / p.maxHp < 0.25) dmg *= 1 - lastStand / 100;
@@ -1064,7 +1072,7 @@ export class Game implements WorldCtx {
       this.fx.ring(p.x, p.y, 34, PAL.steel);
       audio.play('ui_big', 0.4);
     }
-    dmg = this.powers.onHurt(Math.max(1, dmg),opts);
+    dmg = this.powers.onHurt(Math.max(1, dmg), opts, retaliationScale);
 
     if (p.shield > 0) {
       const absorbed = Math.min(p.shield, dmg);
@@ -1098,7 +1106,7 @@ export class Game implements WorldCtx {
     const thorns = (p.hasEffect('thorns') ? 25 : 0) + p.enchantPower('thorns');
     if (thorns > 0 && opts.fromX !== undefined) {
       const src = this.enemies.find((e) => !e.dead && dist(e.x, e.y, opts.fromX!, opts.fromY!) < 28);
-      if (src) this.damageEnemy(src, dmg * (thorns / 100), { element: 'physical', noProc: true });
+      if (src) this.damageEnemy(src, dmg * retaliationScale * (thorns / 100), { element: 'physical', noProc: true });
     }
 
     if (p.hp <= 0) this.playerDied();
@@ -3866,6 +3874,17 @@ export class Game implements WorldCtx {
 
   private findInteractable(): InteractTarget | null {
     const p = this.player;
+    // Sailing has its own landing interaction. Shore NPCs and waystones
+    // must not replace the prompt or consume the same landing key press.
+    if (this.naval.aboard) {
+      const guide = this.naval.landingGuide();
+      if (!guide?.inRange) return null;
+      return {
+        label: guide.reason ? `Landing closed: ${guide.port.name}` : `Land at ${guide.port.name}`,
+        key: `land_${guide.port.id}`, x: p.x, y: p.y - 64,
+        run: () => { this.naval.dock(); },
+      };
+    }
     const range = 56 * (p.hasPerk('keensight') ? 1.15 : 1);
     let best: InteractTarget | null = null;
     let bestD = range * range;
@@ -4464,7 +4483,7 @@ export class Game implements WorldCtx {
           const p = this.player;
           if (dist2(pr.x, pr.y, p.x, p.y - 8) < (p.radius + pr.radius * 0.3) ** 2) {
             pr.dead = true;
-            this.damagePlayer(pr.damage, { trueDamageAmount: pr.trueDamageAmount, element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
+            this.damagePlayer(pr.damage, { trueDamageAmount: pr.trueDamageAmount, minHealthDamage: pr.minHealthDamage, element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
             if (pr.element === 'shadow' && this.regionAtPlayer()?.startsWith('aegean_')) applyStatus(p,'curse',.2,8,'#bda4d5',this.now);
             if (pr.element === 'poison') applyStatus(p, 'poison', pr.damage * 0.25, 5, PAL.toxic, this.now);
             if (pr.element === 'fire') applyStatus(p, 'burn', pr.damage * 0.25, 4, PAL.flame, this.now);

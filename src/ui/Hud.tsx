@@ -21,6 +21,8 @@ export default function Hud({ game }: { game: Game }) {
   const p = game.player;
   if (!p) return null;
   const stats = p.stats();
+  const landing = game.naval.landingGuide();
+  const useKey = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
   const abilities = p.classDef.abilities;
   const quick = p.inventory.find((i) => i.type === 'consumable' && (p.quickItem ? i.defId === p.quickItem : true))
     ?? p.inventory.find((i) => i.type === 'consumable');
@@ -119,7 +121,11 @@ export default function Hud({ game }: { game: Game }) {
             <div style={{ marginBottom: 8 }}>
               <h4>{game.naval.definition?.name}</h4>
               <div className="qname">{game.naval.dangerLabel}</div>
-              <div className="obj">E to dock · R to board the deck</div>
+              <div className="obj">Go ashore at a harbour. Beaches and cliffs are not landings.</div>
+              {landing ? <div className="obj">{landing.inRange
+                ? landing.reason ?? `${useKey} — Land at ${landing.port.name}`
+                : `${landing.port.name} · ${landing.direction} · ${Math.round(landing.distance / 32)}m. Follow the harbour marker, then press ${useKey} to land.`}</div> : null}
+              <div className="obj">R — Fight boarders on deck</div>
             </div>
           ) : null}
           {game.encounters.active ? (

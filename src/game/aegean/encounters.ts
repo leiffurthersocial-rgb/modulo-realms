@@ -5,6 +5,7 @@ import { Enemy } from "../entities/enemy";
 import { findOpenNear, type PropInstance } from "../world/map";
 import { TILE } from "../world/tiles";
 import { AEGEAN_ATTACKS } from "../../data/aegean/enemies";
+import { aegeanMinimumHit } from "../../data/aegean/damage";
 import { ENEMY_BY_ID, type BossAttack } from "../../data/enemies";
 import { AegeanNavigation } from "./navigation";
 import type { AegeanPowersSave } from "./powers";
@@ -25,6 +26,7 @@ type Warning = Point & {
   radius: number;
   at: number;
   damage: number;
+  minHealthDamage?: number;
   color: string;
   label: string;
   threatened: boolean;
@@ -90,7 +92,6 @@ const PUZZLE_ONLY = new Set([
   "bull",
   "hesperides",
   "cerberus",
-  "scylla",
   "titan",
 ]);
 const COUNTS: Record<string, number> = {
@@ -120,7 +121,8 @@ const LABELS: Record<string, string> = {
   chimera: "Bait the breath at the active vent, then open its sluice.",
   cyclops: "Bait a boulder onto a crane counterweight, then operate the crane.",
   talos: "Wait at a coastal station; open Talos’s ankle seal as he passes.",
-  scylla: "Cross between warning cycles and secure three strait beacons.",
+  scylla:
+    "Signal each beacon in order, defeat its two hunting heads, then light it. The three flames bind Charybdis and expose Scylla.",
   titan:
     "Defeat the chain horrors, then hold each anchor while it is repaired.",
   sanctuary_aegis: "Turn three mirrors during the sentinel’s recovery.",
@@ -604,6 +606,7 @@ export class AegeanEncounterDirector {
     const principal = this.spawn(this.id, "boss", 0, initial);
     principal.scripted = true;
     principal.friendly = PUZZLE_ONLY.has(this.slug) || this.slug === "hydra";
+    if (this.slug === "scylla") principal.friendly = true;
     this.game.bossTarget = principal;
     if (this.slug === "leonidas") {
       this.phase = this.practice ? this.phase : 0;
@@ -688,6 +691,14 @@ export class AegeanEncounterDirector {
   private addCount(): number {
     return this.actors.filter((a) => a.role === "add" && !a.enemy.dead).length;
   }
+  private warningMinimum(damage: number): number | undefined {
+    const boss = this.boss;
+    // Store the attacking boss's minimum when the tell appears. Later phase
+    // changes cannot change its promised damage, and utility signals stay inert.
+    return damage > 0 && boss && boss.damage > 0
+      ? aegeanMinimumHit(boss.def, damage / boss.damage)
+      : undefined;
+  }
   private warn(
     point: Point,
     radius: number,
@@ -703,6 +714,7 @@ export class AegeanEncounterDirector {
       radius,
       at: this.now + delay,
       damage,
+      minHealthDamage: this.warningMinimum(damage),
       color,
       label,
       after,
@@ -739,6 +751,7 @@ export class AegeanEncounterDirector {
       radius: 28,
       at: this.now + delay,
       damage,
+      minHealthDamage: this.warningMinimum(damage),
       color: "#a8c5e6",
       label,
       line: { angle, length },
@@ -770,6 +783,7 @@ export class AegeanEncounterDirector {
       if (hit && w.damage > 0)
         this.game.damagePlayer(w.damage, {
           element: "physical",
+          minHealthDamage: w.minHealthDamage,
           label: w.label,
           fromX: w.x,
           fromY: w.y,
@@ -828,6 +842,10 @@ export class AegeanEncounterDirector {
   private updateAdventure(dt: number): void {
     const p = this.game.player,
       boss = this.boss;
+    if (this.slug === "scylla") {
+      this.updateStrait(dt);
+      return;
+    }
     this.status = `${this.record.steps.length}/${this.count()} objectives${this.exposedUntil > this.now ? " · EXPOSED" : ""}`;
     if (
       boss &&
@@ -866,15 +884,15 @@ export class AegeanEncounterDirector {
         this.finish();
     }
     if (this.slug === "medusa" && boss) {
-      const facing =
-        (p as typeof p & { facing?: number }).facing ??
-        { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[p.dir];
+      // Attacks turn the rendered body via dir; facing is only the last movement
+      // heading. Looking away once must not permit firing at her indefinitely.
+      const facing = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[p.dir];
       const gazing =
         this.cycle % 3 === 1 &&
         this.distance(p, boss) < 520 &&
         this.exposedUntil <= this.now;
       const looking =
-        angleBetween(facing, angleTo(p.x, p.y, boss.x, boss.y)) < 0.65;
+        angleBetween(facing, angleTo(p.x, p.y, boss.x, boss.y)) < Math.PI / 3;
       this.gaze = Math.max(
         0,
         Math.min(100, this.gaze + dt * (gazing && looking ? 27 : -35)),
@@ -898,7 +916,7 @@ export class AegeanEncounterDirector {
           ? " · Ankle seal in reach"
           : " · Talos approaches the next station";
     }
-    if (this.holding >= 0 && ["titan", "scylla"].includes(this.slug)) {
+    if (this.holding >= 0 && this.slug === "titan") {
       if (
         this.distance(p, this.at(this.holding)) < 100 &&
         this.addCount() === 0
@@ -1003,16 +1021,6 @@ export class AegeanEncounterDirector {
       case "talos":
         this.attack(boss, this.cycle % 2 ? "ring" : "flame");
         break;
-      case "scylla":
-        this.line(
-          this.at(this.cycle % 3),
-          this.cycle % 2 ? 0 : Math.PI / 2,
-          600,
-          1.8,
-          boss.damage * 1.3,
-          "Scylla’s hunting limb",
-        );
-        break;
       case "titan":
         this.warn(
           { x: p.x, y: p.y },
@@ -1039,6 +1047,105 @@ export class AegeanEncounterDirector {
         if (this.slug === "champion_guard" && this.cycle % 3 === 0)
           this.adds(2, "aegean_royal_guard");
       }
+    }
+  }
+
+  /** The beacons lure Scylla's six heads onto the decks. Their deaths are
+   * attempt-local combat receipts: no timer, arrival or saved flag substitutes
+   * for defeating them. Charybdis keeps hunting the player's current deck until
+   * the three cleared beacons bind the vortex; Scylla is the final combatant. */
+  private useStraitBeacon(index: number): void {
+    if (index !== this.record.steps.length || index >= 3) {
+      this.say("Follow the passage: Outer beacon, Vortex beacon, Passage beacon.");
+      return;
+    }
+    const boss = this.boss;
+    if (!boss) return;
+    if (this.holding !== index) {
+      this.holding = index;
+      const point = this.at(index);
+      const perch = findOpenNear(this.game.map, point.x, point.y - 140, 28, 20);
+      boss.x = boss.homeX = perch.x;
+      boss.y = boss.homeY = perch.y;
+      this.game.particles(boss.x, boss.y, 24, "#8ac5d3", { speed: 130, life: 0.7, size: 4 });
+      for (let head = 0; head < 2; head++) {
+        const number = index * 2 + head;
+        const enemy = this.spawn("aegean_sea_serpent", "strait_head", number, {
+          x: point.x + (head ? 145 : -145),
+          y: point.y - 45,
+        });
+        enemy.scripted = true;
+        enemy.def = { ...enemy.def, name: `Scylla’s hunting head ${number + 1}`, scale: 1.5 };
+        enemy.radius = enemy.def.radius * 1.5;
+        enemy.maxHp = boss.maxHp * 0.12;
+        enemy.hp = enemy.maxHp;
+        enemy.damage = boss.damage * 0.62;
+      }
+      this.next = 1.4;
+      this.game.playSound("boss_phase", 0.6);
+      this.say("Two hunting heads surface. Defeat both, then light this beacon!");
+      return;
+    }
+    if (![index * 2, index * 2 + 1].every((head) => this.sealed.has(head))) {
+      this.say("Defeat both hunting heads before lighting this beacon.");
+      return;
+    }
+    this.mark(index, "Beacon lit — Charybdis loses its hold");
+    this.holding = -1;
+    if (this.allSteps()) {
+      // Extinguish only the vortex's pending surges. A head's already committed
+      // strike still resolves normally, just as attacks do elsewhere in the game.
+      this.warnings = this.warnings.filter((w) => !w.label.startsWith("Charybdis"));
+      boss.friendly = false;
+      boss.fightTime = 0;
+      this.exposedUntil = Infinity;
+      this.next = 1.8;
+      this.objective = "Charybdis is bound. Defeat the exposed Scylla to open the strait.";
+      this.game.playSound("boss_phase", 0.7);
+      this.say("Charybdis is bound — Scylla rises for the final fight!");
+    }
+  }
+
+  private updateStrait(dt: number): void {
+    const boss = this.boss;
+    if (!boss) return;
+    const p = this.game.player;
+    const heads = this.living.filter((a) => a.role === "strait_head");
+    this.status = `${this.record.steps.length}/3 beacons · ${this.sealed.size}/6 heads defeated`;
+    if (this.allSteps()) {
+      this.status += " · CHARYBDIS BOUND — SCYLLA EXPOSED";
+      if (!boss.windupAttack && this.distance(boss, p) > 150) this.move(boss, p, 0.9);
+      if (this.next <= 0 && !boss.windupAttack) {
+        this.cycle++;
+        this.next = 3.2;
+        const bite = this.cycle % 3 === 1;
+        this.attack(boss, bite ? "thrust" : this.cycle % 3 === 2 ? "poison" : "sweep", {
+          name: bite ? "Scylla’s last bite" : this.cycle % 3 === 2 ? "Venom of the strait" : "Scylla’s tearing jaws",
+        });
+      }
+      return;
+    }
+    if (this.holding < 0) this.status += ` · Signal beacon ${this.record.steps.length + 1}`;
+    else if (heads.length) this.status += ` · ${heads.length} hunting heads remain`;
+    else this.status += " · Return to the cleared beacon and light it";
+    for (const { enemy } of heads) {
+      if (!enemy.windupAttack && this.distance(enemy, p) > 120) this.move(enemy, p, 1.05);
+    }
+    if (this.next <= 0 && heads.length) {
+      const head = heads[this.cycle++ % heads.length];
+      if (!head.enemy.windupAttack) {
+        this.next = 1.65;
+        this.attack(head.enemy, head.index % 2 ? "poison" : "thrust", {
+          name: head.index % 2 ? "Scylla’s venom" : "Scylla’s snapping jaws",
+          windup: head.index % 2 ? 1.5 : 1.1,
+        });
+      }
+    }
+    this.guardNext -= dt;
+    if (this.guardNext <= 0) {
+      this.guardNext = 4.8 - this.record.steps.length * 0.5;
+      this.warn({ x: p.x, y: p.y }, 90, 1.75, boss.damage * 1.35,
+        "Charybdis — deck-breaking surge", "#73c9df");
     }
   }
 
@@ -1504,17 +1611,14 @@ export class AegeanEncounterDirector {
         this.exposedUntil = this.now + 14;
         return;
       case "scylla":
+        this.useStraitBeacon(index);
+        return;
       case "titan":
         if (this.holding === index) return;
         this.holding = index;
         this.holdTime = 0;
-        if (this.slug === "titan")
-          this.adds(2, "aegean_jailer", this.at(index));
-        this.say(
-          this.slug === "titan"
-            ? "Clear the anchor, then hold it for 6 seconds."
-            : "Hold the beacon through the current reversal for 6 seconds.",
-        );
+        this.adds(2, "aegean_jailer", this.at(index));
+        this.say("Clear the anchor, then hold it for 6 seconds.");
         return;
       default:
         if (!boss || boss.windupAttack || !recovery) {
@@ -1540,6 +1644,7 @@ export class AegeanEncounterDirector {
       return false;
     if (actor.role !== "boss") return true;
     if (PUZZLE_ONLY.has(this.slug) || this.slug === "hydra") return false;
+    if (this.slug === "scylla" && !this.allSteps()) return false;
     if (this.slug === "hippolyta" && !this.allSteps()) return false;
     if (this.slug === "leonidas" && this.now < this.phaseIntroUntil)
       return false;
@@ -1609,6 +1714,11 @@ export class AegeanEncounterDirector {
       this.say(`Head ${actor.index + 1} severed — cauterize its wound!`);
       return true;
     }
+    if (actor.role === "strait_head") {
+      this.sealed.add(actor.index);
+      this.say(`Scylla’s head ${actor.index + 1} defeated${this.living.some((a) => a.role === "strait_head") ? "" : " — light the cleared beacon!"}`);
+      return true;
+    }
     if (actor.role === "boss") {
       if (this.slug === "leonidas") {
         if (this.finalSequence >= 3) this.finish();
@@ -1632,6 +1742,7 @@ export class AegeanEncounterDirector {
   }
 
   private finish(): void {
+    if (this.slug === "scylla" && (!this.allSteps() || this.sealed.size !== 6 || this.boss)) return;
     if (this.practice) {
       this.say("Practice echo completed. No rewards or progression granted.");
       this.returnToAntechamber();

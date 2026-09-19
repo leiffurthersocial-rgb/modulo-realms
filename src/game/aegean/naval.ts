@@ -27,6 +27,15 @@ export interface NavalSave {
   shipY: number;
   wreck?: { x: number; y: number; gold: number };
 }
+export interface LandingGuide {
+  port: AegeanPort;
+  approach: { x: number; y: number };
+  inRange: boolean;
+  direction: string;
+  /** World pixels, matching the harbour approach and the compass target. */
+  distance: number;
+  reason: string | null;
+}
 const FITTING_TEXT = [
   {
     id: "ram",
@@ -224,6 +233,29 @@ export class NavalSystem {
         (this.aboard && Math.hypot(pt.launch.x - p.x, pt.launch.y - p.y) < range);
     });
   }
+  /** A destination hint only: it neither discovers an island nor docks there. */
+  landingGuide(): LandingGuide | undefined {
+    if (!this.aboard || this.game.map.id !== 'overworld') return;
+    const p = this.game.player;
+    let nearest: { port: AegeanPort; approach: { x: number; y: number }; distance: number } | undefined;
+    for (const port of AEGEAN_PORTS) {
+      for (const approach of [this.mooringPoint(port), port.launch]) {
+        const distance = Math.hypot(approach.x - p.x, approach.y - p.y);
+        if (!nearest || distance < nearest.distance) nearest = { port, approach, distance };
+      }
+    }
+    if (!nearest) return;
+    const angle = Math.atan2(nearest.approach.y - p.y, nearest.approach.x - p.x);
+    const direction = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'][(Math.round(angle / (Math.PI / 4)) + 8) % 8];
+    return { ...nearest, direction, inRange: nearest.distance < 170, reason: this.landingReason(nearest.port) };
+  }
+  landingReason(port: AegeanPort): string | null {
+    return port.id === 'aegean_asterion'
+      ? this.canStorm()
+      : port.gate === 'army' && !this.game.campaign.has('aegean_army')
+        ? 'Defeat the Three Hundred at the Gates of the Last Shore to open this harbour.'
+        : null;
+  }
   canStorm(): string | null {
     const c = this.game.campaign;
     if (!c.has("aegean_army"))
@@ -257,7 +289,7 @@ export class NavalSystem {
     this.state.fleet.push({ id, hull: d.hull, fittings: [], cargo: [] });
     this.state.selected = id;
     this.moorAt(pt);
-    g.toast(`${d.name} is moored at the pier`, 'Choose Board ship, or walk to the end of the wooden pier and press E.', "#66cdd6");
+    g.toast(`${d.name} is moored at the pier`, 'Choose Board ship, or press E at the pier. At islands, sail to a port and press E to land.', "#66cdd6");
     g.autosave();
     g.touch();
     return true;
@@ -340,21 +372,17 @@ export class NavalSystem {
     g.player.invuln = 2;
     g.playSound('ship_dock', 0.6);
     g.closeAll();
-    g.toast('At the helm', 'Steer with WASD or arrows. E near a harbour brings you ashore.', '#66cdd6');
+    g.toast('At the helm', 'Steer with WASD or arrows. Islands can only be entered at ports: follow the harbour direction, then press E to land.', '#66cdd6');
     g.autosave();
     g.touch();
     return true;
   }
   dock(): boolean {
     const g = this.game,
-      pt = this.nearestPort(170);
+      guide = this.landingGuide(),
+      pt = guide?.inRange ? guide.port : undefined;
     if (!pt || !this.aboard) return false;
-    const reason =
-      pt.id === "aegean_asterion"
-        ? this.canStorm()
-        : pt.gate === "army" && !g.campaign.has("aegean_army")
-          ? "The military harbour is still held."
-          : null;
+    const reason = guide!.reason;
     if (reason) {
       g.toast("Landing refused", reason, "#d9553f");
       return false;
@@ -627,7 +655,6 @@ export class NavalSystem {
       this.spawn = Math.max(6, 24 - this.danger * 4);
       this.spawnMonster();
     }
-    if (g.input.wasPressed("interact") && this.nearestPort(170)) this.dock();
     const wreck = this.state.wreck;
     if (wreck && Math.hypot(p.x - wreck.x, p.y - wreck.y) < 90) {
       p.gold += wreck.gold;

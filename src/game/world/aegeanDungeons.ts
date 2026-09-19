@@ -567,7 +567,7 @@ function talos(b: Builder): void {
 function scylla(b: Builder): void {
   b.map.tiles.fill(T.AEGEAN_SEA);
   // Deck/rock stations around an actual water vortex. The captain's trial
-  // uses ordinary foot controls on the deck; open-world navigation owns sailing.
+  // uses ordinary foot combat on the deck; open-world navigation owns sailing.
   const decks: Point[] = [
     [25, 69],
     [78, 52],
@@ -580,9 +580,15 @@ function scylla(b: Builder): void {
     if (i) line(b, decks[i - 1], decks[i], 3, T.FLOOR_WOOD);
   });
   disc(b, 47, 48, 12, 13, T.STYGIAN);
-  art(b, 47, 48, "aegean_whirlpool", { flat: true });
-  node(b, "arena", 78, 52);
-  node(b, "boss", 78, 52);
+  art(b, 47, 48, "aegean_whirlpool", {
+    flat: true, nameplate: "CHARYBDIS", nameplateColor: "#8ed1de",
+  });
+  art(b, b.entry[0] + 3, b.entry[1] - 4, "aegean_scroll", {
+    interact: "sign", label: "Read the strait keeper’s warning",
+    data: { text: "Signal the Outer, Vortex, and Passage beacons in order. Each draws two of Scylla’s six hunting heads onto its deck. Defeat both heads, then return to light that beacon. Keep moving when Charybdis marks the deck blue. Three lit beacons bind the whirlpool and expose Scylla, who must still be defeated. Crossing the passage alone earns no victory." },
+  });
+  node(b, "arena", 25, 69);
+  node(b, "boss", 25, 64);
   node(b, "safe", 25, 68);
 }
 

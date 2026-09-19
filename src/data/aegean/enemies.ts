@@ -164,6 +164,20 @@ const FIELD: FieldSpec[] = [
   ],
 ];
 
+// Encounter actors intentionally keep their authored health budget: they are
+// spawned without a world-region multiplier. The original trash-enemy damage
+// curve is too gentle for these endgame fights, especially on upgraded armour.
+// Price their blows explicitly instead of adding a region (which would also
+// multiply encounter health). The runtime damage regression covers all six
+// classes, original level-75 equipment, and reforged Greek equipment.
+const HIT_POWER: Record<EnemyDef["role"], number> = {
+  skirmisher: 1.35,
+  standard: 1.35,
+  brute: 1.4,
+  elite: 1.45,
+  boss: 1.45,
+};
+
 const fieldEnemy = ([
   slug,
   name,
@@ -180,7 +194,7 @@ const fieldEnemy = ([
   role,
   level,
   health: enemyHealthAt(level, role),
-  damage: enemyDamageAt(level, role),
+  damage: Math.round(enemyDamageAt(level, role) * HIT_POWER[role]),
   defense: enemyDefenseAt(level, role),
   xp: enemyXpAt(level, role),
   gold: enemyGoldAt(level, role),
@@ -272,7 +286,7 @@ export const AEGEAN_ATTACKS: Record<string, BossAttack> = {
     shape: "rain",
     windup: 1.5,
     cooldown: 8,
-    power: 1.2,
+    power: 1.65,
     count: 4,
     radius: 52,
     element: "poison",
@@ -538,7 +552,10 @@ export const AEGEAN_ENEMIES: EnemyDef[] = [
     look: { ...look(true), beard: "full", height: 1.18, bulk: 1.35 },
     scale: 3,
     health: enemyHealthAt(100, "boss") * 9,
-    damage: enemyDamageAt(100, "boss") * 1.35,
+    // The king already had a separate damage budget. Keep his increase smaller
+    // than the ordinary adventures: his late sweep must remain survivable at
+    // full health in the prepared six-class calibration.
+    damage: enemyDamageAt(100, "boss") * 1.5,
     speed: 98,
     radius: 17,
     boss: {

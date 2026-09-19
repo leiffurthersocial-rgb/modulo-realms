@@ -19,8 +19,10 @@ const checks = [
   "check-aegean-waypoints",
   "check-aegean-activity-scenes",
   "check-aegean-encounters",
+  "check-aegean-damage",
   "check-aegean-calibration",
   "check-aegean-services",
+  "check-aegean-ship-guidance",
   "check-aegean-integration",
 ];
 try {

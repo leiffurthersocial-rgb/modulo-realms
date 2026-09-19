@@ -371,14 +371,152 @@ for (const slug of ["nemea", "boar", "bull", "minotaur"]) {
   assert.deepEqual(f.rewards, [f.id]);
 }
 
-// The eight further myths cannot be won by removing a generic boss HP bar.
+// Scylla's old three six-second holds were a free victory. Walking between
+// flags, waiting, repeating E, and overwhelming the protected body earn nothing.
+{
+  const f = fixture("scylla"), boss = f.principal();
+  const livingHeads = () => f.fake.enemies.filter((e) =>
+    !e.dead && e.def.name.startsWith("Scylla’s hunting head"));
+  for (let i = 2; i >= 0; i--) {
+    f.use(i);
+    f.tick(6.2);
+  }
+  assert.deepEqual(f.record().steps, [], "flag-to-flag travel cannot secure beacons");
+  assert.deepEqual(f.rewards, [], "passive traversal awards no victory");
+  f.kill(boss);
+  assert.equal(boss.hp, boss.maxHp, "the six heads protect Scylla's body");
+  assert.equal(livingHeads().length, 2, "only the active beacon summons its pair");
+  f.use(0);
+  f.use(0);
+  assert.equal(livingHeads().length, 2, "repeated interaction cannot duplicate heads");
+  assert.ok(f.hits.some((h) => h.opts.label?.startsWith("Charybdis")),
+    "Charybdis targets the occupied deck, rather than a distant random flag");
+  assert.ok(f.hits.filter((h) => h.opts.label?.startsWith("Charybdis"))
+    .every((h) => Math.abs((h.opts.minHealthDamage ?? 0) - 0.135) < 1e-9),
+    "Charybdis's warned combat damage also threatens extreme legal gear");
+  assert.ok(f.hits.some((h) => h.opts.label?.includes("Scylla")) || f.shots.length > 0,
+    "Scylla's living heads attack during the beacon fight");
+  for (let i = 0; i < 3; i++) {
+    f.use(i);
+    const heads = livingHeads();
+    assert.equal(heads.length, 2, `beacon ${i + 1} has two living hunting heads`);
+    f.kill(heads[0]);
+    f.use(i);
+    f.tick(6.2);
+    assert.equal(f.record().steps.length, i, "one surviving head prevents lighting");
+    f.kill(heads[1]);
+    assert.equal(f.record().steps.length, i, "kills alone do not light the beacon");
+    f.use(i);
+    assert.equal(f.record().steps.length, i + 1);
+    assert.equal(f.rewards.length, 0, "three lit beacons still require Scylla's defeat");
+  }
+  assert.equal(boss.friendly, false, "Scylla becomes a normal combat target");
+  assert.ok(f.director.exposureActive, "Charybdis's binding exposes the body");
+  const surges = f.hits.filter((h) => h.opts.label?.startsWith("Charybdis")).length;
+  f.tick(10);
+  assert.equal(f.hits.filter((h) => h.opts.label?.startsWith("Charybdis")).length,
+    surges, "lighting all beacons stops Charybdis's damaging surges");
+  f.kill(boss);
+  assert.deepEqual(f.rewards, [f.id], "all six heads, three flames and Scylla earn victory");
+  f.use(2);
+  f.director.onEnemyKilled(boss);
+  assert.deepEqual(f.rewards, [f.id], "victory is recorded once");
+
+  const saved = f.director.snapshot();
+  f.director.restore(saved);
+  f.director.onMapEntered();
+  assert.ok(f.record().completed, "existing completed saves keep their victory");
+  f.director.interact(f.checkpoint);
+  f.use(0);
+  f.tick(6.2);
+  assert.deepEqual(f.record().steps, [], "completed-save rematches use the corrected fight");
+  assert.equal(livingHeads().length, 2);
+}
+{
+  const f = fixture("scylla");
+  f.use(0);
+  f.clearAdds();
+  f.use(0);
+  assert.deepEqual(f.record().steps, [0]);
+  const saved = f.director.snapshot();
+  f.director.restore(saved);
+  f.director.onMapEntered();
+  f.use(1);
+  assert.deepEqual(f.record().steps, [], "reload resets unfinished beacon and combat progress together");
+  f.use(0);
+  assert.equal(f.fake.enemies.filter((e) => !e.dead && e.def.name.startsWith("Scylla’s hunting head")).length,
+    2, "retry restores the first pair, without stale or duplicate heads");
+}
+
+// Medusa reads the face the player actually sees, including turns to attack.
+// A stale movement heading must not make a character shooting at her immune.
+{
+  const f = fixture("medusa");
+  f.player.facing = Math.PI;
+  f.player.dir = "right";
+  f.tick(6.1);
+  assert.ok(f.hits.some((h) => h.opts.label === "Petrification"),
+    "attacking toward Medusa risks petrification despite a stale away movement heading");
+}
+{
+  const f = fixture("medusa");
+  f.principal().x = f.player.x + 60;
+  f.principal().y = f.player.y + 60;
+  f.player.facing = Math.PI;
+  f.player.dir = "right";
+  f.tick(6.1);
+  assert.ok(f.hits.some((h) => h.opts.label === "Petrification"),
+    "diagonal aim within a rendered face's quadrant cannot slip between gaze directions");
+}
+{
+  const f = fixture("medusa");
+  f.player.facing = 0;
+  f.player.dir = "right";
+  f.tick(4);
+  const pressure = () => Number(f.director.status.match(/Petrification (\d+)%/)?.[1] ?? 0);
+  const before = pressure();
+  assert.ok(before > 30, "visible gaze builds pressure");
+  f.player.dir = "left";
+  f.tick(0.8);
+  assert.ok(pressure() < before, "turning the rendered face away releases gaze pressure");
+  assert.ok(!f.hits.some((h) => h.opts.label === "Petrification"));
+}
+
+// Warning geometry and its minimum are committed together. Damage remains the
+// ordinary raw amount; Game applies the minimum after armour, before defences.
+for (const [slug, label, power] of [
+  ["cyclops", "Quarry boulder", 2],
+  ["titan", "The Titan pulls the chain", 1.5],
+  ["augeas", "Reservoir flood", 1.1],
+  ["hesperides", "Falling starlight", 1.3],
+] as const) {
+  const f = fixture(slug), boss = f.principal(), originalDamage = boss.damage;
+  if (slug === "hesperides") f.use(0);
+  f.tick(2.1);
+  boss.damage *= 10;
+  f.tick(2.1);
+  const hit = f.hits.find((h) => h.opts.label === label);
+  assert.ok(hit, `${slug}: warned hazard reaches a stationary player`);
+  assert.ok(Math.abs(hit.amount - originalDamage * power) < 1e-9,
+    `${slug}: no additive damage tax and no retargeted amount`);
+  assert.ok(Math.abs((hit.opts.minHealthDamage ?? 0) - 0.1 * power) < 1e-9,
+    `${slug}: minimum is the committed boss attack power, not a later recalculation`);
+}
+{
+  const f = fixture("cyclops");
+  f.tick(2.1);
+  f.player.x += 500;
+  f.tick(2.1);
+  assert.equal(f.hits.length, 0, "avoiding a marked hazard avoids its minimum too");
+}
+
+// The further myths cannot be won by removing a generic boss HP bar.
 for (const slug of [
   "python",
   "medusa",
   "chimera",
   "cyclops",
   "talos",
-  "scylla",
   "titan",
 ]) {
   const f = fixture(slug),
@@ -421,14 +559,14 @@ for (const slug of [
     }
     f.use(i);
     if (slug === "titan") f.clearAdds();
-    if (slug === "scylla" || slug === "titan") f.tick(6.2);
+    if (slug === "titan") f.tick(6.2);
     if (slug === "python") f.clearAdds();
     assert.ok(
       f.record().steps.includes(i),
       `${slug}: authored objective ${i} can complete`,
     );
   }
-  if (!["scylla", "titan"].includes(slug)) f.kill(boss);
+  if (slug !== "titan") f.kill(boss);
   assert.deepEqual(f.rewards, [f.id]);
 }
 
@@ -537,6 +675,16 @@ for (let company = 0; company < 10; company++) {
     "the last five percent cannot skip the oath",
   );
   f.tick(18);
+  for (const [label, minimum] of [
+    ["Last Oath — the spear", 0.24],
+    ["Last Oath — the sky", 0.252],
+    ["Last Oath — the king", 0.276],
+  ] as const) {
+    const hit = f.hits.find((h) => h.opts.label === label);
+    assert.ok(hit, `${label}: the marked final pattern resolves`);
+    assert.ok(Math.abs((hit.opts.minHealthDamage ?? 0) - minimum) < 1e-9,
+      `${label}: Leonidas's warning uses the royal attack minimum`);
+  }
   f.kill(boss);
   assert.deepEqual(f.rewards, [f.id]);
   assert.equal(f.director.practicePhase, 5);
