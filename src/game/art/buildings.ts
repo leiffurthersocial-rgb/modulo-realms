@@ -364,6 +364,92 @@ const presets: Record<string, () => BuildingArt> = {
   tent: () => makeBuilding({ w: 80, h: 76, wall: PAL.clay, wallDark: PAL.soil, roof: PAL.clay, roofDark: PAL.soil, roofStyle: 'canvas', wallStyle: 'plaster', windows: 0 }, 'tent'),
   ruined_house: () => makeBuilding({ w: 100, h: 96, wall: PAL.ash, wallDark: PAL.slate, roof: PAL.slate, roofDark: PAL.charcoal, roofStyle: 'shingle', wallStyle: 'stone', windows: 2, ruined: true }, 'ruined_house'),
   player_home: () => makeBuilding({ w: 108, h: 116, wall: PAL.plank, wallDark: PAL.woodDark, roof: '#3f5a6a', roofDark: '#22343f', roofStyle: 'shingle', wallStyle: 'plank', chimney: true, windows: 2, lamps: true }, 'player_home'),
+  /**
+   * The one building in Ashvale that advertises itself. It starts from the same
+   * stone shell as the forge and the hall so it still belongs to the town, then
+   * takes a double door, a red carpet down the steps and a gilt board over the
+   * lintel. The board is deliberately left unlit here: the bulbs that chase
+   * around it are the `casino_marquee` prop, because a `bld:` sprite is drawn
+   * without a frame index and so can never animate.
+   */
+  casino: () => {
+    // Starts from the same stone shell as the forge and the hall so it still
+    // belongs to Ashvale, then takes a double door, a red carpet down the
+    // steps and a gilt board over the lintel. The shell's own windows are
+    // switched off and re-cut out at the corners, because the board sits
+    // exactly where they would be. The board is left dark here: the bulbs
+    // that chase around it are the `casino_marquee` prop, since a `bld:`
+    // sprite is drawn without a frame index and so can never animate.
+    const W = 132;
+    const H = 124;
+    const b = makeBuilding({
+      w: W, h: H, wall: PAL.stone, wallDark: '#2b2536', roof: '#463a52', roofDark: '#241d2e',
+      roofStyle: 'shingle', wallStyle: 'stone', chimney: true, windows: 0, lamps: false,
+    }, 'casino');
+    const p = new Px(b.w, b.h);
+    p.blit(b.canvas, 0, 0);
+
+    const wallH = Math.round(H * 0.42);
+    const wallY = H - wallH;
+    const cx = b.doorX;
+    const doorH = Math.min(26, wallH - 6);
+    const doorY = wallY + wallH - doorH - 2;
+
+    // lit windows out at the corners, clear of the board
+    for (const wx of [cx - 52, cx + 40]) {
+      p.fill(wx - 1, wallY + 13, 14, 14, PAL.woodDark);
+      p.fill(wx, wallY + 14, 12, 12, mix(PAL.flameLit, PAL.clay, 0.35));
+      p.fill(wx, wallY + 14, 12, 4, withAlpha(PAL.white, 0.25));
+      p.fill(wx + 5, wallY + 14, 2, 12, PAL.woodDark);
+      p.fill(wx, wallY + 19, 12, 2, PAL.woodDark);
+    }
+
+    // the marquee board's recess — the prop lights it
+    const boardW = 72;
+    p.fill(cx - boardW / 2, wallY + 4, boardW, 24, '#221c2a');
+    p.box(cx - boardW / 2, wallY + 4, boardW, 24, '#6d4a1c');
+
+    // double doors under a gilt arch
+    p.fill(cx - 13, doorY - 2, 26, doorH + 2, shade('#2b2536', 0.7));
+    p.fill(cx - 12, doorY, 24, doorH, PAL.woodDark);
+    p.fill(cx - 11, doorY + 1, 10, doorH - 2, PAL.wood);
+    p.fill(cx + 1, doorY + 1, 10, doorH - 2, PAL.wood);
+    p.fill(cx - 1, doorY, 2, doorH, shade(PAL.woodDark, 0.8));
+    for (const lx of [cx - 11, cx + 1]) {
+      p.fill(lx, doorY + 3, 10, 1, PAL.gold);
+      p.fill(lx, doorY + doorH - 6, 10, 1, PAL.gold);
+    }
+    p.circle(cx - 3, doorY + doorH / 2, 1.5, PAL.goldLit);
+    p.circle(cx + 3, doorY + doorH / 2, 1.5, PAL.goldLit);
+    p.fill(cx - 15, doorY - 4, 30, 2, PAL.gold);
+    p.fill(cx - 15, doorY - 2, 2, 4, PAL.gold);
+    p.fill(cx + 13, doorY - 2, 2, 4, PAL.gold);
+
+    // crimson spade banners flanking the door, below the board
+    for (const bx of [cx - 30, cx + 22]) {
+      p.fill(bx, doorY - 6, 8, 22, PAL.blood);
+      p.fill(bx, doorY - 6, 1, 22, '#b03449');
+      p.fill(bx + 7, doorY - 6, 1, 22, '#5e1220');
+      p.poly([[bx, doorY + 16], [bx + 4, doorY + 21], [bx + 8, doorY + 16]], PAL.blood);
+      p.poly([[bx + 2, doorY], [bx + 7, doorY + 5], [bx + 4, doorY + 9], [bx + 1, doorY + 5]], PAL.goldLit);
+    }
+
+    // carriage lamps either side of the doors
+    for (const lx of [cx - 20, cx + 17]) {
+      p.fill(lx, doorY + 2, 2, 8, PAL.ironDark);
+      p.fill(lx - 2, doorY + 10, 6, 7, PAL.ironDark);
+      p.fill(lx - 1, doorY + 11, 4, 5, PAL.cloth);
+      p.ellipse(lx + 1, doorY + 13, 9, 9, withAlpha(PAL.cloth, 0.1));
+    }
+
+    // red carpet running down the steps
+    p.fill(cx - 9, H - 2, 18, 8, '#7a1c2c');
+    p.fill(cx - 9, H - 2, 18, 1, '#a8304a');
+    p.fill(cx - 8, H - 1, 1, 7, '#b03449');
+    p.fill(cx + 7, H - 1, 1, 7, '#5e1220');
+
+    return { ...b, canvas: p.canvas };
+  },
   mage_tower: () => {
     const b = makeBuilding({ w: 90, h: 168, wall: '#6a6488', wallDark: PAL.slate, roof: PAL.arcaneDark, roofDark: '#140f26', roofStyle: 'tile', wallStyle: 'stone', storeys: 2, windows: 2 }, 'mage_tower');
     const p = new Px(b.w, b.h);

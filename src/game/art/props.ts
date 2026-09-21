@@ -1422,6 +1422,285 @@ GEN.barrel_stack = (rng) => {
   return art([p], 38);
 };
 
+
+/* ------------------------------------------------------------------ */
+/* Casino                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A 5x7 bitmap alphabet, just wide enough to spell the one word the marquee
+ * needs. The game has no pixel font — name plates are drawn by the renderer in
+ * the UI layer — so a sign that has to read as *painted on the building*
+ * carries its own letters.
+ */
+const MARQUEE_GLYPHS: Record<string, string[]> = {
+  C: ['01110', '10001', '10000', '10000', '10000', '10001', '01110'],
+  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  S: ['01111', '10000', '10000', '01110', '00001', '10001', '01110'],
+  I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
+  N: ['10001', '11001', '11001', '10101', '10011', '10011', '10001'],
+  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+};
+
+function glyph(p: Px, ch: string, x: number, y: number, color: string): void {
+  const rows = MARQUEE_GLYPHS[ch];
+  if (!rows) return;
+  rows.forEach((row, ry) => {
+    for (let rx = 0; rx < row.length; rx++) if (row[rx] === '1') p.set(x + rx, y + ry, color);
+  });
+}
+
+/** Pip suit marks, small enough to sit on a banner or a card corner. */
+function spade(p: Px, cx: number, cy: number, s: number, color: string): void {
+  p.poly([[cx, cy - s], [cx + s * 0.92, cy + s * 0.28], [cx, cy + s * 0.62], [cx - s * 0.92, cy + s * 0.28]], color);
+  p.ellipse(cx - s * 0.42, cy + s * 0.18, s * 0.5, s * 0.46, color);
+  p.ellipse(cx + s * 0.42, cy + s * 0.18, s * 0.5, s * 0.46, color);
+  p.fill(cx - 1, cy + s * 0.3, 2, Math.max(1, s * 0.6), color);
+  p.fill(cx - s * 0.45, cy + s * 0.85, s * 0.9, 1, color);
+}
+
+/**
+ * The CASINO marquee. Everything that can glow does, and it glows in a chase:
+ * the bulb ring runs a four-frame cycle so the sign reads as *running* from
+ * across the square, the way the torches and lamp posts already do.
+ *
+ * It is a prop rather than part of the building because `bld:` sprites are
+ * drawn without a frame index — buildings in this game are static by design,
+ * and the animated pieces (signs, lamps, torches) always sit on top as props.
+ */
+GEN.casino_marquee = () => {
+  const frames: Px[] = [];
+  const W = 76;
+  const H = 40;
+  const word = 'CASINO';
+  const glyphW = 6;
+  const wordX = Math.round((W - (word.length * glyphW - 1)) / 2);
+  const boardY = 10;
+  const boardH = 24;
+
+  for (let f = 0; f < 4; f++) {
+    const p = new Px(W, H);
+
+    // crown, standing clear above the board
+    const cx = Math.round(W / 2);
+    p.poly([[cx - 10, boardY + 1], [cx - 7, 3], [cx - 3, 8], [cx, 0], [cx + 3, 8], [cx + 7, 3], [cx + 10, boardY + 1]], PAL.gold);
+    p.fill(cx - 10, boardY - 1, 20, 2, PAL.goldLit);
+    p.set(cx, 2, PAL.white);
+    p.set(cx - 7, 5, PAL.blood);
+    p.set(cx + 7, 5, PAL.blood);
+
+    // board
+    p.fill(2, boardY, W - 4, boardH, PAL.woodDark);
+    p.fill(3, boardY + 1, W - 6, boardH - 2, '#2a2432');
+    p.box(3, boardY + 1, W - 6, boardH - 2, PAL.gold);
+    p.box(5, boardY + 3, W - 10, boardH - 6, '#6d4a1c');
+
+    // the word, gilt with a warm highlight above it
+    const ty = boardY + 9;
+    for (let i = 0; i < word.length; i++) glyph(p, word[i], wordX + i * glyphW, ty + 1, PAL.goldLit);
+    for (let i = 0; i < word.length; i++) glyph(p, word[i], wordX + i * glyphW, ty, PAL.white);
+
+    // chasing bulbs around the board
+    const bulbs: Array<[number, number]> = [];
+    for (let x = 4; x <= W - 6; x += 7) { bulbs.push([x, boardY + 1]); bulbs.push([x, boardY + boardH - 3]); }
+    for (let y = boardY + 7; y <= boardY + boardH - 8; y += 7) { bulbs.push([3, y]); bulbs.push([W - 5, y]); }
+    bulbs.forEach(([bx, by], i) => {
+      const on = (i + f) % 4 !== 0;
+      p.fill(bx, by, 2, 2, on ? PAL.flameLit : '#7a6434');
+      if (on) p.ellipse(bx + 1, by + 1, 4, 4, withAlpha(PAL.flameLit, 0.16));
+    });
+
+    p.outline(PAL.ink);
+    frames.push(p);
+  }
+  // The anchor is taller than the frame on purpose. The sign is pinned high on
+  // the facade, well above the prop's own footing, and that footing sits just
+  // *in front of* the building's so the y-sort draws it over the wall rather
+  // than behind the roof.
+  return art(frames, 61, 6);
+};
+
+GEN.casino_sign = () => {
+  const frames: Px[] = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Px(30, 44);
+    groundShadow(p, 15, 42, 8);
+    p.fill(4, 8, 4, 34, PAL.wood);
+    p.fill(4, 8, 1, 34, PAL.woodLit);
+    p.fill(7, 8, 1, 34, PAL.woodDark);
+    p.fill(4, 6, 16, 3, PAL.ironDark);
+    p.fill(4, 6, 16, 1, PAL.iron);
+    p.fill(11, 9, 1, 3, PAL.ironDark);
+    p.fill(18, 9, 1, 3, PAL.ironDark);
+    p.fill(8, 12, 18, 16, PAL.woodDark);
+    p.fill(9, 13, 16, 14, '#3a2430');
+    p.fill(9, 13, 16, 1, '#5a3a48');
+    p.box(10, 14, 14, 12, PAL.gold);
+    spade(p, 17, 20, 5, f === 0 ? PAL.cloth : PAL.white);
+    p.outline(PAL.ink);
+    frames.push(p);
+  }
+  return art(frames, 43, 1.5);
+};
+
+/** The crimson spade banner that hangs either side of the casino door. */
+GEN.casino_banner = () => {
+  const p = new Px(16, 40);
+  p.fill(1, 0, 14, 2, PAL.ironDark);
+  p.fill(2, 2, 12, 30, PAL.blood);
+  p.fill(2, 2, 1, 30, '#b03449');
+  p.fill(13, 2, 1, 30, '#5e1220');
+  p.poly([[2, 32], [8, 38], [14, 32]], PAL.blood);
+  p.poly([[2, 32], [8, 38], [8, 32]], '#a62c3f');
+  p.box(3, 4, 10, 26, PAL.gold);
+  spade(p, 8, 14, 4, PAL.goldLit);
+  p.outline(PAL.ink);
+  return art([p], 39);
+};
+
+/**
+ * A slot machine. The reels tick over on their own so a room full of them
+ * reads as *running* rather than as furniture, and the marquee lamp on top
+ * pulses with the marquee outside.
+ */
+GEN.slot_machine = (rng) => {
+  const frames: Px[] = [];
+  const symbols = [PAL.blood, PAL.gold, PAL.frost, PAL.toxic, PAL.flameLit];
+  for (let f = 0; f < 4; f++) {
+    const p = new Px(26, 44);
+    groundShadow(p, 13, 42, 10);
+    // cabinet
+    p.fill(3, 8, 20, 34, '#4a2430');
+    p.fill(3, 8, 20, 2, '#6e3a48');
+    p.fill(3, 40, 20, 2, '#2a1220');
+    p.fill(3, 8, 1, 34, '#7a4454');
+    p.fill(22, 8, 1, 34, '#2a1220');
+    // crown lamp
+    p.fill(5, 4, 16, 5, PAL.woodDark);
+    p.fill(6, 5, 14, 3, f % 2 === 0 ? PAL.goldLit : PAL.gold);
+    p.ellipse(13, 6, 12, 7, withAlpha(PAL.flameLit, 0.12));
+    // reel window
+    p.fill(5, 13, 16, 12, PAL.ink);
+    p.box(5, 13, 16, 12, PAL.gold);
+    for (let r = 0; r < 3; r++) {
+      const c = symbols[(f + r * 2) % symbols.length];
+      p.fill(7 + r * 5, 16, 3, 6, c);
+      p.set(8 + r * 5, 17, PAL.white);
+    }
+    // pay line and buttons
+    p.fill(5, 19, 16, 1, withAlpha(PAL.blood, 0.55));
+    p.fill(6, 28, 14, 6, '#2a1220');
+    for (let i = 0; i < 3; i++) p.fill(8 + i * 4, 30, 3, 2, i === f % 3 ? PAL.flameLit : PAL.ember);
+    // lever
+    p.fill(23, 16 + (f % 2), 2, 10, PAL.ironDark);
+    p.circle(24, 15 + (f % 2), 2, PAL.blood);
+    // coin tray
+    p.fill(6, 36, 14, 3, '#2a1220');
+    for (let i = 0; i < 3; i++) p.set(8 + i * 4, 37, PAL.gold);
+    void rng;
+    p.outline(PAL.ink);
+    frames.push(p);
+  }
+  return art(frames, 41, 5);
+};
+
+/** The poker table: green baize, a rail, five cards down and chips in play. */
+GEN.poker_table = () => {
+  const p = new Px(76, 42);
+  groundShadow(p, 38, 40, 30);
+  // rail and baize
+  p.ellipse(38, 26, 37, 15, PAL.woodDark);
+  p.ellipse(38, 25, 35, 14, '#6a4430');
+  p.ellipse(38, 25, 31, 12, '#1f5a34');
+  p.ellipse(38, 24, 31, 12, '#27713f');
+  p.ellipse(38, 24, 27, 9, '#2d8049');
+  // felt line
+  for (let a = 0; a < 40; a++) {
+    const r = (a / 40) * Math.PI * 2;
+    p.set(38 + Math.cos(r) * 27, 24 + Math.sin(r) * 9, '#1f5a34');
+  }
+  // community cards
+  for (let i = 0; i < 5; i++) {
+    const cx = 24 + i * 7;
+    p.fill(cx, 20, 5, 7, PAL.white);
+    p.fill(cx, 20, 5, 1, PAL.cloth);
+    p.set(cx + 1, 22, i % 2 === 0 ? PAL.ink : PAL.blood);
+    p.set(cx + 3, 24, i % 2 === 0 ? PAL.ink : PAL.blood);
+  }
+  // chip stacks
+  const stack = (x: number, y: number, c: string, n: number) => {
+    for (let i = 0; i < n; i++) p.fill(x, y - i * 2, 6, 2, i % 2 === 0 ? c : shade(c, 0.75));
+    p.ellipse(x + 3, y - n * 2 + 1, 3, 1.2, shade(c, 1.25));
+  };
+  stack(14, 28, PAL.blood, 3);
+  stack(56, 28, PAL.frost, 4);
+  stack(48, 30, PAL.gold, 2);
+  p.outline(PAL.ink);
+  return art([p], 41);
+};
+
+/** The dealer's blackjack table — a half-round counter with the shoe on it. */
+GEN.card_table = () => {
+  const p = new Px(72, 36);
+  groundShadow(p, 36, 34, 28);
+  p.ellipse(36, 22, 34, 13, PAL.woodDark);
+  p.ellipse(36, 21, 32, 12, '#6a4430');
+  p.ellipse(36, 21, 28, 10, '#1f5a34');
+  p.ellipse(36, 20, 28, 10, '#27713f');
+  p.fill(4, 20, 64, 12, '#6a4430');
+  p.fill(4, 20, 64, 1, '#8a5c40');
+  p.fill(4, 31, 64, 1, PAL.woodDark);
+  // card shoe and a fanned hand
+  p.fill(56, 14, 10, 6, '#2a1220');
+  p.fill(57, 13, 8, 2, PAL.gold);
+  for (let i = 0; i < 4; i++) {
+    p.fill(16 + i * 6, 15 - (i % 2), 5, 7, PAL.white);
+    p.set(17 + i * 6, 17, i % 2 === 0 ? PAL.blood : PAL.ink);
+  }
+  for (let i = 0; i < 3; i++) p.fill(40, 22 - i * 2, 6, 2, i % 2 === 0 ? PAL.blood : '#5e1220');
+  p.outline(PAL.ink);
+  return art([p], 35);
+};
+
+/** Loose chips and a lone ace, scattered as dressing. */
+GEN.chip_stack = (rng) => {
+  const p = new Px(22, 18);
+  groundShadow(p, 11, 16, 8);
+  const stack = (x: number, y: number, c: string, n: number) => {
+    for (let i = 0; i < n; i++) p.fill(x, y - i * 2, 7, 2, i % 2 === 0 ? c : shade(c, 0.72));
+    p.ellipse(x + 3, y - n * 2 + 1, 3.5, 1.4, shade(c, 1.3));
+  };
+  stack(2, 14, PAL.blood, rng.int(2, 4));
+  stack(11, 14, PAL.frost, rng.int(2, 3));
+  p.fill(16, 8, 5, 7, PAL.white);
+  spade(p, 18, 11, 2, PAL.ink);
+  p.outline(PAL.ink);
+  return art([p], 17);
+};
+
+/**
+ * The casino's own street lamp. Same iron post as `lamp_post` so it belongs to
+ * the town, but it burns cold blue-white instead of hearth-orange — the one
+ * building in Ashvale that is not lit by a fire.
+ */
+GEN.casino_lamp = () => {
+  const frames: Px[] = [];
+  for (let f = 0; f < 2; f++) {
+    const p = new Px(20, 52);
+    groundShadow(p, 10, 49, 7);
+    p.fill(7, 44, 6, 6, PAL.ironDark);
+    p.fill(8, 12, 4, 34, PAL.ironDark);
+    p.fill(9, 12, 1, 34, PAL.iron);
+    p.fill(5, 8, 10, 3, PAL.ironDark);
+    p.fill(6, 3, 8, 6, f === 0 ? PAL.cloth : PAL.white);
+    p.box(5, 2, 10, 8, PAL.ironDark);
+    p.poly([[4, 2], [16, 2], [10, -3]], PAL.ironDark);
+    p.ellipse(10, 6, 14, 14, withAlpha(PAL.cloth, 0.09));
+    frames.push(p);
+  }
+  return art(frames, 50, 2.5);
+};
+
 const FALLBACK: Gen = () => {
   const p = new Px(24, 24);
   p.fillAll('#ff00ff');

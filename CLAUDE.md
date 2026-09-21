@@ -101,6 +101,8 @@ src/
   game/aegean/           13 Module: campaign, encounters (2325 Z.), naval, powers,
                          activities, services, hazards, weapons, deck, mastery,
                          navigation, waypoints, guidance
+  game/casino/           games.ts (reine Regeln: Deck, Handwertung, Walzen) +
+                         casino.ts (Sitzung, Einsatz, Auszahlung) — Gilded Spade
   data/                  races, classes, items, enemies, npcs, quests, locations,
                          balance.ts, aegean/*
   ui/                    28 React-Panels + hooks.ts, aegeanNames.ts
@@ -147,6 +149,24 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
   Nicht wieder cappen.
 - Händler skalieren mit der Region, auf der sie stehen — nicht mit fester Liste.
 
+## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen
+
+`scripts/check-aegean-world.ts` friert die komplette Westhälfte (960×1088) gegen
+Git `d39d75a` ein — Tiles, Regionen, Props, Portale, Spawns, Chests. Zweck: beweisen,
+dass die Aegean-Arbeit nie ins alte Tal zurückgegriffen hat. **Jede** Änderung an
+Ashvale oder einer anderen Weststadt bricht diesen Check, auch eine beabsichtigte.
+
+Ablauf für eine gewollte Änderung:
+1. Änderung bauen.
+2. `node scripts/record-aegean-legacy-baseline.mjs` — schreibt `documentedChanges.sha256After`.
+3. In `scripts/aegean-legacy-baseline.json` unter `documentedChanges.changes` einen
+   Eintrag ergänzen (`id`, `what`, `fields` und was genau sich ändert).
+
+`sha256` bleibt dabei für immer der Vor-Aegean-Anker und wird nie neu aufgenommen.
+**`regions`, `spawns` und `chests` dürfen nie in `fields` stehen** — der Check
+erzwingt das selbst. Eine undokumentierte Änderung (schon ein um ein Tile
+verschobener Karren) schlägt weiterhin fehl; das ist getestet.
+
 ## Save-System — Minenfeld
 
 localStorage: `modulo-realms-save-v1` (Haupt), `modulo-realms-save-pre-aegean` (Roh-Backup),
@@ -180,6 +200,7 @@ Reload verschwindet. Abgedeckt von `scripts/check-endgame-reforge.ts`.
   Angriffe, 196 Tile-Varianten + 48 Wall-Faces + 8 Masken.
 - `check-primordial` / `check-island-integration` / `check-endgame-reforge` — der
   Endgame-Block aus PR #9 (Primordial-Vorsprung, Asterion, Reforge jenseits Level 75)
+- `check-aegean-world` — Weltgeometrie **und** die eingefrorene Westwelt (siehe oben)
 - 15 × `check-aegean-*`
 
 `scripts/check-aegean.mjs` bündelt jedes Check-Skript mit esbuild und startet es seriell als

@@ -8,6 +8,7 @@ import { invalidateChunks } from './renderer';
 import { AegeanCampaign } from '../aegean/campaign';
 import { NavalSystem } from '../aegean/naval';
 import { aegeanEarnedWaystones, aegeanWaystoneAccess, aegeanWaystoneDestination, aegeanWaystonesInReach } from '../aegean/waypoints';
+import { Casino } from '../casino/casino';
 import { AegeanEncounterDirector } from '../aegean/encounters';
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
@@ -45,7 +46,7 @@ import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'shipyard' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'shipyard' | 'poker' | 'slots' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -174,6 +175,7 @@ export class Game implements WorldCtx {
   greekWeapons = new AegeanWeaponCombat(this);
   aegeanHazards = new AegeanHazards(this);
   encounters = new AegeanEncounterDirector(this);
+  casino = new Casino(this);
 
   itemMigrationReport: ItemCurveMigration[] = [];
   seed = 1337;
@@ -323,6 +325,7 @@ export class Game implements WorldCtx {
 
   closeAll(): void {
     if (this.loot) this.abandonLoot();
+    this.casino.close();
     this.panel = null;
     this.royalOpen = false;
     this.dialogue = null;
@@ -3260,6 +3263,14 @@ export class Game implements WorldCtx {
         else if(action==='journal') this.setPanel('quests');
         break;
       }
+      case 'poker':
+        this.casino.openPoker();
+        audio.play('ui_big', 0.5);
+        break;
+      case 'slots':
+        this.casino.openSlots();
+        audio.play('ui_big', 0.5);
+        break;
       case 'notice':
         this.panel = 'quests';
         this.touch();
@@ -4026,6 +4037,10 @@ export class Game implements WorldCtx {
     this.input.tick(dt);
     this.updateFade(dt);
     this.handleHotkeys();
+
+    // The reels have to spin down while their own panel is open, so this sits
+    // above the `uiOpen` early-out rather than with the world simulation.
+    this.casino.update(dt);
 
     if (this.uiOpen) {
       this.input.uiCapture = true;

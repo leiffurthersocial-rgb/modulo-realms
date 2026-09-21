@@ -125,6 +125,10 @@ const OUTER: BuildingPlacement[] = [];
 
 export const ASHVALE_BUILDINGS: BuildingPlacement[] = [
   ...SERVICES.map((sv) => ({ id: sv.id, art: sv.art, tx: CX + sv.dx, ty: CY + sv.dy, interior: sv.interior, label: sv.label })),
+  // The Gilded Spade took over the shuttered house on the west lane, between
+  // the forge and the hall. It sits on the outer ring rather than the square,
+  // so it does not compete with a door that sells you something you need.
+  { id: 'casino', art: 'casino', tx: CX - 30, ty: CY - 4, interior: 'int_casino', label: 'Enter the casino' },
   { id: 'player_home', art: 'player_home', tx: CX - 6, ty: CY + 18, interior: 'int_home', label: 'Enter your home' },
   { id: 'farmhouse', art: 'farmhouse', tx: CX - 22, ty: CY + 24, interior: 'int_farm', label: 'Enter the farmhouse' },
   { id: 'guard_post', art: 'guard_post', tx: CX + 2, ty: CY + 30, label: 'The south gatehouse' },
@@ -139,7 +143,7 @@ export const ASHVALE_BUILDINGS: BuildingPlacement[] = [
 const ASHVALE_TOWNHOUSES: Array<[number, number]> = [
   [-26, -20], [-18, -24], [-8, -26], [4, -26], [14, -23], [24, -18],
   [-28, 12], [-24, 22], [26, 12], [22, 22], [12, 28], [-14, 30],
-  [30, -4], [-30, -4], [16, 34], [-20, 36],
+  [30, -4], [16, 34], [-20, 36],
 ];
 
 export function buildAshvale(map: GameMap, rng: RNG): void {
@@ -211,6 +215,30 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
     });
     prop(map, sx - 4, sy, 'lamp_post', { cw: 8, ch: 6, light: 150, lightColor: sv.color });
     prop(map, sx + 5, sy, 'lamp_post', { cw: 8, ch: 6, light: 150, lightColor: sv.color });
+  }
+
+  // The casino labels itself like every other usable door — a hanging sign, a
+  // name plate and lamps — but the marquee over the lintel is what you see
+  // from the lane, and it runs its bulbs whatever the hour.
+  {
+    const kx = CX - 30;
+    const ky = CY - 4;
+    prop(map, kx, ky, 'casino_marquee', { y: ky * TILE + 33, light: 190, lightColor: '#f2cb60' });
+    prop(map, kx + 3, ky + 1, 'casino_sign', {
+      cw: 12, ch: 8, light: 96, lightColor: '#d9a441',
+      nameplate: 'CASINO', nameplateColor: '#d9a441',
+    });
+    prop(map, kx - 4, ky + 1, 'casino_lamp', { cw: 8, ch: 6, light: 165, lightColor: '#efe6d6' });
+    prop(map, kx + 5, ky + 1, 'casino_lamp', { cw: 8, ch: 6, light: 165, lightColor: '#efe6d6' });
+    prop(map, kx - 6, ky + 2, 'bench', { cw: 36, ch: 10 });
+    prop(map, kx + 7, ky + 2, 'planter', { cw: 22, ch: 12 });
+    // a paved forecourt and a spur joining the outer lane
+    for (let ty = ky + 1; ty <= ky + 2; ty++) {
+      for (let tx = kx - 4; tx <= kx + 4; tx++) setTile(map, tx, ty, T.ROAD);
+    }
+    for (let tx = kx + 5; tx <= CX - 24; tx++) {
+      for (let ty = ky + 1; ty <= ky + 2; ty++) setTile(map, tx, ty, T.ROAD_DIRT);
+    }
   }
 
   // the valley's first waystone, dead centre where you cannot miss it
