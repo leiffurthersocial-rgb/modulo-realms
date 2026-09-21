@@ -305,7 +305,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'dealer_dario', name: 'Dario', title: 'Dealer at the Gilded Spade', race: 'human', faction: 'guild',
     personality: 'Courteous, endlessly patient, and has already worked out what you can afford to lose.',
-    map: 'int_casino', tx: 8, ty: 1,
+    map: 'int_casino', tx: 10, ty: 8,
     look: look({ skin: PAL.skin1, hair: '#d9a441', hairStyle: 'wild', shirt: '#efe6d6', pants: '#2e2740', boots: '#5a3b26', belt: '#d9a441', armor: 'light', armorColor: '#2e2740', armorTrim: PAL.gold }),
     wander: 10,
     greeting: [
@@ -323,11 +323,35 @@ export const NPCS: NpcDef[] = [
       { tag: 'Warrior', text: 'I would rather hit something than bet on it.', cond: { classes: ['warrior', 'paladin'] }, to: 'about_fighting' },
     ],
     nodes: [
-      { id: 'about_poker', text: ['"Five cards, one draw, one payout. Ante what you like and keep what beats a pair of jacks."', '"The table does not bluff and neither do I. It is an honest way to lose money."'] },
+      { id: 'about_poker', text: ['"Hold\'em. Two cards to you, five to the middle, four rounds to decide how much you believe them."', '"Buy in for twenty blinds and cash out whatever is still in front of you. The table does not bluff. The people at it do."'] },
       { id: 'about_slots', text: ['"Three reels, a lever, and a noise the whole street can hear when it comes in."', '"They pay less often than the table and far louder. That is deliberate."'] },
       { id: 'about_house', text: ['"The house does. The house is a ledger in a locked drawer, and I am the man who feeds it."', '"Hanne let us open on the condition we never lend. We never lend."'] },
       { id: 'about_cheating', text: ['Dario turns the deck over without looking down.', '"Nothing stops you. Something stops you twice."'], choices: [{ text: 'Understood.', actions: [{ type: 'rep', faction: 'guild', amount: 2 }] }] },
       { id: 'about_fighting', text: ['"Then you are in the wrong room, and I say that with real affection."', '"Corin is up the lane. He will sell you something to hit it with."'] },
+    ],
+  },
+  {
+    id: 'server_nell', name: 'Nell', title: 'Floor server at the Gilded Spade', race: 'human', faction: 'guild',
+    personality: 'Sees every table at once, remembers every drink, and has never once said what she thinks of any of it.',
+    map: 'int_casino', tx: 5, ty: 6,
+    look: look({ skin: PAL.skin2, hair: '#7a3428', hairStyle: 'ponytail', shirt: '#efe6d6', pants: '#6d2330', boots: '#33231a', belt: PAL.gold, armor: 'light', armorColor: '#6d2330', armorTrim: PAL.gold }),
+    // She works the whole floor, which is what keeps the room from ever being
+    // a still photograph of people sitting down.
+    wander: 46,
+    greeting: [
+      { cond: { minGold: 5000 }, lines: ['"Something from the bar? The house pours free for a purse that size."', '"It pours free for everyone, but I like to make people feel chosen."'] },
+      { cond: { races: ['revenant'] }, lines: ['Nell looks at you a moment longer than she looks at anyone.', '"I will not ask. Water, then."'] },
+      { lines: ['"Mind the wheel, it throws splinters."', '"Anything from the bar? It is free. That should tell you how the rest of the room is priced."'] },
+    ],
+    topics: [
+      { text: 'Who is winning tonight?', to: 'winning' },
+      { text: 'Does anyone ever beat the house?', to: 'beating' },
+      { tag: 'Rogue', text: 'Which of them is marking cards?', cond: { classes: ['rogue'] }, to: 'marking' },
+    ],
+    nodes: [
+      { id: 'winning', text: ['"The man in the wide hat, and he knows it, which is why he is still sitting."', '"The one at the bar in grey has not won since the door opened. He is having a better night."'] },
+      { id: 'beating', text: ['"Every evening somebody does. Dario walks them to the door himself, loudly, so the room sees it."', '"They come back. That is the part the sign outside leaves off."'] },
+      { id: 'marking', text: ['Nell sets a glass down and does not point at anybody.', '"Ask me again when you are carrying a drink. People look at hands that are holding something."'], choices: [{ text: 'Fair enough.', actions: [{ type: 'rep', faction: 'guild', amount: 1 }] }] },
     ],
   },
   {

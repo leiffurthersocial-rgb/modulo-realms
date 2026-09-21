@@ -419,6 +419,9 @@ function generateTile(id: number, rng: RNG): Px {
     case T.BLACK_BEACH: return aegeanBeach(rng, true);
     case T.AEGEAN_SPRING: return waterTile(rng, false, ['#427e88', '#79a9ad']);
     case T.VINEYARD_SOIL: return vineyardTile(rng);
+    case T.CASINO_CARPET: return casinoCarpetTile(rng);
+    case T.CASINO_PARQUET: return casinoParquetTile(rng);
+    case T.CASINO_MARBLE: return casinoMarbleTile(rng);
     case T.EUROTAS_EARTH: return eurotasTile(rng);
     case T.DEEP_WATER: return waterTile(rng, true);
     case T.WATER: return waterTile(rng, false);
@@ -744,6 +747,113 @@ function buildMask(index: number, rng: RNG): Canvas {
     }
   }
   return p.canvas;
+}
+
+/* ------------------------------------------------------------------ */
+/* The Gilded Spade                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Casino floors, authored to be *seamless*.
+ *
+ * Everything structural — the damask lattice, the parquet run, the marble
+ * joint — is derived from the tile-local coordinate modulo a divisor of 32,
+ * so it continues straight across the tile edge no matter which of the four
+ * variants the renderer picks. Only the noise passes use the rng. That is the
+ * whole reason these exist: the room used to be laid with `FLOOR_CARPET`,
+ * which draws a gold box inside every single tile, and a 15x11 room of those
+ * reads as graph paper rather than as a floor.
+ */
+function casinoCarpetTile(rng: RNG): Px {
+  const p = new Px(S, S);
+  const base = '#7c1f2e';
+  const deep = '#5c1522';
+  const lit = '#9c2b3b';
+  p.fillAll(base);
+
+  // Pile: short vertical strokes, dense enough to kill the flat fill.
+  for (let i = 0; i < 90; i++) {
+    const x = rng.int(0, S - 1);
+    const y = rng.int(0, S - 1);
+    p.set(x, y, rng.bool(0.52) ? deep : lit);
+  }
+  // A woven diagonal lattice on a 16px pitch — wraps at the tile edge.
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      if ((x + y) % 16 === 0) p.set(x, y, mix(base, deep, 0.55));
+      else if ((x - y + 64) % 16 === 0) p.set(x, y, mix(base, lit, 0.35));
+    }
+  }
+  // A gold fleur at each lattice crossing: (8,8) and (24,24) in tile space.
+  for (const [cx, cy] of [[8, 8], [24, 24]] as Array<[number, number]>) {
+    const g1 = withAlpha(PAL.gold, 0.5);
+    const g2 = withAlpha(PAL.goldLit, 0.34);
+    p.set(cx, cy - 3, g1); p.set(cx, cy + 3, g1);
+    p.set(cx - 3, cy, g1); p.set(cx + 3, cy, g1);
+    p.set(cx - 2, cy - 2, g2); p.set(cx + 2, cy - 2, g2);
+    p.set(cx - 2, cy + 2, g2); p.set(cx + 2, cy + 2, g2);
+    p.set(cx, cy, withAlpha(PAL.goldLit, 0.6));
+  }
+  return p;
+}
+
+/** Polished board floor: a running bond whose seams line up across tiles. */
+function casinoParquetTile(rng: RNG): Px {
+  const p = new Px(S, S);
+  const base = '#5b3a22';
+  p.fillAll(base);
+  for (let y = 0; y < S; y++) {
+    // Boards are 8px deep; every other course is offset by half a board.
+    const course = Math.floor(y / 8);
+    const tone = course % 2 === 0 ? mix(base, '#7d5533', 0.32) : mix(base, '#3b2415', 0.3);
+    for (let x = 0; x < S; x++) p.set(x, y, tone);
+  }
+  for (let i = 0; i < 70; i++) {
+    const x = rng.int(0, S - 1);
+    const y = rng.int(0, S - 1);
+    p.set(x, y, rng.bool(0.5) ? withAlpha('#2a1a0e', 0.5) : withAlpha('#9a7046', 0.35));
+  }
+  // Course seams and the butt joints between boards, both on 32-divisors.
+  for (let y = 0; y < S; y += 8) p.fill(0, y, S, 1, '#2a1a0e');
+  for (let y = 0; y < S; y += 8) {
+    const offset = ((y / 8) % 2) * 8;
+    for (let x = offset; x < S; x += 16) p.fill(x, y, 1, 8, '#33200f');
+  }
+  // A low sheen across the top of each course, so it reads as polished.
+  for (let y = 1; y < S; y += 8) p.fill(0, y, S, 1, withAlpha('#b98f5c', 0.16));
+  return p;
+}
+
+/**
+ * The entrance apron: warm dark marble in 16px squares, veined in brass.
+ * Deliberately brown-black rather than the cool slate the rest of the game's
+ * stone uses — a cold grey threshold in the middle of all this crimson reads
+ * as a hole in the floor.
+ */
+function casinoMarbleTile(rng: RNG): Px {
+  const p = new Px(S, S);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const dark = (Math.floor(x / 16) + Math.floor(y / 16)) % 2 === 0;
+      p.set(x, y, dark ? '#332430' : '#4a3641');
+    }
+  }
+  for (let i = 0; i < 9; i++) {
+    const x = rng.int(0, S - 1);
+    const y = rng.int(0, S - 1);
+    p.line(x, y, x + rng.int(-7, 7), y + rng.int(-7, 7), withAlpha('#9c8478', 0.28));
+  }
+  for (let i = 0; i < 6; i++) {
+    const x = rng.int(0, S - 1);
+    const y = rng.int(0, S - 1);
+    p.line(x, y, x + rng.int(-5, 5), y + rng.int(-5, 5), withAlpha(PAL.gold, 0.3));
+  }
+  // The grout, on a 16px pitch, continuous across tiles.
+  for (let i = 0; i < S; i += 16) {
+    p.fill(i, 0, 1, S, withAlpha(PAL.gold, 0.32));
+    p.fill(0, i, S, 1, withAlpha(PAL.gold, 0.32));
+  }
+  return p;
 }
 
 let cached: Tileset | null = null;

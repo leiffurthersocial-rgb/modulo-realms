@@ -3294,7 +3294,9 @@ export class Game implements WorldCtx {
         this.touch();
         break;
       case 'sign':
-        this.toast('Signpost', String(prop.data?.text ?? '...'), PAL.cloth);
+        // `title` lets a prop that is not literally a signpost — a roulette
+        // wheel, a cashier's cage — use the same read-and-move-on hook.
+        this.toast(String(prop.data?.title ?? 'Signpost'), String(prop.data?.text ?? '...'), PAL.cloth);
         break;
       case 'exit_dungeon': {
         const portal = this.map.portals.find((p) => p.kind === 'stairs');

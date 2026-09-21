@@ -78,10 +78,17 @@ export const T = {
   BLACK_BEACH: 75,
   AEGEAN_SPRING: 76,
   VINEYARD_SOIL: 77,
+  // The Gilded Spade's own floor. The casino used to be laid with the generic
+  // `FLOOR_CARPET`, whose per-tile gold box turned the whole room into a grid
+  // of squares. These three tile seamlessly instead: the lattice and the
+  // parquet run wraps at the tile edge, so only the pile noise varies.
+  CASINO_CARPET: 78,
+  CASINO_PARQUET: 79,
+  CASINO_MARBLE: 80,
 } as const;
 
 export type TileId = number;
-export const TILE_COUNT = 78;
+export const TILE_COUNT = 81;
 
 export interface TileDef {
   id: TileId;
@@ -205,6 +212,12 @@ reg(d(T.ICE_FLOOR, 'Glacial Floor', { map: '#8fc4dc', blend: 90, step: 'snow', s
 reg(d(T.ICE_WALL, 'Glacial Wall', { solid: true, map: '#6fa8c4', blend: 95, step: 'snow' }));
 reg(d(T.SAND_FLOOR, 'Tomb Floor', { map: '#a3823f', blend: 90, step: 'sand' }));
 reg(d(T.SAND_WALL, 'Tomb Wall', { solid: true, map: '#6d5426', blend: 95, step: 'stone' }));
+// Casino floors. They share a `family` so no seam is drawn between them — the
+// gaming floor is one continuous surface, framed by the rug prop rather than
+// by a tile border.
+reg(d(T.CASINO_CARPET, 'Gilded Spade carpet', { map: '#7c1f2e', blend: 92, step: 'wood', family: 'casino-floor' }));
+reg(d(T.CASINO_PARQUET, 'Gilded Spade parquet', { map: '#5b3a22', blend: 92, step: 'wood', family: 'casino-floor' }));
+reg(d(T.CASINO_MARBLE, 'Gilded Spade marble', { map: '#3a3442', blend: 92, step: 'stone', family: 'casino-floor' }));
 
 for (let i = 0; i < TILE_COUNT; i++) {
   if (!TILES[i]) reg(d(i, 'Unknown', { map: '#ff00ff' }));

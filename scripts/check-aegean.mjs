@@ -11,6 +11,7 @@ const temporary = mkdtempSync(join(tmpdir(), "modulo-aegean-"));
 const checks = [
   "check-content",
   "check-npc-schedules",
+  "check-casino",
   "check-aegean-content",
   "check-island-integration",
   "check-endgame-reforge",

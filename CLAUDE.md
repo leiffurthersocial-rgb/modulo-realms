@@ -27,14 +27,14 @@ npm install
 npm run dev            # http://localhost:5173
 npm run typecheck      # tsc --noEmit
 npm run build          # typecheck + vite build
-npm run check:aegean   # 24 serielle Regressionsgruppen — DER große Lauf
+npm run check:aegean   # 25 serielle Regressionsgruppen — DER große Lauf
 ```
 
 **Vor jedem Push:** `npm run typecheck && npm run build && npm run check:aegean`.
 
 Letzter verifizierter Stand (selbst ausgeführt): typecheck 0 Fehler, Build OK
 (1,297 MB / 415 KB gzip, Single-Chunk-Warnung ist bekannt und akzeptiert),
-check:aegean alle 24 Gruppen grün. Keine TODO/FIXME/HACK im Code.
+check:aegean alle 25 Gruppen grün. Keine TODO/FIXME/HACK im Code.
 
 ⚠️ `esbuild` und `tsx` sind **nicht in `package.json` deklariert**. `esbuild` kommt nur
 transitiv über Vite, `tsx` gar nicht. `check:aegean` kann bei einem Vite-Major brechen.
@@ -102,7 +102,11 @@ src/
                          activities, services, hazards, weapons, deck, mastery,
                          navigation, waypoints, guidance
   game/casino/           games.ts (reine Regeln: Deck, Handwertung, Walzen) +
-                         casino.ts (Sitzung, Einsatz, Auszahlung) — Gilded Spade
+                         casino.ts (Sitzung, Einsatz, Auszahlung) + holdem.ts — Gilded Spade
+  game/art/casinoRoom.ts Inventar des Spielsaals: sitzende Gäste (4 Blickrichtungen,
+                         6 Stammgäste), Croupier, Barkeeper, Roulette, Kassenkäfig,
+                         Cocktailtische, Teppich, Porträt, Kordeln, Rauch, Münzglanz.
+                         `getProp` greift hier zuerst zu, wie bei `aegean.ts`
   data/                  races, classes, items, enemies, npcs, quests, locations,
                          balance.ts, aegean/*
   ui/                    28 React-Panels + hooks.ts, aegeanNames.ts
@@ -136,6 +140,15 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
 - **Türen:** nutzbare Gebäude sehen aus wie ihre Funktion, alles andere ist dasselbe
   verrammelte Stadthaus. Eine Silhouette, einmal prüfen reicht.
 - **Licht:** Interiors hell, Dunkelheit nur in Dungeons/Krypten/Höhlen/Türmen.
+  **Eine Ausnahme:** das Kasino (`dark: 0.34`). Fensterlos, nur von eigenem Messing
+  beleuchtet — ohne etwas Umgebungsschatten sind Wandleuchter, Automatenköpfe und
+  Kassenkäfig bloß Aufkleber statt Lichtinseln.
+- **Der Spielsaal ist eigenes Material.** `CASINO_CARPET` / `CASINO_PARQUET` /
+  `CASINO_MARBLE` (Tiles 78–80) statt `FLOOR_CARPET`: Letzteres zeichnet in *jede* Kachel
+  eine Goldumrandung, was den Raum zu Millimeterpapier macht. Die neuen Tiles leiten alles
+  Strukturelle aus `x % 16` / `y % 8` ab, laufen also über die Kachelgrenze durch; nur das
+  Rauschen variiert. Der Goldrand kommt vom Teppich-Prop, einem einzeln gezeichneten
+  184×136-Bild — eine gekachelte Borte kann nicht auf Gehrung stoßen.
 - **Keine Gear-Restriktionen**, keine Level-Anforderungen auf Items.
 - Level-Cap 100, heroische Masteries ab 80, normale Talentpunkte stoppen bei 75.
 - **Kein Level-Lock nach Achaea.** Schwierigkeit kommt aus Gegnern, Wetter, Expeditionskosten.
@@ -185,7 +198,7 @@ Forging bis Level 75 ist unverändert; Upgrades **jenseits 75** nutzen dieselbe
 Template-Kurve wie der Loader — sonst entsteht temporäre Exponentialkraft, die beim
 Reload verschwindet. Abgedeckt von `scripts/check-endgame-reforge.ts`.
 
-## Check-Skripte (`scripts/`, 31 Stück, kein Test-Framework)
+## Check-Skripte (`scripts/`, 32 Stück, kein Test-Framework)
 
 `npx tsx scripts/<name>.ts`:
 - `check-balance` — jede Waffe/Rüstung/jeder Gegner gegen Budget. Alles soll `x1.00` lesen,
@@ -195,6 +208,9 @@ Reload verschwindet. Abgedeckt von `scripts/check-endgame-reforge.ts`.
 - `measure-dps` — baut echten `Player` pro Level, rüstet aus, misst Output
 - `reprice-enemies` — schreibt abgeleitete Bestiarium-Literale neu, wenn eine Kurve wandert
 - `check-npc-schedules` — Ashvale-Bewohner bleiben in der Stadt, auch über Mitternacht
+- `check-casino` — Gilded-Spade-Innenraum: Bodenmaterial, Erreichbarkeit jeder Station per
+  Flood-Fill mit Prop-Kollision, keine sich überlappenden Kollisionsboxen, Animationsphasen
+  nie im Gleichtakt, Slot-Paytable vollständig und nach Auszahlung sortiert
 - `check-legacy-mechanics.mjs` / `check-legacy-art.mjs` — **Parität gegen Git `d39d75a`**
   (Vor-Expansion): Loot, Forging, Crown-Upgrades, Life Siphon, Arrow Rain, Original-Boss-
   Angriffe, 196 Tile-Varianten + 48 Wall-Faces + 8 Masken.
