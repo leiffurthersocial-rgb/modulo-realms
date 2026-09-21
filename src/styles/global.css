@@ -1575,10 +1575,28 @@ canvas.world {
 
 .slot-cabinet {
   position: relative;
-  border-radius: 5px;
-  padding: 8px 34px 8px 10px;
-  background: linear-gradient(180deg, #6a4430, #46291d);
-  box-shadow: inset 0 0 0 2px #8a5c40, inset 0 0 0 4px #2a1810, 0 6px 18px rgba(0,0,0,0.5);
+  /* The carcass is sized to its window, not to the panel. A cabinet stretched
+     to the full modal width leaves two hands' width of bare wood either side
+     of the reels and stops reading as a machine. */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 6px;
+  padding: 16px 18px 14px;
+  /* A carved walnut cabinet with a brass inlay, the way the concept sheet
+     draws it: two hard inner rules rather than one soft border, because a
+     single 1px outline reads as a web panel and not as a machine. */
+  background:
+    repeating-linear-gradient(94deg, rgba(0,0,0,0.11) 0 2px, rgba(255,255,255,0.045) 2px 5px),
+    linear-gradient(180deg, #7d5334 0%, #5a3a22 45%, #3c2317 100%);
+  box-shadow:
+    inset 0 0 0 3px #9a6a45,
+    inset 0 0 0 5px #24140d,
+    inset 0 0 0 8px #e0bb77,
+    inset 0 0 0 11px #24140d,
+    inset 0 0 0 13px #7a5134,
+    inset 0 20px 34px rgba(0, 0, 0, 0.3),
+    0 8px 22px rgba(0, 0, 0, 0.55);
 }
 
 .slot-cabinet.celebrating { animation: slot-shake 0.5s ease; }
@@ -1590,14 +1608,41 @@ canvas.world {
   75% { transform: translate(-1px, -1px); }
 }
 
+/* candle sconces bolted to the cabinet shoulders */
+.slot-candle {
+  position: absolute;
+  top: 34px;
+  width: 9px; height: 34px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #efe6d6 0 16px, #8a6a2c 16px 100%);
+  box-shadow: 0 0 10px 3px rgba(246, 191, 93, 0.22);
+}
+.slot-candle.left { left: 20px; }
+.slot-candle.right { right: 20px; }
+
+.slot-candle i {
+  display: block;
+  position: absolute;
+  left: 1px; top: -9px;
+  width: 7px; height: 10px;
+  border-radius: 50% 50% 40% 40%;
+  background: radial-gradient(circle at 50% 70%, #fff3cf, #f6bf5d 45%, #e8763a 80%);
+  animation: candle-flicker 0.55s steps(2) infinite alternate;
+}
+
+@keyframes candle-flicker {
+  from { transform: scaleY(1) translateY(0); opacity: 0.88; }
+  to { transform: scaleY(1.22) translateY(-1px); opacity: 1; }
+}
+
 .slot-head {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 4px 6px 6px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 2px 6px 8px;
   width: fit-content;
   margin: 0 auto;
 }
 
-.slot-bulbs { display: flex; gap: 5px; }
+.slot-bulbs { display: flex; gap: 6px; }
 
 .slot-bulb {
   width: 5px; height: 5px; border-radius: 50%;
@@ -1611,12 +1656,12 @@ canvas.world {
 }
 
 .slot-badge {
-  min-width: 46px; height: 26px;
+  min-width: 52px; height: 28px;
   display: grid; place-items: center;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 3px;
-  background: linear-gradient(180deg, #8e2131, #5e1220);
-  box-shadow: inset 0 0 0 2px var(--gold-dim);
+  background: linear-gradient(180deg, #a3283a, #5e1220);
+  box-shadow: inset 0 0 0 2px var(--gold-dim), 0 2px 6px rgba(0,0,0,0.45);
   font-size: 13px; letter-spacing: 1.5px; color: var(--gold);
 }
 
@@ -1632,17 +1677,38 @@ canvas.world {
 }
 
 .slot-badge-crown {
-  width: 16px; height: 12px;
+  width: 18px; height: 13px;
   background: var(--gold);
   clip-path: polygon(0 100%, 12% 25%, 33% 60%, 50% 0, 67% 60%, 88% 25%, 100% 100%);
 }
+
+/* the window, the two arrows that flank it and the handle, on one row */
+.slot-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-right: 26px;
+}
+
+.slot-arrow {
+  width: 0; height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  filter: drop-shadow(0 0 4px rgba(246, 191, 93, 0.45));
+  animation: arrow-blink 0.9s steps(2) infinite alternate;
+}
+.slot-arrow.left { border-right: 12px solid var(--gold); }
+.slot-arrow.right { border-left: 12px solid var(--gold); }
+
+@keyframes arrow-blink { from { opacity: 0.45; } to { opacity: 1; } }
 
 .slot-window {
   position: relative;
   /* Sized to the three reels, not to the panel — a window wider than the
      reels leaves the machine looking half-empty. */
   width: fit-content;
-  margin: 0 auto;
   border-radius: 4px;
   padding: 10px 12px;
   background: linear-gradient(180deg, #8e2131, #6d1a22);
@@ -1654,8 +1720,19 @@ canvas.world {
 
 .slot-reels { display: flex; gap: 6px; justify-content: center; position: relative; z-index: 1; }
 
+/* the pay line, drawn across all three reels rather than inside each one */
+.slot-payline {
+  position: absolute;
+  left: -4px; right: -4px; top: 50%;
+  height: 2px;
+  transform: translateY(-1px);
+  background: linear-gradient(90deg, rgba(232,117,122,0), #e8757a 12%, #e8757a 88%, rgba(232,117,122,0));
+  pointer-events: none;
+  z-index: 2;
+}
+
 .slot-reel {
-  width: 62px; height: 78px;
+  width: 64px; height: 80px;
   display: grid; place-items: center;
   border-radius: 2px;
   background: linear-gradient(180deg, #efe6d6, #cfc5b4 60%, #b8ae9d);
@@ -1663,8 +1740,13 @@ canvas.world {
   overflow: hidden;
 }
 
+.slot-reel.hit {
+  background: linear-gradient(180deg, #fff6df, #f2dfae 60%, #dcc68f);
+  box-shadow: inset 0 0 0 2px var(--gold), 0 0 12px rgba(246, 191, 93, 0.7);
+}
+
 .slot-reel img {
-  width: 44px; height: 44px;
+  width: 46px; height: 46px;
   image-rendering: pixelated;
 }
 
@@ -1673,6 +1755,22 @@ canvas.world {
 @keyframes reel-roll {
   from { transform: translateY(-14px); }
   to { transform: translateY(14px); }
+}
+
+/* the coin tray along the bottom of the cabinet */
+.slot-tray {
+  margin: 8px auto 0;
+  width: fit-content;
+  display: flex; gap: 5px;
+  padding: 4px 12px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #1c0f16, #2a1220);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
+}
+
+.slot-tray-coin {
+  width: 7px; height: 4px; border-radius: 50%;
+  background: linear-gradient(180deg, #f2cb60, #8a6a2c);
 }
 
 /* the sunburst behind a win */
@@ -1788,7 +1886,16 @@ canvas.world {
 }
 
 .slot-pay-row { display: inline-flex; align-items: center; gap: 2px; }
-.slot-pay-row img { width: 17px; height: 17px; image-rendering: pixelated; }
+/* Pay-table symbols sit on a slice of reel, both because that is what the
+   cabinet shows and because the spade is near-black and vanishes against the
+   panel without something pale behind it. */
+.slot-pay-row img {
+  width: 17px; height: 17px;
+  image-rendering: pixelated;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #efe6d6, #c6bcab);
+  box-shadow: inset 0 0 0 1px rgba(15, 13, 20, 0.55);
+}
 .slot-pay-note { margin-left: 5px; color: var(--muted); }
 
 .slot-purse { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
@@ -1816,26 +1923,62 @@ canvas.world {
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;
-  border-radius: 70px / 46px;
-  padding: 14px 40px 16px;
+  border-radius: 74px / 50px;
+  padding: 18px 46px 20px;
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.06), transparent 62%),
+    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.07), transparent 62%),
     linear-gradient(180deg, #2d8049, #1c5330);
-  box-shadow: inset 0 0 0 5px #6a4430, inset 0 0 0 7px #46291d, inset 0 0 30px rgba(6,5,10,0.45);
+  /* A padded leather rail with a brass key line inside it, the way the table
+     in the room downstairs is drawn. One thin border reads as a web panel. */
+  box-shadow:
+    inset 0 0 0 3px #19502e,
+    inset 0 0 0 5px #8a5c40,
+    inset 0 0 0 13px #4a2b1a,
+    inset 0 0 0 15px #d8b06a,
+    inset 0 0 0 17px #241408,
+    inset 0 0 34px rgba(6, 5, 10, 0.5);
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   min-height: 150px;
   justify-content: center;
 }
 
-/* the house mark under the board, the way a real table is printed */
+/* the betting arc stitched into the felt, the way a real table is printed */
 .hold-felt::before {
   content: '';
   position: absolute; left: 50%; top: 50%;
-  width: 330px; height: 94px;
+  width: 344px; height: 100px;
   transform: translate(-50%, -50%);
   border-radius: 55px / 47px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
   pointer-events: none;
+}
+
+/* the house spade, printed on the baize under the board */
+.hold-felt-mark {
+  position: absolute; left: 50%; top: 50%;
+  width: 92px; height: 92px;
+  transform: translate(-50%, -54%);
+  background: rgba(255, 255, 255, 0.055);
+  clip-path: polygon(
+    50% 4%, 92% 48%, 92% 62%, 74% 72%, 57% 66%, 62% 92%, 38% 92%, 43% 66%,
+    26% 72%, 8% 62%, 8% 48%);
+  pointer-events: none;
+}
+
+/* the dealer button, and the face of whoever is sitting behind the cards */
+.hold-button {
+  display: inline-grid; place-items: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: linear-gradient(180deg, #fdf8ef, #b8ae9d);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.55), inset 0 0 0 1px #8d8599;
+  color: #241408; font-size: 9px; font-weight: 700; letter-spacing: 0;
+}
+
+.hold-seat-bust {
+  width: 26px; height: 26px;
+  image-rendering: pixelated;
+  border-radius: 3px;
+  align-self: center;
 }
 
 .hold-pot { display: flex; align-items: center; gap: 7px; }
@@ -1858,8 +2001,8 @@ canvas.world {
 .hold-slot {
   width: 60px; height: 84px;
   border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13);
-  background: rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 0 0 2px rgba(11, 43, 25, 0.75), inset 0 0 0 3px rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.2);
 }
 
 @keyframes card-flip {
@@ -1898,8 +2041,12 @@ canvas.world {
 }
 
 .hold-seat-plate {
-  display: flex; gap: 8px; align-items: baseline;
+  display: flex; gap: 7px; align-items: center;
   font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(10, 8, 16, 0.5);
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
 .hold-seat-name { color: var(--text); }

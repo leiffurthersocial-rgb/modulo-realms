@@ -2,6 +2,7 @@ import { RNG } from '../core/rng';
 import { PAL, mix, shade, withAlpha } from './palette';
 import { Px, strip, type Canvas } from './pixel';
 import { getAegeanProp } from './aegean';
+import { CASINO_PROP_NAMES, getCasinoProp } from './casinoRoom';
 
 export interface PropArt {
   /** Sheet containing `frames` horizontally laid out frames. */
@@ -1559,107 +1560,236 @@ GEN.casino_banner = () => {
 };
 
 /**
- * A slot machine. The reels tick over on their own so a room full of them
- * reads as *running* rather than as furniture, and the marquee lamp on top
- * pulses with the marquee outside.
+ * A slot machine, built to the concept sheet: a crowned cabinet in crimson
+ * and brass, a marquee of chasing bulbs, a gold-framed window with three
+ * cream reels behind a red pay line, lit buttons, a side arrow either side of
+ * the window, and a handle with a red ball on it.
+ *
+ * Eight frames. The reels tumble on their own, the marquee chases, the
+ * buttons cycle and the handle rocks — a bank of these along a wall is the
+ * loudest thing in the room, which is the point of a bank of these.
  */
-GEN.slot_machine = (rng) => {
+GEN.slot_machine = () => {
   const frames: Px[] = [];
-  const symbols = [PAL.blood, PAL.gold, PAL.frost, PAL.toxic, PAL.flameLit];
-  for (let f = 0; f < 4; f++) {
-    const p = new Px(26, 44);
-    groundShadow(p, 13, 42, 10);
-    // cabinet
-    p.fill(3, 8, 20, 34, '#4a2430');
-    p.fill(3, 8, 20, 2, '#6e3a48');
-    p.fill(3, 40, 20, 2, '#2a1220');
-    p.fill(3, 8, 1, 34, '#7a4454');
-    p.fill(22, 8, 1, 34, '#2a1220');
-    // crown lamp
-    p.fill(5, 4, 16, 5, PAL.woodDark);
-    p.fill(6, 5, 14, 3, f % 2 === 0 ? PAL.goldLit : PAL.gold);
-    p.ellipse(13, 6, 12, 7, withAlpha(PAL.flameLit, 0.12));
-    // reel window
-    p.fill(5, 13, 16, 12, PAL.ink);
-    p.box(5, 13, 16, 12, PAL.gold);
-    for (let r = 0; r < 3; r++) {
-      const c = symbols[(f + r * 2) % symbols.length];
-      p.fill(7 + r * 5, 16, 3, 6, c);
-      p.set(8 + r * 5, 17, PAL.white);
+  const W = 32;
+  const H = 54;
+  const FR = 8;
+  // What the reels show. Blocky stand-ins for the panel's real symbols — at
+  // six pixels across, a cherry is a red dot and a seven is a red slash.
+  const reelColors = [PAL.blood, PAL.gold, PAL.frost, PAL.toxic, PAL.flameLit, PAL.cloth];
+
+  for (let f = 0; f < FR; f++) {
+    const p = new Px(W, H);
+    groundShadow(p, 16, 51, 12);
+
+    // crown crest
+    p.poly([[10, 12], [11, 4], [13, 8], [16, 2], [19, 8], [21, 4], [22, 12]], '#8a6a2c');
+    p.poly([[11, 11], [12, 6], [14, 9], [16, 4], [18, 9], [20, 6], [21, 11]], PAL.gold);
+    p.set(16, 4, PAL.white);
+    p.set(12, 6, PAL.blood);
+    p.set(20, 6, PAL.blood);
+
+    // cabinet: brass carcass over a crimson body
+    p.fill(3, 11, 26, 40, '#2a0e16');
+    p.fill(4, 12, 24, 38, '#4e1723');
+    p.fill(4, 12, 24, 2, '#6d2330');
+    p.fill(4, 12, 1, 38, '#8e2131');
+    p.fill(27, 12, 1, 38, '#1e0910');
+    // walnut side panels, so a bank of these does not vanish into the carpet
+    p.fill(4, 20, 2, 26, '#3b2415');
+    p.fill(26, 20, 2, 26, '#2a1a0e');
+    p.box(3, 11, 26, 40, PAL.gold);
+
+    // marquee header with a four-step bulb chase
+    p.fill(6, 14, 20, 6, '#4e1723');
+    p.box(6, 14, 20, 6, '#8a6a2c');
+    for (let i = 0; i < 5; i++) {
+      const on = (i + f) % 4 !== 0;
+      p.set(7 + i * 4, 15, on ? PAL.flameLit : '#7a6434');
+      p.set(7 + i * 4, 18, on ? PAL.flameLit : '#7a6434');
     }
-    // pay line and buttons
-    p.fill(5, 19, 16, 1, withAlpha(PAL.blood, 0.55));
-    p.fill(6, 28, 14, 6, '#2a1220');
-    for (let i = 0; i < 3; i++) p.fill(8 + i * 4, 30, 3, 2, i === f % 3 ? PAL.flameLit : PAL.ember);
-    // lever
-    p.fill(23, 16 + (f % 2), 2, 10, PAL.ironDark);
-    p.circle(24, 15 + (f % 2), 2, PAL.blood);
-    // coin tray
-    p.fill(6, 36, 14, 3, '#2a1220');
-    for (let i = 0; i < 3; i++) p.set(8 + i * 4, 37, PAL.gold);
-    void rng;
+    p.fill(11, 16, 10, 2, f % 4 < 2 ? PAL.goldLit : PAL.gold);
+
+    // the window: three cream reels behind a gold frame and a red pay line
+    p.fill(6, 22, 20, 14, PAL.ink);
+    p.box(6, 22, 20, 14, PAL.gold);
+    p.box(7, 23, 18, 12, '#8a6a2c');
+    for (let r = 0; r < 3; r++) {
+      const rx = 8 + r * 6;
+      p.fill(rx, 24, 5, 10, '#cfc5b4');
+      p.fill(rx, 24, 5, 2, '#efe6d6');
+      p.fill(rx, 32, 5, 2, '#b8ae9d');
+      // the symbol on the pay line, scrolling at its own rate per reel
+      const c = reelColors[(f * (r + 2) + r * 3) % reelColors.length];
+      p.fill(rx + 1, 27, 3, 4, c);
+      p.set(rx + 1, 27, PAL.white);
+    }
+    p.fill(6, 29, 20, 1, withAlpha(PAL.blood, 0.7));
+
+    // the arrows either side of the window
+    for (const [ax, dir] of [[4, 1], [27, -1]] as Array<[number, number]>) {
+      p.poly([[ax, 26], [ax + dir * 2, 29], [ax, 32]], (f % 4) < 2 ? PAL.goldLit : '#8a6a2c');
+    }
+
+    // button deck
+    p.fill(7, 38, 18, 7, '#2a1220');
+    p.fill(7, 38, 18, 1, '#4a2434');
+    for (let i = 0; i < 3; i++) {
+      const on = i === f % 3;
+      p.fill(9 + i * 6, 40, 4, 3, on ? PAL.flameLit : PAL.ember);
+      if (on) p.ellipse(11 + i * 6, 41, 5, 4, withAlpha(PAL.flameLit, 0.2));
+    }
+
+    // coin tray, with a couple of winnings still sitting in it
+    p.fill(7, 46, 18, 4, '#2a1220');
+    p.fill(7, 46, 18, 1, '#150a12');
+    for (let i = 0; i < 3; i++) p.ellipse(10 + i * 5, 48, 1.8, 1.2, PAL.gold);
+
+    // the handle: a brass rod with a red ball, rocking through the cycle
+    const pull = [0, 1, 2, 3, 3, 2, 1, 0][f];
+    p.fill(29, 22 + pull, 2, 11, PAL.ironDark);
+    p.fill(29, 22 + pull, 1, 11, PAL.iron);
+    p.ellipse(30, 21 + pull, 2.6, 2.6, '#6d1a22');
+    p.ellipse(30, 21 + pull, 2, 2, '#b8323a');
+    p.set(29, 20 + pull, '#e8757a');
+
     p.outline(PAL.ink);
     frames.push(p);
   }
-  return art(frames, 41, 5);
+  return art(frames, 51, 7);
 };
 
-/** The poker table: green baize, a rail, five cards down and chips in play. */
+/**
+ * The poker table: a padded leather rail with brass studs, bright baize
+ * inside it, the board dealt out along the betting arc, a dealer button and
+ * money stacked in front of three of the seats.
+ */
 GEN.poker_table = () => {
-  const p = new Px(76, 42);
-  groundShadow(p, 38, 40, 30);
-  // rail and baize
-  p.ellipse(38, 26, 37, 15, PAL.woodDark);
-  p.ellipse(38, 25, 35, 14, '#6a4430');
-  p.ellipse(38, 25, 31, 12, '#1f5a34');
-  p.ellipse(38, 24, 31, 12, '#27713f');
-  p.ellipse(38, 24, 27, 9, '#2d8049');
-  // felt line
-  for (let a = 0; a < 40; a++) {
-    const r = (a / 40) * Math.PI * 2;
-    p.set(38 + Math.cos(r) * 27, 24 + Math.sin(r) * 9, '#1f5a34');
+  const p = new Px(80, 46);
+  groundShadow(p, 40, 44, 32);
+
+  // pedestal, so the table is standing on something
+  p.fill(34, 32, 12, 10, '#2a1a0e');
+  p.ellipse(40, 42, 13, 3.5, '#241408');
+
+  // rail: dark padded leather, lit along its top edge
+  p.ellipse(40, 27, 39, 17, '#241408');
+  p.ellipse(40, 26, 38, 16, '#4a2b1a');
+  p.ellipse(40, 25, 37, 15, '#6a4430');
+  p.ellipse(40, 24, 36, 14, '#8a5c40');
+  // brass studs around the rail
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2;
+    p.set(40 + Math.cos(a) * 34, 25 + Math.sin(a) * 13.5, PAL.gold);
   }
-  // community cards
+
+  // baize
+  p.ellipse(40, 25, 31, 11.5, '#17452a');
+  p.ellipse(40, 24, 31, 11.5, '#1f5a34');
+  p.ellipse(40, 23.5, 29, 10.5, '#27713f');
+  p.ellipse(40, 22, 25, 8, '#2d8049');
+  // the betting arc, stitched into the felt
+  for (let i = 0; i < 44; i++) {
+    const a = (i / 44) * Math.PI * 2;
+    p.set(40 + Math.cos(a) * 27, 24 + Math.sin(a) * 9.5, '#19502e');
+  }
+
+  // the board: five cards face up along the middle
   for (let i = 0; i < 5; i++) {
-    const cx = 24 + i * 7;
-    p.fill(cx, 20, 5, 7, PAL.white);
-    p.fill(cx, 20, 5, 1, PAL.cloth);
-    p.set(cx + 1, 22, i % 2 === 0 ? PAL.ink : PAL.blood);
-    p.set(cx + 3, 24, i % 2 === 0 ? PAL.ink : PAL.blood);
+    const cx = 25 + i * 7;
+    p.fill(cx, 19, 6, 8, '#0f0d14');
+    p.fill(cx, 19, 6, 7, PAL.white);
+    p.fill(cx, 19, 6, 1, PAL.cloth);
+    const red = i === 1 || i === 3;
+    p.set(cx + 1, 21, red ? PAL.blood : PAL.ink);
+    p.fill(cx + 2, 23, 2, 2, red ? PAL.blood : PAL.ink);
   }
-  // chip stacks
+
+  // the dealer button, and the pot pushed up behind the board
+  p.ellipse(19, 24, 3, 2, PAL.bone);
+  p.ellipse(19, 23.4, 2.2, 1.4, PAL.white);
   const stack = (x: number, y: number, c: string, n: number) => {
-    for (let i = 0; i < n; i++) p.fill(x, y - i * 2, 6, 2, i % 2 === 0 ? c : shade(c, 0.75));
-    p.ellipse(x + 3, y - n * 2 + 1, 3, 1.2, shade(c, 1.25));
+    for (let i = 0; i < n; i++) {
+      p.fill(x, y - i * 2, 7, 2, i % 2 === 0 ? c : shade(c, 0.72));
+      p.set(x, y - i * 2, shade(c, 0.55));
+      p.set(x + 6, y - i * 2, shade(c, 0.55));
+    }
+    p.ellipse(x + 3.5, y - n * 2 + 1, 3.5, 1.4, shade(c, 1.3));
   };
-  stack(14, 28, PAL.blood, 3);
-  stack(56, 28, PAL.frost, 4);
-  stack(48, 30, PAL.gold, 2);
+  // the pot, pushed up in front of the board
+  stack(37, 33, PAL.gold, 3);
+  // and the players' own money, in front of three of the seats
+  stack(17, 30, PAL.blood, 4);
+  stack(56, 30, PAL.frost, 3);
+  stack(47, 32, '#3c7a45', 2);
   p.outline(PAL.ink);
-  return art([p], 41);
+  return art([p], 44);
 };
 
-/** The dealer's blackjack table — a half-round counter with the shoe on it. */
+/**
+ * The blackjack table: a half-round counter with the dealer standing at the
+ * flat side, three betting circles laid out on the arc, and the shoe within
+ * reach of the dealer's right hand.
+ */
 GEN.card_table = () => {
-  const p = new Px(72, 36);
-  groundShadow(p, 36, 34, 28);
-  p.ellipse(36, 22, 34, 13, PAL.woodDark);
-  p.ellipse(36, 21, 32, 12, '#6a4430');
-  p.ellipse(36, 21, 28, 10, '#1f5a34');
-  p.ellipse(36, 20, 28, 10, '#27713f');
-  p.fill(4, 20, 64, 12, '#6a4430');
-  p.fill(4, 20, 64, 1, '#8a5c40');
-  p.fill(4, 31, 64, 1, PAL.woodDark);
-  // card shoe and a fanned hand
-  p.fill(56, 14, 10, 6, '#2a1220');
-  p.fill(57, 13, 8, 2, PAL.gold);
-  for (let i = 0; i < 4; i++) {
-    p.fill(16 + i * 6, 15 - (i % 2), 5, 7, PAL.white);
-    p.set(17 + i * 6, 17, i % 2 === 0 ? PAL.blood : PAL.ink);
+  const p = new Px(76, 40);
+  groundShadow(p, 38, 38, 30);
+
+  // the front panel of the counter, facing the players
+  p.fill(5, 22, 66, 14, '#3b2415');
+  p.fill(5, 22, 66, 2, '#6a4430');
+  p.fill(5, 34, 66, 2, '#241408');
+  for (let x = 10; x < 66; x += 11) {
+    p.box(x, 25, 8, 8, '#2a1a0e');
+    p.fill(x + 1, 26, 6, 6, '#46291d');
   }
-  for (let i = 0; i < 3; i++) p.fill(40, 22 - i * 2, 6, 2, i % 2 === 0 ? PAL.blood : '#5e1220');
+  p.fill(5, 33, 66, 1, PAL.gold);
+
+  // the top: a half-round rail with baize inside it
+  p.ellipse(38, 21, 35, 14, '#241408');
+  p.ellipse(38, 20, 34, 13, '#6a4430');
+  p.ellipse(38, 19, 33, 12, '#8a5c40');
+  p.ellipse(38, 20, 29, 10, '#17452a');
+  p.ellipse(38, 19, 29, 10, '#27713f');
+  p.ellipse(38, 18, 26, 8, '#2d8049');
+  // the arc the bets sit on
+  for (let i = 0; i < 30; i++) {
+    const a = Math.PI * (0.06 + (i / 29) * 0.88);
+    p.set(38 - Math.cos(a) * 24, 19 + Math.sin(a) * 7, '#19502e');
+  }
+
+  // three betting circles, two of them covered
+  for (let i = 0; i < 3; i++) {
+    const bx = 24 + i * 14;
+    p.ellipse(bx, 23, 4, 2, '#19502e');
+    if (i !== 1) {
+      p.fill(bx - 3, 21, 6, 2, i === 0 ? PAL.blood : PAL.frost);
+      p.fill(bx - 3, 19, 6, 2, i === 0 ? '#6d1a22' : '#2f6f93');
+    }
+  }
+  // the dealer's own two cards: one up, one face down under it
+  p.fill(32, 11, 7, 9, '#0f0d14');
+  p.fill(32, 11, 7, 8, PAL.white);
+  p.fill(32, 11, 7, 1, PAL.cloth);
+  p.set(33, 13, PAL.blood);
+  p.fill(34, 15, 2, 2, PAL.blood);
+  p.fill(40, 12, 7, 8, '#0f0d14');
+  p.fill(40, 12, 7, 7, '#6d2330');
+  for (let y = 13; y < 18; y++) for (let x = 41; x < 46; x++) if ((x + y) % 2 === 0) p.set(x, y, '#8c3040');
+
+  // the shoe, a wedge with a stack of cards showing at its mouth
+  p.poly([[55, 18], [69, 18], [69, 9], [61, 9]], '#2a1220');
+  p.poly([[56, 17], [68, 17], [68, 10], [62, 10]], '#4a2434');
+  p.fill(57, 12, 9, 5, PAL.bone);
+  p.fill(57, 12, 9, 1, PAL.cloth);
+  p.fill(55, 17, 14, 1, PAL.gold);
+
+  // the discard tray, low and brass-lipped
+  p.fill(8, 14, 10, 4, '#2a1220');
+  p.fill(9, 13, 8, 2, PAL.bone);
+  p.fill(8, 13, 10, 1, PAL.gold);
   p.outline(PAL.ink);
-  return art([p], 35);
+  return art([p], 38);
 };
 
 /** Loose chips and a lone ace, scattered as dressing. */
@@ -1734,6 +1864,8 @@ const FALLBACK: Gen = () => {
 export function getProp(name: string): PropArt {
   const aegean = getAegeanProp(name);
   if (aegean) return aegean;
+  const gilded = getCasinoProp(name);
+  if (gilded) return gilded;
   let a = cache.get(name);
   if (!a) {
     const gen = GEN[name] ?? FALLBACK;
@@ -1743,4 +1875,4 @@ export function getProp(name: string): PropArt {
   return a;
 }
 
-export const PROP_NAMES = Object.keys(GEN);
+export const PROP_NAMES = [...Object.keys(GEN), ...CASINO_PROP_NAMES];

@@ -4,6 +4,7 @@ import { STAKES } from '../game/casino/casino';
 import { HOLDEM_LABEL, RANK_LABEL, type Card } from '../game/casino/games';
 import type { Seat } from '../game/casino/holdem';
 import { cardBackUrl, cardFaceUrl, chipBreakdown, chipUrl } from '../game/art/casino';
+import { PATRON_KEYS, patronBustUrl } from '../game/art/casinoRoom';
 
 function PlayingCard({ card, faceDown, className = '' }: {
   card?: Card; faceDown?: boolean; className?: string;
@@ -28,9 +29,12 @@ function ChipStack({ amount, className = '' }: { amount: number; className?: str
   );
 }
 
-function SeatView({ seat, active, winner, collecting }: {
-  seat: Seat; active: boolean; winner: boolean; collecting: boolean;
+function SeatView({ seat, active, winner, collecting, onButton }: {
+  seat: Seat; active: boolean; winner: boolean; collecting: boolean; onButton: boolean;
 }) {
+  // Every opponent keeps the same face for as long as they are at the table:
+  // the seat id picks one of the regulars from the room downstairs.
+  const bust = seat.hero ? null : patronBustUrl(PATRON_KEYS[seat.id % PATRON_KEYS.length]);
   return (
     <div className={`hold-seat${seat.folded ? ' folded' : ''}${active ? ' active' : ''}${winner ? ' winner' : ''}`}>
       <div className="hold-seat-cards">
@@ -41,8 +45,10 @@ function SeatView({ seat, active, winner, collecting }: {
           ))}
       </div>
       <div className="hold-seat-plate">
+        {bust ? <img src={bust} alt="" className="hold-seat-bust" draggable={false} /> : null}
         <span className="hold-seat-name">{seat.name}</span>
         <span className="hold-seat-chips">{seat.chips}</span>
+        {onButton ? <span className="hold-button" title="Dealer button">D</span> : null}
       </div>
       {seat.shown ? <div className="hold-seat-hand">{HOLDEM_LABEL[seat.shown.rank]}</div> : null}
       {seat.bubble > 0 && seat.lastAction ? (
@@ -119,12 +125,14 @@ export default function PokerPanel({ game }: { game: Game }) {
                 active={t.turn === s.id}
                 winner={t.winners.includes(s.id)}
                 collecting={t.collecting}
+                onButton={t.dealer === s.id}
               />
             ))}
           </div>
 
           {/* the felt */}
           <div className="hold-felt">
+            <span className="hold-felt-mark" aria-hidden />
             <div className="hold-pot">
               <ChipStack amount={t.pot} />
               <span className="hold-pot-label">POT</span>
@@ -146,6 +154,7 @@ export default function PokerPanel({ game }: { game: Game }) {
               active={t.turn === 0}
               winner={t.winners.includes(0)}
               collecting={t.collecting}
+              onButton={t.dealer === 0}
             />
           </div>
 
