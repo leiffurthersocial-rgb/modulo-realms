@@ -1,4 +1,4 @@
-import { AEGEAN_SEA_PACKS } from "../../data/aegean/ecology";
+import { AEGEAN_SEA_PACKS, AEGEAN_SEA_ENCOUNTERS, pickAegeanSpecies } from "../../data/aegean/ecology";
 import { createShipDeck } from "./deck";
 import type { Game } from "../core/game";
 import { AEGEAN_SHIPS, AEGEAN_FITTINGS } from "../../data/aegean/content";
@@ -99,9 +99,9 @@ export class NavalSystem {
   };
   private volley = 0;
   private ram = 0;
-  private spawn = 8;
+  private spawn: number = AEGEAN_SEA_ENCOUNTERS.firstDelay;
   private storm = 0;
-  private strikes: { x: number; y: number; at: number }[] = [];
+  private strikes: { x: number; y: number; at: number; struck?: boolean }[] = [];
   private landedAt = -Infinity;
   /** Four small hull sprites and one oar, generated once; no gameplay state. */
   private hullArt = new Map<string, HTMLCanvasElement>();
@@ -155,7 +155,7 @@ export class NavalSystem {
     this.strikes = [];
     this.volley = 0;
     this.ram = 0;
-    this.spawn = 8;
+    this.spawn = AEGEAN_SEA_ENCOUNTERS.firstDelay;
     this.storm = 0;
     this.landedAt = -Infinity;
   }
@@ -367,6 +367,7 @@ export class NavalSystem {
     }
     this.moorAt(pt);
     this.state.aboard = true;
+    this.strikes = [];
     g.player.x = berth.x;
     g.player.y = berth.y;
     g.player.vx = g.player.vy = 0;
@@ -389,6 +390,7 @@ export class NavalSystem {
       return false;
     }
     this.state.aboard = false;
+    this.strikes = [];
     this.moorAt(pt);
     this.landedAt = g.now;
     g.player.x = pt.land.x;
@@ -432,6 +434,7 @@ export class NavalSystem {
     p.gold -= gold;
     this.state.wreck = { x: p.x, y: p.y, gold };
     this.state.aboard = false;
+    this.strikes = [];
     delete this.state.deck;
     if (g.map.id !== "overworld") g.setMap("overworld");
     const pt =
@@ -482,6 +485,7 @@ export class NavalSystem {
         ),
     };
     this.state.aboard = false;
+    this.strikes = [];
     this.buildDeck();
     g.setMap("aegean_ship_deck");
     p.x = 9 * 32;
@@ -527,14 +531,15 @@ export class NavalSystem {
     g.player.y = deck.y;
     g.player.invuln = 3;
     this.state.aboard = true;
+    this.strikes = [];
     g.recoverSavedPosition(deck.x, deck.y);
-    this.spawn = 15;
+    this.spawn = AEGEAN_SEA_ENCOUNTERS.firstDelay;
     g.autosave();
     g.touch();
     return true;
   }
   update(dt: number): void {
-    if (!this.aboard) return;
+    if (!this.aboard || this.game.map.id !== "overworld") { this.strikes = []; return; }
     const g = this.game,
       p = g.player,
       d = this.definition;
@@ -625,36 +630,29 @@ export class NavalSystem {
           );
     }
     const squall = this.danger >= 2 && Math.sin((p.x + p.y) / 4000 + g.now / 26) > .25;
-    if ((this.danger === 4 || squall) && this.storm <= 0) {
-      this.storm = this.danger === 4 ? 2.7 : 6.5;
-      g.telegraph(
-        p.x + p.vx * .55,
-        p.y + p.vy * .55,
-        58,
-        1.2,
-        "#b0dfff",
-      );
+    if ((this.danger === 4 || squall) && this.storm <= 0 && !this.nearestPort(800)) {
+      this.storm = this.danger === 4 ? 4.5 : 9;
       this.strikes.push({
         x: p.x + p.vx * .55,
         y: p.y + p.vy * .55,
-        at: g.now + 1.2,
+        at: g.now + 1.6,
       });
     }
     for (const strike of this.strikes)
-      if (strike.at <= g.now) {
+      if (strike.at <= g.now && !strike.struck) {
+        strike.struck = true;
         g.playSound('storm_thunder', 0.65);
-        if (Math.hypot(p.x - strike.x, p.y - strike.y) < 74)
+        if (Math.hypot(p.x - strike.x, p.y - strike.y) < 38)
           this.damage(
             d.hull *
               0.08 *
               (this.vessel?.fittings.includes("stabilizer") ? 0.65 : 1),
           );
         if (!this.aboard || g.map.id !== "overworld") { this.strikes = []; return; }
-        g.fx.ring(strike.x, strike.y, 58, "#b0dfff");
       }
-    this.strikes = this.strikes.filter((strike) => strike.at > g.now);
+    this.strikes = this.strikes.filter((strike) => strike.at + .3 > g.now);
     if (this.spawn <= 0) {
-      this.spawn = Math.max(4.5, 16 - this.danger * 2.5);
+      this.spawn = AEGEAN_SEA_ENCOUNTERS.interval[Math.min(4, this.danger)];
       this.spawnMonster();
     }
     const wreck = this.state.wreck;
@@ -681,11 +679,11 @@ export class NavalSystem {
       (this.danger === 0 && Math.sin(g.now * 12.3) < 0.75) ||
       g.enemies.filter((e) => e.spawnId?.startsWith("sea:") && !e.dead)
         .length >=
-        2 + this.danger
+        AEGEAN_SEA_ENCOUNTERS.maxAlive[Math.min(4, this.danger)]
     )
       return;
     const ids = AEGEAN_SEA_PACKS[Math.min(4, this.danger)];
-    const id = ids[Math.floor(g.now * .73) % ids.length];
+    const id = pickAegeanSpecies(ids, Math.abs(Math.sin(g.now * 12.9898) * 43758.5453) % 1);
     if (!ENEMY_BY_ID[id]) return;
     const a = g.now * 2.39,
       x = p.x + Math.cos(a) * 470,
@@ -705,7 +703,33 @@ export class NavalSystem {
     )
       g.toast("Something moves beneath the waves", e.def.name, "#66cdd6");
   }
+  /** Storm damage comes from a visible low cloud and its narrow lightning strike. */
+  private drawStorm(ctx: CanvasRenderingContext2D): void {
+    if (!this.aboard) return;
+    ctx.save();
+    for (const strike of this.strikes) {
+      const warning = strike.at > this.game.now;
+      const progress = Math.max(0, Math.min(1, 1 - (strike.at - this.game.now) / 1.6));
+      ctx.fillStyle = '#384e65'; ctx.globalAlpha = .8;
+      for (let n = 0; n < 4; n++) {
+        ctx.beginPath(); ctx.ellipse(strike.x - 36 + n * 24, strike.y - 142 + Math.sin(n * 3) * 7, 25, 13, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = warning ? .5 + progress * .4 : 1;
+      ctx.strokeStyle = warning ? '#a9ceda' : '#e8f9e8'; ctx.lineWidth = warning ? 2 : 6;
+      ctx.beginPath(); ctx.moveTo(strike.x - 6, strike.y - 137);
+      for (let n = 1; n <= (warning ? 2 + Math.floor(progress * 3) : 9); n++) ctx.lineTo(strike.x + (n % 2 ? 8 : -7), strike.y - 137 + n * 15);
+      ctx.stroke();
+      // Whitecaps gather under the descending leader, then burst outward.
+      ctx.fillStyle = '#d2ebdf';
+      for (let n = 0; n < 8; n++) {
+        const angle = n * Math.PI / 4, radius = warning ? 9 + progress * 13 : 12 + (this.game.now - strike.at) * 75;
+        ctx.fillRect(strike.x + Math.cos(angle) * radius - 3, strike.y + Math.sin(angle) * radius - (warning ? 0 : 5), 6, warning ? 2 : 5);
+      }
+    }
+    ctx.restore();
+  }
   draw(ctx: CanvasRenderingContext2D): void {
+    this.drawStorm(ctx);
     const p = this.drawPosition;
     if (!p) return;
     const skiff = this.state.selected.includes("skiff"),

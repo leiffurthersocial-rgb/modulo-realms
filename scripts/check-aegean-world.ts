@@ -14,7 +14,8 @@ import {
   AEGEAN_TOWN_LAYOUTS,
   AEGEAN_WAYSTONES,
 } from "../src/data/aegean/world";
-import { AEGEAN_ISLAND_ECOLOGY } from "../src/data/aegean/ecology";
+import { AEGEAN_ISLAND_ECOLOGY, AEGEAN_MAINLAND_ECOLOGY, AEGEAN_RARE_SPECIES } from "../src/data/aegean/ecology";
+import { RNG } from "../src/game/core/rng";
 import { aegeanWaystoneDestination } from "../src/game/aegean/waypoints";
 import { AEGEAN_ACTIVITIES } from "../src/data/aegean/progression";
 import { AEGEAN_PROP_NAMES } from "../src/game/art/aegean";
@@ -161,6 +162,37 @@ if (seed === baseline.seed) {
   }
 }
 const world = generateOverworld(seed);
+// Replay the pre-clarity patrol stream against the unchanged generated ground.
+// This frozen old algorithm checks stable save IDs as well as real population
+// change; it deliberately consumes the original four actor draws per patrol.
+const previousPatrols = new Map<string, { x: number; y: number; group: number; enemy: string }>();
+const previousRng = new RNG(`${seed}:aegean:actors:v1`);
+for (let y = 30; y < world.h - 30; y += 15) for (let x = 985; x < world.w - 25; x += 15) {
+  const tx = x + previousRng.int(-5, 5), ty = y + previousRng.int(-5, 5), i = ty * world.w + tx;
+  if (!world.landmasses![i] || isSolid(world.tiles[i]) || isWater(world.tiles[i]) || world.tiles[i] === T.MARBLE) continue;
+  if (AEGEAN_LOCATIONS.some(l => !l.surfaceMap && Math.hypot(l.tx - tx, l.ty - ty) < (l.kind === 'village' ? 36 : 14))) continue;
+  const island = AEGEAN_ISLANDS.find(island => island.landmass === world.landmasses![i]);
+  const table = (island ? AEGEAN_ISLAND_ECOLOGY[island.id] : AEGEAN_MAINLAND_ECOLOGY[world.regions![i]])?.enemies;
+  if (!table) continue;
+  const enemy = table[previousRng.int(0, table.length - 1)]; previousRng.int(0, 3);
+  const group = previousRng.bool(.55) ? 2 : 1; previousRng.int(0, 120);
+  previousPatrols.set(`aegean:surface:${tx}:${ty}`, { x: tx * TILE + 16, y: ty * TILE + 16, group, enemy });
+}
+const patrols = world.spawns.filter(spawn => spawn.id.startsWith('aegean:surface:'));
+for (const spawn of patrols) {
+  const old = previousPatrols.get(spawn.id);
+  assert(old, `${spawn.id}: thinning retains an existing patrol ID`);
+  assert.equal(spawn.x, old.x); assert.equal(spawn.y, old.y);
+  if (AEGEAN_RARE_SPECIES.has(spawn.enemy)) { assert.equal(spawn.group, 1, 'Rare creatures always patrol alone'); assert(spawn.respawn >= 540, 'Rare creatures return less frequently'); }
+}
+const oldPopulation = [...previousPatrols.values()].reduce((sum, p) => sum + p.group, 0);
+const population = patrols.reduce((sum, p) => sum + (p.group ?? 1), 0);
+const oldRare = [...previousPatrols.values()].filter(p => AEGEAN_RARE_SPECIES.has(p.enemy)).reduce((sum, p) => sum + p.group, 0);
+const rare = patrols.filter(p => AEGEAN_RARE_SPECIES.has(p.enemy)).length;
+assert(patrols.length / previousPatrols.size > .65 && patrols.length / previousPatrols.size < .79, 'Moderate land patrol reduction');
+assert(population / oldPopulation > .57 && population / oldPopulation < .77, 'Fewer mobs without stripping the land empty');
+assert(rare / population < oldRare / oldPopulation * .55, 'Apex creatures occupy a much smaller part of the population');
+console.log(`Seed ${seed} ordinary Greek patrols: ${previousPatrols.size} -> ${patrols.length}; creatures ${oldPopulation} -> ${population}; rare creatures ${oldRare} -> ${rare}.`);
 for (const island of AEGEAN_ISLANDS) {
   const residents = world.spawns.filter(spawn => world.landmasses![Math.floor(spawn.y / TILE) * world.w + Math.floor(spawn.x / TILE)] === island.landmass);
   for (const enemy of AEGEAN_ISLAND_ECOLOGY[island.id].enemies)

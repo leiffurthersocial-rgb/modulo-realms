@@ -10,6 +10,7 @@ import {
 } from "../src/game/aegean/encounters";
 import { AegeanNavigation } from "../src/game/aegean/navigation";
 import { Enemy } from "../src/game/entities/enemy";
+import type { PhysicalAttackCue } from "../src/game/combat/physical";
 import { Player } from "../src/game/player/player";
 import { createMap, setTile, type PropInstance } from "../src/game/world/map";
 import { T, TILE } from "../src/game/world/tiles";
@@ -78,6 +79,8 @@ function fixture(slug: string) {
     hits: Array<{ amount: number; opts: DamageOpts }> = [],
     shots: ProjectileSpec[] = [];
   const warnings: unknown[][] = [];
+  const physicalCues: PhysicalAttackCue[] = [];
+  const flights = new Map<ProjectileSpec, number>();
   let director: AegeanEncounterDirector;
   const fake = {
     map,
@@ -95,8 +98,10 @@ function fixture(slug: string) {
     telegraph(...args: unknown[]) {
       warnings.push(args);
     },
+    physicalAttack(spec: PhysicalAttackCue) { physicalCues.push(spec); },
     spawnProjectile(spec: ProjectileSpec) {
       shots.push(spec);
+      flights.set(spec, spec.range / spec.speed);
     },
     summon(def: string, x: number, y: number, level: number) {
       const e = new Enemy(def, x, y, level);
@@ -139,6 +144,17 @@ function fixture(slug: string) {
       fake.dt = Math.min(0.1, seconds - t);
       director.update(fake.dt);
       for (const e of [...fake.enemies]) if (!e.dead) e.update(game);
+      // This fixture advances only flight-end callbacks. Actual swept projectile
+      // collision, wall hits and source cancellation are covered by Game tests.
+      for (const [shot, left] of flights) {
+        const source = fake.enemies.find(e => e.id === shot.sourceId);
+        if (shot.sourceId !== undefined && (!source || source.dead || Math.hypot(source.x-player.x, source.y-player.y) > 560)) { flights.delete(shot); continue; }
+        if (left > fake.dt) flights.set(shot, left - fake.dt);
+        else {
+          flights.delete(shot);
+          shot.onImpact?.({x:shot.x + Math.cos(shot.angle)*shot.range, y:shot.y + Math.sin(shot.angle)*shot.range}, "range");
+        }
+      }
     }
   };
   const kill = (e: Enemy) =>
@@ -166,6 +182,7 @@ function fixture(slug: string) {
     hits,
     shots,
     warnings,
+    physicalCues,
   };
 }
 
@@ -191,7 +208,7 @@ for (const slug of ["nemea", "boar", "bull", "minotaur"]) {
     boss.windupAttack = null; boss.windupTime = 0;
     f.player.x = f.points[i].x + 120; f.player.y = f.points[i].y;
     assert.ok(boss.queueAttack(f.game, AEGEAN_ATTACKS.charge));
-    f.fake.now += 1.5; f.fake.dt = 1.5; boss.update(f.game);
+    for (let t=0;t<60 && boss.windupAttack;t++) { f.fake.now += .05; f.fake.dt=.05; boss.update(f.game); }
     f.director.update(.01);
     assert.ok(f.record().steps.includes(i), `${slug}: charge collision activates structure ${i}`);
   }
@@ -362,7 +379,7 @@ assert.equal(new Set(ARMY_ROSTER.map((s) => s.id)).size, 300);
   }
   assert.match(f.director.status,/Phase 6/);
   f.kill(boss); assert.ok(!boss.dead && boss.hp >= 1,"last oath requires its three actual strikes");
-  f.tick(8);
+  f.tick(16);
   f.kill(boss);
   assert.deepEqual(f.rewards,[f.id]);
   assert.equal(f.director.practicePhase,5);
@@ -378,54 +395,50 @@ assert.equal(new Set(ARMY_ROSTER.map((s) => s.id)).size, 300);
   assert.equal(Object.keys(f.director.snapshot().records).length,0);
 }
 
-// Stored warning geometry: turning after a tell never rotates the impact, and
-// rain uses the exact random points that were drawn, not another random roll.
+// Greek shots are physically held and thrown by the visible actor. A locked
+// target changes the aim, never a remote damage field under the new player spot.
 {
-  const f = fixture("nemea"),
-    boss = f.principal();
-  boss.attackCd = 0;
-  boss.x = 600;
-  boss.y = 600;
-  f.player.x = 740;
-  f.player.y = 600;
-  boss.queueAttack(f.game, AEGEAN_ATTACKS.sweep);
-  f.player.x = 600;
-  f.player.y = 460;
-  f.fake.now += 1.3;
-  f.fake.dt = 1.3;
-  boss.update(f.game);
-  assert.equal(f.hits.length, 0, "cone remains facing east");
-  boss.attackCd = 0;
-  f.player.x = 750;
-  f.player.y = 600;
-  boss.queueAttack(f.game, AEGEAN_ATTACKS.thrust);
-  assert.equal(
-    f.warnings.at(-1)?.[7],
-    AEGEAN_ATTACKS.thrust.radius,
-    "line width equals actual collision half-width",
-  );
-  f.fake.now += 1;
-  f.fake.dt = 1;
-  boss.update(f.game);
-  assert.equal(f.hits.length, 1, "line attack resolves damage");
-  boss.attackCd = 0;
-  boss.queueAttack(f.game, {
-    ...AEGEAN_ATTACKS.poison,
-    count: 1,
-    lifeTax: 0.1,
-  });
-  const point = boss.attackGeometry!.points[0];
-  f.player.x = point.x;
-  f.player.y = point.y;
-  f.fake.now += 1.6;
-  f.fake.dt = 1.6;
-  boss.update(f.game);
-  assert.equal(f.hits.length, 2);
-  assert.equal(
-    f.hits.at(-1)!.opts.trueDamageAmount,
-    f.player.maxHp * 0.1,
-    "life-tax remains separate from armored damage",
-  );
+  const f = fixture("nemea"), boss = f.principal();
+  boss.attackCd = 0; boss.x = 600; boss.y = 600;
+  f.player.x = 760; f.player.y = 600;
+  const aimedAngle = Math.atan2(f.player.y - 8 - (boss.y - Math.min(28, boss.radius*.5)), f.player.x - boss.x);
+  assert.ok(boss.queueAttack(f.game, {...AEGEAN_ATTACKS.volley, count:1, physical:"bow", projectileSprite:"arrow"}));
+  assert.equal(f.warnings.length, 0, "No geometric Greek attack overlay is created");
+  assert.ok(f.physicalCues.length, "A visible weapon provides the windup");
+  f.player.x = 600; f.player.y = 440;
+  for (let i=0;i<18;i++) {f.fake.now += .1; f.fake.dt=.1; boss.update(f.game);}
+  assert.equal(f.hits.length, 0, "Releasing a projectile does not remotely damage the player");
+  assert.equal(f.shots.length,1);
+  assert.equal(f.shots[0].sprite,"arrow");
+  assert.equal(f.shots[0].sourceId,boss.id,"The flying object retains its actual owner");
+  assert.ok(Math.abs(f.shots[0].angle-aimedAngle)<.01,"The shot keeps its eastward aim after the player moves north");
+}
+{
+  const f = fixture("cyclops"), boss = f.principal();
+  f.player.x = f.points[0].x; f.player.y = f.points[0].y;
+  for (let i=0;i<35 && !f.shots.length;i++) f.tick(.1);
+  const boulder = f.shots.find(s=>s.sprite === "boulder" && s.onImpact);
+  assert.ok(boulder,"Cyclops throws a real boulder from the visible giant");
+  assert.ok(Math.hypot(boulder.x + Math.cos(boulder.angle)*boulder.range - f.points[0].x,
+    boulder.y + Math.sin(boulder.angle)*boulder.range - f.points[0].y) < .01,
+    "A short boulder throw reaches its target from the raised hand, not just from the giant's feet");
+  assert.equal(f.warnings.length,0,"Cyclops does not paint a ground damage circle");
+  assert.equal(f.record().steps.length,0,"An announced throw alone cannot break a crane");
+  boulder.onImpact!(f.points[0],"wall");
+  assert.ok(f.record().steps.includes(0),"The boulder breaks the crane where it physically lands");
+  const before = f.record().steps.length;
+  f.kill(boss);
+  boulder.onImpact!(f.points[1],"range");
+  assert.equal(f.record().steps.length,before,"A dead source cannot complete a delayed crane impact");
+}
+{
+  const f = fixture("cyclops"), boss = f.principal();
+  f.tick(1);
+  assert.ok(boss.windupAttack,"Cyclops has begun lifting a boulder");
+  f.player.x += 1800;
+  f.director.update(.1);
+  assert.equal(boss.windupAttack,null,"Leaving the visible attack cancels its unreleased object");
+  assert.equal(f.hits.length,0);
 }
 
 // An escort finds the opening in an actual wall instead of rubbing its face
@@ -486,9 +499,7 @@ assert.equal(new Set(ARMY_ROSTER.map((s) => s.id)).size, 300);
   f.player.x = 62 * TILE;
   f.player.y = 600;
   serpent.queueAttack(f.game, AEGEAN_ATTACKS.charge);
-  f.fake.now += 1.4;
-  f.fake.dt = 1.4;
-  serpent.update(f.game);
+  for (let tick=0;tick<60 && serpent.windupAttack;tick++) {f.fake.now+=.05;f.fake.dt=.05;serpent.update(f.game);}
   assert.ok(
     serpent.x > 40 * TILE + 50 &&
       serpent.x + serpent.radius * 0.7 < 50 * TILE + 0.01,
@@ -506,5 +517,5 @@ assert.equal(new Set(ARMY_ROSTER.map((s) => s.id)).size, 300);
 }
 
 console.log(
-  "Aegean runtime regressions passed: automatic starts, optional boss counters, nonlethal Labours, six simultaneous Scylla heads, 300 simultaneous soldiers, six Leonidas phases, practice restoration, committed geometry, escort navigation and explicit sea movement.",
+  "Aegean runtime regressions passed: automatic starts, optional boss counters, nonlethal Labours, six simultaneous Scylla heads, 300 simultaneous soldiers, six Leonidas phases, practice restoration, physical source-bound attacks, escort navigation and explicit sea movement.",
 );

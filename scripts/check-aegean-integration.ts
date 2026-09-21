@@ -703,6 +703,16 @@ use(arena, 0);
 for (const index of [1, 3, 2]) use(arena, index);
 assert.equal(game.activities.current?.type, "dodge", "The old button order cannot solve the physical lane trial");
 assert.equal(game.activities.state.runs[arena].progress, 0);
+const trialDefenders = game.enemies.filter(e => !e.dead && e.spawnId?.startsWith(`activity:${arena}:`));
+assert.equal(trialDefenders.length, 1, "The trial has one visible defender instead of phantom blasts");
+for (const e of trialDefenders) game.damageEnemy(e, e.maxHp * 1000, {noProc: true});
+at(station(arena, 0));
+const trialHp = game.player.hp, trialTelegraphs = game.fx.telegraphs.length;
+for (let tick = 0; tick < 100; tick++) { game.now += .1; game.activities.update(.1); }
+assert.equal(game.player.hp, trialHp, "An empty trial cannot inflict detached timer damage");
+assert.equal(game.fx.telegraphs.length, trialTelegraphs, "Trial work creates no abstract attack fields");
+assert.equal(game.enemies.filter(e => !e.dead && e.spawnId?.startsWith(`activity:${arena}:`)).length, 0,
+  "Killing the visible defender earns breathing room instead of a replacement loop");
 for (const index of [1, 2, 3]) {
   at(station(arena, index));
   for (let tick = 0; tick < 25 && game.activities.current?.type === "dodge"; tick++) {

@@ -1,7 +1,8 @@
 import type { DamageElement } from '../../data/enemies';
 import type { GameMap } from '../world/map';
 import type { Player } from '../player/player';
-import type { Entity } from '../entities/entity';
+import type { Entity, StatusKind } from '../entities/entity';
+import type { PhysicalAttackCue, PhysicalProjectileKind } from '../combat/physical';
 
 export interface DamageOpts {
   element?: DamageElement;
@@ -39,7 +40,11 @@ export interface ProjectileSpec {
   /** Explode on impact with this radius. */
   splash?: number;
   homing?: number;
-  sprite?: 'bolt' | 'arrow' | 'orb' | 'shard' | 'spit';
+  sprite?: 'bolt' | 'arrow' | 'orb' | 'shard' | 'spit' | PhysicalProjectileKind;
+  /** Greek projectiles belong to a present attacker; stale attacks are discarded. */
+  sourceId?: number;
+  status?: { kind: StatusKind; power: number; duration: number };
+  onImpact?: (point: { x: number; y: number }, reason: 'hit' | 'wall' | 'range') => void;
   crit?: boolean;
   onHitEffects?: string[];
 }
@@ -52,6 +57,9 @@ export interface WorldCtx {
   now: number;
   dt: number;
   enemies: Entity[];
+  /** Present in the live game; optional for small headless simulations. */
+  camera?: { x: number; y: number; zoom: number };
+  canvas?: { width: number; height: number };
   damageEnemy(target: Entity, amount: number, opts?: DamageOpts): void;
   damagePlayer(amount: number, opts?: DamageOpts): void;
   spawnProjectile(spec: ProjectileSpec): void;
@@ -60,6 +68,7 @@ export interface WorldCtx {
   shake(amount: number): void;
   playSound(name: string, volume?: number): void;
   telegraph(x: number, y: number, r: number, duration: number, color: string, shape?: 'circle' | 'ring' | 'cone' | 'line', angle?: number, halfWidth?: number, coneHalfAngle?: number): void;
+  physicalAttack?(spec: PhysicalAttackCue): void;
   summon(enemyId: string, x: number, y: number, level: number, lifetime?: number, friendly?: boolean): void;
   ringAt(x: number, y: number, r: number, color: string): void;
 }

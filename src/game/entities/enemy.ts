@@ -5,9 +5,12 @@ import {
 import { ENEMY_BY_ID, type BossAttack, type BossPhase, type EnemyDef } from '../../data/enemies';
 import { aegeanMinimumHit } from '../../data/aegean/damage';
 import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
-import type { DamageOpts, WorldCtx } from '../core/world';
+import type { WorldCtx } from '../core/world';
+import { physicalOrigin, physicalPose, type PhysicalAttackCue } from '../combat/physical';
 import { boxHitsTerrain, type MovementProfile } from '../world/map';
 import { applyStatus, newEntityId, statusSpeedMul, type Entity, type StatusEffect } from './entity';
+
+type PhysicalMotion = { attack: BossAttack; cue: PhysicalAttackCue; travel: boolean; elapsed: number; duration: number; distance: number; travelled: number; startX: number; startY: number; hitPasses: Set<number>; anyHit: boolean };
 
 export type AIState = 'idle' | 'patrol' | 'chase' | 'attack' | 'flee' | 'return' | 'dead';
 
@@ -46,9 +49,9 @@ export class Enemy implements Entity {
   wardShown = -99;
   windupTime = 0;
   windupAttack: BossAttack | null = null;
-  /** The warning and impact share one immutable geometry, including rain points. */
+  /** Committed aim/path; Greek attacks retain it while their body or object travels. */
   attackGeometry: { x: number; y: number; angle: number; range: number; points: Array<{ x: number; y: number }> } | null = null;
-  private delayedImpacts: Array<{ at: number; x: number; y: number; attack: BossAttack; damage: number; floor: number; tax: number }> = [];
+  private physicalMotion: PhysicalMotion | null = null;
   lastImpact: { id: string; x: number; y: number; at: number; angle: number } | null = null;
   /** Authored encounters own tactics; status ticks and committed attacks still run. */
   scripted = false;
@@ -267,8 +270,9 @@ export class Enemy implements Entity {
   }
 
   /** Used by both the ordinary boss AI and the authored encounter director. */
-  queueAttack(ctx: WorldCtx, attack: BossAttack): boolean {
+  queueAttack(ctx: WorldCtx, attack: BossAttack, target?: { x: number; y: number }): boolean {
     if (this.dead || this.windupAttack || this.windupTime > 0 || this.attackCd > 0) return false;
+    if (this.def.id.startsWith('aegean_')) return this.queueGreekAttack(ctx, attack, target);
     this.windupAttack = attack;
     this.windupTime = attack.windup;
     this.anim = attack.shape === 'summon' ? 'cast' : 'attack';
@@ -331,6 +335,15 @@ export class Enemy implements Entity {
   }
 
   private startAttack(ctx: WorldCtx): void {
+    if (this.def.id.startsWith('aegean_')) {
+      const ranged = this.def.ranged;
+      this.queueAttack(ctx, { id: 'basic', name: this.displayName, shape: ranged ? 'projectile' : 'cone',
+        windup: Math.max(.48, this.def.windup), cooldown: this.def.attackCooldown, power: 1, radius: ranged ? Math.min(16, ranged.radius) : this.def.attackRange + this.radius * .35,
+        range: ranged ? this.def.attackRange * 1.4 : this.def.attackRange, count: ranged ? Math.min(2, ranged.count ?? 1) : undefined,
+        spread: ranged?.arc, projectileSpeed: ranged ? Math.min(340, ranged.speed) : undefined,
+        element: ranged?.element ?? this.def.element ?? 'physical', color: ranged?.color ?? '#d6b886' });
+      return;
+    }
     this.state = 'attack';
     this.stateTime = 0;
     this.anim = 'attack';
@@ -582,182 +595,198 @@ export class Enemy implements Entity {
     ctx.playSound('boss_hit', 0.5);
   }
 
-  private resolveBossAttack(ctx: WorldCtx): void {
-    // The expansion director's attack contract must not rebalance old bosses.
-    if (!this.def.id.startsWith('aegean_')) { this.resolveLegacyBossAttack(ctx); return; }
-    const a = this.windupAttack!;
-    const boss = this.def.boss;
-    const p = ctx.player;
-    const power = a.power * (boss?.phases[this.phase]?.damage ?? 1) * this.enrageMul;
-    const dmg = this.damage * power;
-    const minHealthDamage = aegeanMinimumHit(this.def, power);
-    const geometry = this.attackGeometry ?? { x: this.x, y: this.y, angle: angleTo(this.x, this.y, p.x, p.y), range: a.range ?? (a.shape === 'line' ? 400 : 300), points: [] };
-    const angle = geometry.angle;
-    // Armour-ignoring bite, applied wherever the attack connects. A dodge
-    // roll still avoids it; nothing you wear reduces it.
-    const tax = a.lifeTax ? ctx.player.maxHp * a.lifeTax * this.enrageMul : 0;
+  /** Convert older authored attack records at the boundary; no Greek area hit
+   * survives merely because a director still uses an old shape/key. */
+  private physicalPattern(attack: BossAttack): BossAttack {
+    const a = { ...attack };
+    const creature = this.def.id;
+    const natural = /hound|lion|nemea|cerberus|mare|sphinx|gryphon/.test(creature) ? 'claw'
+      : /serpent|hydra|scylla|viper|drakon|python|boar|bull/.test(creature) ? 'fang'
+        : /harpy|birds/.test(creature) ? 'wing'
+          : /cyclops|titan|talos|forge|jailer/.test(creature) ? 'hammer' : 'spear';
+    if (['rain', 'nova', 'cross'].includes(a.shape)) {
+      const oldShape = a.shape;
+      // The previous rain resolver used 70% power per landed impact. Preserve
+      // that budget when adapting an older director record into a thrown object.
+      if (oldShape === 'rain') a.power *= .7;
+      a.shape = 'projectile';
+      a.projectileSprite ??= a.element === 'fire' ? 'ember' : a.element === 'poison' ? 'venom' : oldShape === 'rain' && a.element === 'physical' ? 'boulder' : 'spear';
+      a.physical ??= a.projectileSprite === 'boulder' ? 'boulder' : a.projectileSprite === 'venom' || a.projectileSprite === 'ember' ? 'spit' : 'spear';
+      a.radius = Math.min(a.radius ?? 14, a.projectileSprite === 'boulder' ? 30 : 18);
+      a.count = Math.min(3, a.count ?? 2); a.spread ??= .65;
+    } else if (a.shape === 'pull') {
+      a.shape = 'line'; a.physical = 'tendril'; a.range = Math.min(155, a.range ?? 155); a.pull = 165;
+    } else if (['circle', 'ring', 'donut', 'echo'].includes(a.shape)) {
+      a.swings = a.shape === 'echo' ? 2 : 1;
+      a.shape = 'cone'; a.physical ??= natural; a.radius = Math.min(125, a.radius ?? 100);
+    } else if (a.shape === 'line' && !a.physical && (a.range ?? 0) > 200) {
+      a.shape = 'projectile'; a.physical = 'spear'; a.projectileSprite = 'spear'; a.radius = 13; a.count = Math.min(3, a.count ?? 1);
+    }
+    a.physical ??= natural;
+    if (a.shape === 'projectile') {
+      if (a.projectileSprite === 'spit') a.projectileSprite = 'venom';
+      a.count = Math.min(4, a.count ?? 1);
+      a.projectileSpeed ??= a.projectileSprite === 'boulder' ? 235 : 300;
+      a.projectileSprite ??= a.element === 'fire' ? 'ember' : a.element === 'poison' ? 'venom' : a.element === 'shadow' ? 'net' : 'spear';
+    }
+    return a;
+  }
 
-    const hit = (amount: number, opts: DamageOpts): boolean => {
-      const before = p.hp + Math.max(0, p.shield);
-      ctx.damagePlayer(amount, opts);
-      const connected = p.hp + Math.max(0, p.shield) < before;
-      if (connected && !p.dead && a.status) applyStatus(p, a.status.kind, a.status.power, a.status.duration, a.color, ctx.now);
-      return connected;
-    };
-    switch (a.shape) {
-      case 'donut': {
-        const d = dist(geometry.x, geometry.y, p.x, p.y), r = a.radius ?? 180, inner = a.innerRadius ?? 70;
-        ctx.ringAt(geometry.x, geometry.y, r, a.color);
-        ctx.ringAt(geometry.x, geometry.y, inner, '#98e6c0');
-        if (d >= inner + p.radius && d < r + p.radius) hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, fromX: geometry.x, fromY: geometry.y, knockback: 130, label: a.name });
-        break;
+  private physicalSourceVisible(ctx: WorldCtx): boolean {
+    if (ctx.player.dead || dist(this.x, this.y, ctx.player.x, ctx.player.y) > 820) return false;
+    const { camera, canvas } = ctx;
+    if (!camera || !canvas || canvas.width <= 0 || canvas.height <= 0) return true;
+    const halfW = canvas.width / (2 * Math.max(.1, camera.zoom)), halfH = canvas.height / (2 * Math.max(.1, camera.zoom));
+    return Math.abs(this.x - camera.x) <= halfW && Math.abs(this.y - camera.y) <= halfH;
+  }
+
+  private queueGreekAttack(ctx: WorldCtx, authored: BossAttack, target?: { x: number; y: number }): boolean {
+    if (!this.physicalSourceVisible(ctx)) return false;
+    if (!this.isBoss && !this.def.id.startsWith('aegean_army_')) {
+      let nearbyAttacks = 0;
+      for (const other of ctx.enemies as Enemy[]) if (other !== this && !other.dead && other.windupAttack && dist(other.x, other.y, ctx.player.x, ctx.player.y) < 650) nearbyAttacks++;
+      if (nearbyAttacks >= 2) return false;
+    }
+    const a = this.physicalPattern(authored), origin = physicalOrigin(this);
+    const aim = target ?? { x: ctx.player.x, y: ctx.player.y - 8 };
+    const travel = a.shape === 'dash' || a.shape === 'leap';
+    const angle = travel ? angleTo(this.x, this.y, aim.x, target ? aim.y : ctx.player.y) : angleTo(origin.x, origin.y, aim.x, aim.y);
+    const authoredRange = a.range ?? 300;
+    const range = target && a.shape === 'projectile' ? Math.min(authoredRange, dist(origin.x, origin.y, aim.x, aim.y)) : authoredRange;
+    this.windupAttack = a; this.windupTime = Math.max(.45, a.windup);
+    this.anim = a.shape === 'summon' ? 'cast' : 'attack'; this.animTime = 0;
+    this.dir = dirFromVector(Math.cos(angle), Math.sin(angle), this.dir);
+    this.attackGeometry = { x: this.x, y: this.y, angle, range, points: [{ x: aim.x, y: target ? aim.y : ctx.player.y }] };
+    ctx.physicalAttack?.({ source: this, followSource: true, ...origin, angle, reach: a.shape === 'line' ? Math.min(range, 150) : a.radius ?? 80,
+      duration: this.windupTime, kind: a.physical!, phase: 'prepare', color: a.color,
+      isActive: () => !this.dead && this.windupAttack === a && this.windupTime > 0 });
+    ctx.playSound(a.shape === 'projectile' ? 'shoot' : 'swing', .2);
+    return true;
+  }
+
+  private finishPhysicalAttack(ctx: WorldCtx, reason: 'hit' | 'wall' | 'range' = 'range'): void {
+    const a = this.windupAttack;
+    if (a) {
+      this.bossCooldowns[a.id] = a.cooldown;
+      this.lastImpact = { id: a.id, x: this.x, y: this.y, at: ctx.now, angle: this.attackGeometry?.angle ?? 0 };
+      if (a.shape !== 'projectile') a.onImpact?.({ x: this.x, y: this.y }, reason);
+    }
+    this.physicalMotion = null; this.windupAttack = null; this.attackGeometry = null; this.windupTime = 0;
+    this.attackCd = this.isBoss ? .82 : .7; this.state = 'chase';
+  }
+
+  /** Interrupt both the windup and a moving held weapon/body attack. */
+  cancelAttack(): void {
+    this.physicalMotion = null; this.windupAttack = null; this.attackGeometry = null; this.windupTime = 0;
+    this.attackCd = Math.max(this.attackCd, .9); this.state = 'chase';
+  }
+
+  private physicalHit(ctx: WorldCtx, a: BossAttack, fromX: number, fromY: number): boolean {
+    const p = ctx.player, phase = this.def.boss?.phases[this.phase]?.damage ?? 1;
+    const power = a.power * phase * this.enrageMul / Math.sqrt(a.swings ?? 1);
+    const before = p.hp + Math.max(0, p.shield);
+    ctx.damagePlayer(this.damage * power, { trueDamageAmount: a.lifeTax ? p.maxHp * a.lifeTax : 0,
+      minHealthDamage: aegeanMinimumHit(this.def, power), element: a.element, fromX, fromY,
+      knockback: a.pull ? 0 : a.physical === 'shield' ? 130 : 65, label: a.name });
+    const connected = p.hp + Math.max(0, p.shield) < before;
+    if (connected && !p.dead) {
+      if (a.status) applyStatus(p, a.status.kind, a.status.power, a.status.duration, a.color, ctx.now);
+      if (a.pull) { const d = Math.max(1, dist(p.x, p.y, this.x, this.y)); p.knockX += (this.x - p.x) / d * a.pull; p.knockY += (this.y - p.y) / d * a.pull; }
+    }
+    return connected;
+  }
+
+  private physicalContactClear(ctx: WorldCtx, fromX: number, fromY: number): boolean {
+    const dx = ctx.player.x - fromX, dy = ctx.player.y - 8 - fromY;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 8));
+    for (let i = 1; i <= steps; i++) {
+      if (boxHitsTerrain(ctx.map, fromX + dx * i / steps, fromY + dy * i / steps, 2, 2, this.movementProfile)) return false;
+    }
+    return true;
+  }
+
+  private resolveBossAttack(ctx: WorldCtx): void {
+    if (!this.def.id.startsWith('aegean_')) { this.resolveLegacyBossAttack(ctx); return; }
+    if (!this.windupAttack || !this.physicalSourceVisible(ctx)) { this.cancelAttack(); return; }
+    const a = this.windupAttack, origin = physicalOrigin(this);
+    const geometry = this.attackGeometry!;
+    if (a.shape === 'projectile') {
+      const phase = this.def.boss?.phases[this.phase]?.damage ?? 1, power = a.power * phase * this.enrageMul;
+      const count = a.count ?? 1;
+      let reported = false;
+      for (let i = 0; i < count; i++) {
+        const off = count === 1 ? 0 : (i / (count - 1) - .5) * (a.spread ?? .65);
+        ctx.spawnProjectile({ x: origin.x, y: origin.y, angle: geometry.angle + off, speed: a.projectileSpeed ?? 300,
+          damage: this.damage * power, trueDamageAmount: a.lifeTax ? ctx.player.maxHp * a.lifeTax : 0,
+          minHealthDamage: aegeanMinimumHit(this.def, power), radius: a.radius ?? 13, range: geometry.range,
+          element: a.element, color: a.color, friendly: false, sourceId: this.id, sprite: a.projectileSprite,
+          status: a.status, onImpact: a.onImpact ? (point, reason) => { if (!reported && !this.dead) { reported = true; a.onImpact?.(point, reason); } } : undefined });
       }
-      case 'cross': {
-        const pt = geometry.points[0] ?? geometry, dx = p.x - pt.x, dy = p.y - pt.y;
-        const along = dx * Math.cos(angle) + dy * Math.sin(angle), across = -dx * Math.sin(angle) + dy * Math.cos(angle);
-        const half = geometry.range / 2 + p.radius, width = (a.radius ?? 24) + p.radius;
-        for (const offset of [0, Math.PI / 2]) ctx.particles(pt.x, pt.y, 22, a.color, { angle: angle + offset, spread: .03, speed: 360, life: .5 });
-        if (Math.abs(along) <= half && Math.abs(across) <= width || Math.abs(across) <= half && Math.abs(along) <= width)
-          hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, fromX: pt.x, fromY: pt.y, knockback: 90, label: a.name });
-        break;
+      ctx.physicalAttack?.({ source: this, followSource: true, ...origin, angle: geometry.angle, reach: 36, duration: .24,
+        kind: a.physical!, phase: 'strike', color: a.color });
+      ctx.playSound('shoot', .35); this.finishPhysicalAttack(ctx); return;
+    }
+    if (a.shape === 'summon') {
+      for (let i = 0; i < Math.min(3, a.count ?? 2); i++) {
+        const angle = geometry.angle + (i - ((a.count ?? 2) - 1) / 2) * .7;
+        const x = this.x + Math.cos(angle) * 85, y = this.y + Math.sin(angle) * 85;
+        if (!boxHitsTerrain(ctx.map, x, y, 14, 10)) ctx.summon(a.summon ?? 'aegean_spartoi', x, y, this.level - 2, this.isBoss ? 24 : 18);
       }
-      case 'pull': {
-        const d = dist(geometry.x, geometry.y, p.x, p.y);
-        ctx.ringAt(geometry.x, geometry.y, a.radius ?? 200, a.color);
-        ctx.particles(geometry.x, geometry.y, 24, a.color, { speed: 80, life: .7 });
-        if (d < (a.radius ?? 200) + p.radius) {
-          const contact = hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, label: a.name });
-          if (contact && d > 1) { p.knockX += (geometry.x - p.x) / d * 390; p.knockY += (geometry.y - p.y) / d * 390; }
+      this.finishPhysicalAttack(ctx); return;
+    }
+    const travel = a.shape === 'dash' || a.shape === 'leap';
+    const target = geometry.points[0];
+    const travelRange = a.shape === 'leap' ? Math.min(geometry.range, dist(this.x, this.y, target.x, target.y)) : geometry.range;
+    const duration = travel ? Math.max(.2, travelRange / (a.shape === 'leap' ? 490 : 420)) : (a.physical === 'spear' || a.physical === 'gaze' ? .36 : .42) * (a.swings ?? 1);
+    const reach = travel ? this.radius + 8 : a.shape === 'line' ? Math.min(geometry.range, a.physical === 'gaze' ? 265 : 175) : Math.min(a.radius ?? 90, 145);
+    const cue: PhysicalAttackCue = { source: this, followSource: true, ...origin, angle: geometry.angle, reach, duration,
+      kind: a.physical!, phase: 'strike', color: a.color, swings: a.swings,
+      sweepAngle: a.shape === 'line' ? .2 : 1.5 };
+    const motion: PhysicalMotion = { attack: a, cue, travel, elapsed: 0, duration, travelled: 0,
+      distance: travelRange, startX: this.x, startY: this.y, hitPasses: new Set(), anyHit: false };
+    this.physicalMotion = motion;
+    ctx.physicalAttack?.({ ...cue, isActive: () => !this.dead && this.physicalMotion === motion && this.windupAttack === a });
+    ctx.playSound('swing', .35);
+  }
+
+  private updatePhysicalMotion(ctx: WorldCtx): void {
+    const motion = this.physicalMotion;
+    if (!motion) return;
+    if (this.windupAttack !== motion.attack || this.dead || !this.physicalSourceVisible(ctx)) { this.cancelAttack(); return; }
+    const previous = motion.elapsed;
+    motion.elapsed = Math.min(motion.duration, motion.elapsed + ctx.dt);
+    const p = ctx.player;
+    if (motion.travel) {
+      const angle = motion.cue.angle, distance = motion.distance * motion.elapsed / motion.duration;
+      let blocked = false;
+      while (motion.travelled < distance) {
+        motion.travelled = Math.min(distance, motion.travelled + 6);
+        const x = motion.startX + Math.cos(angle) * motion.travelled, y = motion.startY + Math.sin(angle) * motion.travelled;
+        if (boxHitsTerrain(ctx.map, x, y, this.radius * .7, this.radius * .5, this.movementProfile)) { blocked = true; break; }
+        this.x = x; this.y = y;
+        if (!motion.hitPasses.has(0) && dist(this.x, this.y, p.x, p.y) < this.radius + p.radius + 5) {
+          motion.hitPasses.add(0); motion.anyHit = this.physicalHit(ctx, motion.attack, this.x, this.y) || motion.anyHit;
         }
-        break;
       }
-      case 'echo':
-      case 'leap': {
-        const pt = geometry.points[0] ?? geometry;
-        if (a.shape === 'leap') {
-          const distance = dist(geometry.x, geometry.y, pt.x, pt.y);
-          // Wings and pounces close space, but cannot cross impassable terrain.
-          let clear = distance <= geometry.range;
-          for (let step = 8; clear && step <= distance; step += 8) {
-            const fraction = step / Math.max(1, distance);
-            clear = !boxHitsTerrain(ctx.map, geometry.x + (pt.x - geometry.x) * fraction, geometry.y + (pt.y - geometry.y) * fraction, this.radius * .7, this.radius * .5, this.movementProfile);
-          }
-          clear = clear && !boxHitsTerrain(ctx.map, pt.x, pt.y, this.radius * .7, this.radius * .5, this.movementProfile);
-          if (!clear) break;
-          this.x = pt.x; this.y = pt.y;
+      this.anim = 'attack'; this.dir = dirFromVector(Math.cos(angle), Math.sin(angle), this.dir);
+      if (blocked) { this.finishPhysicalAttack(ctx, 'wall'); return; }
+    } else {
+      // Small temporal substeps keep an actual passing blade from tunnelling
+      // across a player during a slow frame; each visible swing contacts once.
+      const steps = Math.max(1, Math.ceil((motion.elapsed - previous) / .015));
+      for (let i = 1; i <= steps; i++) {
+        const pose = physicalPose(motion.cue, previous + (motion.elapsed - previous) * i / steps);
+        if (pose.progress < .15 || pose.progress > .87 || motion.hitPasses.has(pose.pass)) continue;
+        const o = physicalOrigin(this), dx = p.x - o.x, dy = p.y - 8 - o.y;
+        const along = dx * Math.cos(pose.angle) + dy * Math.sin(pose.angle);
+        const across = Math.abs(-dx * Math.sin(pose.angle) + dy * Math.cos(pose.angle));
+        const width = motion.attack.physical === 'hammer' || motion.attack.physical === 'hoof' ? 12 : motion.attack.physical === 'gaze' ? 5 : 8;
+        if (along >= -p.radius && along <= pose.reach + p.radius && across < width + p.radius && this.physicalContactClear(ctx, o.x, o.y)) {
+          motion.hitPasses.add(pose.pass); motion.anyHit = this.physicalHit(ctx, motion.attack, o.x, o.y) || motion.anyHit;
         }
-        ctx.ringAt(pt.x, pt.y, a.radius ?? 80, a.color);
-        if (dist(pt.x, pt.y, p.x, p.y) < (a.radius ?? 80) + p.radius) hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, fromX: pt.x, fromY: pt.y, knockback: 100, label: a.name });
-        if (a.shape === 'echo') {
-          const delay = a.repeatDelay ?? .8;
-          ctx.telegraph(pt.x, pt.y, a.radius ?? 80, delay, a.color, 'circle');
-          this.delayedImpacts.push({ at: ctx.now + delay, x: pt.x, y: pt.y, attack: a, damage: dmg, floor: minHealthDamage, tax });
-        }
-        break;
-      }
-      case 'circle':
-      case 'ring': {
-        const r = a.radius ?? 140;
-        ctx.ringAt(geometry.x, geometry.y, r, a.color);
-        ctx.shake(a.shape === 'ring' ? 12 : 7);
-        ctx.particles(geometry.x, geometry.y, 34, a.color, { speed: 240, life: 0.6, size: 4 });
-        if (dist(geometry.x, geometry.y, p.x, p.y) < r + p.radius) {
-          hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, fromX: geometry.x, fromY: geometry.y, knockback: 220, label: a.name });
-        }
-        break;
-      }
-      case 'cone': {
-        const r = a.radius ?? 130;
-        const d = dist(geometry.x, geometry.y, p.x, p.y);
-        if (d < r + p.radius && angleBetween(angle, angleTo(geometry.x, geometry.y, p.x, p.y)) < 0.55) {
-          hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, fromX: geometry.x, fromY: geometry.y, knockback: 160, label: a.name });
-        }
-        ctx.particles(geometry.x + Math.cos(angle) * r * 0.5, geometry.y + Math.sin(angle) * r * 0.5, 22, a.color, { speed: 200, life: 0.45, size: 3, angle, spread: 1.2 });
-        ctx.shake(5);
-        break;
-      }
-      case 'nova':
-      case 'projectile': {
-        const count = a.count ?? 5;
-        for (let i = 0; i < count; i++) {
-          const off = a.shape === 'nova' ? i / count * Math.PI * 2 : (i / Math.max(1, count - 1) - .5) * (a.spread ?? .9);
-          ctx.spawnProjectile({
-            x: geometry.x, y: geometry.y,
-            angle: angle + off,
-            speed: a.projectileSpeed ?? 390,
-            damage: dmg,
-            trueDamageAmount: tax,
-            minHealthDamage,
-            radius: a.radius ?? 12,
-            range: a.range ?? 500,
-            element: a.element,
-            color: a.color,
-            friendly: false,
-            sprite: a.element === 'physical' ? 'shard' : 'bolt',
-          });
-        }
-        break;
-      }
-      case 'dash': {
-        // A dash closes the gap; it does not jump over it. `a.range` is how
-        // far it CAN travel, not how far it always travels — unclamped, a
-        // boss standing next to you with a 620px dash lands 400px behind you
-        // and spends the next four seconds walking back, which makes it
-        // untouchable in melee rather than dangerous.
-        const range = geometry.range;
-        let contactOnLane = false;
-        // Sweep the complete committed path, never teleport through a wall.
-        for (let step = 8; step <= range; step += 8) {
-          const tx = geometry.x + Math.cos(angle) * step;
-          const ty = geometry.y + Math.sin(angle) * step;
-          if (boxHitsTerrain(ctx.map, tx, ty, this.radius * 0.7, this.radius * 0.5, this.movementProfile)) break;
-          this.x = tx; this.y = ty;
-          if (dist(tx, ty, p.x, p.y) < this.radius + p.radius + 10) contactOnLane = true;
-        }
-        if (contactOnLane) {
-          hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, fromX: geometry.x, fromY: geometry.y, knockback: 200, label: a.name });
-        }
-        ctx.shake(6);
-        break;
-      }
-      case 'rain': {
-        for (const { x: rx, y: ry } of geometry.points) {
-          ctx.ringAt(rx, ry, a.radius ?? 70, a.color);
-          ctx.particles(rx, ry, 16, a.color, { speed: 170, life: 0.5, size: 3 });
-          if (dist(rx, ry, p.x, p.y) < (a.radius ?? 70) + p.radius) {
-            hit(dmg * 0.7, { trueDamageAmount: tax, minHealthDamage: aegeanMinimumHit(this.def, power * 0.7), element: a.element, fromX: rx, fromY: ry, knockback: 90, label: a.name });
-          }
-        }
-        ctx.shake(7);
-        break;
-      }
-      case 'line': {
-        const dx = p.x - geometry.x, dy = p.y - geometry.y;
-        const along = dx * Math.cos(angle) + dy * Math.sin(angle);
-        const across = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
-        ctx.particles(geometry.x, geometry.y, 26, a.color, { angle, spread: 0.05, speed: 500, life: 0.7 });
-        if (along >= -p.radius && along <= geometry.range + p.radius && across <= (a.radius ?? 24) + p.radius) {
-          hit(dmg, { trueDamageAmount: tax, minHealthDamage, element: a.element, fromX: geometry.x, fromY: geometry.y, label: a.name });
-        }
-        break;
-      }
-      case 'summon': {
-        const n = a.count ?? 2;
-        for (let i = 0; i < n; i++) {
-          const ang = (i / n) * Math.PI * 2;
-          ctx.summon(a.summon ?? 'skeleton', this.x + Math.cos(ang) * 90, this.y + Math.sin(ang) * 90, this.level - 2, this.isBoss ? undefined : 18);
-        }
-        ctx.floatText(this.x, this.y - this.radius * 2, a.name, a.color, 13);
-        break;
       }
     }
-
-    this.bossCooldowns[a.id] = a.cooldown;
-    this.lastImpact = { id: a.id, x: a.shape === 'dash' ? this.x : geometry.x, y: a.shape === 'dash' ? this.y : geometry.y, at: ctx.now, angle };
-    this.attackCd = this.isBoss ? .48 : .42;
-    this.windupAttack = null;
-    this.attackGeometry = null;
-    ctx.playSound('boss_hit', 0.5);
+    if (motion.elapsed >= motion.duration) this.finishPhysicalAttack(ctx, motion.anyHit ? 'hit' : 'range');
   }
 
   /* ---------------- main update ---------------- */
@@ -769,17 +798,6 @@ export class Enemy implements Entity {
     this.flash = Math.max(0, this.flash - dt * 4);
     this.hurtTime = Math.max(0, this.hurtTime - dt);
     this.attackCd -= dt;
-    for (let i = this.delayedImpacts.length - 1; i >= 0; i--) {
-      const echo = this.delayedImpacts[i];
-      if (echo.at > ctx.now) continue;
-      this.delayedImpacts.splice(i, 1);
-      ctx.ringAt(echo.x, echo.y, echo.attack.radius ?? 80, echo.attack.color);
-      if (dist(echo.x, echo.y, ctx.player.x, ctx.player.y) < (echo.attack.radius ?? 80) + ctx.player.radius) {
-        const before = ctx.player.hp + Math.max(0, ctx.player.shield);
-        ctx.damagePlayer(echo.damage, { trueDamageAmount: echo.tax, minHealthDamage: echo.floor, element: echo.attack.element, fromX: echo.x, fromY: echo.y, label: echo.attack.name });
-        if (ctx.player.hp + Math.max(0, ctx.player.shield) < before && !ctx.player.dead && echo.attack.status) applyStatus(ctx.player, echo.attack.status.kind, echo.attack.status.power, echo.attack.status.duration, echo.attack.color, ctx.now);
-      }
-    }
     this.alertTime = Math.max(0, this.alertTime - dt);
     this.animTime += dt;
     // The enrage clock only runs once the fight has actually started.
@@ -817,9 +835,15 @@ export class Enemy implements Entity {
     }
 
     if (this.statuses.some((s) => s.kind === 'stun')) {
+      if (this.def.id.startsWith('aegean_')) this.cancelAttack();
       this.anim = 'hurt';
       return;
     }
+
+    if (this.def.id.startsWith('aegean_') && this.windupAttack && (!this.physicalSourceVisible(ctx) || !ctx.enemies.includes(this))) {
+      this.cancelAttack(); return;
+    }
+    if (this.physicalMotion) { this.updatePhysicalMotion(ctx); return; }
 
     // windup resolution
     if (this.windupTime > 0) {

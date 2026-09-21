@@ -201,7 +201,7 @@ export class AegeanActivities {
     const r = this.state.runs[a.id];
     const target = this.target;
     if (r.retry) return `REGROUP · return to ${target?.name ?? a.name}`;
-    if (this.actionStep(s)) return `${s.type === "strike" ? "STRIKE" : s.type === "race" ? "RUN" : s.type === "dodge" ? "SAFE CIRCLE" : "HOLD CIRCLE"} · ${r.progress}/${s.count}${s.type === "race" && r.started ? ` · ${Math.ceil(Math.max(0, (s.duration ?? 18) - r.timer))}s` : ""} · ${target?.name ?? a.name}`;
+    if (this.actionStep(s)) return `${s.type === "strike" ? "STRIKE" : s.type === "race" ? "RUN" : s.type === "dodge" ? "REACH SHELTER" : "HOLD"} · ${r.progress}/${s.count}${s.type === "race" && r.started ? ` · ${Math.ceil(Math.max(0, (s.duration ?? 18) - r.timer))}s` : ""} · ${target?.name ?? a.name}`;
     return `${a.name}: ${s.label}${s.type === "defend" && r?.started ? ` (${Math.ceil(Math.max(0, (s.duration ?? 25) - r.timer))}s)` : target ? ` — ${target.name}` : ""}`;
   }
   /** The existing compass and journal follow the real next object. */
@@ -228,7 +228,7 @@ export class AegeanActivities {
     return (step.sequence ?? []).map(index => objects[index - 1]?.name ?? "the mechanism").join(" → ");
   }
   private instruction(a: AegeanActivity, step: AegeanStep): string {
-    if (this.actionStep(step)) return `${step.label}. Follow the glowing circles.`;
+    if (this.actionStep(step)) return `${step.label}. Follow the marked objects.`;
     if (step.type === "puzzle") return `${step.label}: ${this.signal(a, step)}.`;
     if (step.type === "defend") return `${step.label}. Keep close to ${AEGEAN_ACTIVITY_SCENES[a.id].anchor.name.toLowerCase()}.`;
     if (step.type === "escort") return `${step.label}. Keep your companion close; the compass points to the next stop.`;
@@ -340,10 +340,9 @@ export class AegeanActivities {
           `Try this order: ${this.signal(a, step)}.`,
           "#d4a465",
         );
-        g.damagePlayer(g.player.maxHp * 0.08, {
-          trueDamage: true,
-          label: "Ancient mechanism",
-        });
+        // A mistake wakes a visible local defender; the mechanism never deals
+        // unexplained, instant damage to the player.
+        this.spawnWave(a, r, 1);
       } else {
         r.progress++;
         g.fx.ring(prop.x, prop.y, 45, "#8bcacb");
@@ -394,7 +393,7 @@ export class AegeanActivities {
     r.wave = 0;
     this.spawnWave(a, r);
   }
-  private spawnWave(a: AegeanActivity, r: ActivityRun): void {
+  private spawnWave(a: AegeanActivity, r: ActivityRun, count = 2): void {
     const g = this.game,
       p = g.player;
     const marine = boxHitsTerrain(g.map, p.x, p.y, 10, 8);
@@ -403,7 +402,8 @@ export class AegeanActivities {
     const island = AEGEAN_ISLANDS.find(i => i.landmass === g.map.landmasses?.[index]);
     const ecology = island ? AEGEAN_ISLAND_ECOLOGY[island.id] : AEGEAN_MAINLAND_ECOLOGY[g.map.regions?.[index] ?? 20];
     const roster = marine ? ["aegean_telchine", "aegean_nereid", "aegean_ichthyocentaur"] : ecology?.enemies ?? ["aegean_erinys", "aegean_spartoi", "aegean_eidolon"];
-    for (let n = 0; n < 3; n++) {
+    const standing = g.enemies.filter(e => !e.dead && e.spawnId?.startsWith(`activity:${a.id}:`)).length;
+    for (let n = 0; n < Math.min(count, Math.max(0, 3 - standing)); n++) {
       const angle = n * 2.1 + r.wave;
       const pt = findOpenNear(
         g.map,
@@ -461,6 +461,7 @@ export class AegeanActivities {
     if (r.started) return;
     r.started = true; r.timer = 0; r.charge = 0; r.pulse = 0;
     if (a.steps[r.step].type === "strike" || a.steps[r.step].type === "channel") this.spawnWave(a, r);
+    else if (a.steps[r.step].type === "dodge") this.spawnWave(a, r, 1);
   }
   private updateAction(a: AegeanActivity, r: ActivityRun, step: AegeanStep, dt: number, stations: PropInstance[]): void {
     const g = this.game, p = g.player;
@@ -470,7 +471,7 @@ export class AegeanActivities {
     this.previousAttack = p.attackTimer;
     if (step.type === "race" && r.timer > (step.duration ?? 18)) {
       r.timer = 0; r.progress = 0; r.visited = []; r.charge = 0;
-      g.toast("The trail faded", "Run through the glowing circles — no interaction needed.", "#d4a465");
+      g.toast("The trail faded", "Run past the marked objects — no interaction needed.", "#d4a465");
       return;
     }
     const targets = stations.filter(prop => Number(prop.data?.index) > 0 && !r.visited.includes(Number(prop.data?.index)));
@@ -488,23 +489,10 @@ export class AegeanActivities {
         if (r.progress >= step.count) { this.advance(a, r); return; }
       }
     } else r.charge = Math.max(0, (r.charge ?? 0) - dt * 1.5);
-    // Hazards are linked to the work: a false light, water pressure, returning
-    // arrows or oath lightning. Telegraph at the player's old position, then
-    // leave an opening to keep progressing instead of an arbitrary punishment.
-    const beat = Math.floor(r.timer / 3.5);
-    if (beat > (r.pulse ?? 0)) {
-      r.pulse = beat;
-      const safe = step.type === "dodge" ? targets[0] : undefined;
-      r.sequence = [p.x, p.y]; r.hitAt = g.now + 1.05;
-      if (!safe || Math.hypot(p.x - safe.x, p.y - safe.y) > 48) g.telegraph(p.x, p.y, 62, 1.05, "#e7a174");
-      else { r.hitAt = undefined; g.fx.ring(safe.x, safe.y, 48, "#a9e0a2"); }
-    }
-    if (r.hitAt && g.now >= r.hitAt) {
-      r.hitAt = undefined;
-      const [x, y] = r.sequence;
-      if (Math.hypot(p.x - x, p.y - y) < 62) g.damagePlayer(p.maxHp * .12, { trueDamage: true, label: "Mythic trial" });
-      g.fx.ring(x, y, 62, "#e7a174");
-    }
+    // Pressure comes from the visible defenders created once at the start.
+    // Killing them earns breathing room; no player-targeted phantom blast or
+    // endlessly respawning patrol replaces them while this step is active.
+    r.hitAt = undefined;
   }
   private syncJournal(a: AegeanActivity): void {
     const g = this.game, r = this.state.runs[a.id];
@@ -658,9 +646,9 @@ export class AegeanActivities {
         if (!next && !this.actionStep(step)) continue;
         ctx.strokeStyle = next ? "#b5e4a2" : "#d3b775"; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = next ? 3 : 1;
         ctx.globalAlpha = next ? .8 : .38;
-        ctx.beginPath(); ctx.ellipse(prop.x, prop.y, 43, 27, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(prop.x - 10, prop.y - 22); ctx.lineTo(prop.x, prop.y - 14); ctx.lineTo(prop.x + 10, prop.y - 22); ctx.stroke();
         ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
-        ctx.fillText(step.type === "strike" ? "HIT ×2" : step.type === "race" ? "RUN" : step.type === "channel" ? "HOLD" : step.type === "dodge" ? next ? "SAFE" : "DANGER" : "HERE", prop.x, prop.y - 36);
+        ctx.fillText(step.type === "strike" ? "HIT ×2" : step.type === "race" ? "RUN" : step.type === "channel" ? "HOLD" : step.type === "dodge" ? next ? "SHELTER" : "NEXT" : "HERE", prop.x, prop.y - 36);
         if (next && r.charge) { ctx.fillRect(prop.x - 20, prop.y - 30, Math.min(40, r.charge / 2.4 * 40), 3); }
       }
       ctx.restore();

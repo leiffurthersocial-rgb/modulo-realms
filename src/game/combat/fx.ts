@@ -1,3 +1,4 @@
+import { drawPhysicalAttack, type PhysicalAttackCue, type LivePhysicalCue } from './physical';
 import { withAlpha } from '../art/palette';
 
 export interface Particle {
@@ -50,6 +51,7 @@ export class FxSystem {
   texts: FloatText[] = [];
   telegraphs: Telegraph[] = [];
   rings: Ring[] = [];
+  physicalCues: LivePhysicalCue[] = [];
   /**
    * Scales every particle burst. Battery saver turns this down rather than
    * switching effects off, so a hit still reads the same — there is simply
@@ -90,11 +92,21 @@ export class FxSystem {
     this.telegraphs.push({ x, y, r, t: 0, duration, color, shape, angle, halfWidth, coneHalfAngle });
   }
 
+  physicalAttack(spec: PhysicalAttackCue): void {
+    // Active damage must never outlive an arbitrarily evicted visual cue.
+    // Pressure is bounded at attack initiation; cues expire with their source.
+    this.physicalCues.push({ ...spec, elapsed: 0 });
+  }
+
   ring(x: number, y: number, r: number, color: string): void {
     this.rings.push({ x, y, r: 6, max: r, life: 0.42, color });
   }
 
-  update(dt: number): void {
+  update(dt: number, combatDt = dt): void {
+    for (let i = this.physicalCues.length - 1; i >= 0; i--) {
+      const cue = this.physicalCues[i]; cue.elapsed += combatDt;
+      if (cue.elapsed >= cue.duration || cue.source?.dead || cue.isActive?.() === false) this.physicalCues.splice(i, 1);
+    }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= dt;
@@ -129,9 +141,11 @@ export class FxSystem {
     this.texts.length = 0;
     this.telegraphs.length = 0;
     this.rings.length = 0;
+    this.physicalCues.length = 0;
   }
 
   draw(g: CanvasRenderingContext2D): void {
+    for (const cue of this.physicalCues) drawPhysicalAttack(g, cue);
     for (const tg of this.telegraphs) {
       const p = Math.min(1, tg.t / tg.duration);
       g.save();

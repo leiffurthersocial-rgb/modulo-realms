@@ -13,7 +13,8 @@ import { AegeanPowers } from "../src/game/aegean/powers";
 import { createMap } from "../src/game/world/map";
 import { T } from "../src/game/world/tiles";
 import type { Game as GameType } from "../src/game/core/game";
-import type { DamageOpts } from "../src/game/core/world";
+import type { PhysicalAttackCue } from "../src/game/combat/physical";
+import type { DamageOpts, ProjectileSpec } from "../src/game/core/world";
 
 const noop = () => {};
 Object.assign(globalThis, {
@@ -37,6 +38,11 @@ const branches: Record<ClassId, string[]> = {
 };
 const map = createMap({ id: "aegean_medusa", name: "Damage test", w: 64, h: 64 });
 map.tiles.fill(T.MARBLE);
+// Held-thrust budget is exercised through real moving spear contact. The
+// compatibility record without a physical kind becomes a thrown long spear.
+const PHYSICAL_THRUST: BossAttack = { ...AEGEAN_ATTACKS.thrust, physical: "spear", range: 145 };
+const cues: PhysicalAttackCue[] = [];
+const shots: ProjectileSpec[] = [];
 const warnings: Array<{ x: number; y: number; time: number }> = [];
 const retaliations: Array<{ amount: number; element: DamageOpts["element"] }> = [];
 const game: GameType = Object.assign(Object.create(Game.prototype), {
@@ -48,7 +54,8 @@ const game: GameType = Object.assign(Object.create(Game.prototype), {
   encounters: { suppressOffense: false },
   enemies: [],
   projectiles: [],
-  fx: { ring: noop, spawn: noop },
+  fx: { ring: noop, spawn: noop, physicalAttack(cue: PhysicalAttackCue) { cues.push(cue); } },
+  spawnProjectile(spec: ProjectileSpec) { shots.push(spec); Game.prototype.spawnProjectile.call(this, spec); },
   floatText: noop,
   particles: noop,
   ringAt: noop,
@@ -108,7 +115,7 @@ function freshHit() {
   p.hp = p.maxHp; p.dead = false; p.invuln = 0; p.shield = 0;
   p.bracing = false; p.blocking = false; p.sp = p.maxSp;
   p.x = 800; p.y = 800;
-  warnings.length = 0;
+  warnings.length = 0; cues.length = 0; shots.length = 0;
   retaliations.length = 0;
   game.projectiles = [];
 }
@@ -117,6 +124,7 @@ function resolve(enemy: Enemy, seconds: number) {
     game.now += 0.05;
     game.player.invuln = Math.max(0, game.player.invuln - 0.05);
     enemy.update(game);
+    (game as unknown as { updateProjectiles(dt: number): void }).updateProjectiles(0.05);
   }
 }
 function bossHit(id: string, attack: BossAttack, defense: "none" | "brace" | "block" | "roll" | "move" | "absorb" = "none", phase = 0): number {
@@ -128,49 +136,52 @@ function bossHit(id: string, attack: BossAttack, defense: "none" | "brace" | "bl
   assert(e.queueAttack(game, attack));
   if (defense === "brace") p.bracing = true;
   if (defense === "block") p.blocking = true;
-  if (defense === "roll") p.invuln = attack.windup + 1;
+  if (defense === "roll") p.invuln = attack.windup + 2;
   if (defense === "absorb") p.shield = p.maxHp * 0.2;
   if (defense === "move") { p.x += 250; p.y += 250; }
-  resolve(e, attack.windup + 0.1);
+  resolve(e, attack.windup + 1);
   return (p.maxHp - p.hp) / p.maxHp;
 }
 function ordinaryHit(id: string, level: number, region: string): number {
   freshHit();
   const e = new Enemy(id, 765, 800, level, { region });
   game.enemies = [e]; e.state = "chase"; e.attackCd = 0; e.tacticTime = 10;
-  resolve(e, e.def.windup + 0.15);
+  resolve(e, game.dt); // Let normal AI commit its real basic attack.
+  assert(e.windupAttack, `${id}: normal AI begins a physical basic attack`);
+  e.scripted = true; // Measure exactly that one committed blow, without a second attack.
+  resolve(e, e.windupTime + 0.5);
   return (game.player.maxHp - game.player.hp) / game.player.maxHp;
 }
 
 const originalRandom = Math.random;
 try {
-  // No random dodge, and scatter lands far from a stationary player. This
-  // reproduced Medusa's old harmless venom before the committed impact fix.
+  // Disable random dodge so these checks measure landed physical contact.
+  // The same deterministic value retains the original-world scatter comparison.
   Math.random = () => 0.999;
   const metrics: string[] = [];
   for (const cls of CLASSES) {
     for (const stage of ["original", "greek"] as const) {
       build(cls.id, stage);
       const poison = bossHit("aegean_medusa", AEGEAN_ATTACKS.poison);
-      const thrust = bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust);
+      const thrust = bossHit("aegean_medusa", PHYSICAL_THRUST);
       const hound = ordinaryHit("aegean_hound", 76, "aegean_threshold");
       const jailer = ordinaryHit("aegean_jailer", 98, "aegean_ash");
       assert(poison >= (stage === "greek" ? 0.15 : 0.12) && poison < 0.36,
-        `${stage} ${cls.id}: a committed Medusa pool is dangerous but survivable (${poison})`);
+        `${stage} ${cls.id}: a travelling Medusa venom shot is dangerous but survivable (${poison})`);
       assert(thrust >= 0.18 && thrust < 0.5, `${stage} ${cls.id}: a landed Medusa thrust has weight (${thrust})`);
       assert(hound >= 0.07 && hound < 0.25, `${stage} ${cls.id}: the entry pack remains dangerous (${hound})`);
       assert(jailer > hound && jailer < 0.4, `${stage} ${cls.id}: later brute hits harder without a one-shot (${jailer})`);
       assert.equal(bossHit("aegean_medusa", AEGEAN_ATTACKS.poison, "move"), 0,
-        "Moving out of the committed venom warning evades it");
-      assert.equal(bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "roll"), 0,
+        "Moving off the committed travelling venom path evades it");
+      assert.equal(bossHit("aegean_medusa", PHYSICAL_THRUST, "roll"), 0,
         "A correctly timed roll still avoids the thrust");
-      const braced = bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "brace");
+      const braced = bossHit("aegean_medusa", PHYSICAL_THRUST, "brace");
       assert(braced > 0 && braced < thrust * 0.7 && game.player.sp < game.player.maxSp,
         "Bracing mitigates the actual hit and spends stamina");
-      const blocked = bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "block");
+      const blocked = bossHit("aegean_medusa", PHYSICAL_THRUST, "block");
       assert(blocked > 0 && blocked < thrust * 0.4 && game.player.sp < game.player.maxSp,
         "A shield mitigates the actual hit and spends stamina");
-      metrics.push(`${stage} ${cls.id}: pool ${(poison * 100).toFixed(1)}%, thrust ${(thrust * 100).toFixed(1)}%, hound ${(hound * 100).toFixed(1)}%, jailer ${(jailer * 100).toFixed(1)}% HP`);
+      metrics.push(`${stage} ${cls.id}: venom ${(poison * 100).toFixed(1)}%, thrust ${(thrust * 100).toFixed(1)}%, hound ${(hound * 100).toFixed(1)}%, jailer ${(jailer * 100).toFixed(1)}% HP`);
     }
     build(cls.id, "royal");
     const sweep = bossHit("aegean_leonidas", AEGEAN_ATTACKS.sweep, "none", 5);
@@ -181,37 +192,37 @@ try {
     assert(veteran.maxHp > 100000 && veteran.stats().defense > 10000,
       "Actual repeated original reforges reproduce the otherwise invulnerable veteran build");
     const extremePool = bossHit("aegean_medusa", AEGEAN_ATTACKS.poison);
-    const extremeThrust = bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust);
+    const extremeThrust = bossHit("aegean_medusa", PHYSICAL_THRUST);
     const extremeHound = ordinaryHit("aegean_hound", 76, "aegean_threshold");
     const extremeJailer = ordinaryHit("aegean_jailer", 98, "aegean_ash");
     assert(extremePool > 0.11 && extremePool < 0.12, "Venom still threatens a massively reforged original build");
     assert(extremeThrust > 0.15 && extremeThrust < 0.17, "A direct boss strike cannot be ignored through reforging");
     assert(extremeHound > 0.029 && extremeHound < 0.031, "Ordinary enemies retain a modest minimum threat");
     assert(extremeJailer > 0.039 && extremeJailer < 0.041, "Brutes retain their stronger minimum threat");
-    assert(bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "brace") < extremeThrust * 0.7);
-    assert(bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "block") < extremeThrust * 0.4);
-    assert.equal(bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "roll"), 0);
+    assert(bossHit("aegean_medusa", PHYSICAL_THRUST, "brace") < extremeThrust * 0.7);
+    assert(bossHit("aegean_medusa", PHYSICAL_THRUST, "block") < extremeThrust * 0.4);
+    assert.equal(bossHit("aegean_medusa", PHYSICAL_THRUST, "roll"), 0);
     assert.equal(bossHit("aegean_medusa", AEGEAN_ATTACKS.poison, "move"), 0);
-    assert.equal(bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "absorb"), 0,
+    assert.equal(bossHit("aegean_medusa", PHYSICAL_THRUST, "absorb"), 0,
       "The minimum is still absorbed by ordinary protective shields");
     assert(veteran.shield < veteran.maxHp * 0.2, "Absorption pays for the minimum hit");
     const extremeSweep = bossHit("aegean_leonidas", AEGEAN_ATTACKS.sweep, "none", 5);
     assert(extremeSweep > 0.34 && extremeSweep < 0.35,
       "The king remains the greater threat even at extreme armour and health");
-    metrics.push(`extreme ${cls.id}: HP ${veteran.maxHp.toFixed(0)}, pool ${(extremePool * 100).toFixed(1)}%, thrust ${(extremeThrust * 100).toFixed(1)}%, royal sweep ${(extremeSweep * 100).toFixed(1)}%`);
+    metrics.push(`extreme ${cls.id}: HP ${veteran.maxHp.toFixed(0)}, venom ${(extremePool * 100).toFixed(1)}%, thrust ${(extremeThrust * 100).toFixed(1)}%, royal sweep ${(extremeSweep * 100).toFixed(1)}%`);
   }
 
   build("warrior", "extreme");
   game.player.equipment.mainHand = makeItem("aegean_unbroken_standard", { plain: true, provenance: { source: "debug", id: "damage-regression" } });
-  const noWard = bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust);
+  const noWard = bossHit("aegean_medusa", PHYSICAL_THRUST);
   assert(game.powers.activate(game.player.equipment.mainHand));
-  const warded = bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust);
+  const warded = bossHit("aegean_medusa", PHYSICAL_THRUST);
   assert(warded > noWard * 0.7 && warded < noWard * 0.8,
     "A real Greek protective field still reduces the minimum hit; it is not true damage");
   game.powers.reset();
   bossHit("aegean_medusa", AEGEAN_ATTACKS.volley);
-  assert.equal(game.projectiles.length, 5);
-  assert(game.projectiles.every(projectile => projectile.minHealthDamage === 0.12),
+  assert.equal(shots.length, 4, "The physical volley respects the four-missile overlap limit");
+  assert(shots.every(projectile => projectile.minHealthDamage === 0.12),
     "Greek boss projectiles preserve their minimum through the real projectile constructor");
 
   // The minimum creates defensive pressure, never extra thorns/reflect damage.
@@ -219,11 +230,11 @@ try {
   const thornVeteran = build("warrior", "extreme");
   const thornShare = thornVeteran.enchantPower("thorns") / 100;
   assert(thornShare > 0, "The original Frostguard Mail has its real thorns enchantment");
-  bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust);
+  bossHit("aegean_medusa", PHYSICAL_THRUST);
   const minimumThorns = retaliations.find(hit => hit.element === "physical")?.amount;
   assert(minimumThorns !== undefined);
   const source = game.enemies[0];
-  const rawThrust = source.damage * AEGEAN_ATTACKS.thrust.power;
+  const rawThrust = source.damage * PHYSICAL_THRUST.power;
   freshHit();
   game.damagePlayer(rawThrust, { element: "physical", fromX: source.x, fromY: source.y });
   const rawThorns = retaliations.find(hit => hit.element === "physical")?.amount;
@@ -232,7 +243,7 @@ try {
     "Original raw-only thorns still reflect the authored share of actual HP damage");
   assert(Math.abs(minimumThorns - rawThorns) < 0.00001,
     "A huge health pool cannot turn the minimum into thousands of free thorns damage");
-  bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust, "brace");
+  bossHit("aegean_medusa", PHYSICAL_THRUST, "brace");
   const bracedThorns = retaliations.find(hit => hit.element === "physical")?.amount;
   assert(bracedThorns !== undefined && Math.abs(bracedThorns - rawThorns * 0.6) < 0.00001,
     "Active defense reduces retaliation using the real post-defense damage");
@@ -248,12 +259,12 @@ try {
   reflectedVeteran.equipment.offHand = mirror;
   game.powers.onBrace();
   assert(game.powers.activate(mirror), "A real earned Mirror ward is active");
-  bossHit("aegean_medusa", AEGEAN_ATTACKS.thrust);
+  bossHit("aegean_medusa", PHYSICAL_THRUST);
   const minimumReflection = retaliations.find(hit => hit.element === "holy")?.amount;
   assert(minimumReflection !== undefined);
   const reflectedSource = game.enemies[0];
   freshHit();
-  game.damagePlayer(reflectedSource.damage * AEGEAN_ATTACKS.thrust.power,
+  game.damagePlayer(reflectedSource.damage * PHYSICAL_THRUST.power,
     { element: "physical", fromX: reflectedSource.x, fromY: reflectedSource.y });
   const rawReflection = retaliations.find(hit => hit.element === "holy")?.amount;
   assert(rawReflection !== undefined);
@@ -263,12 +274,16 @@ try {
   build("warrior", "greek");
   freshHit();
   const medusa = new Enemy("aegean_medusa", 700, 800, 95);
-  medusa.attackCd = 0;
+  medusa.attackCd = 0; medusa.scripted = true; game.enemies = [medusa];
   assert(medusa.queueAttack(game, AEGEAN_ATTACKS.poison));
-  assert.deepEqual(warnings[0], { x: 800, y: 800, time: AEGEAN_ATTACKS.poison.windup },
-    "The first visible warning is exactly the committed player position");
-  assert(warnings.slice(1).every(point => point.x > 900 && point.y > 900),
-    "The other impacts remain scattered");
+  assert.equal(warnings.length, 0, "The venom throw has no detached geometric warning");
+  assert.equal(cues[0].source, medusa, "The venom preparation visibly belongs to Medusa");
+  assert.equal(cues[0].phase, "prepare");
+  assert.equal(game.player.hp, game.player.maxHp, "Preparing a throw cannot damage the player");
+  resolve(medusa, AEGEAN_ATTACKS.poison.windup + 1);
+  assert(shots.every(shot => shot.sourceId === medusa.id && shot.sprite === "venom"),
+    "Every Greek venom impact must be delivered by a visible source-bound missile");
+  assert(game.player.hp < game.player.maxHp, "A stationary player is hit by the travelling venom");
   warnings.length = 0;
   const oldBoss = new Enemy("boss_emberdeep", 700, 800, 75);
   oldBoss.attackCd = 0;
@@ -284,7 +299,7 @@ try {
       `${def.id}: every Greek boss uses the endgame damage budget below the king`);
   }
   console.log(metrics.join("\n"));
-  console.log("Greek damage checks passed: real HP loss, original/Greek reforges, warnings, dodges, shields and all boss budgets.");
+  console.log("Greek damage checks passed: real HP loss, original/Greek reforges, moving weapons/projectiles, dodges, shields and all boss budgets.");
 } finally {
   Math.random = originalRandom;
 }
