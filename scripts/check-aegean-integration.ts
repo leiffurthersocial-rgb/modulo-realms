@@ -477,7 +477,7 @@ const royal = game.player.inventory.find(
 )!;
 assert.equal(royal.provenance?.id, "aegean_leonidas");
 assert.equal(royal.provenance?.region, "aegean_asterion");
-assert.equal(royal.enchants.length, 4);
+assert.equal(royal.enchants.length, 6);
 const savedRoyal = structuredClone(royal);
 
 // Real installed props drive an escort into its second step before saving.

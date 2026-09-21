@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { CLASSES } from "../src/data/classes";
 import { damageTaken, MAGIC_SHOT } from "../src/data/balance";
+import { aegeanBossHealthCap, aegeanMinimumHit } from "../src/data/aegean/damage";
 import { Enemy } from "../src/game/entities/enemy";
 import { Player } from "../src/game/player/player";
 import { makeItem } from "../src/game/items/loot";
@@ -27,12 +28,12 @@ const branches: Record<string, string[]> = {
   necromancer: ["Death", "Blight"],
 };
 const boss = new Enemy("aegean_leonidas", 0, 0, 100);
-assert.ok(boss.maxHp <= 40000, "The king is capped at 40k HP after scaling");
+assert.equal(boss.maxHp, aegeanBossHealthCap(boss.def.id), "The king uses his authored island health budget");
 console.log(
   `Leonidas HP ${boss.maxHp.toFixed(0)}, defense ${boss.defense.toFixed(0)}, basic damage ${boss.damage.toFixed(0)}; phase health shares 18/18/22/24/13/5%.`,
 );
 console.log(
-  "Assumptions: two complete offensive branches +36 universal talents (120 total); 35% attack uptime under aggressive pressure; .95 average shield effectiveness; +12 seconds for phase announcements and the last oath. Ranger fan counts use actual73px collision at300px; ground effects use authored duration and50% retention. Rotation shares finite regeneration; fixed item powers, on-hit DOTs and summons are excluded, so this remains a conservative diagnostic, not proof of a play win.",
+  "Assumptions: two complete offensive branches +36 universal talents (120 total); 35% attack uptime under aggressive pressure; .95 average shield effectiveness. Damage time excludes required phase patterns, braziers, guards and conductor; runtime encounter tests cover those gates. Ranger fan counts use actual73px collision at300px; ground effects use authored duration and50% retention. Rotation shares finite regeneration; fixed item powers, on-hit DOTs and summons are excluded. This is a damage diagnostic, not proof of a play win.",
 );
 
 for (const cls of CLASSES) {
@@ -135,23 +136,24 @@ for (const cls of CLASSES) {
           p.cooldownFor(a)
       );
     }, 0) * sustain;
-  const basicMinutes = (boss.maxHp / (basicDps * 0.35 * 0.95) + 12) / 60;
+  const basicMinutes = boss.maxHp / (basicDps * 0.35 * 0.95) / 60;
   const rotationMinutes =
-    (boss.maxHp / ((basicDps + abilityDps) * 0.35 * 0.95) + 12) / 60;
+    boss.maxHp / ((basicDps + abilityDps) * 0.35 * 0.95) / 60;
+  const sweepPower = 2.4 * boss.def.boss!.phases[5].damage;
   const sweepShare =
-    (boss.damage * 2.4 * 1.2 * damageTaken(stats.defense, 100)) /
-    stats.maxHealth;
+    Math.max((boss.damage * sweepPower * damageTaken(stats.defense, 100)) /
+    stats.maxHealth, aegeanMinimumHit(boss.def, sweepPower));
   assert.ok(
     Number.isFinite(rotationMinutes) && rotationMinutes > 0,
     `${cls.id}: reachable numeric damage baseline`,
   );
   assert.ok(
-    rotationMinutes >= 0.2 && rotationMinutes <= 4,
-    `${cls.id}: learned offensive build stays within the 12-second–4-minute aggressive-combat diagnostic band; this does not assert that every build or player wins`,
+    rotationMinutes > 0 && rotationMinutes <= 4,
+    `${cls.id}: a prepared class can remove the health budget within four minutes of modeled pressure; required phase mechanics set the minimum duration`,
   );
   assert.ok(
-    sweepShare >= 0.35 && sweepShare <= 0.8,
-    `${cls.id}: a late unblocked sweep threatens35–80% of this offensive build's health without a guaranteed full-health one-shot`,
+    sweepShare >= 0.5 && sweepShare <= 0.8,
+    `${cls.id}: a late unblocked sweep threatens50–80% of this offensive build's health without a guaranteed full-health one-shot`,
   );
   console.log(
     `${cls.id.padEnd(12)} HP ${stats.maxHealth.toFixed(0).padStart(5)} / defense ${stats.defense.toFixed(0).padStart(4)} / basic DPS ${basicDps.toFixed(0).padStart(6)} / conservative ability DPS ${abilityDps.toFixed(0).padStart(5)} / stationary attacks-only ${basicMinutes.toFixed(1)} min / rotation ${rotationMinutes.toFixed(1)} min / late sweep ${(sweepShare * 100).toFixed(0)}% HP`,

@@ -145,6 +145,9 @@ export default function TouchControls({ game }: { game: Game }) {
   const quick = p.inventory.find((i) => i.type === 'consumable' && (p.quickItem ? i.defId === p.quickItem : true))
     ?? p.inventory.find((i) => i.type === 'consumable');
   const mh = p.equipment.mainHand;
+  const recoveryApplies = quick?.consume?.cooldownGroup === 'recovery' ||
+    (game.regionAtPlayer() === 'aegean_asterion' && !!(quick?.consume?.health || quick?.consume?.healthPct));
+  const recovery = recoveryApplies ? p.cooldowns['consume:recovery'] ?? 0 : 0;
 
   return (
     <div className="touch-layer">
@@ -201,6 +204,7 @@ export default function TouchControls({ game }: { game: Game }) {
             className="small"
             icon={quick ? getIconUrl(quick.icon, { metal: quick.iconMetal }) : null}
             label={quick ? undefined : 'POT'}
+            cooldown={recovery}
             onTap={() => game.useQuickItem()}
           />
           <Btn

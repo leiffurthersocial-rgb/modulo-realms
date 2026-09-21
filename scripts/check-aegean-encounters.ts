@@ -187,7 +187,7 @@ function fixture(slug: string) {
 }
 
 // First entry immediately creates an active opponent; no shrine or E prompt.
-for (const slug of ["nemea", "python", "medusa", "chimera", "cyclops", "talos", "birds", "hippolyta", "sanctuary_aegis", "sanctuary_forge", "sanctuary_names", "champion_spear", "champion_shield", "champion_volley", "champion_hunt", "champion_guard", "champion_storm"]) {
+for (const slug of ["nemea", "python", "medusa", "chimera", "cyclops", "talos", "birds", "hippolyta", "sanctuary_aegis", "sanctuary_forge", "sanctuary_names"]) {
   const f = fixture(slug), boss = f.principal();
   assert.ok(boss && !boss.friendly, `${slug}: boss attacks on entry`);
   assert.ok(boss.maxHp <= 30000, `${slug}: health is capped after all enemy scaling`);
@@ -196,6 +196,23 @@ for (const slug of ["nemea", "python", "medusa", "chimera", "cyclops", "talos", 
   assert.deepEqual(f.rewards, [f.id], `${slug}: combat victory needs no three-prop checklist`);
   f.director.onEnemyKilled(boss);
   assert.equal(f.rewards.length, 1, `${slug}: duplicate death cannot duplicate reward`);
+}
+
+// Island champions require reading each half of their deck even with burst
+// gear; their three training tools remain optional counterattack openings.
+for (const slug of ["champion_spear", "champion_shield", "champion_volley", "champion_hunt", "champion_guard", "champion_storm"]) {
+  const f = fixture(slug), boss = f.principal();
+  assert.equal(boss.maxHp, 58000);
+  f.kill(boss);
+  assert.equal(boss.hp, boss.maxHp * .5, `${slug}: huge burst cannot erase the second duel`);
+  assert.equal(f.director.isDamageAllowed(boss), false, `${slug}: the phase floor cannot be farmed for damage procs`);
+  for (let t = 0; t < 180 && boss.phase === 0; t++) f.tick(.1);
+  assert.equal(boss.phase, 1, `${slug}: three actual completed patterns unlock the second duel`);
+  f.kill(boss);
+  assert.equal(boss.hp, 1, `${slug}: the faster deck must also be faced`);
+  f.tick(14);
+  f.kill(boss);
+  assert.deepEqual(f.rewards, [f.id], `${slug}: both pattern decks permit victory without a prop checklist`);
 }
 
 // Real dash impacts open counterplay automatically without pressing E.
@@ -370,14 +387,33 @@ assert.equal(new Set(ARMY_ROSTER.map((s) => s.id)).size, 300);
 }
 {
   const f = fixture("leonidas"), boss = f.principal();
-  assert.ok(boss.maxHp <= 40000);
+  assert.equal(boss.maxHp, 110000);
   assert.equal(f.director.modifyDamage(boss,1e12,{}),0,"brief phase announcement protects the transition");
   f.tick(.8);
-  for (let phase = 0; phase < 5; phase++) {
-    f.kill(boss); f.tick(.1); f.tick(.8);
-    assert.ok(!boss.dead,"each attack phase appears despite overwhelming gear");
-  }
+  f.kill(boss); f.tick(.1);
+  assert.match(f.director.status,/Phase 1/ ,"damage alone cannot skip the first three patterns");
+  f.tick(14);
+  assert.match(f.director.status,/Phase 2/);
+  assert.equal(boss.hp, boss.maxHp * .82, "burst overflow does not consume the following phase");
+  f.kill(boss); f.tick(14);
+  assert.match(f.director.status,/Phase 2/, "two oath braziers must actually be broken");
+  f.player.x = f.points[0].x; f.player.y = f.points[0].y; f.tick(.8);
+  f.player.x = f.points[1].x; f.player.y = f.points[1].y; f.tick(.8);
+  f.tick(.2); // Director advances on the next frame after proximity activation.
+  assert.match(f.director.status,/Phase 3/, "standing beside two braziers opens the guard phase");
+  f.tick(.8); f.kill(boss); f.tick(14);
+  assert.match(f.director.status,/Phase 3/, "the royal guard cannot be skipped with boss burst");
+  assert.equal(f.fake.enemies.filter(e => !e.dead && e.def.id === "aegean_royal_guard").length, 4);
+  f.clearAdds(); f.tick(1);
+  assert.match(f.director.status,/Phase 4/);
+  f.kill(boss); f.tick(14);
+  assert.match(f.director.status,/Phase 4/, "the storm oath requires a conductor discharge");
+  f.use(4); f.tick(1);
+  assert.match(f.director.status,/Phase 5/);
+  f.kill(boss);
+  for (let t = 0; t < 200 && !f.director.status.includes("Phase 6"); t++) f.tick(.1);
   assert.match(f.director.status,/Phase 6/);
+  f.tick(.8);
   f.kill(boss); assert.ok(!boss.dead && boss.hp >= 1,"last oath requires its three actual strikes");
   f.tick(16);
   f.kill(boss);
@@ -387,7 +423,7 @@ assert.equal(new Set(ARMY_ROSTER.map((s) => s.id)).size, 300);
   f.player.resistances.poison={until:f.fake.now+30,multiplier:.25};
   assert.ok(f.director.startPractice(0));
   f.player.gold=1; f.player.cooldowns.test=0;
-  f.tick(.8); f.kill(f.principal()); f.tick(.1);
+  f.tick(14); f.kill(f.principal()); f.tick(.1);
   assert.equal(f.rewards.length,1,"practice never grants rewards");
   assert.equal(f.player.gold,12345); assert.equal(f.player.cooldowns.test,9);
   assert.ok(Math.abs(f.player.resistances.poison.until-f.fake.now-30)<.01,"practice freezes resistance duration");
