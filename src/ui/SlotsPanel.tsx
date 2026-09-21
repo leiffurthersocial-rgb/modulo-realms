@@ -1,25 +1,30 @@
 import type { Game } from '../game/core/game';
 import { STAKES } from '../game/casino/casino';
-import {
-  SLOT_COLOR, SLOT_GLYPH, SLOT_REEL, SLOT_TRIPLE, SLOT_TWO_CHERRY,
-  type SlotSymbol,
-} from '../game/casino/games';
+import { SLOT_TRIPLE, SLOT_TWO_CHERRY, type SlotSymbol } from '../game/casino/games';
+import { coinUrl, slotBlurUrl, slotSymbolUrl } from '../game/art/casino';
 
 /** Best paying first, which is also rarest first on the reel strip. */
-const LADDER: SlotSymbol[] = ['seven', 'crown', 'spade', 'bell', 'cherry'];
+const LADDER: SlotSymbol[] = ['cherry', 'crown', 'seven', 'bell'];
 
-function Reel({ symbol, spinning, offset }: { symbol: SlotSymbol | null; spinning: boolean; offset: number }) {
-  // While the reels are turning there is no result yet, so the face shown is
-  // picked off the strip by the clock — it reads as motion without needing a
-  // second animation system.
-  const shown = spinning
-    ? SLOT_REEL[(Math.floor(performance.now() / 70) + offset) % SLOT_REEL.length]
-    : symbol;
+/** The bulbs chase around the cabinet head; index decides the phase. */
+function Bulbs({ count, lit }: { count: number; lit: number }) {
   return (
-    <div className={`cas-reel${spinning ? ' spinning' : ''}`}>
-      <span style={{ color: shown ? SLOT_COLOR[shown] : 'var(--muted)' }}>
-        {shown ? SLOT_GLYPH[shown] : '–'}
-      </span>
+    <div className="slot-bulbs">
+      {Array.from({ length: count }, (_, i) => (
+        <span key={i} className={`slot-bulb${(i + lit) % 3 === 0 ? ' on' : ''}`} />
+      ))}
+    </div>
+  );
+}
+
+function Reel({ symbol, spinning }: { symbol: SlotSymbol; spinning: boolean }) {
+  return (
+    <div className={`slot-reel${spinning ? ' spinning' : ''}`}>
+      <img
+        src={spinning ? slotBlurUrl(symbol) : slotSymbolUrl(symbol)}
+        alt=""
+        draggable={false}
+      />
     </div>
   );
 }
@@ -28,88 +33,110 @@ export default function SlotsPanel({ game }: { game: Game }) {
   const s = game.casino.slots;
   if (!s) return null;
   const gold = game.player.gold;
-  const spinning = s.spinning > 0;
+  const won = !s.spinning && s.result && s.result.payout > 0 ? s.stake * (s.result.payout + 1) : 0;
+  const jackpot = !s.spinning && s.result?.label === 'JACKPOT';
+  const lit = Math.floor((s.elapsed + s.celebrate) * 8);
+
+  const status = s.spinning ? 'Spinning…'
+    : won > 0 ? `You win ${won} gold!`
+      : s.result ? 'No win. Try again!'
+        : 'Pick a stake and pull.';
 
   return (
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel cas-panel" style={{ width: 'min(680px, 96vw)' }}>
+      <div className="modal panel slot-panel" style={{ width: 'min(560px, 96vw)' }}>
         <div className="panel-title">
+          <span className="slot-crown" aria-hidden />
           <span>Slot Machine</span>
-          <span className="sub">Three of a kind pays &middot; two cherries returns the stake</span>
           <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
         </div>
 
-        <div className="cas-body">
-          <div className="cas-table">
-            <div className="cas-reels">
-              {[0, 1, 2].map((i) => (
-                <Reel
-                  key={i}
-                  symbol={s.result ? s.result.reels[i] : null}
-                  spinning={spinning}
-                  offset={i * 5}
-                />
-              ))}
+        <div className="slot-body">
+          {/* the cabinet */}
+          <div className={`slot-cabinet${s.celebrate > 0 ? ' celebrating' : ''}`}>
+            <div className="slot-head">
+              <Bulbs count={7} lit={lit} />
+              <div className={`slot-badge${jackpot && s.celebrate > 0 ? ' jackpot' : ''}`}>
+                {jackpot && s.celebrate > 0 ? 'JACKPOT!' : <span className="slot-badge-crown" aria-hidden />}
+              </div>
+              <Bulbs count={7} lit={lit + 1} />
             </div>
 
-            <div className="cas-status">
-              {spinning ? (
-                <span className="cas-hint">Reels turning&hellip;</span>
-              ) : s.result && s.result.payout > 0 ? (
-                <span className="cas-win">
-                  {s.result.label} &mdash; {s.stake * (s.result.payout + 1)} gold
-                </span>
-              ) : s.result ? (
-                <span className="cas-lose">No pay.</span>
-              ) : (
-                <span className="cas-hint">Pick a stake and pull.</span>
-              )}
-            </div>
-
-            <div className="cas-controls">
-              <div className="cas-stakes">
-                {STAKES.map((v) => (
-                  <button
-                    key={v}
-                    className={`btn small${s.stake === v ? ' primary' : ''}`}
-                    disabled={spinning || gold < v}
-                    onClick={() => game.casino.setSlotStake(v)}
-                  >
-                    {v}
-                  </button>
+            <div className="slot-window">
+              {s.celebrate > 0 && won > 0 ? <div className="slot-rays" aria-hidden /> : null}
+              <div className="slot-reels">
+                {[0, 1, 2].map((i) => (
+                  <Reel key={i} symbol={s.faces[i]} spinning={s.spinning && s.locked <= i} />
                 ))}
               </div>
-              <button
-                className="btn primary"
-                disabled={spinning || gold < s.stake}
-                onClick={() => game.casino.spin()}
-              >
-                Pull ({s.stake})
-              </button>
+              {/* the lever, pulled on a spin */}
+              <div className="slot-lever" style={{ ['--pull' as string]: s.lever.toFixed(2) }}>
+                <span className="slot-lever-rod" />
+                <span className="slot-lever-knob" />
+              </div>
             </div>
+
+            <div className={`slot-status${won > 0 ? ' win' : ''}`}>{status}</div>
+
+            {s.celebrate > 0 && won > 0 ? (
+              <div className="slot-coins" aria-hidden>
+                {Array.from({ length: 10 }, (_, i) => (
+                  <img key={i} src={coinUrl()} alt="" className={`slot-coin c${i}`} draggable={false} />
+                ))}
+              </div>
+            ) : null}
           </div>
 
-          <div className="cas-side">
-            <div className="cas-side-head">Pay table</div>
-            <div className="cas-ladder">
+          <div className="slot-controls">
+            <div className="cas-stakes">
+              {STAKES.map((v) => (
+                <button
+                  key={v}
+                  className={`btn small${s.stake === v ? ' primary' : ''}`}
+                  disabled={s.spinning || gold < v}
+                  onClick={() => game.casino.setSlotStake(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <button
+              className="btn primary slot-spin"
+              disabled={s.spinning || gold < s.stake}
+              onClick={() => game.casino.spin()}
+            >
+              {s.spinning ? 'SPIN…' : 'SPIN'}
+            </button>
+          </div>
+
+          <div className="slot-foot">
+            <div className="slot-pay">
+              <div className="cas-side-head">Pay table</div>
               {LADDER.map((sym) => (
                 <div
                   key={sym}
-                  className={`cas-rung${s.result && s.result.payout > 0 && s.result.reels[0] === sym && s.result.reels[1] === sym ? ' hit' : ''}`}
+                  className={`cas-rung${!s.spinning && won > 0 && s.result!.reels.every((r) => r === sym) ? ' hit' : ''}`}
                 >
-                  <span style={{ color: SLOT_COLOR[sym], letterSpacing: 2 }}>
-                    {SLOT_GLYPH[sym]}{SLOT_GLYPH[sym]}{SLOT_GLYPH[sym]}
+                  <span className="slot-pay-row">
+                    <img src={slotSymbolUrl(sym)} alt="" draggable={false} />
+                    <img src={slotSymbolUrl(sym)} alt="" draggable={false} />
+                    <img src={slotSymbolUrl(sym)} alt="" draggable={false} />
                   </span>
                   <span className="cas-mult">&times;{SLOT_TRIPLE[sym]}</span>
                 </div>
               ))}
               <div className="cas-rung">
-                <span style={{ color: SLOT_COLOR.cherry }}>Two cherries</span>
+                <span className="slot-pay-row">
+                  <img src={slotSymbolUrl('cherry')} alt="" draggable={false} />
+                  <span className="slot-pay-note">Two cherries</span>
+                </span>
                 <span className="cas-mult">&times;{SLOT_TWO_CHERRY}</span>
               </div>
             </div>
-            <div className="cas-purse">
+
+            <div className="slot-purse">
               <div><span>Your gold</span><span style={{ color: 'var(--gold)' }}>{gold}</span></div>
+              <div><span>This bet</span><span style={{ color: 'var(--danger)' }}>&minus;{s.stake}</span></div>
               <div>
                 <span>This sitting</span>
                 <span style={{ color: s.session >= 0 ? 'var(--sp)' : 'var(--danger)' }}>

@@ -194,3 +194,137 @@ export function spinSlots(random: () => number = Math.random): SlotResult {
   if (cherries === 2) return { reels, payout: SLOT_TWO_CHERRY, label: 'Two cherries' };
   return { reels, payout: 0, label: 'No pay' };
 }
+
+/* ------------------------------------------------------------------ */
+/* Texas hold'em                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A scored hand: its category, plus the tiebreak ranks in descending
+ * significance. Two hands compare by category first, then rank by rank, which
+ * is what lets a table settle "both have two pair" without special cases.
+ */
+export interface ScoredHand {
+  rank: HandRank;
+  /** Category strength, 0 (nothing) to 9 (royal). */
+  tier: number;
+  /** Tiebreak ranks, most significant first. */
+  kickers: number[];
+  /** The five cards that actually make the hand. */
+  best: Card[];
+}
+
+const TIER: Record<HandRank, number> = {
+  nothing: 0, jacks: 1, two_pair: 2, trips: 3, straight: 4,
+  flush: 5, full_house: 6, quads: 7, straight_flush: 8, royal: 9,
+};
+
+/** Hold'em names a bare pair "one pair", not "jacks or better". */
+export const HOLDEM_LABEL: Record<HandRank, string> = {
+  ...POKER_LABEL,
+  nothing: 'High card',
+  jacks: 'One pair',
+};
+
+/** Score exactly five cards, with the tiebreakers hold'em needs. */
+function scoreFive(hand: Card[]): ScoredHand {
+  const counts = new Map<number, number>();
+  for (const c of hand) counts.set(c.rank, (counts.get(c.rank) ?? 0) + 1);
+  // Group ranks by how many of them there are, then by rank — that ordering is
+  // exactly the tiebreak order for pairs, trips and full houses.
+  const groups = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+
+  const flush = hand.every((c) => c.suit === hand[0].suit);
+  const ranks = [...new Set(hand.map((c) => c.rank))].sort((a, b) => a - b);
+  let straightHigh = 0;
+  if (ranks.length === 5) {
+    if (ranks[4] - ranks[0] === 4) straightHigh = ranks[4];
+    else if (ranks[4] === 14 && ranks[0] === 2 && ranks[3] === 5) straightHigh = 5; // the wheel
+  }
+
+  const make = (rank: HandRank, kickers: number[]): ScoredHand =>
+    ({ rank, tier: TIER[rank], kickers, best: hand.slice() });
+
+  if (straightHigh && flush) {
+    return make(straightHigh === 14 ? 'royal' : 'straight_flush', [straightHigh]);
+  }
+  if (groups[0][1] === 4) return make('quads', [groups[0][0], groups[1][0]]);
+  if (groups[0][1] === 3 && groups[1][1] === 2) return make('full_house', [groups[0][0], groups[1][0]]);
+  if (flush) return make('flush', hand.map((c) => c.rank).sort((a, b) => b - a));
+  if (straightHigh) return make('straight', [straightHigh]);
+  if (groups[0][1] === 3) return make('trips', groups.map((g) => g[0]));
+  if (groups[0][1] === 2 && groups[1][1] === 2) {
+    const [hi, lo] = [groups[0][0], groups[1][0]].sort((a, b) => b - a);
+    return make('two_pair', [hi, lo, groups[2][0]]);
+  }
+  if (groups[0][1] === 2) return make('jacks', groups.map((g) => g[0]));
+  return make('nothing', hand.map((c) => c.rank).sort((a, b) => b - a));
+}
+
+/** Every 5-card subset of n cards, as index lists. */
+function combinations(n: number, k: number): number[][] {
+  const out: number[][] = [];
+  const pick: number[] = [];
+  const walk = (start: number): void => {
+    if (pick.length === k) { out.push(pick.slice()); return; }
+    for (let i = start; i < n; i++) { pick.push(i); walk(i + 1); pick.pop(); }
+  };
+  walk(0);
+  return out;
+}
+
+const FIVE_OF_SEVEN = combinations(7, 5);
+const FIVE_OF_SIX = combinations(6, 5);
+
+/** Compare two scored hands. Positive means `a` wins. */
+export function compareHands(a: ScoredHand, b: ScoredHand): number {
+  if (a.tier !== b.tier) return a.tier - b.tier;
+  for (let i = 0; i < Math.max(a.kickers.length, b.kickers.length); i++) {
+    const d = (a.kickers[i] ?? 0) - (b.kickers[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/**
+ * Best five-card hand out of hole cards plus board. Hold'em lets a player use
+ * any five of the seven, including both, one, or neither hole card, so this
+ * has to try every subset rather than assume the hole cards play.
+ */
+export function bestHand(hole: Card[], board: Card[]): ScoredHand {
+  const all = [...hole, ...board];
+  if (all.length < 5) return scoreFive([...all, ...all].slice(0, 5));
+  const sets = all.length === 7 ? FIVE_OF_SEVEN : all.length === 6 ? FIVE_OF_SIX : combinations(all.length, 5);
+  let best: ScoredHand | null = null;
+  for (const idx of sets) {
+    const scored = scoreFive(idx.map((i) => all[i]));
+    if (!best || compareHands(scored, best) > 0) best = scored;
+  }
+  return best!;
+}
+
+/**
+ * A rough hand strength in [0,1], used only by the table's opponents to decide
+ * whether to put money in. It is deliberately simple — these are villagers
+ * playing cards, not a solver — but it does read the board, so a player who
+ * bets into a paired board is treated with the suspicion it deserves.
+ */
+export function handStrength(hole: Card[], board: Card[]): number {
+  if (board.length === 0) {
+    const [a, b] = [hole[0].rank, hole[1].rank].sort((x, y) => y - x);
+    const pair = a === b;
+    const suited = hole[0].suit === hole[1].suit;
+    const gap = a - b;
+    let s = (a - 2) / 12 * 0.38 + (b - 2) / 12 * 0.2;
+    if (pair) s += 0.34;
+    if (suited) s += 0.07;
+    if (!pair && gap <= 2) s += 0.05;
+    return Math.max(0, Math.min(1, s));
+  }
+  const scored = bestHand(hole, board);
+  // Tier alone is too coarse: two players on the same board usually share a
+  // tier, so the top kicker breaks the tie in the estimate as well.
+  const base = scored.tier / 9;
+  const kicker = ((scored.kickers[0] ?? 2) - 2) / 12;
+  return Math.max(0, Math.min(1, base * 0.82 + kicker * 0.18));
+}

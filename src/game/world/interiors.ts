@@ -24,7 +24,7 @@ const SPECS: Record<string, InteriorSpec> = {
   int_hall: { kind: 'hall', name: 'Ashvale Moot Hall', w: 23, h: 16, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
   int_chapel: { kind: 'chapel', name: 'Chapel of the Last Light', w: 17, h: 17, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
   int_farm: { kind: 'farm', name: 'Fallow Farmhouse', w: 19, h: 13, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD },
-  int_casino: { kind: 'casino', name: 'The Gilded Spade', w: 23, h: 17, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
+  int_casino: { kind: 'casino', name: 'The Gilded Spade', w: 17, h: 13, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
 };
 
 const defaultSpec = (name: string): InteriorSpec => ({ kind: 'cottage', name, w: 15, h: 12, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD });
@@ -129,48 +129,39 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
       // a stone border to walk in on and the red reads as a floor covering
       // instead of as the floor itself.
       fillRect(map, 2, 2, w - 4, h - 4, T.FLOOR_CARPET);
-      // The games go down the middle where the player walks in on them:
-      // the house games down the middle where the player walks in on them, the
-      // machines and the bar along the back wall, and the punters at the edges.
-      const backY = 3;
-      prop(map, cx, backY, 'card_table', { cw: 64, ch: 20 });
-      prop(map, cx, backY + 3, 'poker_table', { cw: 68, ch: 22, interact: 'poker', label: 'Sit down at the poker table' });
+
+      // Two lanes have to stay clear of furniture or the room stops working:
+      // the line straight up from the door, which is how the player reaches
+      // the poker table at all, and the aisles down both walls, which are how
+      // they get past it to the dealer, the machines and the bar.
+      const houseY = 2;
+      prop(map, cx, houseY, 'card_table', { cw: 60, ch: 18 });
+      prop(map, cx, houseY + 4, 'poker_table', {
+        cw: 66, ch: 20, interact: 'poker', label: 'Sit down at the poker table',
+      });
+      // Stools hug the table, with the seat due south of it left out.
+      for (const dx of [-3, 3]) prop(map, cx + dx, houseY + 4, 'casino_stool', { cw: 14, ch: 8 });
+      for (const dx of [-2, 2]) prop(map, cx + dx, houseY + 6, 'casino_stool', { cw: 14, ch: 8 });
+      for (const dx of [-2, 2]) prop(map, cx + dx, houseY + 2, 'casino_stool', { cw: 14, ch: 8 });
+
+      // machines along the west wall
       for (let i = 0; i < 2; i++) {
-        prop(map, 3 + i * 2, backY - 1, 'slot_machine', {
+        prop(map, 2 + i * 2, houseY, 'slot_machine', {
           cw: 22, ch: 12, light: 80, lightColor: '#f6bf5d', phase: i * 0.7,
           interact: 'slots', label: 'Play the slot machine',
         });
       }
-      // the bar, back right
-      prop(map, w - 4, backY - 1, 'bookshelf', { cw: 34, ch: 12 });
-      prop(map, w - 6, backY, 'table', { cw: 40, ch: 14 });
-      prop(map, w - 7, backY + 1, 'barrel', { cw: 16, ch: 10 });
-      // punters' tables down the right-hand wall
-      for (let i = 0; i < 2; i++) {
-        prop(map, w - 5, 7 + i * 4, 'table', { cw: 40, ch: 14 });
-        prop(map, w - 6, 8 + i * 4, 'chair', { cw: 16, ch: 10 });
-        prop(map, w - 3, 8 + i * 4, 'chair', { cw: 16, ch: 10 });
-        prop(map, w - 5, 6 + i * 4, 'chip_stack', { cw: 14, ch: 8 });
-      }
-      // Stools hug the poker table rather than ringing it at a distance. Two
-      // lanes have to stay clear or the room stops working: the line straight
-      // up from the door, which is how the player reaches the table at all,
-      // and the aisles down both walls, which are how they get past it to the
-      // dealer and the bar. Furniture in either one leaves the player stuck
-      // just outside arm's reach of the thing they walked in to use.
-      for (const dx of [-3, 3]) prop(map, cx + dx, backY + 3, 'chair', { cw: 16, ch: 10 });
-      for (const dx of [-2, 2]) prop(map, cx + dx, backY + 5, 'chair', { cw: 16, ch: 10 });
-      for (const dx of [-2, 2]) prop(map, cx + dx, backY + 2, 'chair', { cw: 16, ch: 10 });
-      // crimson banners and a crown over the house table
-      prop(map, cx - 4, 1, 'casino_banner', { cw: 8, ch: 4 });
-      prop(map, cx + 4, 1, 'casino_banner', { cw: 8, ch: 4 });
-      prop(map, 2, 1, 'casino_banner', { cw: 8, ch: 4 });
-      prop(map, w - 3, 1, 'casino_banner', { cw: 8, ch: 4 });
-      prop(map, 2, h - 4, 'planter', { cw: 20, ch: 10 });
-      prop(map, w - 3, h - 4, 'planter', { cw: 20, ch: 10 });
-      prop(map, 3, h - 6, 'chip_stack', { cw: 14, ch: 8 });
-      // the room is lit cold and low, not by a hearth
-      for (const [tx, ty] of [[1, 4], [1, 10], [w - 2, 4], [w - 2, 10], [1, h - 3], [w - 2, h - 3]]) {
+      // bar along the east wall
+      prop(map, w - 3, houseY, 'bookshelf', { cw: 34, ch: 12 });
+      prop(map, w - 3, houseY + 2, 'table', { cw: 38, ch: 14 });
+      prop(map, w - 4, houseY + 3, 'casino_stool', { cw: 14, ch: 8 });
+      prop(map, w - 3, houseY + 5, 'chip_stack', { cw: 14, ch: 8 });
+      prop(map, 2, h - 3, 'barrel', { cw: 16, ch: 10 });
+
+      // banners and lamps
+      prop(map, cx - 3, 1, 'casino_banner', { cw: 8, ch: 4 });
+      prop(map, cx + 3, 1, 'casino_banner', { cw: 8, ch: 4 });
+      for (const [tx, ty] of [[1, 4], [1, h - 3], [w - 2, 4], [w - 2, h - 3]]) {
         prop(map, tx, ty, 'torch', { light: 150, lightColor: '#f6bf5d', cw: 6, ch: 4 });
       }
       break;

@@ -1531,150 +1531,434 @@ canvas.world {
 .next-action-card .next-part { position:static; display:block; padding:6px 0 0; color:#f0c963; text-align:left; }
 
 /* ------------------------------------------------------------------ */
-/* Casino tables                                                       */
+/* Casino — shared                                                     */
 /* ------------------------------------------------------------------ */
 
-.cas-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 210px;
-  gap: 14px;
-  padding: 14px;
-  min-height: 0;
-}
-
-.cas-table {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 18px 14px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  /* The baize, lit from above the way the table is in the room. */
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 62%),
-    linear-gradient(180deg, #2d8049, #1c5330);
-  box-shadow: inset 0 0 0 4px #4a2f20, inset 0 0 26px rgba(6, 5, 10, 0.5);
-}
-
-.cas-hand { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-
-.cas-card {
-  position: relative;
-  width: 60px;
-  height: 86px;
-  border-radius: 4px;
-  border: 1px solid #0f0d14;
-  background: linear-gradient(180deg, #fdf8ef, #e6ddcd);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 0;
-  font-family: inherit;
-  cursor: default;
-  box-shadow: 0 3px 8px rgba(6, 5, 10, 0.45);
-}
-
-.cas-card.pickable { cursor: pointer; }
-.cas-card.pickable:hover { transform: translateY(-3px); }
-.cas-card.held { outline: 2px solid var(--gold); outline-offset: 1px; }
-
-.cas-card.back {
-  background:
-    repeating-linear-gradient(45deg, #6d2330 0 5px, #4e1723 5px 10px);
-  border-color: #2a1220;
-}
-
-.cas-card-rank { font-size: 21px; font-weight: 700; line-height: 1; }
-.cas-card-suit { font-size: 19px; line-height: 1; }
-
-.cas-held {
-  position: absolute;
-  bottom: 4px;
-  font-size: 8.5px;
-  letter-spacing: 1px;
-  color: var(--gold);
-}
-
-.cas-reels { display: flex; gap: 12px; }
-
-.cas-reel {
-  width: 76px;
-  height: 92px;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  border: 2px solid var(--gold-dim);
-  background: linear-gradient(180deg, #16131f, #0c0a12);
-  font-size: 40px;
-  line-height: 1;
-  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.6);
-}
-
-.cas-reel.spinning { border-color: var(--gold); }
-
-.cas-status { min-height: 20px; font-size: 13px; text-align: center; }
-.cas-hint { color: var(--muted); }
-.cas-win { color: var(--gold); font-weight: 600; }
-.cas-lose { color: var(--muted); }
-
-.cas-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
-.cas-stakes { display: flex; gap: 5px; }
-
-.cas-side {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  background: var(--panel-2);
-  padding: 10px;
-  min-width: 0;
-}
+.cas-stakes { display: flex; gap: 5px; flex-wrap: wrap; }
 
 .cas-side-head {
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--gold);
+  margin-bottom: 4px;
 }
-
-.cas-ladder { display: flex; flex-direction: column; gap: 2px; }
 
 .cas-rung {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   font-size: 11.5px;
   color: var(--text);
-  padding: 3px 5px;
+  padding: 2px 4px;
   border-radius: 2px;
 }
 
-.cas-rung.hit { background: rgba(216, 176, 106, 0.18); color: var(--gold); }
-.cas-mult { color: var(--muted); }
+.cas-rung.hit { background: rgba(216, 176, 106, 0.2); color: var(--gold); }
+.cas-mult { color: var(--muted); font-variant-numeric: tabular-nums; }
 .cas-rung.hit .cas-mult { color: var(--gold); }
 
-.cas-purse {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  border-top: 1px solid var(--edge);
-  padding-top: 8px;
-  font-size: 12px;
-  color: var(--muted);
+/* ------------------------------------------------------------------ */
+/* Slot machine                                                        */
+/* ------------------------------------------------------------------ */
+
+.slot-panel .panel-title { align-items: center; }
+
+.slot-crown {
+  width: 14px; height: 11px; margin-right: 2px;
+  background: var(--gold);
+  clip-path: polygon(0 100%, 12% 25%, 33% 60%, 50% 0, 67% 60%, 88% 25%, 100% 100%);
 }
 
-.cas-purse > div { display: flex; justify-content: space-between; gap: 8px; }
+.slot-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+.slot-cabinet {
+  position: relative;
+  border-radius: 5px;
+  padding: 8px 34px 8px 10px;
+  background: linear-gradient(180deg, #6a4430, #46291d);
+  box-shadow: inset 0 0 0 2px #8a5c40, inset 0 0 0 4px #2a1810, 0 6px 18px rgba(0,0,0,0.5);
+}
+
+.slot-cabinet.celebrating { animation: slot-shake 0.5s ease; }
+
+@keyframes slot-shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 1px); }
+  50% { transform: translate(2px, -1px); }
+  75% { transform: translate(-1px, -1px); }
+}
+
+.slot-head {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 4px 6px 6px;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.slot-bulbs { display: flex; gap: 5px; }
+
+.slot-bulb {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #7a6434;
+  box-shadow: none;
+}
+
+.slot-bulb.on {
+  background: #f6bf5d;
+  box-shadow: 0 0 5px 2px rgba(246, 191, 93, 0.6);
+}
+
+.slot-badge {
+  min-width: 46px; height: 26px;
+  display: grid; place-items: center;
+  padding: 0 10px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #8e2131, #5e1220);
+  box-shadow: inset 0 0 0 2px var(--gold-dim);
+  font-size: 13px; letter-spacing: 1.5px; color: var(--gold);
+}
+
+.slot-badge.jackpot {
+  color: #fff3cf;
+  text-shadow: 0 0 8px rgba(246, 191, 93, 0.9);
+  animation: jackpot-pulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes jackpot-pulse {
+  from { box-shadow: inset 0 0 0 2px var(--gold); }
+  to { box-shadow: inset 0 0 0 2px #fff3cf, 0 0 14px rgba(246,191,93,0.7); }
+}
+
+.slot-badge-crown {
+  width: 16px; height: 12px;
+  background: var(--gold);
+  clip-path: polygon(0 100%, 12% 25%, 33% 60%, 50% 0, 67% 60%, 88% 25%, 100% 100%);
+}
+
+.slot-window {
+  position: relative;
+  /* Sized to the three reels, not to the panel — a window wider than the
+     reels leaves the machine looking half-empty. */
+  width: fit-content;
+  margin: 0 auto;
+  border-radius: 4px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #8e2131, #6d1a22);
+  box-shadow: inset 0 0 0 3px #3c7a45, inset 0 0 0 5px #8a6a2c;
+  /* The win sunburst is drawn oversized so it fills the corners; without this
+     it escapes the cabinet and rakes across the whole screen. */
+  overflow: hidden;
+}
+
+.slot-reels { display: flex; gap: 6px; justify-content: center; position: relative; z-index: 1; }
+
+.slot-reel {
+  width: 62px; height: 78px;
+  display: grid; place-items: center;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #efe6d6, #cfc5b4 60%, #b8ae9d);
+  box-shadow: inset 0 0 0 1px #0f0d14, inset 0 6px 10px rgba(0,0,0,0.22), inset 0 -6px 10px rgba(0,0,0,0.22);
+  overflow: hidden;
+}
+
+.slot-reel img {
+  width: 44px; height: 44px;
+  image-rendering: pixelated;
+}
+
+.slot-reel.spinning img { animation: reel-roll 0.14s linear infinite; }
+
+@keyframes reel-roll {
+  from { transform: translateY(-14px); }
+  to { transform: translateY(14px); }
+}
+
+/* the sunburst behind a win */
+.slot-rays {
+  position: absolute; inset: -20%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(246, 191, 93, 0.42) 0deg 8deg,
+    rgba(246, 191, 93, 0) 8deg 20deg
+  );
+  animation: rays-turn 6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rays-turn { to { transform: rotate(360deg); } }
+
+.slot-lever {
+  position: absolute;
+  right: 3px;
+  top: 76px;
+  width: 20px; height: 66px;
+  pointer-events: none;
+  z-index: 2;
+  /* A slot handle is pulled down, not swung sideways. Rotating it sent the
+     knob arcing across the reels instead of along the cabinet. */
+  transform: translateY(calc(var(--pull) * 22px));
+  transition: transform 0.12s ease-out;
+}
+
+/* mounting boss, bolted to the cabinet and pinned against the pull */
+.slot-lever::before {
+  content: '';
+  position: absolute; left: 4px;
+  top: calc(var(--pull) * -22px);
+  width: 12px; height: 8px; border-radius: 3px;
+  background: linear-gradient(180deg, #9aa2b3, #3d4350);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.slot-lever-rod {
+  position: absolute; left: 8px; top: 5px;
+  width: 5px;
+  height: calc(44px - var(--pull) * 20px);
+  background: linear-gradient(90deg, #c3cad6 0%, #9aa2b3 45%, #3d4350 100%);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.55);
+}
+
+.slot-lever-knob {
+  position: absolute; left: 0; top: 44px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ff9aa0, #b8323a 55%, #6d1a22);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.6), inset 0 -2px 4px rgba(0,0,0,0.35);
+}
+
+.slot-status {
+  margin: 8px auto 0;
+  width: fit-content;
+  min-width: 250px;
+  padding: 6px 14px;
+  border-radius: 3px;
+  background: #16131f;
+  box-shadow: inset 0 0 0 1px #2a2432;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.slot-status.win { color: var(--gold); font-weight: 600; }
+
+.slot-coins { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 5px; }
+
+.slot-coin {
+  position: absolute;
+  width: 14px; height: 14px;
+  image-rendering: pixelated;
+  top: -16px;
+  animation: coin-fall 1.5s ease-in forwards;
+}
+
+.slot-coin.c0 { left: 6%;  animation-delay: 0s; }
+.slot-coin.c1 { left: 17%; animation-delay: 0.12s; }
+.slot-coin.c2 { left: 28%; animation-delay: 0.05s; }
+.slot-coin.c3 { left: 39%; animation-delay: 0.22s; }
+.slot-coin.c4 { left: 50%; animation-delay: 0.1s; }
+.slot-coin.c5 { left: 61%; animation-delay: 0.3s; }
+.slot-coin.c6 { left: 72%; animation-delay: 0.16s; }
+.slot-coin.c7 { left: 83%; animation-delay: 0.26s; }
+.slot-coin.c8 { left: 92%; animation-delay: 0.08s; }
+.slot-coin.c9 { left: 46%; animation-delay: 0.38s; }
+
+@keyframes coin-fall {
+  to { transform: translateY(240px) rotate(420deg); opacity: 0; }
+}
+
+.slot-controls {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+
+.slot-spin { min-width: 104px; letter-spacing: 1.4px; }
+
+.slot-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 10px;
+}
+
+.slot-pay, .slot-purse {
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 8px 10px;
+}
+
+.slot-pay-row { display: inline-flex; align-items: center; gap: 2px; }
+.slot-pay-row img { width: 17px; height: 17px; image-rendering: pixelated; }
+.slot-pay-note { margin-left: 5px; color: var(--muted); }
+
+.slot-purse { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+.slot-purse > div { display: flex; justify-content: space-between; gap: 8px; }
+
+/* ------------------------------------------------------------------ */
+/* Hold'em table                                                       */
+/* ------------------------------------------------------------------ */
+
+.hold-buyin { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.hold-buyin p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.hold-buyin-note { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+.hold-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+
+.hold-opponents {
+  display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;
+  min-height: 92px;
+}
+
+.hold-felt {
+  position: relative;
+  /* Sized to the board rather than the panel: a felt wider than the five
+     cards on it reads as an empty table with a hand lost in the middle. */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  border-radius: 70px / 46px;
+  padding: 14px 40px 16px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,0.06), transparent 62%),
+    linear-gradient(180deg, #2d8049, #1c5330);
+  box-shadow: inset 0 0 0 5px #6a4430, inset 0 0 0 7px #46291d, inset 0 0 30px rgba(6,5,10,0.45);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  min-height: 150px;
+  justify-content: center;
+}
+
+/* the house mark under the board, the way a real table is printed */
+.hold-felt::before {
+  content: '';
+  position: absolute; left: 50%; top: 50%;
+  width: 330px; height: 94px;
+  transform: translate(-50%, -50%);
+  border-radius: 55px / 47px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+
+.hold-pot { display: flex; align-items: center; gap: 7px; }
+.hold-pot-label { font-size: 9.5px; letter-spacing: 1.6px; color: rgba(255,255,255,0.55); }
+
+.hold-board { display: flex; gap: 5px; }
+
+.hold-card {
+  /* The source sprite is 30x42. Every size below is a whole multiple of it —
+     a fractional scale turns crisp pixel art into mush. */
+  width: 60px; height: 84px;
+  image-rendering: pixelated;
+  border-radius: 2px;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+}
+
+.hold-board .hold-card.dealt { animation: card-flip 0.3s ease-out; }
+/* A card still to come reads as an empty place on the felt, not a face-down
+   card — otherwise the board always looks like five cards are in play. */
+.hold-slot {
+  width: 60px; height: 84px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.13);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+@keyframes card-flip {
+  from { transform: rotateY(90deg) translateY(-6px); opacity: 0; }
+  to { transform: rotateY(0) translateY(0); opacity: 1; }
+}
+
+.hold-message {
+  font-size: 13px; color: #fff3cf; font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+.hold-seat {
+  position: relative;
+  min-width: 96px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 5px 6px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, opacity 0.3s;
+}
+
+.hold-seat.active { border-color: var(--gold); background: rgba(216,176,106,0.08); }
+.hold-seat.folded { opacity: 0.4; }
+.hold-seat.winner { border-color: #f2cb60; background: rgba(242,203,96,0.16); }
+
+.hold-seat-cards { display: flex; gap: 3px; min-height: 44px; }
+.hold-seat-cards .hold-card { width: 30px; height: 42px; animation: card-deal 0.25s ease-out; }
+.hold-seat-cards .hold-card.mucked { filter: grayscale(1) brightness(0.6); }
+
+.hold-hero .hold-seat-cards .hold-card { width: 60px; height: 84px; }
+
+@keyframes card-deal {
+  from { transform: translateY(-22px) scale(0.8); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.hold-seat-plate {
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 11.5px;
+}
+
+.hold-seat-name { color: var(--text); }
+.hold-seat-chips { color: var(--gold); font-variant-numeric: tabular-nums; }
+.hold-seat-hand { font-size: 10.5px; color: #f2cb60; }
+
+.hold-bubble {
+  position: absolute; top: -9px; left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 9px;
+  background: #16131f;
+  box-shadow: inset 0 0 0 1px var(--edge-lit);
+  font-size: 10.5px; color: var(--parchment);
+  animation: bubble-in 0.18s ease-out;
+}
+
+@keyframes bubble-in {
+  from { transform: translateX(-50%) translateY(4px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+.hold-chips { display: inline-flex; align-items: flex-end; gap: 6px; height: 26px; }
+
+.hold-chip-stack { position: relative; display: inline-block; width: 24px; height: 24px; }
+.hold-chip-stack img {
+  position: absolute; left: 0;
+  width: 24px; height: 24px;
+  image-rendering: pixelated;
+}
+
+.hold-chip-n { font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+/* chips sliding to the pot when a street closes */
+.hold-chips.collecting { animation: chips-in 0.35s ease-in forwards; }
+
+@keyframes chips-in {
+  to { transform: translateY(-26px) scale(0.6); opacity: 0; }
+}
+
+.hold-hero { display: flex; justify-content: center; }
+
+.hold-actions {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex-wrap: wrap;
+  min-height: 34px;
+}
+
+.hold-raise { display: inline-flex; align-items: center; gap: 7px; }
+.hold-raise input[type="range"] { width: 130px; accent-color: var(--gold); }
+.hold-waiting { color: var(--muted); font-size: 12.5px; }
 
 @media (max-width: 760px) {
-  .cas-body { grid-template-columns: minmax(0, 1fr); }
-  .cas-card { width: 48px; height: 70px; }
-  .cas-card-rank { font-size: 17px; }
-  .cas-card-suit { font-size: 15px; }
-  .cas-reel { width: 60px; height: 74px; font-size: 32px; }
+  .slot-foot { grid-template-columns: minmax(0, 1fr); }
+  .slot-reel { width: 52px; height: 66px; }
+  .slot-reel img { width: 36px; height: 36px; }
+  .hold-card { width: 30px; height: 42px; }
+  .hold-hero .hold-seat-cards .hold-card { width: 36px; height: 50px; }
+  .hold-opponents { gap: 6px; }
+  .hold-seat { min-width: 74px; }
 }

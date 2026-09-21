@@ -227,6 +227,14 @@ export class Game implements WorldCtx {
   fade = { alpha: 0, target: 0, speed: 3.2, pending: null as null | (() => void), label: '' };
   /** Quest the player asked to be guided to. */
   trackedQuest: string | null = null;
+  /**
+   * Pulls the camera off the player and onto a fixed point — used to lean in
+   * over a table before its panel opens, so sitting down reads as walking up
+   * to the game rather than as a window appearing. `hold` counts down and then
+   * fires `then` once; clearing the focus lets the camera drift back.
+   */
+  cameraFocus: { x: number; y: number; zoom: number; hold: number; then: (() => void) | null } | null = null;
+
   /** Waystone the player is currently standing at, if any. */
   currentWaystone: string | null = null;
   /** Game-clock time the player last took damage, for the fast-travel lockout. */
@@ -323,9 +331,21 @@ export class Game implements WorldCtx {
     this.setPanel(this.panel === p ? null : p);
   }
 
+  /**
+   * Push in on a point, then run `then` once the camera has arrived. The move
+   * is short on purpose: long enough to read as sitting down, short enough
+   * that a player who opens the same table twenty times never waits on it.
+   */
+  leanIn(x: number, y: number, zoom: number, then: () => void): void {
+    this.cameraFocus = { x, y, zoom, hold: 0.42, then };
+    audio.play('ui_big', 0.5);
+    this.touch();
+  }
+
   closeAll(): void {
     if (this.loot) this.abandonLoot();
     this.casino.close();
+    this.cameraFocus = null;
     this.panel = null;
     this.royalOpen = false;
     this.dialogue = null;
@@ -3264,12 +3284,10 @@ export class Game implements WorldCtx {
         break;
       }
       case 'poker':
-        this.casino.openPoker();
-        audio.play('ui_big', 0.5);
+        this.leanIn(prop.x, prop.y - 18, 3.4, () => this.casino.openPoker());
         break;
       case 'slots':
-        this.casino.openSlots();
-        audio.play('ui_big', 0.5);
+        this.leanIn(prop.x, prop.y - 14, 3.8, () => this.casino.openSlots());
         break;
       case 'notice':
         this.panel = 'quests';
@@ -4041,6 +4059,15 @@ export class Game implements WorldCtx {
     // The reels have to spin down while their own panel is open, so this sits
     // above the `uiOpen` early-out rather than with the world simulation.
     this.casino.update(dt);
+    const focus = this.cameraFocus;
+    if (focus && focus.hold > 0) {
+      focus.hold -= dt;
+      if (focus.hold <= 0) {
+        const then = focus.then;
+        focus.then = null;
+        then?.();
+      }
+    }
 
     if (this.uiOpen) {
       this.input.uiCapture = true;
@@ -4762,11 +4789,13 @@ export class Game implements WorldCtx {
     const baseZoom=this.canvas.width>1700?2.5:this.canvas.width>1100?2:1.75;
     const royal=this.map.id==='aegean_leonidas'&&this.bossTarget&&!this.bossTarget.dead?this.bossTarget:null;
     const wide=royal||this.map.id==='aegean_army';
-    this.camera.zoom=damp(this.camera.zoom,wide?Math.min(baseZoom,1.25):this.naval.aboard?Math.min(baseZoom,1.55):baseZoom,4,dt);
+    const focus=this.cameraFocus;
+    const wantZoom=focus?focus.zoom:wide?Math.min(baseZoom,1.25):this.naval.aboard?Math.min(baseZoom,1.55):baseZoom;
+    this.camera.zoom=damp(this.camera.zoom,wantZoom,focus?5.5:4,dt);
     const halfW = this.canvas.width / 2 / this.camera.zoom;
     const halfH = this.canvas.height / 2 / this.camera.zoom;
-    let tx = p.x;
-    let ty = p.y - 10;
+    let tx = focus ? focus.x : p.x;
+    let ty = focus ? focus.y : p.y - 10;
     if(royal&&dist(p.x,p.y,royal.x,royal.y)<650){tx=p.x*.72+royal.x*.28;ty=p.y*.72+(royal.y-130)*.28;}
     const mapW = this.map.w * TILE;
     const mapH = this.map.h * TILE;

@@ -1683,6 +1683,30 @@ GEN.chip_stack = (rng) => {
  * the town, but it burns cold blue-white instead of hearth-orange — the one
  * building in Ashvale that is not lit by a fire.
  */
+/**
+ * A padded stool. Deliberately much smaller than `chair`: a ring of them
+ * around a card table has to read as seating without swallowing the table or
+ * the lane the player walks up.
+ */
+GEN.casino_stool = (rng) => {
+  const p = new Px(18, 20);
+  groundShadow(p, 9, 18, 7);
+  // legs
+  p.fill(4, 12, 2, 6, PAL.woodDark);
+  p.fill(12, 12, 2, 6, PAL.woodDark);
+  p.fill(8, 13, 2, 5, shade(PAL.woodDark, 0.85));
+  p.fill(4, 15, 10, 1, PAL.wood);
+  // padded seat
+  p.ellipse(9, 11, 8, 4, PAL.woodDark);
+  p.ellipse(9, 10, 7.5, 3.6, '#6d2330');
+  p.ellipse(9, 9.4, 6.5, 3, '#8e2131');
+  p.ellipse(7, 8.6, 2.6, 1.2, '#a63c4a');
+  for (let i = 0; i < 3; i++) p.set(rng.int(5, 13), rng.int(8, 11), '#5e1220');
+  p.fill(2, 10, 14, 1, PAL.gold);
+  p.outline(PAL.ink);
+  return art([p], 19);
+};
+
 GEN.casino_lamp = () => {
   const frames: Px[] = [];
   for (let f = 0; f < 2; f++) {
