@@ -1,12 +1,13 @@
 # CLAUDE.md — Modulo: Realms of Ash
 
-Arbeitsgedächtnis für Claude. Stand 21.09.2026, verifiziert gegen Commit `c59bfed`.
+Arbeitsgedächtnis für Claude. Stand 21.09.2026, verifiziert gegen Commit `c07021a`
+(Base `52c759f` = PR #9 eingemergt).
 Sprache mit dem User: **Deutsch**, kurz, stichwortartig, Probleme direkt benennen.
 
 ## Projekt
 
 Browser-RPG (2D Open World, Pixel Art). React 18 + TypeScript 5.6 + Vite 5, Canvas 2D +
-Web Audio. Deploy auf Vercel (`vercel.json` fertig). Node 18+. `~47.750` Zeilen in `src/`.
+Web Audio. Deploy auf Vercel (`vercel.json` fertig). Node 18+. `~47.900` Zeilen in `src/`.
 
 **Es gibt keine Binär-Assets.** Jede Tile, jeder Sprite, jedes Icon, jeder Ton wird zur
 Laufzeit aus Code generiert (`src/game/art/`, `src/game/audio/audio.ts`). Niemals ein
@@ -16,7 +17,7 @@ Bild- oder Audiofile einchecken — das ist die zentrale Projektregel.
 
 - **Default-Branch ist `claude/modulo-2d-rpg-game-xrfjyd`. Es gibt kein `main`/`master`.**
   PR-Base und Vercel-Production hängen daran.
-- Feature-Branches historisch `codex/*`, alle 8 PRs gemerged, nichts offen.
+- Feature-Branches historisch `codex/*`. PR #1–#9 gemerged; #10 (diese CLAUDE.md) offen.
 - Keine CI, kein `.github/`. Alle Checks laufen manuell lokal.
 
 ## Kommandos
@@ -26,14 +27,14 @@ npm install
 npm run dev            # http://localhost:5173
 npm run typecheck      # tsc --noEmit
 npm run build          # typecheck + vite build
-npm run check:aegean   # 21 serielle Regressionsgruppen — DER große Lauf
+npm run check:aegean   # 24 serielle Regressionsgruppen — DER große Lauf
 ```
 
 **Vor jedem Push:** `npm run typecheck && npm run build && npm run check:aegean`.
 
 Letzter verifizierter Stand (selbst ausgeführt): typecheck 0 Fehler, Build OK
-(1,29 MB / 412 KB gzip, Single-Chunk-Warnung ist bekannt und akzeptiert),
-check:aegean alle 21 Gruppen grün. Keine TODO/FIXME/HACK im Code.
+(1,297 MB / 415 KB gzip, Single-Chunk-Warnung ist bekannt und akzeptiert),
+check:aegean alle 24 Gruppen grün. Keine TODO/FIXME/HACK im Code.
 
 ⚠️ `esbuild` und `tsx` sind **nicht in `package.json` deklariert**. `esbuild` kommt nur
 transitiv über Vite, `tsx` gar nicht. `check:aegean` kann bei einem Vite-Major brechen.
@@ -84,7 +85,7 @@ Single Source of Truth für alle Stärkewerte. **Nie eine Schadenszahl von Hand 
 ```
 src/
   App.tsx                Canvas, Loop, Screen-Routing, UI-Mounting (216 Z.)
-  game/core/game.ts      die Game-Klasse — 4785 Z., State + Update + Combat + Interaktion
+  game/core/game.ts      die Game-Klasse — 4798 Z., State + Update + Combat + Interaktion
   game/core/renderer.ts  Chunked Terrain, Y-Sortierung, Lighting, Minimap (1011 Z.)
   game/core/world.ts     WorldCtx — Interface zwischen Entities und Game
   game/core/input.ts     Keybinds, Edge-Detection, Maus, Virtual-Input (Touch)
@@ -97,17 +98,17 @@ src/
   game/items/            types, enchants, loot, inventory
   game/player/player.ts  abgeleitete Stats, Equipment, Look, Leveling
   game/save/             save.ts + rejoinRollback.ts
-  game/aegean/           13 Module: campaign, encounters (2297 Z.), naval, powers,
+  game/aegean/           13 Module: campaign, encounters (2325 Z.), naval, powers,
                          activities, services, hazards, weapons, deck, mastery,
                          navigation, waypoints, guidance
   data/                  races, classes, items, enemies, npcs, quests, locations,
                          balance.ts, aegean/*
-  ui/                    30 React-Panels
-  styles/global.css      UI-Designsystem (1504 Z.)
+  ui/                    28 React-Panels + hooks.ts, aegeanNames.ts
+  styles/global.css      UI-Designsystem (1531 Z.)
 ```
 
-Größte Dateien: `game/core/game.ts` 4785 · `game/aegean/encounters.ts` 2297 ·
-`data/enemies.ts` 1575 · `styles/global.css` 1504 · `data/aegean/progression.ts` 1485 ·
+Größte Dateien: `game/core/game.ts` 4798 · `game/aegean/encounters.ts` 2325 ·
+`data/enemies.ts` 1575 · `styles/global.css` 1531 · `data/aegean/progression.ts` 1485 ·
 `game/art/props.ts` 1443 · `game/art/aegean.ts` 1427.
 
 `game.ts` ist der Refactoring-Kandidat *und* das größte Risiko — dort hängt alles dran.
@@ -136,8 +137,12 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
 - **Keine Gear-Restriktionen**, keine Level-Anforderungen auf Items.
 - Level-Cap 100, heroische Masteries ab 80, normale Talentpunkte stoppen bei 75.
 - **Kein Level-Lock nach Achaea.** Schwierigkeit kommt aus Gegnern, Wetter, Expeditionskosten.
-- **Bosse gedeckelt auf 30.000 HP** (Leonidas 40.000). Regel: "HP erhöhen ist keine
-  Schwierigkeit." Nicht mit HP balancen.
+- **Boss-HP sind gedeckelt** (`aegeanBossHealthCap` in `data/aegean/damage.ts`):
+  normale Bosse 30.000, Asterion-Champions 58.000, Leonidas 110.000.
+  Regel: "HP erhöhen ist keine Schwierigkeit." Nicht mit HP balancen.
+- **Primordial ist bewusst dominant**, nicht "aus Versehen zu stark":
+  `RARITY_POWER.primordial` = 3.2 (Olympian 1.52, Mythic 1.38), 6 Enchant-Slots
+  gegen 4 bei Olympian. Capstone der Endgame-Insel — nicht "eingenordet".
 - **Lifesteal ist volle Stärke** (der 2 %/s-Cap wurde am 21.09. nach Feedback entfernt).
   Nicht wieder cappen.
 - Händler skalieren mit der Region, auf der sie stehen — nicht mit fester Liste.
@@ -156,7 +161,11 @@ repariert von der ersten Expansion beschädigte Items ohne spätere Upgrades zu 
 
 **Am Save-Format nichts ändern ohne `scripts/check-save-rejoin.ts` zu verstehen.**
 
-## Check-Skripte (`scripts/`, 28 Stück, kein Test-Framework)
+Forging bis Level 75 ist unverändert; Upgrades **jenseits 75** nutzen dieselbe
+Template-Kurve wie der Loader — sonst entsteht temporäre Exponentialkraft, die beim
+Reload verschwindet. Abgedeckt von `scripts/check-endgame-reforge.ts`.
+
+## Check-Skripte (`scripts/`, 31 Stück, kein Test-Framework)
 
 `npx tsx scripts/<name>.ts`:
 - `check-balance` — jede Waffe/Rüstung/jeder Gegner gegen Budget. Alles soll `x1.00` lesen,
@@ -169,6 +178,8 @@ repariert von der ersten Expansion beschädigte Items ohne spätere Upgrades zu 
 - `check-legacy-mechanics.mjs` / `check-legacy-art.mjs` — **Parität gegen Git `d39d75a`**
   (Vor-Expansion): Loot, Forging, Crown-Upgrades, Life Siphon, Arrow Rain, Original-Boss-
   Angriffe, 196 Tile-Varianten + 48 Wall-Faces + 8 Masken.
+- `check-primordial` / `check-island-integration` / `check-endgame-reforge` — der
+  Endgame-Block aus PR #9 (Primordial-Vorsprung, Asterion, Reforge jenseits Level 75)
 - 15 × `check-aegean-*`
 
 `scripts/check-aegean.mjs` bündelt jedes Check-Skript mit esbuild und startet es seriell als
