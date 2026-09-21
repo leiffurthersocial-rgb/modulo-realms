@@ -190,7 +190,7 @@ export default function HelpPanel({ game }: { game: Game }) {
                 <P>
                   <b style={{ color: '#ff4f6e' }}>Mythic</b> is not a tier loot can roll into, and not something the
                   crown&apos;s warrant can raise a thing to. A handful of weapons in the whole world wear it. You will
-                  know. Above Mythic, Olympian relics come from the monsters and ruins of Achaea. Primordial equipment can only be earned and forged on Asterion, beyond the Three Hundred and the storm. Neither tier appears in random loot; both hold four enchantments.
+                  know. Above Mythic, Olympian relics come from the monsters and ruins of Achaea and hold four enchantments. Primordial is the strongest equipment tier, earned and forged only on Asterion, beyond the Three Hundred and the storm. It brings six enchantment slots, exceptional stats and signature arts that work on demand; skilled counters and interrupts empower them further. Neither tier appears in random loot. On Asterion, healing potions, elixirs and food share an 18-second recovery timer.
                 </P>
                 <P>
                   The top tiers are <b>gated behind your level</b>. A legendary is effectively unavailable below level

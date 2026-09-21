@@ -51,7 +51,7 @@ const game: GameType = Object.assign(Object.create(Game.prototype), {
   dt: 0.05,
   godMode: false,
   naval: { aboard: false },
-  encounters: { suppressOffense: false },
+  encounters: { suppressOffense: false, cleansePressure: noop },
   enemies: [],
   projectiles: [],
   fx: { ring: noop, spawn: noop, physicalAttack(cue: PhysicalAttackCue) { cues.push(cue); } },
@@ -67,6 +67,7 @@ const game: GameType = Object.assign(Object.create(Game.prototype), {
     retaliations.push({ amount, element: opts.element });
   },
   bestTarget: () => null,
+  aimAngle: () => 0,
   regionAtPlayer: () => "aegean_cyclades",
   playerDied() { this.player.dead = true; },
   telegraph(x: number, y: number, _radius: number, time: number) {
@@ -102,6 +103,12 @@ function build(cls: ClassId, stage: "original" | "greek" | "royal" | "extreme"):
       while (item!.level < target) game.reforge(item!.uid);
       assert.equal(item!.level, target, "The measured equipment is reforged through the real anvil");
     }
+  }
+  if (stage === "extreme") {
+    // Stress the combat floor independently of the repaired post-campaign
+    // anvil curve, including oversized equipment imported by an older save.
+    p.equipment.armor!.stats.maxHealth = 200000;
+    p.equipment.armor!.stats.defense = 25000;
   }
   if (stage !== "original") for (const id of ["vigor", "mercy"]) p.flags.add(`aegean:mastery:${id}`);
   p.x = 800; p.y = 800;
@@ -185,12 +192,12 @@ try {
     }
     build(cls.id, "royal");
     const sweep = bossHit("aegean_leonidas", AEGEAN_ATTACKS.sweep, "none", 5);
-    assert(sweep >= 0.4 && sweep <= 0.8, `${cls.id}: the king's late sweep threatens40–80% of a prepared build (${sweep})`);
+    assert(sweep >= 0.5 && sweep < 1, `${cls.id}: the king's late sweep threatens at least half a prepared build without a full-health one-shot (${sweep})`);
     metrics.push(`royal ${cls.id}: late sweep ${(sweep * 100).toFixed(1)}% HP`);
 
     const veteran = build(cls.id, "extreme");
     assert(veteran.maxHp > 100000 && veteran.stats().defense > 10000,
-      "Actual repeated original reforges reproduce the otherwise invulnerable veteran build");
+      "Oversized legacy equipment exercises the otherwise invulnerable veteran build");
     const extremePool = bossHit("aegean_medusa", AEGEAN_ATTACKS.poison);
     const extremeThrust = bossHit("aegean_medusa", PHYSICAL_THRUST);
     const extremeHound = ordinaryHit("aegean_hound", 76, "aegean_threshold");
@@ -207,8 +214,15 @@ try {
       "The minimum is still absorbed by ordinary protective shields");
     assert(veteran.shield < veteran.maxHp * 0.2, "Absorption pays for the minimum hit");
     const extremeSweep = bossHit("aegean_leonidas", AEGEAN_ATTACKS.sweep, "none", 5);
-    assert(extremeSweep > 0.34 && extremeSweep < 0.35,
+    assert(extremeSweep > 0.53 && extremeSweep < 0.55,
       "The king remains the greater threat even at extreme armour and health");
+    const champion = bossHit("aegean_champion_spear", PHYSICAL_THRUST);
+    assert(champion >= .23 && champion < .24, "Island champion contact still threatens 23% HP against extreme armour");
+    const guard = bossHit("aegean_royal_guard", PHYSICAL_THRUST);
+    assert(guard > .14 && guard < .15, "Royal guard spears remain meaningful alongside the king");
+    assert.equal(bossHit("aegean_leonidas", AEGEAN_ATTACKS.sweep, "roll", 5), 0, "The king's stronger sweep still loses to a timed roll");
+    assert(bossHit("aegean_leonidas", AEGEAN_ATTACKS.sweep, "brace", 5) < extremeSweep * .7,
+      "The island minimum remains ordinary mitigatable damage");
     metrics.push(`extreme ${cls.id}: HP ${veteran.maxHp.toFixed(0)}, venom ${(extremePool * 100).toFixed(1)}%, thrust ${(extremeThrust * 100).toFixed(1)}%, royal sweep ${(extremeSweep * 100).toFixed(1)}%`);
   }
 
@@ -217,7 +231,7 @@ try {
   const noWard = bossHit("aegean_medusa", PHYSICAL_THRUST);
   assert(game.powers.activate(game.player.equipment.mainHand));
   const warded = bossHit("aegean_medusa", PHYSICAL_THRUST);
-  assert(warded > noWard * 0.7 && warded < noWard * 0.8,
+  assert(warded > noWard * 0.59 && warded < noWard * 0.61,
     "A real Greek protective field still reduces the minimum hit; it is not true damage");
   game.powers.reset();
   bossHit("aegean_medusa", AEGEAN_ATTACKS.volley);
@@ -252,6 +266,7 @@ try {
   reflectedVeteran.equipment.mainHand = makeItem("sword_iron", { plain: true });
   while (reflectedVeteran.equipment.mainHand.level < 95)
     game.reforge(reflectedVeteran.equipment.mainHand.uid);
+  reflectedVeteran.equipment.mainHand.stats.damage = 25000;
   assert(reflectedVeteran.attackPower() > 10000,
     "A heavily reforged weapon reproduces the reflected-attack-cap bypass");
   const mirror = makeItem("aegean_last_dawn_mirror", { plain: true,

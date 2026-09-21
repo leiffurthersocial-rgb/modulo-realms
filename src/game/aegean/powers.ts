@@ -278,8 +278,8 @@ export class AegeanPowers {
     const item = p.equipment.mainHand;
     const mark = this.marks.get(enemy.id);
     if (mark && mark.until > now) amount *= 1 + mark.bonus;
-    if (item?.aegeanPower === "aegean_storm_shot" && !mark)
-      this.marks.set(enemy.id, { until: now + 6, bonus: 0.12 });
+    if (item?.aegeanPower === "aegean_storm_shot")
+      this.marks.set(enemy.id, { until: now + 8, bonus: Math.max(.3, mark?.bonus ?? 0) });
     const distance = Math.max(
       0,
       Math.hypot(enemy.x - p.x, enemy.y - p.y) - enemy.radius,
@@ -500,16 +500,26 @@ export class AegeanPowers {
       p = g.player;
     const cdr = Math.min(0.35, p.stats().cooldownReduction / 100);
     this.cooldowns.set(def.id, g.now + def.cooldown * (1 - cdr));
+    const eventEmpowered = !!def.empowerEvent &&
+      g.now - (this.events.get(def.empowerEvent) ?? -100) <= (def.window ?? 6);
+    const comboEmpowered = def.empowerCondition === 'alternatingRange' && this.alternating >= (def.charges ?? 3);
+    const empowered = eventEmpowered || comboEmpowered;
+    const multiplier = empowered ? (def.empowerMultiplier ?? 1.5) : 1;
+    if (eventEmpowered) this.events.delete(def.empowerEvent!);
+    if (comboEmpowered) this.alternating = 0;
     this.busy = true;
     try {
-      for (const action of def.actions) this.apply(action, item, def);
+      for (const action of def.actions) this.apply(
+        action.type === 'damage' ? { ...action, multiplier: action.multiplier * multiplier } : action,
+        item, def,
+      );
     } finally {
       this.busy = false;
     }
     g.floatText(
       p.x,
       p.y - 46,
-      def.name,
+      empowered ? `${def.name} — Empowered` : def.name,
       item.rarity === "primordial" ? "#b9dcff" : "#efe0a3",
       12,
     );

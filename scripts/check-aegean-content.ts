@@ -57,10 +57,10 @@ assert.equal(
 assert.equal(new Set(AEGEAN_GEAR.map((item) => item.aegeanPower)).size, 36);
 assert.deepEqual(RARITY_ORDER.slice(-3), ["mythic", "olympian", "primordial"]);
 assert.equal(RARITY_POWER.olympian, 1.52);
-assert.equal(RARITY_POWER.primordial, 1.68);
+assert(RARITY_POWER.primordial >= RARITY_POWER.olympian * 2);
 for (const tier of ["olympian", "primordial"] as const) {
-  assert.equal(RARITY_AFFIXES[tier], 4);
-  assert.equal(RARITY_ENCHANT_SLOTS[tier], 4);
+  assert.equal(RARITY_AFFIXES[tier], tier === 'primordial' ? 6 : 4);
+  assert.equal(RARITY_ENCHANT_SLOTS[tier], tier === 'primordial' ? 6 : 4);
   assert(!ROLLABLE_RARITIES.includes(tier));
 }
 for (const item of AEGEAN_GEAR) {
@@ -118,9 +118,9 @@ for (const item of AEGEAN_GEAR) {
       },
     });
     assert.equal(legal.rarity, "primordial");
-    assert.equal(legal.enchantSlots, 4);
-    assert.equal(legal.enchants.length, 4);
-    assert.equal(legal.curve?.affixes.length, 4);
+    assert.equal(legal.enchantSlots, 6);
+    assert.equal(legal.enchants.length, 6);
+    assert.equal(legal.curve?.affixes.length, 6);
   }
 }
 for (const recipe of AEGEAN_RECIPES) {
@@ -529,7 +529,7 @@ function runtime() {
   );
   assert.equal(
     powers.cooldown(sceptre),
-    10,
+    AEGEAN_POWERS.aegean_flame_cycle.cooldown,
     "Practice time cannot discharge a real cooldown",
   );
   assert.equal(player.mp, mana);
@@ -539,12 +539,12 @@ function runtime() {
   assert(powers.activate(sceptre));
   assert.equal(
     hp - enemy.hp,
-    190,
+    460,
     "After restore, the second flame is the fan rather than another lance",
   );
   assert.equal(
     player.mp,
-    mana - 30,
+    mana - 24,
     "The restored cycle still spends its normal mana",
   );
 }

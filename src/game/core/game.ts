@@ -27,10 +27,10 @@ import { Enemy } from '../entities/enemy';
 import { NpcEntity } from '../entities/npcEntity';
 import { applyStatus, resetEntityIds, statusSpeedMul, type Entity } from '../entities/entity';
 import { MAX_SLOTS, addItem, addTemplate, countItem, equip, removeByDefId, removeItem, unequip } from '../items/inventory';
-import { makeItem, relevelItem, type ItemCurveMigration, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
+import { makeItem, refreshFromTemplate, relevelItem, type ItemCurveMigration, rollEnchants, rollLoot, sellValue, buyValue } from '../items/loot';
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
-import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, RARITY_LABEL, type EquipSlot, type Item, type Rarity } from '../items/types';
+import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, RARITY_LABEL, RARITY_ORDER, type EquipSlot, type Item, type Rarity } from '../items/types';
 import { DEFAULT_SWING_ARC, MAX_LEVEL, Player, SWING_ARC, skillPointsFor, type PlayerInit } from '../player/player';
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
@@ -1099,7 +1099,7 @@ export class Game implements WorldCtx {
     // Greek blows stay threatening even on very heavily reforged saves. This
     // is a floor, not extra damage; ordinary active defenses still apply below.
     if (opts.minHealthDamage && Number.isFinite(opts.minHealthDamage))
-      dmg = Math.max(dmg, p.maxHp * clamp(opts.minHealthDamage, 0, .45));
+      dmg = Math.max(dmg, p.maxHp * clamp(opts.minHealthDamage, 0, .55));
     // Health-based pressure cannot turn a large health pool into free offense.
     // Retaliation retains only the ordinary blow's share after active defenses.
     const retaliationScale = dmg > 0 ? Math.min(1, ordinaryDamage / dmg) : 1;
@@ -1219,17 +1219,18 @@ export class Game implements WorldCtx {
     // you happen to walk over it.
     if (item && item.rarity !== 'common' && item.rarity !== 'rare') {
       const c = RARITY_COLOR[item.rarity];
-      const top = item.rarity === 'legendary' || item.rarity === 'mythic';
+      const top = RARITY_ORDER.indexOf(item.rarity) >= RARITY_ORDER.indexOf('legendary');
       this.fx.ring(x, y, top ? 180 : 110, c);
       this.fx.spawn(x, y, top ? 46 : 24, c, { speed: 150, life: 1.1, size: 3, gravity: -70 });
       audio.play('quest', top ? 0.9 : 0.6);
       if (top || item.rarity === 'epic') {
-        const mythic = item.rarity === 'mythic';
+        const mythic = RARITY_ORDER.indexOf(item.rarity) >= RARITY_ORDER.indexOf('mythic');
         this.flashScreen(c, mythic ? 0.55 : top ? 0.4 : 0.22);
         this.freeze(mythic ? 0.22 : top ? 0.16 : 0.07);
         this.shake(mythic ? 20 : top ? 14 : 7);
         this.floatText(x, y - 54, RARITY_LABEL[item.rarity].toUpperCase(), c, mythic ? 26 : top ? 22 : 17);
         if (mythic) this.fx.ring(x, y, 260, c);
+        if (item.rarity === 'primordial') this.fx.ring(x, y, 320, '#fff3cf');
       }
     }
     const a = Math.random() * Math.PI * 2;
@@ -2165,8 +2166,12 @@ export class Game implements WorldCtx {
     const item = p.inventory.find((i) => i.uid === uid);
     if (!item || !item.consume) return;
     const c = item.consume;
-    if(c.cooldownGroup && (p.cooldowns[`consume:${c.cooldownGroup}`]??0)>0){this.toast('Still recovering',`${Math.ceil(p.cooldowns[`consume:${c.cooldownGroup}`])} seconds before another recovery draught.`,'#d4a465');return;}
-    if(c.cooldownGroup)p.cooldowns[`consume:${c.cooldownGroup}`]=c.cooldown??18;
+    // The island's recovery rule also covers valley elixirs and food. Otherwise
+    // switching stacks bypasses the draught cooldown and erases every mistake.
+    const islandRecovery = this.regionAtPlayer() === 'aegean_asterion' && !!(c.health || c.healthPct);
+    const recoveryGroup = islandRecovery ? 'recovery' : c.cooldownGroup;
+    if(recoveryGroup && (p.cooldowns[`consume:${recoveryGroup}`]??0)>0){this.toast('Still recovering',`${Math.ceil(p.cooldowns[`consume:${recoveryGroup}`])} seconds before another healing consumable.`,'#d4a465');return;}
+    if(recoveryGroup)p.cooldowns[`consume:${recoveryGroup}`]=islandRecovery?Math.max(18,c.cooldown??0):c.cooldown??18;
     if(c.resistance)p.resistances[c.resistance.status]={until:this.now+c.resistance.duration,multiplier:c.resistance.multiplier};
     if (c.health) p.hp = Math.min(p.maxHp, p.hp + c.health);
     if (c.healthPct) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * c.healthPct);
@@ -3680,8 +3685,16 @@ export class Game implements WorldCtx {
       relevelItem(item, item.level + 1);
     } else {
       item.level += 1;
-      for (const key of ['damage', 'defense', 'maxHealth', 'maxMana'] as const) {
-        if (item.stats[key] !== undefined) item.stats[key] = Math.round(item.stats[key]! * 1.11 + 1);
+      if (item.level > 75) {
+        // Beyond the original campaign, use the same template-owned stats that
+        // loading this item already restores. Repeated reforges cannot create
+        // temporary millions of damage that disappear on reload; rolled extra
+        // stats and the original level-75-and-below forge remain intact.
+        refreshFromTemplate(item);
+      } else {
+        for (const key of ['damage', 'defense', 'maxHealth', 'maxMana'] as const) {
+          if (item.stats[key] !== undefined) item.stats[key] = Math.round(item.stats[key]! * 1.11 + 1);
+        }
       }
       item.value = Math.round(item.value * 1.15);
       delete item.curve;

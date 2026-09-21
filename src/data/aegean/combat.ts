@@ -108,13 +108,15 @@ const BOSS_KITS: Record<string, Move[]> = {
   champion_storm: ['lightning', 'gust', 'tide'], leonidas: ['spear', 'charge', 'blade', 'lightning', 'shield', 'judgement'],
 };
 export function mythBossKit(slug: string): BossAttack[] {
+  const island = slug === 'leonidas' || slug.startsWith('champion_');
   return (BOSS_KITS[slug] ?? ['spear', 'charge', 'hammer']).map((name, index) => {
     const base: BossAttack = MYTH_ATTACKS[name];
     return { ...base, id: name === 'charge' ? 'charge' : `${slug}_${name}`, cooldown: 4.8 + index * .45,
-      power: base.power * 1.08, windup: Math.max(.72, base.windup),
-      radius: base.radius ? base.radius * 1.16 : undefined,
+      power: base.power * (island ? 1.38 : 1.08), windup: Math.max(island ? .68 : .72, base.windup - (island ? .06 : 0)),
+      swings: island && (name === 'blade' || name === 'judgement') ? 3 : base.swings,
+      radius: base.radius ? base.radius * (island && base.shape === 'cone' ? 1.32 : 1.16) : undefined,
       innerRadius: base.innerRadius ? base.innerRadius * 1.12 : undefined,
-      range: (base.range ?? 340) * 1.15,
+      range: (base.range ?? 340) * (island && (base.shape === 'dash' || base.shape === 'leap') ? 1.4 : 1.15),
       count: base.count ? base.count : undefined,
     };
   });

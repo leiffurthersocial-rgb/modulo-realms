@@ -1,7 +1,7 @@
 import type { Player } from '../player/player';
 import { EQUIP_SLOTS } from '../player/player';
 import { makeItem } from './loot';
-import { isEquippable, type EquipSlot, type Item } from './types';
+import { isEquippable, RARITY_ORDER, type EquipSlot, type Item } from './types';
 
 export const MAX_SLOTS = 40;
 
@@ -102,10 +102,9 @@ export function equippedComparison(player: Player, item: Item): Item | null {
 
 export function sortInventory(list: Item[]): void {
   const order: Record<string, number> = { weapon: 0, armor: 1, accessory: 2, consumable: 3, material: 4, quest: 5, misc: 6 };
-  const rarityOrder: Record<string, number> = { legendary: 0, epic: 1, superRare: 2, rare: 3, common: 4 };
   list.sort((a, b) =>
     (order[a.type] - order[b.type]) ||
-    (rarityOrder[a.rarity] - rarityOrder[b.rarity]) ||
+    (RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity)) ||
     (b.level - a.level) ||
     a.name.localeCompare(b.name));
 }
