@@ -1529,3 +1529,152 @@ canvas.world {
   .recent-reward { left:10px; bottom:166px; max-width:200px; padding:4px; }
 }
 .next-action-card .next-part { position:static; display:block; padding:6px 0 0; color:#f0c963; text-align:left; }
+
+/* ------------------------------------------------------------------ */
+/* Casino tables                                                       */
+/* ------------------------------------------------------------------ */
+
+.cas-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  gap: 14px;
+  padding: 14px;
+  min-height: 0;
+}
+
+.cas-table {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 18px 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  /* The baize, lit from above the way the table is in the room. */
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 62%),
+    linear-gradient(180deg, #2d8049, #1c5330);
+  box-shadow: inset 0 0 0 4px #4a2f20, inset 0 0 26px rgba(6, 5, 10, 0.5);
+}
+
+.cas-hand { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+.cas-card {
+  position: relative;
+  width: 60px;
+  height: 86px;
+  border-radius: 4px;
+  border: 1px solid #0f0d14;
+  background: linear-gradient(180deg, #fdf8ef, #e6ddcd);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0;
+  font-family: inherit;
+  cursor: default;
+  box-shadow: 0 3px 8px rgba(6, 5, 10, 0.45);
+}
+
+.cas-card.pickable { cursor: pointer; }
+.cas-card.pickable:hover { transform: translateY(-3px); }
+.cas-card.held { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.cas-card.back {
+  background:
+    repeating-linear-gradient(45deg, #6d2330 0 5px, #4e1723 5px 10px);
+  border-color: #2a1220;
+}
+
+.cas-card-rank { font-size: 21px; font-weight: 700; line-height: 1; }
+.cas-card-suit { font-size: 19px; line-height: 1; }
+
+.cas-held {
+  position: absolute;
+  bottom: 4px;
+  font-size: 8.5px;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+
+.cas-reels { display: flex; gap: 12px; }
+
+.cas-reel {
+  width: 76px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  border: 2px solid var(--gold-dim);
+  background: linear-gradient(180deg, #16131f, #0c0a12);
+  font-size: 40px;
+  line-height: 1;
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.6);
+}
+
+.cas-reel.spinning { border-color: var(--gold); }
+
+.cas-status { min-height: 20px; font-size: 13px; text-align: center; }
+.cas-hint { color: var(--muted); }
+.cas-win { color: var(--gold); font-weight: 600; }
+.cas-lose { color: var(--muted); }
+
+.cas-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.cas-stakes { display: flex; gap: 5px; }
+
+.cas-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 10px;
+  min-width: 0;
+}
+
+.cas-side-head {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.cas-ladder { display: flex; flex-direction: column; gap: 2px; }
+
+.cas-rung {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text);
+  padding: 3px 5px;
+  border-radius: 2px;
+}
+
+.cas-rung.hit { background: rgba(216, 176, 106, 0.18); color: var(--gold); }
+.cas-mult { color: var(--muted); }
+.cas-rung.hit .cas-mult { color: var(--gold); }
+
+.cas-purse {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--edge);
+  padding-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cas-purse > div { display: flex; justify-content: space-between; gap: 8px; }
+
+@media (max-width: 760px) {
+  .cas-body { grid-template-columns: minmax(0, 1fr); }
+  .cas-card { width: 48px; height: 70px; }
+  .cas-card-rank { font-size: 17px; }
+  .cas-card-suit { font-size: 15px; }
+  .cas-reel { width: 60px; height: 74px; font-size: 32px; }
+}

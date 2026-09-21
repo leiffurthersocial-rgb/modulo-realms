@@ -142,6 +142,15 @@ const legacy = generateLegacyOverworld(seed);
 if (seed === baseline.seed) {
   assert.equal(legacy.w, baseline.w);
   assert.equal(legacy.h, baseline.h);
+  // Two questions, two baselines. `sha256` is the pre-Aegean world and never
+  // moves: it is what proves the Greek work has not reached back into the
+  // valley. `documentedChanges` records the edits the owner has since asked
+  // for in the old world, and only the fields it names are allowed to differ.
+  // Everything else — regions, spawns, chests — is still held against the
+  // frozen hash, so a change that quietly moves an enemy or a chest in the
+  // old world still fails here.
+  const documented = baseline.documentedChanges;
+  const allowed = new Set(documented.changes.flatMap((c) => c.fields));
   for (const key of [
     "tiles",
     "regions",
@@ -154,10 +163,29 @@ if (seed === baseline.seed) {
       key === "tiles" || key === "regions"
         ? legacy[key]!
         : JSON.stringify(legacy[key]);
+    const actual = createHash("sha256").update(bytes).digest("hex");
+    if (allowed.has(key)) {
+      assert.equal(
+        actual,
+        documented.sha256After[key],
+        `${key}: does not match the documented post-${baseline.baseCommit} west world. ` +
+          `Either this change was not intended, or it needs an entry in ` +
+          `documentedChanges and a re-record via scripts/record-aegean-legacy-baseline.mjs.`,
+      );
+    } else {
+      assert.equal(
+        actual,
+        baseline.sha256[key],
+        `${key}: frozen git ${baseline.baseCommit} baseline`,
+      );
+    }
+  }
+  // A field nobody claimed must not have drifted either.
+  for (const key of ["regions", "spawns", "chests"] as const) {
     assert.equal(
-      createHash("sha256").update(bytes).digest("hex"),
       baseline.sha256[key],
-      `${key}: frozen git ${baseline.baseCommit} baseline`,
+      documented.sha256After[key],
+      `${key}: must never be listed as a documented west-world change`,
     );
   }
 }

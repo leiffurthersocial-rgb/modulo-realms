@@ -4,7 +4,7 @@ import { RNG } from '../core/rng';
 import { T, TILE } from './tiles';
 import { buildPropGrid, createMap, fillRect, setTile, type GameMap, type PropInstance } from './map';
 
-type InteriorKind = 'home' | 'inn' | 'smithy' | 'store' | 'apothecary' | 'hall' | 'chapel' | 'farm' | 'cottage';
+type InteriorKind = 'home' | 'inn' | 'smithy' | 'store' | 'apothecary' | 'hall' | 'chapel' | 'farm' | 'casino' | 'cottage';
 
 interface InteriorSpec {
   kind: InteriorKind;
@@ -24,6 +24,7 @@ const SPECS: Record<string, InteriorSpec> = {
   int_hall: { kind: 'hall', name: 'Ashvale Moot Hall', w: 23, h: 16, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
   int_chapel: { kind: 'chapel', name: 'Chapel of the Last Light', w: 17, h: 17, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
   int_farm: { kind: 'farm', name: 'Fallow Farmhouse', w: 19, h: 13, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD },
+  int_casino: { kind: 'casino', name: 'The Gilded Spade', w: 23, h: 17, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
 };
 
 const defaultSpec = (name: string): InteriorSpec => ({ kind: 'cottage', name, w: 15, h: 12, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD });
@@ -36,9 +37,13 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
   const { w, h } = spec;
   const cx = Math.floor(w / 2);
 
-  // hearth on the back wall for every interior
-  prop(map, 2, 2, 'forge', { cw: 30, ch: 14, light: 200, lightColor: '#e8763a' });
-  prop(map, w - 3, 1, 'bookshelf', { cw: 34, ch: 12 });
+  // Hearth on the back wall for every interior that is somebody's home or
+  // workplace. The casino is the exception: it is lit by its own signage and
+  // an open fire in the corner would fight the room for attention.
+  if (spec.kind !== 'casino') {
+    prop(map, 2, 2, 'forge', { cw: 30, ch: 14, light: 200, lightColor: '#e8763a' });
+    prop(map, w - 3, 1, 'bookshelf', { cw: 34, ch: 12 });
+  }
 
   switch (spec.kind) {
     case 'home':
@@ -119,6 +124,57 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
       for (let i = 0; i < 4; i++) prop(map, 3 + i * 3, h - 3, 'sack', { cw: 16, ch: 10 });
       prop(map, 2, 4, 'hay', { cw: 26, ch: 12 });
       break;
+    case 'casino': {
+      // Carpet laid over flagstones rather than wall-to-wall, so the room has
+      // a stone border to walk in on and the red reads as a floor covering
+      // instead of as the floor itself.
+      fillRect(map, 2, 2, w - 4, h - 4, T.FLOOR_CARPET);
+      // The games go down the middle where the player walks in on them:
+      // the house games down the middle where the player walks in on them, the
+      // machines and the bar along the back wall, and the punters at the edges.
+      const backY = 3;
+      prop(map, cx, backY, 'card_table', { cw: 64, ch: 20 });
+      prop(map, cx, backY + 3, 'poker_table', { cw: 68, ch: 22, interact: 'poker', label: 'Sit down at the poker table' });
+      for (let i = 0; i < 2; i++) {
+        prop(map, 3 + i * 2, backY - 1, 'slot_machine', {
+          cw: 22, ch: 12, light: 80, lightColor: '#f6bf5d', phase: i * 0.7,
+          interact: 'slots', label: 'Play the slot machine',
+        });
+      }
+      // the bar, back right
+      prop(map, w - 4, backY - 1, 'bookshelf', { cw: 34, ch: 12 });
+      prop(map, w - 6, backY, 'table', { cw: 40, ch: 14 });
+      prop(map, w - 7, backY + 1, 'barrel', { cw: 16, ch: 10 });
+      // punters' tables down the right-hand wall
+      for (let i = 0; i < 2; i++) {
+        prop(map, w - 5, 7 + i * 4, 'table', { cw: 40, ch: 14 });
+        prop(map, w - 6, 8 + i * 4, 'chair', { cw: 16, ch: 10 });
+        prop(map, w - 3, 8 + i * 4, 'chair', { cw: 16, ch: 10 });
+        prop(map, w - 5, 6 + i * 4, 'chip_stack', { cw: 14, ch: 8 });
+      }
+      // Stools hug the poker table rather than ringing it at a distance. Two
+      // lanes have to stay clear or the room stops working: the line straight
+      // up from the door, which is how the player reaches the table at all,
+      // and the aisles down both walls, which are how they get past it to the
+      // dealer and the bar. Furniture in either one leaves the player stuck
+      // just outside arm's reach of the thing they walked in to use.
+      for (const dx of [-3, 3]) prop(map, cx + dx, backY + 3, 'chair', { cw: 16, ch: 10 });
+      for (const dx of [-2, 2]) prop(map, cx + dx, backY + 5, 'chair', { cw: 16, ch: 10 });
+      for (const dx of [-2, 2]) prop(map, cx + dx, backY + 2, 'chair', { cw: 16, ch: 10 });
+      // crimson banners and a crown over the house table
+      prop(map, cx - 4, 1, 'casino_banner', { cw: 8, ch: 4 });
+      prop(map, cx + 4, 1, 'casino_banner', { cw: 8, ch: 4 });
+      prop(map, 2, 1, 'casino_banner', { cw: 8, ch: 4 });
+      prop(map, w - 3, 1, 'casino_banner', { cw: 8, ch: 4 });
+      prop(map, 2, h - 4, 'planter', { cw: 20, ch: 10 });
+      prop(map, w - 3, h - 4, 'planter', { cw: 20, ch: 10 });
+      prop(map, 3, h - 6, 'chip_stack', { cw: 14, ch: 8 });
+      // the room is lit cold and low, not by a hearth
+      for (const [tx, ty] of [[1, 4], [1, 10], [w - 2, 4], [w - 2, 10], [1, h - 3], [w - 2, h - 3]]) {
+        prop(map, tx, ty, 'torch', { light: 150, lightColor: '#f6bf5d', cw: 6, ch: 4 });
+      }
+      break;
+    }
     default:
       // Every lodge earns its door: somewhere to sleep and the same stash you
       // keep at home, so a settlement is a real forward base.
@@ -132,8 +188,10 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
       break;
   }
 
-  // wall sconces
-  for (let tx = 3; tx < w - 2; tx += 5) prop(map, tx, 1, 'torch', { light: 160, lightColor: '#f6bf5d', cw: 6, ch: 4 });
+  // wall sconces (the casino places its own, around the banners)
+  if (spec.kind !== 'casino') {
+    for (let tx = 3; tx < w - 2; tx += 5) prop(map, tx, 1, 'torch', { light: 160, lightColor: '#f6bf5d', cw: 6, ch: 4 });
+  }
   void id;
 }
 

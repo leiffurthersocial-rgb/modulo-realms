@@ -17,5 +17,36 @@
     "portals": "d2c22ca98d4dba94b68246a0836b9ba6f7d4d42866d5ed55de4be25de5904cdb",
     "spawns": "8be9f19fa4a8f11f497ce86cecc9979cfd4b6cd0a0ee270066e5ed87f4f88501",
     "chests": "085da26618841ea8d72dd931ca432f1b105ed361f7f665143c77ed990b3df1aa"
+  },
+  "documentedChanges": {
+    "note": "Deliberate edits to the original west world made after d39d75a, each one asked for by the owner. 'sha256' above stays pinned to the pre-Aegean world and is what proves the Aegean work never touched the valley; 'sha256After' is what the west world is supposed to look like today. Only the fields listed in 'changes' may differ between the two - regions, spawns and chests are still compared against the frozen hashes, so a change that moves an enemy or a chest in the old world still fails. Re-record with scripts/record-aegean-legacy-baseline.mjs and add an entry here.",
+    "changes": [
+      {
+        "id": "ashvale_casino",
+        "what": "The Gilded Spade replaced the shuttered townhouse on Ashvale's west lane.",
+        "fields": [
+          "tiles",
+          "props",
+          "portals"
+        ],
+        "tiles": "7 tiles repaved as the forecourt, inside tx 450..456, ty 445..446",
+        "props": "-1 bld:townhouse, +1 bld:casino, +casino_marquee, +casino_sign, +2 casino_lamp, +1 bench, +1 planter",
+        "portals": "+1 door to int_casino"
+      }
+    ],
+    "counts": {
+      "props": 95375,
+      "portals": 45,
+      "spawns": 2850,
+      "chests": 99
+    },
+    "sha256After": {
+      "tiles": "245129e56e88b848ca52cc44df9c7dfa853b9546ebcc0cc25536ab23e0bf1346",
+      "regions": "b17bef8ce88be0f80794f5baf83e23f4ec8e8c53fdba4e0b2b7deb2248c3f95c",
+      "props": "0c52021d31a6f832e8406377587f1749ae2e73012250db267bf32bdeef9ea800",
+      "portals": "f8dea7110c56a700784463efffd51eaf9fafc17d6749af1c51303f5602a4c37a",
+      "spawns": "8be9f19fa4a8f11f497ce86cecc9979cfd4b6cd0a0ee270066e5ed87f4f88501",
+      "chests": "085da26618841ea8d72dd931ca432f1b105ed361f7f665143c77ed990b3df1aa"
+    }
   }
 }

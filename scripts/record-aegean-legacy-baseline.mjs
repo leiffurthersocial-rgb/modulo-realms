@@ -5,7 +5,7 @@
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { posix } from 'node:path';
 
 const baseCommit = 'd39d75a';
@@ -32,7 +32,36 @@ for (const key of ['tiles', 'regions', 'props', 'portals', 'spawns', 'chests']) 
   const bytes = key === 'tiles' || key === 'regions' ? map[key] : JSON.stringify(map[key]);
   sha256[key] = createHash('sha256').update(bytes).digest('hex');
 }
+// The working tree's own west world, for the documented-changes record. The
+// frozen hashes above answer "has the Aegean work disturbed the old world?".
+// This second set answers "is the old world still exactly what we last agreed
+// it should be?", which is a different question once the owner has asked for
+// a deliberate change to a town.
+const { generateLegacyOverworld } = await import('../src/game/world/worldgen.ts')
+  .catch(async () => {
+    const r = await build({ entryPoints: ['src/game/world/worldgen.ts'], bundle: true, platform: 'node', format: 'esm', write: false });
+    return import(`data:text/javascript;base64,${Buffer.from(r.outputFiles[0].text).toString('base64')}`);
+  });
+const current = generateLegacyOverworld(seed);
+const sha256After = {};
+for (const key of ['tiles', 'regions', 'props', 'portals', 'spawns', 'chests']) {
+  const bytes = key === 'tiles' || key === 'regions' ? current[key] : JSON.stringify(current[key]);
+  sha256After[key] = createHash('sha256').update(bytes).digest('hex');
+}
+const changed = Object.keys(sha256).filter((k) => sha256[k] !== sha256After[k]);
+
+const existing = JSON.parse(readFileSync('scripts/aegean-legacy-baseline.json', 'utf8'));
 const snapshot = { baseCommit, seed, w: map.w, h: map.h, maxContentLevel: 75,
-  counts: Object.fromEntries(['props', 'portals', 'spawns', 'chests'].map(k => [k, map[k].length])), sha256 };
+  counts: Object.fromEntries(['props', 'portals', 'spawns', 'chests'].map(k => [k, map[k].length])), sha256,
+  documentedChanges: {
+    note: existing.documentedChanges?.note
+      ?? 'Deliberate post-d39d75a edits to the original west world, approved by the owner.',
+    changes: existing.documentedChanges?.changes ?? [],
+    counts: Object.fromEntries(['props', 'portals', 'spawns', 'chests'].map(k => [k, current[k].length])),
+    sha256After,
+  } };
 writeFileSync('scripts/aegean-legacy-baseline.json', `${JSON.stringify(snapshot, null, 2)}\n`);
 console.log(`Recorded frozen ${baseCommit} world: ${map.w} × ${map.h}, seed ${seed}.`);
+console.log(changed.length
+  ? `Working tree differs from the frozen world in: ${changed.join(', ')}.`
+  : 'Working tree matches the frozen world exactly.');
