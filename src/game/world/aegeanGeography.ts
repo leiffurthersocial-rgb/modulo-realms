@@ -266,16 +266,16 @@ function islandTerrain(
   // Related islands share a sea, not a carpet: each landfall has a distinctive
   // material mix supporting its authored ruins, orchards and local stories.
   switch (island.id) {
-    case "gorgon": return m > 0.55 ? T.LIMESTONE : m < 0.33 ? T.PUMICE : T.THYME_SCRUB;
-    case "erytheia": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.EUROTAS_EARTH : T.GOLDEN_TERRACE;
-    case "amazon": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.EUROTAS_EARTH : T.AEGEAN_GRASS;
-    case "delos": return m > 0.55 ? T.GOLDEN_TERRACE : m < 0.33 ? T.LIMESTONE : T.THYME_SCRUB;
-    case "thalke": return m > 0.55 ? T.THYME_SCRUB : m < 0.33 ? T.EUROTAS_EARTH : T.LIMESTONE;
+    case "gorgon": return x < island.tx - 6 + Math.sin(y * .18) * 4 ? T.PUMICE : m > .55 ? T.LIMESTONE : T.THYME_SCRUB;
+    case "erytheia": return y < island.ty - 13 + Math.sin(x * .12) * 6 ? T.EUROTAS_EARTH : m > .57 ? T.VINEYARD_SOIL : T.GOLDEN_TERRACE;
+    case "amazon": return m > .44 ? T.LAUREL_FLOOR : x < island.tx ? T.REED_BANK : T.EUROTAS_EARTH;
+    case "delos": return Math.hypot(x - island.tx, y - island.ty) < 10 ? T.MARBLE : m > .5 ? T.GOLDEN_TERRACE : T.LIMESTONE;
+    case "thalke": return Math.sin(y * .16 + Math.sin(x * .12)) > .65 ? T.OBSIDIAN : m > .55 ? T.BRONZE_FLOOR : T.PUMICE;
     case "cyclops_table": return m > 0.55 ? T.THYME_SCRUB : m < 0.33 ? T.PUMICE : T.LIMESTONE;
-    case "sister_west": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.SHELL_BEACH : T.AEGEAN_GRASS;
+    case "sister_west": return m > .53 ? T.REED_BANK : m < .37 ? T.SHELL_BEACH : T.DELTA_SILT;
     case "sister_middle": return m > 0.55 ? T.GOLDEN_GARDEN : m < 0.33 ? T.LIMESTONE : T.GOLDEN_TERRACE;
-    case "sister_east": return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.EUROTAS_EARTH : T.THYME_SCRUB;
-    case "drowned_lyre": return m > 0.55 ? T.REED_BANK : m < 0.33 ? T.LIMESTONE : T.THYME_SCRUB;
+    case "sister_east": return m > .55 ? T.OBSIDIAN : m < .33 ? T.LIMESTONE : T.STORM_HEATH;
+    case "drowned_lyre": return Math.hypot((x - island.tx) * .7, y - island.ty) < 11 ? T.MARBLE : m > .5 ? T.REED_BANK : T.DELTA_SILT;
     default: return m > 0.55 ? T.LAUREL_FLOOR : m < 0.33 ? T.LIMESTONE : e < 0.42 ? T.THYME_SCRUB : T.AEGEAN_GRASS;
   }
 }
@@ -641,11 +641,10 @@ function river(
           i = y * map.w + x;
         if (x < 970 || y < 8 || y >= map.h - 8 || map.landmasses![i] !== 1)
           continue;
-        const d = Math.hypot(dx, dy);
-        if (d < w - 1.4) map.tiles[i] = T.AEGEAN_SPRING;
-        else if (d < w) map.tiles[i] = T.AEGEAN_SPRING;
-        else if (d < w + 1.7 && !isWater(map.tiles[i]))
-          map.tiles[i] = map.regions![i] === 19 ? T.DELTA_SILT : T.SHELL_BEACH;
+        const d = Math.hypot(dx, dy), bank = w + (fbm(x * .2, y * .2, seed + 927, 2) - .5) * 1.8;
+        if (d < Math.max(1.5, bank - .5)) map.tiles[i] = T.AEGEAN_SPRING;
+        else if (d < bank + 1.5 && !isWater(map.tiles[i]))
+          map.tiles[i] = map.regions![i] === 19 || fbm(x * .09, y * .09, seed + 931, 2) > .48 ? T.DELTA_SILT : T.REED_BANK;
       }
   });
 }
@@ -803,9 +802,12 @@ export function aegeanPath(
     }
   }
   curve(points, (cx, cy) => {
+    const shoulder = width + (fbm(cx * .17, cy * .17, seed + 331, 2) - .5) * .9;
     for (let dy = -width; dy <= width; dy++)
       for (let dx = -width; dx <= width; dx++) {
-        if (Math.hypot(dx, dy) > width) continue;
+        // Keep a full cross-shaped walking core at diagonal curve samples.
+        // Only the shoulders erode; a one-tile diagonal cannot carry a player.
+        if (Math.hypot(dx, dy) > Math.max(1, shoulder)) continue;
         const x = Math.round(cx) + dx,
           y = Math.round(cy) + dy,
           i = y * map.w + x;
@@ -822,9 +824,9 @@ export function aegeanPath(
           ? T.BRIDGE
           : isSolid(tile)
             ? (x >= 960 ? T.LIMESTONE : T.GRAVEL)
-            : width > 1
-              ? T.ROAD
-              : T.ROAD_DIRT;
+            : width > 1 && Math.hypot(dx, dy) < .8
+              ? T.ROAD_DIRT
+              : (fbm(x * .22, y * .22, seed + 333, 2) > .6 ? T.LIMESTONE : T.ROAD_DIRT);
       }
   });
 }

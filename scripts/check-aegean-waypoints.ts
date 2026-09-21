@@ -16,7 +16,10 @@ for (const adventure of AEGEAN_ADVENTURES.filter((a) => !a.surfaceMap && a.regio
 for (const port of AEGEAN_PORTS.filter((p) => p.id !== 'aegean_asterion')) {
   assert.ok(ids.has(`aegean_harbour_${port.id.slice(7)}`), `${port.id}: harbour coverage`);
 }
-assert.ok(!ids.has('aegean_leonidas') && !ids.has('aegean_harbour_asterion'), 'The storm island stays sea-only');
+assert.ok(ids.has('aegean_leonidas') && ids.has('aegean_harbour_asterion'), 'The storm island gains real return waystones');
+assert.ok(aegeanWaystoneAccess('aegean_leonidas', fresh), 'The royal shortcut cannot skip the first voyage');
+assert.ok(aegeanWaystoneAccess('aegean_leonidas', { ...fresh, armyDefeated: true }), 'Victory without an actual landing is insufficient');
+assert.equal(aegeanWaystoneAccess('aegean_leonidas', { ...fresh, armyDefeated: true, visitedPorts: ['aegean_asterion'] }), null);
 for (const stone of AEGEAN_WAYSTONES)
   assert.ok(WAYSTONE_SITES.some((loc) => loc.id === stone.id), `${stone.id}: original travel menu knows it`);
 

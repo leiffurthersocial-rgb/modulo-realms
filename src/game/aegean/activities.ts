@@ -1,3 +1,6 @@
+import { TEMPLATE_BY_ID } from "../../data/items";
+import { AEGEAN_ISLANDS } from "../../data/aegean/world";
+import { AEGEAN_ISLAND_ECOLOGY, AEGEAN_MAINLAND_ECOLOGY } from "../../data/aegean/ecology";
 import { prepareAegeanActivityGround } from "../world/aegean";
 import type { Game } from "../core/game";
 import {
@@ -106,6 +109,12 @@ export interface ActivityRun {
   wave: number;
   escort?: { x: number; y: number; hp: number };
   sequence: number[];
+  charge?: number;
+  pulse?: number;
+  hitAt?: number;
+  chargingIndex?: number;
+  /** Failure waits for a deliberate regroup, never an unattended spawn loop. */
+  retry?: { x: number; y: number; left: boolean };
 }
 export interface ActivitiesSave {
   runs: Record<string, ActivityRun>;
@@ -117,6 +126,8 @@ export class AegeanActivities {
   state: ActivitiesSave = { runs: {}, active: null, cooldowns: {} };
   private props = new WeakMap<GameMap, Map<string, PropInstance[]>>();
   private trails = new Map<string, Array<{ x: number; y: number }>>();
+  private previousAttack = 0;
+  private autoCheck = 0;
   constructor(public game: Game) {}
   private stations(id: string): PropInstance[] {
     let cached = this.props.get(this.game.map);
@@ -146,7 +157,7 @@ export class AegeanActivities {
     this.clearActors(id);
     const r = this.state.runs[id],
       s = this.current;
-    if (r && (s?.type === "defend" || s?.type === "escort")) {
+    if (r && (s?.type === "defend" || s?.type === "escort" || this.actionStep(s))) {
       r.started = false;
       r.timer = 0;
       r.wave = 0;
@@ -158,6 +169,7 @@ export class AegeanActivities {
   reset(): void {
     this.state = { runs: {}, active: null, cooldowns: {} };
     this.trails.clear();
+    this.previousAttack = 0; this.autoCheck = 0;
   }
   snapshot(): ActivitiesSave {
     return structuredClone(this.state);
@@ -169,6 +181,8 @@ export class AegeanActivities {
       run.started = false;
       run.timer = 0;
       run.wave = 0;
+      run.charge = 0; run.pulse = 0; run.hitAt = undefined; run.retry = undefined;
+      if (this.actionStep(AEGEAN_ACTIVITY_BY_ID[run.id]?.steps[run.step])) { run.progress = 0; run.visited = []; }
     }
   }
   get active(): AegeanActivity | undefined {
@@ -186,6 +200,8 @@ export class AegeanActivities {
     if (!a || !s) return "";
     const r = this.state.runs[a.id];
     const target = this.target;
+    if (r.retry) return `REGROUP · return to ${target?.name ?? a.name}`;
+    if (this.actionStep(s)) return `${s.type === "strike" ? "STRIKE" : s.type === "race" ? "RUN" : s.type === "dodge" ? "SAFE CIRCLE" : "HOLD CIRCLE"} · ${r.progress}/${s.count}${s.type === "race" && r.started ? ` · ${Math.ceil(Math.max(0, (s.duration ?? 18) - r.timer))}s` : ""} · ${target?.name ?? a.name}`;
     return `${a.name}: ${s.label}${s.type === "defend" && r?.started ? ` (${Math.ceil(Math.max(0, (s.duration ?? 25) - r.timer))}s)` : target ? ` — ${target.name}` : ""}`;
   }
   /** The existing compass and journal follow the real next object. */
@@ -195,8 +211,10 @@ export class AegeanActivities {
     const r = this.state.runs[a.id], stations = this.stations(a.id);
     if (!r) return null;
     let index = 0;
-    if (step.type === "puzzle") index = step.sequence?.[r.progress] ?? 0;
+    if (r.retry) index = 0;
+    else if (step.type === "puzzle") index = step.sequence?.[r.progress] ?? 0;
     else if (step.type === "escort") index = r.started ? r.progress + 1 : 0;
+    else if (this.actionStep(step)) index = Number(stations.find(p => Number(p.data?.index) > 0 && !r.visited.includes(Number(p.data?.index)))?.data?.index ?? 0);
     else if ((step.type === "interact" && step.count > 1) || step.type === "visit") {
       index = Number(stations.find(p => Number(p.data?.index) > 0 &&
         Number(p.data?.index) <= step.count && !r.visited.includes(Number(p.data?.index)))?.data?.index ?? 0);
@@ -204,11 +222,13 @@ export class AegeanActivities {
     const prop = stations.find(p => p.data?.index === index);
     return prop ? { x: prop.x, y: prop.y, name: prop.label ?? a.name } : null;
   }
+  private actionStep(step?: AegeanStep): boolean { return !!step && ["channel", "strike", "race", "dodge"].includes(step.type); }
   private signal(a: AegeanActivity, step: AegeanStep): string {
     const objects = AEGEAN_ACTIVITY_SCENES[a.id]?.objects ?? [];
     return (step.sequence ?? []).map(index => objects[index - 1]?.name ?? "the mechanism").join(" → ");
   }
   private instruction(a: AegeanActivity, step: AegeanStep): string {
+    if (this.actionStep(step)) return `${step.label}. Follow the glowing circles.`;
     if (step.type === "puzzle") return `${step.label}: ${this.signal(a, step)}.`;
     if (step.type === "defend") return `${step.label}. Keep close to ${AEGEAN_ACTIVITY_SCENES[a.id].anchor.name.toLowerCase()}.`;
     if (step.type === "escort") return `${step.label}. Keep your companion close; the compass points to the next stop.`;
@@ -218,13 +238,13 @@ export class AegeanActivities {
     this.trails.clear();
     for (const [id, r] of Object.entries(this.state.runs)) {
       const step = AEGEAN_ACTIVITY_BY_ID[id]?.steps[r.step];
-      if (step?.type === "defend" || step?.type === "escort") {
+      if (step?.type === "defend" || step?.type === "escort" || this.actionStep(step)) {
         r.started = false;
         r.timer = 0;
         r.wave = 0;
         r.escort = undefined;
         r.progress = 0;
-        r.visited = [];
+        r.visited = []; r.hitAt = undefined; r.charge = 0; r.pulse = 0; r.retry = undefined;
       }
     }
   }
@@ -264,7 +284,7 @@ export class AegeanActivities {
     g.quests.accept(id);
     g.trackedQuest = id;
     this.syncJournal(a);
-    g.toast(a.name, a.summary, "#8bcacb");
+    g.toast(a.name, this.instruction(a, a.steps[this.state.runs[id].step]), "#8bcacb");
     g.touch();
     return true;
   }
@@ -292,6 +312,11 @@ export class AegeanActivities {
     const idx = Number(prop.data?.index ?? 0);
     if (step.requires?.some((req) => !g.campaign.has(req))) {
       g.toast(step.label, "The required deed is not yet complete.", "#8bcacb");
+      return true;
+    }
+    if (this.actionStep(step)) {
+      this.beginAction(a, r);
+      g.toast(a.name, this.instruction(a, step), "#8bcacb");
       return true;
     }
     if (idx === 0) {
@@ -355,6 +380,7 @@ export class AegeanActivities {
     if (r.escort) return;
     const g = this.game;
     r.escort = { x: g.player.x, y: g.player.y, hp: 100 };
+    r.retry = undefined;
     r.started = true;
     this.trails.set(a.id, []);
     this.spawnWave(a, r);
@@ -373,13 +399,10 @@ export class AegeanActivities {
       p = g.player;
     const marine = boxHitsTerrain(g.map, p.x, p.y, 10, 8);
     const profile = marine ? "swimmer" : "foot";
-    const id = marine
-      ? "aegean_serpent"
-      : a.region.includes("ash")
-        ? "aegean_oath_shade"
-        : a.region.includes("lerna")
-          ? "aegean_serpent"
-          : "aegean_harpy";
+    const index = Math.floor(p.y / TILE) * g.map.w + Math.floor(p.x / TILE);
+    const island = AEGEAN_ISLANDS.find(i => i.landmass === g.map.landmasses?.[index]);
+    const ecology = island ? AEGEAN_ISLAND_ECOLOGY[island.id] : AEGEAN_MAINLAND_ECOLOGY[g.map.regions?.[index] ?? 20];
+    const roster = marine ? ["aegean_telchine", "aegean_nereid", "aegean_ichthyocentaur"] : ecology?.enemies ?? ["aegean_erinys", "aegean_spartoi", "aegean_eidolon"];
     for (let n = 0; n < 3; n++) {
       const angle = n * 2.1 + r.wave;
       const pt = findOpenNear(
@@ -392,11 +415,12 @@ export class AegeanActivities {
         profile,
       );
       if (boxHitsTerrain(g.map, pt.x, pt.y, 14, 12, profile)) continue;
-      const e = new Enemy(id, pt.x, pt.y, a.level, {
+      const e = new Enemy(roster[(r.wave + n) % roster.length], pt.x, pt.y, a.level, {
         spawnId: `activity:${a.id}:${r.wave}:${n}`,
         region: a.region,
       });
-      e.movementProfile = profile;
+      e.movementProfile = marine ? "swimmer" : e.movementProfile;
+      e.state = "chase";
       g.enemies.push(e);
     }
     r.wave++;
@@ -411,6 +435,7 @@ export class AegeanActivities {
     r.escort = undefined;
     r.sequence = [];
     r.wave = 0;
+    r.charge = 0; r.pulse = 0; r.hitAt = undefined; r.retry = undefined;
     const g = this.game;
     if (r.step >= a.steps.length) {
       const already = g.campaign.has(a.id);
@@ -424,10 +449,62 @@ export class AegeanActivities {
       if (g.trackedQuest === a.id) g.trackedQuest = null;
       delete this.state.runs[a.id];
       this.state.active = null;
-      g.toast(a.name, "Work complete. Reward received.", "#e7c778");
+      const items = new Map<string, number>();
+      for (const id of a.reward.items ?? []) items.set(id, (items.get(id) ?? 0) + 1);
+      const receipt = [`+${a.reward.gold.toLocaleString()} gold`, `+${a.reward.xp.toLocaleString()} XP`, ...[...items].map(([id, count]) => `${count}× ${TEMPLATE_BY_ID[id]?.name ?? id}`)];
+      if (already && a.repeatable) g.campaign.recordReward(a.name, receipt);
       g.autosave();
     } else g.toast(a.name, a.steps[r.step].label, "#8bcacb");
     g.touch();
+  }
+  private beginAction(a: AegeanActivity, r: ActivityRun): void {
+    if (r.started) return;
+    r.started = true; r.timer = 0; r.charge = 0; r.pulse = 0;
+    if (a.steps[r.step].type === "strike" || a.steps[r.step].type === "channel") this.spawnWave(a, r);
+  }
+  private updateAction(a: AegeanActivity, r: ActivityRun, step: AegeanStep, dt: number, stations: PropInstance[]): void {
+    const g = this.game, p = g.player;
+    this.beginAction(a, r);
+    r.timer += dt;
+    const fired = p.attackTimer > this.previousAttack + .01;
+    this.previousAttack = p.attackTimer;
+    if (step.type === "race" && r.timer > (step.duration ?? 18)) {
+      r.timer = 0; r.progress = 0; r.visited = []; r.charge = 0;
+      g.toast("The trail faded", "Run through the glowing circles — no interaction needed.", "#d4a465");
+      return;
+    }
+    const targets = stations.filter(prop => Number(prop.data?.index) > 0 && !r.visited.includes(Number(prop.data?.index)));
+    const target = step.type === "dodge" ? targets[0] : targets.find(prop => Math.hypot(prop.x - p.x, prop.y - p.y) < (step.type === "strike" ? 105 : 48));
+    if (target && Math.hypot(target.x - p.x, target.y - p.y) < (step.type === "strike" ? 105 : 48)) {
+      if (r.chargingIndex !== Number(target.data?.index)) { r.charge = 0; r.chargingIndex = Number(target.data?.index); }
+      if (step.type === "strike" && fired) { r.charge = (r.charge ?? 0) + 1; g.fx.ring(target.x, target.y, 35, "#efbb70"); }
+      else if (step.type === "race") r.charge = 3;
+      else if (step.type !== "strike") r.charge = (r.charge ?? 0) + dt;
+      const needed = step.type === "strike" ? 2 : step.type === "race" ? 1 : step.type === "dodge" ? 2.4 : 2;
+      if ((r.charge ?? 0) >= needed) {
+        r.visited.push(Number(target.data?.index)); r.progress++; r.charge = 0;
+        g.floatText(target.x, target.y - 28, `${r.progress}/${step.count}`, "#a9e0a2", 16);
+        g.fx.ring(target.x, target.y, 52, "#a9e0a2");
+        if (r.progress >= step.count) { this.advance(a, r); return; }
+      }
+    } else r.charge = Math.max(0, (r.charge ?? 0) - dt * 1.5);
+    // Hazards are linked to the work: a false light, water pressure, returning
+    // arrows or oath lightning. Telegraph at the player's old position, then
+    // leave an opening to keep progressing instead of an arbitrary punishment.
+    const beat = Math.floor(r.timer / 3.5);
+    if (beat > (r.pulse ?? 0)) {
+      r.pulse = beat;
+      const safe = step.type === "dodge" ? targets[0] : undefined;
+      r.sequence = [p.x, p.y]; r.hitAt = g.now + 1.05;
+      if (!safe || Math.hypot(p.x - safe.x, p.y - safe.y) > 48) g.telegraph(p.x, p.y, 62, 1.05, "#e7a174");
+      else { r.hitAt = undefined; g.fx.ring(safe.x, safe.y, 48, "#a9e0a2"); }
+    }
+    if (r.hitAt && g.now >= r.hitAt) {
+      r.hitAt = undefined;
+      const [x, y] = r.sequence;
+      if (Math.hypot(p.x - x, p.y - y) < 62) g.damagePlayer(p.maxHp * .12, { trueDamage: true, label: "Mythic trial" });
+      g.fx.ring(x, y, 62, "#e7a174");
+    }
   }
   private syncJournal(a: AegeanActivity): void {
     const g = this.game, r = this.state.runs[a.id];
@@ -436,8 +513,16 @@ export class AegeanActivities {
     if (q) q.progress = a.steps.map((s, i) => i < r.step ? s.count : i === r.step ? Math.min(s.count, r.progress) : 0);
   }
   update(dt: number): void {
-    const g = this.game,
-      a = this.active;
+    const g = this.game;
+    this.autoCheck -= dt;
+    if (!this.active && this.autoCheck <= 0) {
+      this.autoCheck = .45;
+      const candidate = AEGEAN_ACTIVITIES.find(a => (a.map ?? "overworld") === g.map.id &&
+        !g.campaign.has(a.id) && !g.campaign.requirements(a.requires).length &&
+        Math.hypot((a.tx + .5) * TILE - g.player.x, (a.ty + .5) * TILE - g.player.y) < 75);
+      if (candidate) this.start(candidate.id);
+    }
+    const a = this.active;
     if (!a || g.map.id !== (a.map ?? "overworld")) return;
     this.syncJournal(a);
     const r = this.state.runs[a.id],
@@ -453,6 +538,23 @@ export class AegeanActivities {
     const stations = this.stations(a.id);
     const anchor = stations.find((p) => p.data?.index === 0);
     if (!anchor) return;
+    if (this.actionStep(step)) {
+      if (Math.hypot(g.player.x - anchor.x, g.player.y - anchor.y) > 470) { if (r.started) this.clearActors(a.id); r.started = false; r.charge = 0; r.hitAt = undefined; return; }
+      this.updateAction(a, r, step, dt, stations);
+      return;
+    }
+    if (r.retry) {
+      if (Math.hypot(g.player.x - r.retry.x, g.player.y - r.retry.y) >= 96) r.retry.left = true;
+      if (r.retry.left && Math.hypot(g.player.x - anchor.x, g.player.y - anchor.y) < 96) r.retry = undefined;
+    }
+    if ((step.type === "defend" || step.type === "escort") && !r.started && !r.retry && Math.hypot(g.player.x - anchor.x, g.player.y - anchor.y) < 180) {
+      if (step.type === "defend") this.beginDefence(a, r); else this.beginEscort(a, r);
+    }
+    if (step.type === "interact" && step.count > 1) {
+      for (const prop of stations) if (Number(prop.data?.index) > 0 && Math.hypot(prop.x - g.player.x, prop.y - g.player.y) < 38) {
+        this.interact(prop); if (this.state.active !== a.id || a.steps[r.step] !== step) break;
+      }
+    }
     if (step.type === "visit") {
       for (const prop of stations)
         if (
@@ -522,23 +624,48 @@ export class AegeanActivities {
       )
         e.hp -= dt * 5;
       if (e.hp <= 0) {
+        // Resolve failure before touching the final checkpoint: a companion
+        // lost on the arrival frame cannot deliver the reward.
         this.clearActors(a.id);
         r.escort = undefined;
-        r.progress = 0;
+        r.progress = 0; r.visited = []; r.timer = 0; r.wave = 0;
         r.started = false;
+        r.retry = { x: p.x, y: p.y, left: false };
         g.toast(
           "Your companion retreats",
-          `Regroup at ${anchor.label?.toLowerCase() ?? "the refuge"}. This step can be retried.`,
+          `Return to ${anchor.label?.toLowerCase() ?? "the refuge"} to regroup.`,
           "#d4a465",
         );
+        return;
       }
+      const stop = stations.find(prop => Number(prop.data?.index) === r.progress + 1);
+      if (stop && Math.hypot(stop.x - p.x, stop.y - p.y) < 55 && Math.hypot(stop.x - e.x, stop.y - e.y) < 90) this.interact(stop);
     }
   }
   draw(ctx: CanvasRenderingContext2D): void {
     const a = this.active;
     if (!a) return;
     const r = this.state.runs[a.id];
-    if (!r?.escort) return;
+    if (!r) return;
+    const step = this.current;
+    if (step && this.game.map.id === (a.map ?? "overworld")) {
+      ctx.save();
+      const stations = this.stations(a.id), target = this.target;
+      for (const prop of stations) {
+        const index = Number(prop.data?.index ?? 0);
+        if (r.visited.includes(index) || (!index && this.actionStep(step))) continue;
+        const next = target?.x === prop.x && target?.y === prop.y;
+        if (!next && !this.actionStep(step)) continue;
+        ctx.strokeStyle = next ? "#b5e4a2" : "#d3b775"; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = next ? 3 : 1;
+        ctx.globalAlpha = next ? .8 : .38;
+        ctx.beginPath(); ctx.ellipse(prop.x, prop.y, 43, 27, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
+        ctx.fillText(step.type === "strike" ? "HIT ×2" : step.type === "race" ? "RUN" : step.type === "channel" ? "HOLD" : step.type === "dodge" ? next ? "SAFE" : "DANGER" : "HERE", prop.x, prop.y - 36);
+        if (next && r.charge) { ctx.fillRect(prop.x - 20, prop.y - 30, Math.min(40, r.charge / 2.4 * 40), 3); }
+      }
+      ctx.restore();
+    }
+    if (!r.escort) return;
     const e = r.escort, companion = AEGEAN_ACTIVITY_SCENES[a.id].companion;
     const color = companion?.color ?? "#9edecb";
     ctx.save();

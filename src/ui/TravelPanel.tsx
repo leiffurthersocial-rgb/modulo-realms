@@ -66,7 +66,7 @@ export default function TravelPanel({ game }: { game: Game }) {
 
           <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 16, lineHeight: 1.7 }}>
             Discover waystones in towns, at dungeon entrances and beside harbours to return to them.
-            Reach each island by ship and dock first. Asterion can only be reached by sea.
+            Sail to each island once, then use its discovered waystones. Asterion has harbour and sanctuary waystones too.
           </div>
         </div>
       </div>

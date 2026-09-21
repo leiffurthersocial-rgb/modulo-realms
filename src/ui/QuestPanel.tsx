@@ -21,10 +21,13 @@ export default function QuestPanel({ game }: { game: Game }) {
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
       <div className="modal panel" style={{ width: 'min(920px, 95vw)', height: 'min(640px, 92vh)' }}>
         <div className="panel-title">
-          <span>Journal</span>
+          <span>Adventures &amp; rewards</span>
           <span className="sub">{active.length} active · {done.length} completed</span>
           <button className="close-x" onClick={() => game.closeAll()}>×</button>
         </div>
+        {game.inAegean && game.campaign.state.receipts?.length ? <details className="reward-history"><summary>Recent rewards · see exactly what you earned</summary>
+          {game.campaign.state.receipts.map((receipt, i) => <div key={i}><strong>{receipt.title}</strong>{receipt.lines.map((line, n) => <div key={n}>{line}</div>)}</div>)}
+        </details> : null}
         <div className="tabs">
           <button className={`tab ${tab === 'active' ? 'active' : ''}`} onClick={() => { setTab('active'); setSel(null); }}>Active</button>
           <button className={`tab ${tab === 'done' ? 'active' : ''}`} onClick={() => { setTab('done'); setSel(null); }}>Completed</button>
@@ -80,7 +83,7 @@ export default function QuestPanel({ game }: { game: Game }) {
                   </button>
                 ) : null}
                 <p style={{ fontSize: 13, lineHeight: 1.65, color: '#ded5ca', marginTop: 12 }}>{sel.summary}</p>
-                {sel.detail !== sel.summary ? <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--muted)', fontStyle: 'italic' }}>{sel.detail}</div> : null}
+                {sel.detail !== sel.summary ? <details><summary>Story &amp; hints</summary><div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--muted)' }}>{sel.detail}</div></details> : null}
 
                 <div className="section-h">Objectives</div>
                 <div className="obj-list">

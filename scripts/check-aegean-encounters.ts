@@ -71,8 +71,8 @@ function fixture(slug: string) {
     beard: "none",
   });
   player.level = 100;
-  player.x = 900;
-  player.y = 700;
+  player.x = 950;
+  player.y = 1000;
   player.hp = player.maxHp;
   const rewards: string[] = [],
     hits: Array<{ amount: number; opts: DamageOpts }> = [],
@@ -126,7 +126,6 @@ function fixture(slug: string) {
   const game = fake as unknown as Game;
   director = new AegeanEncounterDirector(game);
   director.onMapEntered();
-  director.interact(checkpoint);
   const record = () => director.snapshot().records[id];
   const principal = () => fake.enemies.find((e) => !e.dead && e.def.id === id)!;
   const use = (i: number) => {
@@ -170,546 +169,213 @@ function fixture(slug: string) {
   };
 }
 
-// Charges must connect with the authored structure; a plain interaction cannot
-// bypass the lion, boar, bull or labyrinth. The actual stored dash is resolved.
+// First entry immediately creates an active opponent; no shrine or E prompt.
+for (const slug of ["nemea", "python", "medusa", "chimera", "cyclops", "talos", "birds", "hippolyta", "sanctuary_aegis", "sanctuary_forge", "sanctuary_names", "champion_spear", "champion_shield", "champion_volley", "champion_hunt", "champion_guard", "champion_storm"]) {
+  const f = fixture(slug), boss = f.principal();
+  assert.ok(boss && !boss.friendly, `${slug}: boss attacks on entry`);
+  assert.ok(boss.maxHp <= 30000, `${slug}: health is capped after all enemy scaling`);
+  assert.equal(f.director.modifyDamage(boss, 100, {}), 100, `${slug}: no mandatory tool damage gate`);
+  f.kill(boss);
+  assert.deepEqual(f.rewards, [f.id], `${slug}: combat victory needs no three-prop checklist`);
+  f.director.onEnemyKilled(boss);
+  assert.equal(f.rewards.length, 1, `${slug}: duplicate death cannot duplicate reward`);
+}
+
+// Real dash impacts open counterplay automatically without pressing E.
 for (const slug of ["nemea", "boar", "bull", "minotaur"]) {
-  const f = fixture(slug),
-    boss = f.principal();
+  const f = fixture(slug), boss = f.principal();
   f.use(0);
-  assert.equal(f.record().steps.length, 0, `${slug}: premature mechanism`);
+  assert.equal(f.record().steps.length, 0, `${slug}: tapping an untouched structure does nothing`);
   for (let i = 0; i < 3; i++) {
-    boss.x = f.points[i].x - 200;
-    boss.y = f.points[i].y;
-    boss.attackCd = 0;
-    f.player.x = f.points[i].x + 190;
-    f.player.y = f.points[i].y;
+    boss.x = f.points[i].x - 200; boss.y = f.points[i].y; boss.attackCd = 0;
+    boss.windupAttack = null; boss.windupTime = 0;
+    f.player.x = f.points[i].x + 120; f.player.y = f.points[i].y;
     assert.ok(boss.queueAttack(f.game, AEGEAN_ATTACKS.charge));
-    f.fake.now += 1.4;
-    f.fake.dt = 1.4;
-    boss.update(f.game);
-    f.use(i);
-    assert.ok(
-      f.record().steps.includes(i),
-      `${slug}: charge opens structure ${i}`,
-    );
+    f.fake.now += 1.5; f.fake.dt = 1.5; boss.update(f.game);
+    f.director.update(.01);
+    assert.ok(f.record().steps.includes(i), `${slug}: charge collision activates structure ${i}`);
   }
   if (slug === "nemea" || slug === "minotaur") f.kill(boss);
-  assert.deepEqual(f.rewards, [f.id], `${slug}: complete once`);
+  assert.deepEqual(f.rewards, [f.id]);
 }
 
 {
-  const f = fixture("hydra");
-  f.use(0);
-  assert.equal(f.record().steps.length, 0);
-  const head = (i: number) =>
-    f.fake.enemies.find(
-      (e) =>
-        !e.dead &&
-        e.def.name.startsWith(["Venom", "Sweep", "Lunge", "Brood", "Coil"][i]),
-    )!;
-  f.kill(head(0));
-  f.tick(8.2);
-  assert.ok(head(0), "uncauterized neck regrows");
-  for (let i = 0; i < 5; i++) {
-    f.kill(head(i));
-    f.use(i);
-  }
-  assert.equal(f.record().steps.length, 5);
-  assert.equal(f.rewards.length, 0, "immortal neck still requires the slab");
-  f.use(0);
-  assert.deepEqual(f.rewards, [f.id]);
+  const f = fixture("python"), boss = f.principal();
+  f.player.x = f.points[0].x; f.player.y = f.points[0].y;
+  f.tick(.8);
+  assert.ok(f.record().steps.includes(0), "standing at a vent operates it");
+  assert.equal(f.director.modifyDamage(boss, 100, {}), 135, "tool rewards a damage opening, not permission to fight");
+  assert.equal(boss.windupAttack, null, "tool interrupts a committed attack");
 }
 {
-  const f = fixture("hind"),
-    hind = f.principal();
-  f.use(2);
-  assert.equal(f.record().steps.length, 0);
-  assert.equal(
-    f.director.modifyDamage(hind, 1e12, {}),
-    0,
-    "the sacred hind cannot be killed",
-  );
-  for (let i = 0; i < 3; i++) {
-    hind.x = f.points[i].x;
-    hind.y = f.points[i].y;
-    f.use(i);
+  const f = fixture("hydra");
+  const head = (i: number) => f.fake.enemies.find((e) => !e.dead && e.def.name.startsWith(["Venom", "Sweep", "Lunge", "Brood", "Coil"][i]))!;
+  assert.equal(f.fake.enemies.filter((e) => !e.dead && e.def.id === "aegean_hydra_head").length, 5);
+  f.kill(head(0)); f.tick(8.2);
+  assert.ok(head(0), "unburned hydra neck regenerates");
+  for (let i = 0; i < 5; i++) {
+    const target=head(i);
+    target.x=1500+i*95; target.y=1350;
+    f.kill(target);
+    f.player.x=target.x; f.player.y=target.y;
+    f.tick(.8);
   }
-  f.tick(0.1);
-  assert.equal(f.rewards.length, 0, "sleeping hind needs defending");
-  f.clearAdds();
-  f.tick(0.1);
+  f.tick(.1);
+  assert.deepEqual(f.rewards, [f.id], "five burned wounds finish without another slab interaction");
+}
+{
+  const f = fixture("hind"), hind = f.principal();
+  assert.equal(f.director.modifyDamage(hind, 1e12, {}), 0, "sacred hind remains nonlethal");
+  for (let i = 0; i < 3; i++) {
+    hind.x = f.points[i].x; hind.y = f.points[i].y;
+    f.player.x = hind.x; f.player.y = hind.y;
+    f.tick(.9);
+    assert.ok(f.record().steps.includes(i), "calm arrival seals each sanctuary automatically");
+  }
+  f.tick(.2); f.clearAdds(); f.tick(.1);
   assert.deepEqual(f.rewards, [f.id]);
 }
 {
   const f = fixture("augeas");
-  f.use(1);
-  assert.equal(f.record().steps.length, 0);
-  for (const i of [0, 2, 1]) {
-    f.use(i);
-    const steps = f.record().steps.length;
-    f.use((i + 1) % 3);
-    assert.equal(
-      f.record().steps.length,
-      steps,
-      "sluice guarded until adds die",
-    );
+  // Any route through the flood is valid. Clear each guardian pocket first.
+  for (const i of [1, 2, 0]) {
+    f.player.x = f.points[i].x; f.player.y = f.points[i].y;
+    f.tick(.8);
+    assert.ok(f.record().steps.includes(i), "sluices have no hidden ordering");
     f.clearAdds();
   }
-  f.tick(0.1);
+  f.tick(.1);
   assert.deepEqual(f.rewards, [f.id]);
 }
 {
-  const f = fixture("birds");
-  f.use(0);
-  f.use(1);
-  assert.equal(f.record().steps.length, 1, "flock blocks the next resonator");
-  f.clearAdds();
-  f.use(1);
-  f.clearAdds();
-  f.use(2);
-  f.clearAdds();
+  const f = fixture("mares");
+  const mares = f.fake.enemies.filter((e) => !e.dead && e.def.id === "aegean_man_eating_mare");
+  assert.equal(mares.length, 4, "actual horse enemies, not renamed boars");
+  mares.forEach((e, i) => {e.x = f.points[i].x; e.y = f.points[i].y;});
+  f.tick(.1);
+  assert.ok(mares.every((e) => e.friendly), "entering paddocks captures the mares");
   f.kill(f.principal());
   assert.deepEqual(f.rewards, [f.id]);
 }
 {
-  const f = fixture("mares"),
-    mares = f.fake.enemies.filter((e) => e.def.name.startsWith("Mare "));
-  assert.equal(mares.length, 4);
-  for (const e of mares) {
-    e.x = 1500;
-    e.y = 1500;
-    assert.equal(f.director.modifyDamage(e, 1e12, {}), 0);
-  }
-  f.use(0);
-  assert.equal(
-    f.record().steps.length,
-    0,
-    "gate cannot capture a distant mare",
-  );
-  mares.forEach((e, i) => {
-    e.x = f.points[i].x;
-    e.y = f.points[i].y;
-    f.use(i);
-    assert.ok(e.friendly);
-  });
-  f.kill(f.principal());
-  assert.deepEqual(f.rewards, [f.id]);
-}
-{
-  const f = fixture("hippolyta");
-  assert.equal(f.director.modifyDamage(f.principal(), 1e12, {}), 0);
-  for (let i = 0; i < 3; i++) {
-    f.use(i);
-    f.tick(0.2);
-    assert.equal(f.record().steps.length, i);
-    f.clearAdds();
-    for (let t = 0; t < 30 && !f.record().steps.includes(i); t++) f.tick(1);
-    assert.equal(
-      f.record().steps.length,
-      i + 1,
-      "allies reach and hold the standard",
-    );
-  }
-  assert.equal(f.principal().friendly, false);
-  f.kill(f.principal());
-  assert.deepEqual(f.rewards, [f.id]);
-}
-{
-  const f = fixture("geryon"),
-    cattle = f.fake.enemies.filter(
-      (e) => e.def.name === "Cattle of the Red Herd",
-    );
-  f.use(0);
-  assert.equal(f.record().steps.length, 0, "refuge requires both cattle");
-  for (let i = 0; i < 3; i++) {
-    cattle.forEach((e) => {
-      e.x = f.points[i].x;
-      e.y = f.points[i].y;
-    });
-    f.use(i);
-  }
+  const f = fixture("geryon");
   f.kill(f.principal());
   assert.equal(f.rewards.length, 0, "all three bodies must fall");
   f.clearAdds();
-  assert.deepEqual(f.rewards, [f.id]);
+  assert.deepEqual(f.rewards, [f.id], "herd shelters are helpful, not mandatory reward switches");
 }
 {
   const f = fixture("hesperides");
-  f.use(0);
-  f.use(2);
-  assert.equal(f.record().steps.length, 0, "sky follows the next anchor");
-  f.use(1);
-  f.use(2);
-  f.use(0);
-  assert.deepEqual(f.rewards, [f.id]);
-  const timeout = fixture("hesperides");
-  timeout.use(0);
-  timeout.tick(20.2);
-  assert.match(timeout.director.status, /Take the sky/);
-  assert.equal(timeout.rewards.length, 0);
+  for (const i of [0, 1, 2, 0]) {
+    f.player.x = f.points[i].x; f.player.y = f.points[i].y; f.tick(.8);
+  }
+  assert.deepEqual(f.rewards, [f.id], "sky transfers by walking between anchors");
 }
 {
-  const f = fixture("cerberus");
+  const f = fixture("cerberus"), boss = f.principal();
   assert.ok(f.director.suppressOffense);
-  f.use(0);
-  assert.equal(f.record().steps.length, 0);
-  assert.equal(
-    f.director.modifyDamage(f.principal(), 1e12, { noProc: true }),
-    0,
-    "summon/proc damage cannot bypass restraint",
-  );
+  assert.equal(f.director.modifyDamage(boss, 1e12, {}), 0);
   for (let i = 0; i < 3; i++) {
-    for (let j = 0; j < 40 && !f.director.exposureActive; j++) f.tick(0.5);
-    assert.ok(f.director.exposureActive);
-    f.use(i);
+    // Stay away through the attacks, then approach during the visible rest.
+    for (let t = 0; t < 80 && !f.director.exposureActive; t++) {
+      f.player.x = boss.x + 300; f.player.y = boss.y; f.tick(.1);
+    }
+    assert.ok(f.director.exposureActive, "three-head combo has a readable rest");
+    f.player.x = boss.x + 60; f.player.y = boss.y; f.tick(.1);
   }
-  const boss = f.principal(),
-    entry = f.map.encounterNodes!.entry[0];
-  boss.x = entry.x;
-  boss.y = entry.y;
-  f.tick(0.1);
-  assert.deepEqual(f.rewards, [f.id]);
+  assert.deepEqual(f.rewards, [f.id], "approaching resting heads fastens restraints without E chores");
 }
-
-// Scylla's old three six-second holds were a free victory. Walking between
-// flags, waiting, repeating E, and overwhelming the protected body earn nothing.
 {
   const f = fixture("scylla"), boss = f.principal();
-  const livingHeads = () => f.fake.enemies.filter((e) =>
-    !e.dead && e.def.name.startsWith("Scylla’s hunting head"));
-  for (let i = 2; i >= 0; i--) {
-    f.use(i);
-    f.tick(6.2);
-  }
-  assert.deepEqual(f.record().steps, [], "flag-to-flag travel cannot secure beacons");
-  assert.deepEqual(f.rewards, [], "passive traversal awards no victory");
+  const heads = () => f.fake.enemies.filter((e) => !e.dead && e.def.id === "aegean_scylla_head");
+  assert.equal(heads().length, 6, "all six heads are live immediately");
+  f.use(0); f.use(2);
+  assert.equal(heads().length, 6, "beacon interactions never duplicate heads");
   f.kill(boss);
-  assert.equal(boss.hp, boss.maxHp, "the six heads protect Scylla's body");
-  assert.equal(livingHeads().length, 2, "only the active beacon summons its pair");
-  f.use(0);
-  f.use(0);
-  assert.equal(livingHeads().length, 2, "repeated interaction cannot duplicate heads");
-  assert.ok(f.hits.some((h) => h.opts.label?.startsWith("Charybdis")),
-    "Charybdis targets the occupied deck, rather than a distant random flag");
-  assert.ok(f.hits.filter((h) => h.opts.label?.startsWith("Charybdis"))
-    .every((h) => Math.abs((h.opts.minHealthDamage ?? 0) - 0.135) < 1e-9),
-    "Charybdis's warned combat damage also threatens extreme legal gear");
-  assert.ok(f.hits.some((h) => h.opts.label?.includes("Scylla")) || f.shots.length > 0,
-    "Scylla's living heads attack during the beacon fight");
-  for (let i = 0; i < 3; i++) {
-    f.use(i);
-    const heads = livingHeads();
-    assert.equal(heads.length, 2, `beacon ${i + 1} has two living hunting heads`);
-    f.kill(heads[0]);
-    f.use(i);
-    f.tick(6.2);
-    assert.equal(f.record().steps.length, i, "one surviving head prevents lighting");
-    f.kill(heads[1]);
-    assert.equal(f.record().steps.length, i, "kills alone do not light the beacon");
-    f.use(i);
-    assert.equal(f.record().steps.length, i + 1);
-    assert.equal(f.rewards.length, 0, "three lit beacons still require Scylla's defeat");
+  assert.equal(boss.hp, boss.maxHp, "living heads physically protect the body");
+  // Clear pairs in reverse order: no imposed beacon sequence.
+  for (const index of [2, 1, 0]) {
+    const pair = heads().filter((e) => e.def.name.endsWith(String(index * 2 + 1)) || e.def.name.endsWith(String(index * 2 + 2)));
+    f.kill(pair[0]);
+    assert.ok(!f.record().steps.includes(index), "one living head keeps its flame dark");
+    f.kill(pair[1]);
+    assert.ok(f.record().steps.includes(index), "second kill lights beacon automatically");
   }
-  assert.equal(boss.friendly, false, "Scylla becomes a normal combat target");
-  assert.ok(f.director.exposureActive, "Charybdis's binding exposes the body");
-  const surges = f.hits.filter((h) => h.opts.label?.startsWith("Charybdis")).length;
-  f.tick(10);
-  assert.equal(f.hits.filter((h) => h.opts.label?.startsWith("Charybdis")).length,
-    surges, "lighting all beacons stops Charybdis's damaging surges");
+  assert.equal(boss.friendly, false);
   f.kill(boss);
-  assert.deepEqual(f.rewards, [f.id], "all six heads, three flames and Scylla earn victory");
-  f.use(2);
-  f.director.onEnemyKilled(boss);
-  assert.deepEqual(f.rewards, [f.id], "victory is recorded once");
-
+  assert.deepEqual(f.rewards, [f.id]);
   const saved = f.director.snapshot();
-  f.director.restore(saved);
-  f.director.onMapEntered();
-  assert.ok(f.record().completed, "existing completed saves keep their victory");
+  f.director.restore(saved); f.director.onMapEntered();
+  assert.equal(heads().length, 0, "completed saves do not respawn enemies");
   f.director.interact(f.checkpoint);
-  f.use(0);
-  f.tick(6.2);
-  assert.deepEqual(f.record().steps, [], "completed-save rematches use the corrected fight");
-  assert.equal(livingHeads().length, 2);
+  assert.equal(heads().length, 6, "explicit rematch resets actual combat actors");
 }
 {
-  const f = fixture("scylla");
-  f.use(0);
-  f.clearAdds();
-  f.use(0);
-  assert.deepEqual(f.record().steps, [0]);
-  const saved = f.director.snapshot();
-  f.director.restore(saved);
-  f.director.onMapEntered();
-  f.use(1);
-  assert.deepEqual(f.record().steps, [], "reload resets unfinished beacon and combat progress together");
-  f.use(0);
-  assert.equal(f.fake.enemies.filter((e) => !e.dead && e.def.name.startsWith("Scylla’s hunting head")).length,
-    2, "retry restores the first pair, without stale or duplicate heads");
-}
-
-// Medusa reads the face the player actually sees, including turns to attack.
-// A stale movement heading must not make a character shooting at her immune.
-{
-  const f = fixture("medusa");
-  f.player.facing = Math.PI;
-  f.player.dir = "right";
-  f.tick(6.1);
-  assert.ok(f.hits.some((h) => h.opts.label === "Petrification"),
-    "attacking toward Medusa risks petrification despite a stale away movement heading");
-}
-{
-  const f = fixture("medusa");
-  f.principal().x = f.player.x + 60;
-  f.principal().y = f.player.y + 60;
-  f.player.facing = Math.PI;
-  f.player.dir = "right";
-  f.tick(6.1);
-  assert.ok(f.hits.some((h) => h.opts.label === "Petrification"),
-    "diagonal aim within a rendered face's quadrant cannot slip between gaze directions");
-}
-{
-  const f = fixture("medusa");
-  f.player.facing = 0;
-  f.player.dir = "right";
-  f.tick(4);
-  const pressure = () => Number(f.director.status.match(/Petrification (\d+)%/)?.[1] ?? 0);
-  const before = pressure();
-  assert.ok(before > 30, "visible gaze builds pressure");
-  f.player.dir = "left";
-  f.tick(0.8);
-  assert.ok(pressure() < before, "turning the rendered face away releases gaze pressure");
-  assert.ok(!f.hits.some((h) => h.opts.label === "Petrification"));
-}
-
-// Warning geometry and its minimum are committed together. Damage remains the
-// ordinary raw amount; Game applies the minimum after armour, before defences.
-for (const [slug, label, power] of [
-  ["cyclops", "Quarry boulder", 2],
-  ["titan", "The Titan pulls the chain", 1.5],
-  ["augeas", "Reservoir flood", 1.1],
-  ["hesperides", "Falling starlight", 1.3],
-] as const) {
-  const f = fixture(slug), boss = f.principal(), originalDamage = boss.damage;
-  if (slug === "hesperides") f.use(0);
-  f.tick(2.1);
-  boss.damage *= 10;
-  f.tick(2.1);
-  const hit = f.hits.find((h) => h.opts.label === label);
-  assert.ok(hit, `${slug}: warned hazard reaches a stationary player`);
-  assert.ok(Math.abs(hit.amount - originalDamage * power) < 1e-9,
-    `${slug}: no additive damage tax and no retargeted amount`);
-  assert.ok(Math.abs((hit.opts.minHealthDamage ?? 0) - 0.1 * power) < 1e-9,
-    `${slug}: minimum is the committed boss attack power, not a later recalculation`);
-}
-{
-  const f = fixture("cyclops");
-  f.tick(2.1);
-  f.player.x += 500;
-  f.tick(2.1);
-  assert.equal(f.hits.length, 0, "avoiding a marked hazard avoids its minimum too");
-}
-
-// The further myths cannot be won by removing a generic boss HP bar.
-for (const slug of [
-  "python",
-  "medusa",
-  "chimera",
-  "cyclops",
-  "talos",
-  "titan",
-]) {
-  const f = fixture(slug),
-    boss = f.principal();
-  f.kill(boss);
-  assert.equal(
-    f.rewards.length,
-    0,
-    `${slug}: objective prerequisite survives overwhelming damage`,
-  );
-  if (["chimera", "cyclops", "talos"].includes(slug)) {
-    boss.x = 1600;
-    boss.y = 1600;
-    f.use(0);
-    assert.equal(f.record().steps.length, 0, `${slug}: wrong context rejected`);
+  const f = fixture("titan");
+  for (const index of [2,0,1]) {
+    f.player.x = f.points[index].x; f.player.y = f.points[index].y;
+    f.tick(.8); f.clearAdds(); f.tick(3.2);
+    assert.ok(f.record().steps.includes(index), "defended anchor repairs by holding ground");
   }
-  for (let i = 0; i < 3; i++) {
-    if (slug === "chimera") {
-      boss.x = f.points[i].x - 190;
-      boss.y = f.points[i].y;
-      boss.attackCd = 0;
-      f.player.x = f.points[i].x;
-      f.player.y = f.points[i].y;
-      boss.queueAttack(f.game, AEGEAN_ATTACKS.flame);
-      f.fake.now += 1.5;
-      f.fake.dt = 1.5;
-      boss.update(f.game);
-    }
-    if (slug === "cyclops") {
-      f.player.x = f.points[i].x;
-      f.player.y = f.points[i].y;
-      // Wait for a real target-locked quarry warning and its impact.
-      f.tick(i ? 5 : 4.1);
-    }
-    if (slug === "talos") {
-      boss.x = f.points[i].x;
-      boss.y = f.points[i].y;
-      boss.windupAttack = null;
-      boss.windupTime = 0;
-    }
-    f.use(i);
-    if (slug === "titan") f.clearAdds();
-    if (slug === "titan") f.tick(6.2);
-    if (slug === "python") f.clearAdds();
-    assert.ok(
-      f.record().steps.includes(i),
-      `${slug}: authored objective ${i} can complete`,
-    );
-  }
-  if (slug !== "titan") f.kill(boss);
   assert.deepEqual(f.rewards, [f.id]);
 }
 
+// The three-hundred means 300 simultaneously alive, attacking and vulnerable.
 assert.equal(ARMY_ROSTER.length, 300);
 assert.equal(new Set(ARMY_ROSTER.map((s) => s.id)).size, 300);
-for (let company = 0; company < 10; company++) {
-  const roles = ARMY_ROSTER.slice(company * 30, company * 30 + 30).map(
-    (s) => s.role,
-  );
-  assert.deepEqual(
-    ["hoplite", "runner", "javelin", "shield", "captain"].map(
-      (role) => roles.filter((r) => r === role).length,
-    ),
-    [20, 4, 3, 2, 1],
-  );
+{
+  const f = fixture("army");
+  const soldiers = f.fake.enemies.filter((e) => !e.dead);
+  assert.equal(soldiers.length, 300);
+  assert.equal(new Set(soldiers.map((e) => e.spawnId)).size, 300, "each soldier has a durable distinct identity");
+  assert.ok(soldiers.every((e) => f.director.isDamageAllowed(e)), "none are phantom reserves");
+  const distant = soldiers[0], before = {x:distant.x,y:distant.y};
+  f.tick(.3);
+  assert.ok(distant.x !== before.x || distant.y !== before.y, "far companies actively advance");
+  f.player.hp = f.player.maxHp * .5;
+  const hp = f.player.hp;
+  for (const e of soldiers.slice(0,150)) {e.dead=true; f.director.onEnemyKilled(e);}
+  f.tick(.1);
+  assert.equal(f.director.armyStanding, 150);
+  assert.equal(f.player.hp, hp, "mass kills and artificial chapter breaks cannot refill health");
+  assert.equal(f.rewards.length, 0);
+  for (const e of soldiers.slice(150)) {e.dead=true; f.director.onEnemyKilled(e);}
+  f.tick(.1);
+  assert.deepEqual(f.rewards, [f.id]);
+  assert.equal(f.record().chapter, 4, "legacy save field records only full victory");
 }
 {
   const f = fixture("army");
-  let deaths = 0;
-  for (let chapter = 0; chapter < 4; chapter++) {
-    const end = [60, 150, 240, 300][chapter];
-    while (deaths < end) {
-      const live = f.fake.enemies.filter((e) => !e.dead);
-      assert.ok(live.length > 0 && live.length <= 36, "bounded active army");
-      for (const e of live) {
-        e.dead = true;
-        assert.equal(
-          f.director.onEnemyKilled(e),
-          true,
-          "army soldiers suppress ordinary rewards",
-        );
-        deaths++;
-      }
-      f.tick(0.1);
-    }
-    assert.equal(f.director.armyStanding, 300 - end);
-    assert.equal(f.record().chapter, chapter + 1);
-    if (chapter < 3) {
-      assert.equal(
-        f.rewards.length,
-        0,
-        "only the complete army grants its unique reward",
-      );
-      const saved = f.director.snapshot();
-      f.director.restore(saved);
-      f.director.onMapEntered();
-      f.director.interact(f.checkpoint);
-    }
-  }
-  assert.deepEqual(f.rewards, [f.id]);
+  f.director.restore({version:1,records:{aegean_army:{steps:[],chapter:2,bestPhase:0,completed:false}}});
+  f.director.onMapEntered();
+  assert.equal(f.director.armyStanding,300,"old partial chapter save restarts the actual 300 battle");
+  assert.equal(f.fake.enemies.filter((e)=>!e.dead).length,300);
 }
-
 {
-  const f = fixture("leonidas");
-  const boss = f.principal();
-  assert.equal(
-    f.director.modifyDamage(boss, 1e12, {}),
-    0,
-    "phase entrance protected",
-  );
-  f.tick(2.6);
-  const floors = [0.82, 0.64, 0.42, 0.18, 0.05];
-  let totalGuards = 0;
+  const f = fixture("leonidas"), boss = f.principal();
+  assert.ok(boss.maxHp <= 40000);
+  assert.equal(f.director.modifyDamage(boss,1e12,{}),0,"brief phase announcement protects the transition");
+  f.tick(.8);
   for (let phase = 0; phase < 5; phase++) {
-    if (phase === 1) {
-      f.use(0);
-      f.use(0);
-      f.kill(boss);
-      assert.equal(
-        boss.hp,
-        boss.maxHp * floors[phase],
-        "one link cannot advance",
-      );
-      f.tick(0.1);
-      assert.match(f.director.status, /Phase 2/);
-      f.use(1);
-    }
-    if (phase === 2) {
-      for (let wave = 0; wave < 2; wave++) {
-        const guards = f.fake.enemies.filter(
-          (e) => !e.dead && e.def.id === "aegean_royal_guard",
-        );
-        assert.equal(guards.length, 6);
-        totalGuards += guards.length;
-        f.kill(boss);
-        f.tick(0.1);
-        assert.match(f.director.status, /Phase 3/);
-        guards.forEach(f.kill);
-        f.tick(0.1);
-      }
-    }
-    f.kill(boss);
-    assert.ok(!boss.dead);
-    assert.ok(
-      boss.hp >= boss.maxHp * floors[phase] - 0.01,
-      "overkill respects next phase boundary",
-    );
-    f.tick(0.1);
-    f.tick(2.6);
+    f.kill(boss); f.tick(.1); f.tick(.8);
+    assert.ok(!boss.dead,"each attack phase appears despite overwhelming gear");
   }
-  assert.equal(totalGuards, 12);
-  assert.match(f.director.status, /Phase 6/);
+  assert.match(f.director.status,/Phase 6/);
+  f.kill(boss); assert.ok(!boss.dead && boss.hp >= 1,"last oath requires its three actual strikes");
+  f.tick(8);
   f.kill(boss);
-  assert.ok(
-    !boss.dead && boss.hp >= 1,
-    "the last five percent cannot skip the oath",
-  );
-  f.tick(18);
-  for (const [label, minimum] of [
-    ["Last Oath — the spear", 0.24],
-    ["Last Oath — the sky", 0.252],
-    ["Last Oath — the king", 0.276],
-  ] as const) {
-    const hit = f.hits.find((h) => h.opts.label === label);
-    assert.ok(hit, `${label}: the marked final pattern resolves`);
-    assert.ok(Math.abs((hit.opts.minHealthDamage ?? 0) - minimum) < 1e-9,
-      `${label}: Leonidas's warning uses the royal attack minimum`);
-  }
-  f.kill(boss);
-  assert.deepEqual(f.rewards, [f.id]);
-  assert.equal(f.director.practicePhase, 5);
-  f.player.gold = 12345;
-  f.player.cooldowns.test = 9;
-  f.player.resistances.poison = { until: f.fake.now + 30, multiplier: 0.25 };
+  assert.deepEqual(f.rewards,[f.id]);
+  assert.equal(f.director.practicePhase,5);
+  f.player.gold=12345; f.player.cooldowns.test=9;
+  f.player.resistances.poison={until:f.fake.now+30,multiplier:.25};
   assert.ok(f.director.startPractice(0));
-  f.player.gold = 1;
-  f.player.cooldowns.test = 0;
-  f.tick(2.6);
-  f.kill(f.principal());
-  f.tick(0.1);
-  assert.equal(f.rewards.length, 1, "practice grants no reward");
-  assert.equal(f.player.gold, 12345);
-  assert.equal(f.player.cooldowns.test, 9, "practice restores cooldown state");
-  assert.ok(
-    Math.abs(f.player.resistances.poison.until - f.fake.now - 30) < 0.01,
-    "practice freezes resistance duration",
-  );
+  f.player.gold=1; f.player.cooldowns.test=0;
+  f.tick(.8); f.kill(f.principal()); f.tick(.1);
+  assert.equal(f.rewards.length,1,"practice never grants rewards");
+  assert.equal(f.player.gold,12345); assert.equal(f.player.cooldowns.test,9);
+  assert.ok(Math.abs(f.player.resistances.poison.until-f.fake.now-30)<.01,"practice freezes resistance duration");
   f.director.restore(undefined);
-  assert.equal(
-    Object.keys(f.director.snapshot().records).length,
-    0,
-    "new game clears encounter checkpoints",
-  );
+  assert.equal(Object.keys(f.director.snapshot().records).length,0);
 }
 
 // Stored warning geometry: turning after a tell never rotates the impact, and
@@ -840,5 +506,5 @@ for (let company = 0; company < 10; company++) {
 }
 
 console.log(
-  "Aegean runtime regressions passed: all twelve Labours, eight myths, 300 soldiers/checkpoints, six Leonidas phases, twelve guards, practice restoration, committed geometry, escort navigation and explicit sea movement.",
+  "Aegean runtime regressions passed: automatic starts, optional boss counters, nonlethal Labours, six simultaneous Scylla heads, 300 simultaneous soldiers, six Leonidas phases, practice restoration, committed geometry, escort navigation and explicit sea movement.",
 );

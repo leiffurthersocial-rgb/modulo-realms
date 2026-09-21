@@ -59,7 +59,7 @@ export interface WorldCtx {
   floatText(x: number, y: number, text: string, color: string, size?: number): void;
   shake(amount: number): void;
   playSound(name: string, volume?: number): void;
-  telegraph(x: number, y: number, r: number, duration: number, color: string, shape?: 'circle' | 'ring' | 'cone' | 'line', angle?: number, halfWidth?: number): void;
+  telegraph(x: number, y: number, r: number, duration: number, color: string, shape?: 'circle' | 'ring' | 'cone' | 'line', angle?: number, halfWidth?: number, coneHalfAngle?: number): void;
   summon(enemyId: string, x: number, y: number, level: number, lifetime?: number, friendly?: boolean): void;
   ringAt(x: number, y: number, r: number, color: string): void;
 }

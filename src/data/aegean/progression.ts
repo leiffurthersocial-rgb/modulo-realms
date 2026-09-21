@@ -1,4 +1,5 @@
 import { AEGEAN_REWARDS, type AegeanReward } from "./content";
+import { AEGEAN_ADVENTURE_BY_ID } from "./world";
 
 export const AEGEAN_LABOUR_IDS = [
   "aegean_nemea",
@@ -110,7 +111,11 @@ export type AegeanStepType =
   | "visit"
   | "defend"
   | "escort"
-  | "puzzle"
+  | "puzzle" // Retained for old activity save readers. New scenes use physical challenges.
+  | "channel"
+  | "strike"
+  | "race"
+  | "dodge"
   | "feat";
 export interface AegeanStep {
   id: string;
@@ -1403,6 +1408,51 @@ export const AEGEAN_ACTIVITIES = [
   ...AEGEAN_DISCOVERIES,
   ...AEGEAN_COMMISSIONS,
 ];
+/** Keep activity/step identities and rewards stable while replacing every old
+ * ordered-button puzzle with an authored action challenge. Saves resume the same
+ * deed; no permanent receipt or unlock is invalidated. */
+const actionScenes: Record<string, [AegeanStepType, string]> = {
+  aegean_story_lighthouse: ["channel", "Stand in the light to turn each mirror; dodge the false beacon"],
+  aegean_story_names: ["channel", "Shelter each sailor's memory inside its glowing circle"],
+  aegean_story_olive: ["strike", "Strike the burning root dams to release the spring"],
+  aegean_story_bell: ["strike", "Strike the three bronze fittings to ring the harbour warning"],
+  aegean_story_satyrs: ["race", "Chase the piper's lights before the festival trail fades"],
+  aegean_story_centaur: ["strike", "Hit the moving shields while avoiding the return volley"],
+  aegean_story_shipwright: ["channel", "Hold each pump circle while the flooded dock drains"],
+  aegean_story_theatre: ["dodge", "Follow the quiet circle between the sirens' sound blasts"],
+  aegean_story_icarus: ["race", "Catch the three sunbeams before the wax chart melts"],
+  aegean_story_charon: ["channel", "Guard the unpaid fares while Charon opens their crossings"],
+  aegean_story_soldier: ["dodge", "Carry the memory through safe ground as the old battle returns"],
+  aegean_story_empty: ["strike", "Break the false oath seals to reveal the missing warrior"],
+  aegean_contract_reef: ["race", "Reach the reef lights before the next surge"],
+  aegean_contract_cargo: ["channel", "Stand inside each ward until the whispering cargo is sealed"],
+  aegean_contract_shade: ["strike", "Strike the breach anchors while their shades hunt you"],
+  aegean_contract_raiders: ["strike", "Smash the captains' signals under fire"],
+  aegean_contract_aqueduct: ["channel", "Hold the pressure plates while water clears the broken aqueduct"],
+  aegean_contract_pass: ["race", "Run the wind stair before the loose ledges collapse"],
+  aegean_contract_arena: ["dodge", "Occupy the glowing safe lane before every spear volley"],
+  aegean_discovery_nine_echoes: ["dodge", "Cross the quiet circles between the nine echoes"],
+  aegean_discovery_dryad_spring: ["channel", "Stand in the spring circles while the roots drink"],
+  aegean_discovery_split_star: ["race", "Catch the falling starlight before it fades"],
+  aegean_discovery_backward_wheel: ["strike", "Break the jammed wheel braces against the water pressure"],
+  aegean_discovery_silent_laurel: ["channel", "Stay inside the oracle's quiet circles"],
+  aegean_discovery_feather_causeway: ["dodge", "Cross the safe reed patches between feather volleys"],
+  aegean_discovery_cooling_steps: ["race", "Cross the cooling pools before the steam returns"],
+  aegean_discovery_drowned_lyre: ["dodge", "Follow the quiet note while the drowned chorus answers"],
+  aegean_veteran_trial: ["dodge", "Hold the marked shield lane through three spear volleys"],
+  aegean_storm_altar: ["channel", "Ground each conductor from its circle; dodge the lightning"],
+  aegean_forge_measure: ["dodge", "Move between the cool quench circles as the forge erupts"],
+  aegean_crossroads: ["race", "Carry Hermes' spark through the route stones before it fades"],
+};
+for (const activity of AEGEAN_ACTIVITIES) {
+  const rule = actionScenes[activity.id];
+  if (!rule) continue;
+  for (const step of activity.steps) if (step.type === "puzzle") {
+    step.type = rule[0]; step.label = rule[1]; step.duration = rule[0] === "race" ? 18 : 3;
+    delete step.sequence;
+  }
+  activity.summary = rule[1];
+}
 export const AEGEAN_ACTIVITY_BY_ID = Object.fromEntries(
   AEGEAN_ACTIVITIES.map((activity) => [activity.id, activity]),
 );
@@ -1418,104 +1468,18 @@ export interface AegeanAdventureContent {
   completion: string;
   reset: string;
 }
-export const AEGEAN_CONTENT: AegeanAdventureContent[] = [
-  {
-    id: "aegean_nemea",
-    name: "Hunt the Hunter",
-    verb: "lure",
-    tool: "Pillars expose the hide",
-    completion:
-      "Bait the lion’s leap into a pillar, then defeat it during real openings.",
-    reset: "Current den; tracks remain found.",
-  },
-  {
-    id: "aegean_hydra",
-    name: "The Marsh That Regrows",
-    verb: "cauterize",
-    tool: "Renewable brazier embers",
-    completion: "Seal the mortal necks and pin the immortal head.",
-    reset: "Boss resets; revealed causeways remain.",
-  },
-  {
-    id: "aegean_hind",
-    name: "A Hunt Without Blood",
-    verb: "track",
-    tool: "Wind, tracks and sanctuary stones",
-    completion: "Enclose the protected hind and defend its rest.",
-    reset: "Last clearing; the hind cannot be accidentally auto-attacked.",
-  },
-  {
-    id: "aegean_boar",
-    name: "Break the Avalanche",
-    verb: "corral",
-    tool: "Horn posts and snow gates",
-    completion: "Guide the boar into deep snow and close the pen.",
-    reset: "Current mountain pen.",
-  },
-  {
-    id: "aegean_augeas",
-    name: "The River Remembers",
-    verb: "divert",
-    tool: "Reversible sluice controls",
-    completion: "Route both rivers through the corrupted estate.",
-    reset: "Current reservoir; earlier sluices stay solved.",
-  },
-  {
-    id: "aegean_birds",
-    name: "The Bronze Sky",
-    verb: "sound",
-    tool: "Three bronze resonators",
-    completion: "Lift and break the flock formations while using safe cover.",
-    reset: "Current flock formation.",
-  },
-  {
-    id: "aegean_bull",
-    name: "The Palace in Its Path",
-    verb: "redirect",
-    tool: "Charge lanes and marked anchors",
-    completion: "Use the bull’s charges to break the binding pylons.",
-    reset: "Arena layout resets at the shrine.",
-  },
-  {
-    id: "aegean_mares",
-    name: "The Iron Paddocks",
-    verb: "contain",
-    tool: "Warded gates and herd signals",
-    completion: "Separate four mares, free captives, and defeat the handlers.",
-    reset: "Current paddock; rescued captives shelter.",
-  },
-  {
-    id: "aegean_hippolyta",
-    name: "The Queen’s Measure",
-    verb: "command",
-    tool: "Advance, defend, regroup",
-    completion: "Win the formal formation trial and nonlethal duel.",
-    reset: "Current trial round.",
-  },
-  {
-    id: "aegean_geryon",
-    name: "The Red Herd",
-    verb: "convoy",
-    tool: "Gathering bells and safe causeways",
-    completion: "Escort the herd and expose Geryon’s three fronts.",
-    reset: "Current crossing; scattered cattle are recoverable.",
-  },
-  {
-    id: "aegean_hesperides",
-    name: "The Weight of Heaven",
-    verb: "bear",
-    tool: "Celestial support anchors",
-    completion:
-      "Read the star bridges and retrieve the apple without losing the sky.",
-    reset: "Last support anchor.",
-  },
-  {
-    id: "aegean_cerberus",
-    name: "Leave Death Its Guardian",
-    verb: "subdue",
-    tool: "Universal ward and three restraints",
-    completion:
-      "Subdue the guardian, complete the lawful passage, and return him.",
-    reset: "Hades’ gate; no repeat entry fee.",
-  },
-];
+/** Catalog text shares the live encounter goals, so discovery cards cannot
+ * describe obsolete switches, chapter checkpoints or compulsory tool use. */
+export const AEGEAN_CONTENT: AegeanAdventureContent[] = AEGEAN_LABOUR_IDS.map((id) => {
+  const adventure = AEGEAN_ADVENTURE_BY_ID[id];
+  return {
+    id,
+    name: adventure.name,
+    verb: adventure.verb,
+    tool: adventure.tip,
+    completion: adventure.goal,
+    reset: id === "aegean_augeas"
+      ? "Opened sluices stay open; the current fight restarts."
+      : "The attempt restarts. Claimed rewards remain yours.",
+  };
+});

@@ -1,3 +1,4 @@
+import { GREEK_WEAPON_STYLES } from '../data/aegean/weapons';
 import type { ReactNode } from 'react';
 import { getIconUrl } from '../game/art/icons';
 import { EFFECT_BY_ID } from '../game/items/effects';
@@ -65,6 +66,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
         </div>
       </div>
 
+      {GREEK_WEAPON_STYLES[item.defId] ? <div className="greek-weapon-style"><strong>{GREEK_WEAPON_STYLES[item.defId].label}</strong><span>{GREEK_WEAPON_STYLES[item.defId].rhythm}</span></div> : null}
       {keys.length ? (
         <>
           <div className="divider" />

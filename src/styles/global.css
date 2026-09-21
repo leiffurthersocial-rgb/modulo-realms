@@ -1467,3 +1467,38 @@ canvas.world {
   .quest-layout .forge-action { flex-wrap: wrap; }
   .skill-branches { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Harbour route chart: legible without opening the journal. */
+.ship-chart-grid { display:grid; grid-template-columns:minmax(135px,.9fr) minmax(145px,1.1fr); gap:14px; margin:10px 0; }
+.ship-chart-map { position:relative; align-self:start; border:1px solid #826e49; background:#153343; }
+.ship-chart-map canvas { display:block; width:100%; image-rendering:pixelated; }
+.ship-chart-north { position:absolute; top:7px; right:8px; color:#f6e9be; font-size:12px; }
+.ship-chart-pin { position:absolute; transform:translate(-50%,-50%); width:30px; height:30px; border-radius:50%; border:2px solid #2b251e; background:#f0c963; color:#191925; font-weight:bold; box-shadow:0 2px 8px #0009; cursor:pointer; }
+.ship-chart-pin.selected { outline:2px solid white; outline-offset:2px; }
+.ship-chart-you { position:absolute; transform:translate(-50%,-50%); width:9px; height:9px; border:2px solid white; background:#60d4f0; border-radius:50%; box-shadow:0 0 8px #fff; pointer-events:none; }
+.ship-component { padding:9px 0; border-bottom:1px solid var(--edge); font-size:12px; }
+.ship-component strong { color:var(--gold); }
+.ship-component > div { margin:5px 0; }
+.ship-component.done { opacity:.65; }
+.ship-step-number { display:inline-block; min-width:16px; }
+.ship-blocker { border-left:3px solid #e7a36c; padding:7px 10px; background:#e7a36c0c; font-size:12px; margin-top:8px; }
+.ship-route-details summary, .reward-history summary { color:var(--gold); cursor:pointer; font-size:12px; padding:10px 0; }
+.reward-history { padding:0 18px; max-height:35vh; overflow:auto; }
+.reward-history > div { font-size:12px; border-bottom:1px solid var(--edge); padding:8px 0; }
+.next-action-card { position:relative; padding:8px 24px 8px 10px; border-left:3px solid #f0c963; background:#191621de; margin-bottom:8px; font-size:12px; }
+.next-action-card strong { color:#f0c963; }
+.next-action-card small { display:block; margin-top:5px; }
+.next-action-card button { position:absolute; right:3px; top:3px; background:none; color:#dcd4c1; border:0; cursor:pointer; pointer-events:auto; }
+.recent-reward { position:absolute; bottom:98px; left:14px; max-width:300px; border:1px solid #716042; border-radius:5px; background:#191621de; color:#e7c778; padding:7px 10px; font-size:11px; pointer-events:auto; cursor:pointer; }
+@media (max-width:600px) { .ship-chart-grid { gap:8px; grid-template-columns:minmax(110px,1fr) minmax(125px,1fr); } .ship-chart-pin { width:25px; height:25px; } .recent-reward { bottom:170px; max-width:220px; } }
+.greek-weapon-style { padding:10px 0; font-size:12px; border-bottom:1px solid var(--edge); }
+.greek-weapon-style strong { display:block; color:var(--gold); margin-bottom:4px; }
+.greek-weapon-style span { color:#ccc3b5; }
+.aegean-danger-cue { position:absolute; left:50%; transform:translateX(-50%); top:154px; color:#ffe3b3; border:1px solid #e69562; border-radius:5px; padding:7px 12px; background:#261516ed; font-weight:bold; font-size:12px; text-align:center; max-width:80vw; }
+@media (max-height:600px) and (orientation:landscape) {
+  .touch-on .quest-tracker:has(.next-action-card) { display:block; top:108px; right:10px; width:210px; padding:4px; }
+  .touch-on .quest-tracker:has(.next-action-card) > :not(.next-action-card) { display:none; }
+  .aegean-danger-cue { top:94px; font-size:11px; }
+  .recent-reward { left:10px; bottom:166px; max-width:200px; padding:4px; }
+}
+.next-action-card .next-part { position:static; display:block; padding:6px 0 0; color:#f0c963; text-align:left; }

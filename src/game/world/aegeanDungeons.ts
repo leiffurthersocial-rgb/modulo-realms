@@ -53,16 +53,19 @@ function room(
 }
 
 function line(b: Builder, a: Point, z: Point, width = 3, tile = b.floor): void {
-  const steps = Math.ceil(Math.hypot(z[0] - a[0], z[1] - a[1]));
-  for (let i = 0; i <= steps; i++)
-    disc(
-      b,
-      Math.round(a[0] + ((z[0] - a[0]) * i) / Math.max(1, steps)),
-      Math.round(a[1] + ((z[1] - a[1]) * i) / Math.max(1, steps)),
-      width,
-      width,
-      tile,
-    );
+  const length = Math.hypot(z[0] - a[0], z[1] - a[1]);
+  const steps = Math.ceil(length);
+  const organic = ([T.AEGEAN_GRASS, T.SNOW, T.GRAVEL, T.BASALT, T.DIRT, T.WATER] as number[]).includes(tile);
+  const nx = -(z[1] - a[1]) / Math.max(1, length), ny = (z[0] - a[0]) / Math.max(1, length);
+  const seed = a[0] * .19 + z[1] * .27;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / Math.max(1, steps);
+    // Natural paths and riverbanks bend with the land; temple stonework remains authored.
+    const bend = organic ? Math.sin(t * Math.PI) * (Math.sin(t * Math.PI * 3 + seed) * 2.7 + Math.sin(t * 8 + seed) * 1.2) : 0;
+    const spread = organic ? width * (.87 + .16 * Math.sin(t * 13 + seed)) : width;
+    disc(b, Math.round(a[0] + (z[0] - a[0]) * t + nx * bend),
+      Math.round(a[1] + (z[1] - a[1]) * t + ny * bend), spread, spread, tile);
+  }
 }
 
 function ring(
@@ -585,7 +588,7 @@ function scylla(b: Builder): void {
   });
   art(b, b.entry[0] + 3, b.entry[1] - 4, "aegean_scroll", {
     interact: "sign", label: "Read the strait keeper’s warning",
-    data: { text: "Signal the Outer, Vortex, and Passage beacons in order. Each draws two of Scylla’s six hunting heads onto its deck. Defeat both heads, then return to light that beacon. Keep moving when Charybdis marks the deck blue. Three lit beacons bind the whirlpool and expose Scylla, who must still be defeated. Crossing the passage alone earns no victory." },
+    data: { text: "SIX HEADS HUNT. Slay each pair to light its beacon. Dodge blue surges. Three flames bind Charybdis — then Scylla attacks." },
   });
   node(b, "arena", 25, 69);
   node(b, "boss", 25, 64);
@@ -616,80 +619,56 @@ function titan(b: Builder): void {
 }
 
 function army(b: Builder): void {
+  b.floor = T.DIRT;
+  b.entry = [48, 72];
   b.map.tiles.fill(T.CLIFF);
-  const centers: Point[] = [
-    [30, 101],
-    [73, 93],
-    [115, 61],
-    [119, 24],
-  ];
-  line(b, b.entry, centers[0], 6);
-  centers.forEach(([x, y], i) => {
-    if (i) line(b, centers[i - 1], centers[i], 7);
-    if (i === 2) disc(b, x, y, 26, 22, T.MARBLE);
-    else room(b, x - 24, y - 17, 48, 34, i === 3 ? T.FLOOR_WOOD : T.MARBLE);
-    objective(b, i, x - 17, y + 11, "aegean_standard");
-    node(b, `chapter_${i}`, x, y);
-    node(b, "arena", x, y);
-    node(b, "safe", x - 17, y + 11);
-    for (let k = 0; k < 6; k++) node(b, `reserve_${i}`, x - 15 + k * 6, y - 11);
-    for (const dx of [-12, 12])
-      art(b, x + dx, y, "aegean_shield_wall", { cw: 28, ch: 14 });
+  // One broad, continuous EARTH battlefield. All ten companies occupy it at
+  // once; there are no chapter corridors, reserve actors or recovery shrines.
+  for (let y = 5; y < 74; y++) for (let x = 5; x < 92; x++) {
+    const edge = (x - 48) ** 2 / 43 ** 2 + (y - 39) ** 2 / 35 ** 2;
+    if (edge < 1 + .035 * Math.sin(x * .41 + y * .27)) {
+      const noise = Math.sin(x * .39) + Math.cos(y * .32) + Math.sin((x+y) * .23);
+      setTile(b.map, x, y, noise > 1.35 ? T.GRAVEL : noise < -1.4 ? T.MUD : T.DIRT);
+    }
+  }
+  node(b, "arena", 48, 38);
+  node(b, "safe", 48, 69);
+  for (let company = 0; company < 10; company++) {
+    const x = 21 + (company % 5) * 14, y = 24 + Math.floor(company / 5) * 19;
+    disc(b, x, y, 6, 6, T.DIRT);
+    node(b, `company_${company}`, x, y);
+    art(b, x, y - 6, "aegean_standard", {nameplate: `COMPANY ${company + 1}`, nameplateColor: "#d0b078"});
+  }
+  [[13, 50], [82, 49], [20, 13], [78, 13]].forEach(([x,y],i) => {
+    objective(b, i, x, y, "aegean_standard");
   });
-  for (let x = 14; x <= 55; x += 10)
-    art(b, x, 80, "aegean_column", { cw: 18, ch: 11 });
-  room(b, 142, 8, 14, 42, T.AEGEAN_SEA);
-  art(b, 146, 27, "aegean_ship_trireme");
-  node(b, "harbour", 134, 24);
+  for (const [x,y] of [[9,40],[87,41],[27,8],[62,8],[17,66],[81,65]])
+    art(b, x, y, "aegean_shield_wall");
+  for (let i = 0; i < 24; i++) {
+    const x = 13 + (i * 17) % 73, y = 10 + (i * 11) % 56;
+    art(b, x, y, i % 3 ? "rock_small" : "bone_pile", {flat: true});
+  }
+  line(b, b.entry, [48,64], 6, T.DIRT);
 }
 
 function leonidas(b: Builder): void {
   b.map.tiles.fill(T.MARBLE_WALL);
   room(b, 8, 99, 40, 23, T.MARBLE);
-  line(b, b.entry, [63, 104], 5);
-  line(b, [63, 104], [63, 80], 5);
-  // The actual combat floor is 52 by 44 tiles, with a generous central route.
-  room(b, 37, 34, 54, 48, T.MARBLE);
-  room(b, 42, 39, 44, 37, T.BRONZE_FLOOR);
-  columns(b, 38, 35, 48, 44);
-  const braziers: Point[] = [
-    [43, 59],
-    [63, 40],
-    [85, 59],
-    [63, 75],
-  ];
-  const conductors: Point[] = [
-    [39, 43],
-    [85, 39],
-    [89, 74],
-    [40, 77],
-  ];
-  braziers.forEach(([x, y], i) => objective(b, i, x, y, "aegean_brazier"));
-  conductors.forEach(([x, y], i) =>
-    objective(b, i + 4, x, y, "aegean_conductor"),
-  );
-  for (const [x, y] of [
-    [49, 48],
-    [77, 48],
-    [49, 66],
-    [77, 66],
-  ])
-    art(b, x, y, "aegean_pillar_cracked", {
-      cw: 24,
-      ch: 17,
-      data: { encounter: b.map.id, destructible: true },
-    });
-  art(b, 64, 32, "aegean_throne");
-  node(b, "arena", 64, 57);
-  node(b, "boss", 64, 49);
-  node(b, "safe", 63, 77);
-  for (const [x, y] of [
-    [42, 38],
-    [86, 38],
-    [42, 76],
-    [86, 76],
-  ])
-    node(b, "guard", x, y);
+  // The court begins just beyond the working antechamber. Compact corners
+  // place every countermeasure within one short dash of the central duel.
+  room(b, 35, 78, 34, 31, T.MARBLE);
+  room(b, 39, 82, 26, 23, T.BRONZE_FLOOR);
+  line(b, [29,108], [43,102], 4);
+  columns(b, 36, 79, 30, 28);
+  [[39,93],[52,82],[65,93],[52,104]].forEach(([x,y],i) => objective(b,i,x,y,"aegean_brazier"));
+  [[39,83],[64,83],[65,103],[39,103]].forEach(([x,y],i) => objective(b,i+4,x,y,"aegean_conductor"));
+  for (const [x,y] of [[45,87],[59,87],[45,99],[59,99]])
+    art(b,x,y,"aegean_pillar_cracked",{cw:18,ch:12,data:{encounter:b.map.id,destructible:true}});
+  art(b,52,77,"aegean_throne");
+  node(b,"arena",52,93);
+  node(b,"boss",52,89);
+  node(b,"safe",51,105);
+  for (const [x,y] of [[38,81],[65,81],[38,105],[65,105]]) node(b,"guard",x,y);
 }
 
 function sanctuary(b: Builder, kind: string): void {
@@ -1052,12 +1031,36 @@ function underworld(b: Builder, slug: string): void {
   node(b, "safe", 24, 76);
 }
 
+/** Reduce empty travel without throwing away the authored topology. This is a
+ * tile-space remap, not camera zoom: a dodge still covers its normal distance. */
+function compactCombatMap(b: Builder): void {
+  const factor = 0.6, oldW = b.map.w, oldH = b.map.h, old = b.map.tiles;
+  const width = Math.ceil(oldW * factor) + 2, height = Math.ceil(oldH * factor) + 2;
+  const tiles = new Uint8Array(width * height);
+  tiles.fill(old[0]);
+  for (let y = 0; y < height - 2; y++) for (let x = 0; x < width - 2; x++) {
+    const sx = Math.min(oldW - 1, Math.round(x / factor));
+    const sy = Math.min(oldH - 1, Math.round(y / factor));
+    tiles[y * width + x] = old[sy * oldW + sx];
+  }
+  b.map.w = width; b.map.h = height; b.map.tiles = tiles;
+  const coordinate = (v: number) => Math.round((v / TILE - .5) * factor) * TILE + TILE / 2;
+  for (const prop of b.map.props) { prop.x = coordinate(prop.x); prop.y = coordinate(prop.y); }
+  for (const list of Object.values(b.map.encounterNodes ?? {}))
+    for (const p of list) { p.x = coordinate(p.x); p.y = coordinate(p.y); }
+  for (const p of b.map.portals) { p.x = coordinate(p.x + p.w / 2) - p.w / 2; p.y = coordinate(p.y + p.h / 2) - p.h / 2; }
+  b.entry = [Math.round(b.entry[0] * factor), Math.round(b.entry[1] * factor)];
+  // Keep the large myth creatures clear of narrow resampling seams at tools.
+  for (const prop of b.map.props.filter((p) => p.data?.action === "objective"))
+    disc(b, Math.floor(prop.x / TILE), Math.floor(prop.y / TILE), 2.5);
+}
+
 /** Bespoke terrain, topology, tools and anchors. Runtime rules live in the director. */
 export function generateAegeanDungeon(loc: LocationDef, seed: number): GameMap {
   const id = loc.dungeon!.mapId,
     slug = id.replace(/^aegean_/, "");
-  const w = slug === "army" ? 160 : slug === "leonidas" ? 128 : 112;
-  const h = slug === "army" || slug === "leonidas" ? 128 : 96;
+  const w = slug === "army" ? 96 : slug === "leonidas" ? 128 : 112;
+  const h = slug === "army" ? 80 : slug === "leonidas" ? 128 : 96;
   const outdoor = [
     "nemea",
     "hind",
@@ -1084,7 +1087,7 @@ export function generateAegeanDungeon(loc: LocationDef, seed: number): GameMap {
     encounter: id,
     encounterNodes: {},
     parent: loc.id,
-    revision: `${seed}:${id}:1`,
+    revision: `${seed}:${id}:2`,
   });
   const b: Builder = {
     map,
@@ -1122,6 +1125,8 @@ export function generateAegeanDungeon(loc: LocationDef, seed: number): GameMap {
   else if (slug.startsWith("champion_")) champion(b, slug.slice(9));
   else if (AEGEAN_UNDERWORLD_IDS.includes(id)) underworld(b, slug);
   else throw new Error(`Missing authored Aegean layout: ${id}`);
+
+  if (map.encounter && slug !== "army" && slug !== "leonidas") compactCombatMap(b);
 
   const [ex, ey] = b.entry;
   disc(b, ex, ey, 5);

@@ -1,3 +1,4 @@
+import { AEGEAN_SEA_PACKS } from "../../data/aegean/ecology";
 import { createShipDeck } from "./deck";
 import type { Game } from "../core/game";
 import { AEGEAN_SHIPS, AEGEAN_FITTINGS } from "../../data/aegean/content";
@@ -372,7 +373,7 @@ export class NavalSystem {
     g.player.invuln = 2;
     g.playSound('ship_dock', 0.6);
     g.closeAll();
-    g.toast('At the helm', 'Steer with WASD or arrows. Islands can only be entered at ports: follow the harbour direction, then press E to land.', '#66cdd6');
+    g.toast('At the helm', 'Steer · sprint to row · brace against impacts · E at the marked harbour.', '#66cdd6');
     g.autosave();
     g.touch();
     return true;
@@ -477,7 +478,7 @@ export class NavalSystem {
       enemies: threats
         .slice(0, 4)
         .map((e) =>
-          e.def.id === "aegean_siren" ? "aegean_siren" : "aegean_crab",
+          ["aegean_telchine", "aegean_nereid", "aegean_siren", "aegean_ichthyocentaur"].includes(e.def.id) ? e.def.id : "aegean_telchine",
         ),
     };
     this.state.aboard = false;
@@ -498,16 +499,15 @@ export class NavalSystem {
   populateDeck(): void {
     const g = this.game;
     if (!this.state.deck || g.map.id !== "aegean_ship_deck") return;
-    for (const [i, id] of this.state.deck.enemies.entries())
-      g.enemies.push(
-        new Enemy(
-          id,
-          (24 + (i % 2) * 4) * 32,
-          (9 + Math.floor(i / 2) * 5) * 32,
-          90 + this.danger * 2,
-          { spawnId: `deck:${i}`, region: "aegean_pelagic" },
-        ),
-      );
+    for (const [i, id] of this.state.deck.enemies.entries()) {
+      const enemy = new Enemy(id, (24 + (i % 2) * 4) * 32, (9 + Math.floor(i / 2) * 5) * 32,
+        90 + this.danger * 2, { spawnId: `deck:${i}`, region: "aegean_pelagic" });
+      // Boarding creatures fight on the deck; their open-water navigation must
+      // never strand them against the first dry plank.
+      enemy.movementProfile = id === "aegean_siren" ? "flying" : "foot";
+      enemy.state = "chase";
+      g.enemies.push(enemy);
+    }
   }
   returnHelm(): boolean {
     const g = this.game,
@@ -624,18 +624,19 @@ export class NavalSystem {
             { knockback: 160, fromX: p.x, fromY: p.y },
           );
     }
-    if (this.danger === 4 && this.storm <= 0) {
-      this.storm = 4;
+    const squall = this.danger >= 2 && Math.sin((p.x + p.y) / 4000 + g.now / 26) > .25;
+    if ((this.danger === 4 || squall) && this.storm <= 0) {
+      this.storm = this.danger === 4 ? 2.7 : 6.5;
       g.telegraph(
-        p.x + Math.cos(g.now) * 90,
-        p.y + Math.sin(g.now) * 90,
+        p.x + p.vx * .55,
+        p.y + p.vy * .55,
         58,
         1.2,
         "#b0dfff",
       );
       this.strikes.push({
-        x: p.x + Math.cos(g.now) * 90,
-        y: p.y + Math.sin(g.now) * 90,
+        x: p.x + p.vx * .55,
+        y: p.y + p.vy * .55,
         at: g.now + 1.2,
       });
     }
@@ -648,11 +649,12 @@ export class NavalSystem {
               0.08 *
               (this.vessel?.fittings.includes("stabilizer") ? 0.65 : 1),
           );
+        if (!this.aboard || g.map.id !== "overworld") { this.strikes = []; return; }
         g.fx.ring(strike.x, strike.y, 58, "#b0dfff");
       }
     this.strikes = this.strikes.filter((strike) => strike.at > g.now);
     if (this.spawn <= 0) {
-      this.spawn = Math.max(6, 24 - this.danger * 4);
+      this.spawn = Math.max(4.5, 16 - this.danger * 2.5);
       this.spawnMonster();
     }
     const wreck = this.state.wreck;
@@ -661,7 +663,7 @@ export class NavalSystem {
       delete this.state.wreck;
       g.toast(
         "Wreck recovered",
-        "The crew salvaged your voyage gold.",
+        `+${wreck.gold.toLocaleString()} gold recovered.`,
         "#e7c778",
       );
     }
@@ -682,13 +684,8 @@ export class NavalSystem {
         2 + this.danger
     )
       return;
-    const ids = [
-      "aegean_serpent",
-      "aegean_siren",
-      "aegean_ketos",
-      "aegean_sea_serpent",
-    ];
-    const id = ids[Math.max(0, Math.min(ids.length - 1, this.danger - 1))];
+    const ids = AEGEAN_SEA_PACKS[Math.min(4, this.danger)];
+    const id = ids[Math.floor(g.now * .73) % ids.length];
     if (!ENEMY_BY_ID[id]) return;
     const a = g.now * 2.39,
       x = p.x + Math.cos(a) * 470,
@@ -698,8 +695,8 @@ export class NavalSystem {
       region: "aegean_pelagic",
     });
     e.spawnId = `sea:${g.now}`;
-    e.movementProfile = id === "aegean_siren" ? "flying" : "swimmer";
-    e.def = { ...e.def, sight: 900 };
+    e.movementProfile = id === "aegean_siren" || id === "aegean_anemoi" ? "flying" : "swimmer";
+    e.def = { ...e.def, sight: 1100 };
     e.state = "chase";
     g.enemies.push(e);
     if (

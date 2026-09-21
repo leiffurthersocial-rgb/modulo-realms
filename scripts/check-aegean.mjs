@@ -24,6 +24,10 @@ const checks = [
   "check-aegean-services",
   "check-aegean-ship-guidance",
   "check-aegean-integration",
+  "check-aegean-active-world",
+  "check-aegean-bestiary",
+  "check-aegean-dungeons",
+  "check-aegean-living-myths",
 ];
 try {
   for (const name of checks) {

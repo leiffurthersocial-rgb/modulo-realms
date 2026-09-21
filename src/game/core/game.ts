@@ -1,3 +1,6 @@
+import { AegeanHazards } from '../aegean/hazards';
+import { AegeanWeaponCombat } from '../aegean/weapons';
+import { AegeanRecovery } from '../aegean/recovery';
 import { AegeanServices } from '../aegean/services';
 import { AEGEAN_PORTS } from '../../data/aegean/world';
 import { AegeanPowers } from '../aegean/powers';
@@ -168,6 +171,8 @@ export class Game implements WorldCtx {
   services = new AegeanServices(this);
   naval = new NavalSystem(this);
   powers = new AegeanPowers(this);
+  greekWeapons = new AegeanWeaponCombat(this);
+  aegeanHazards = new AegeanHazards(this);
   encounters = new AegeanEncounterDirector(this);
 
   itemMigrationReport: ItemCurveMigration[] = [];
@@ -340,6 +345,8 @@ export class Game implements WorldCtx {
     this.quests = new QuestLog();
     this.player = new Player(init);
     this.campaign.reset();
+    this.aegeanRecovery.reset();
+    this.aegeanHitReceipts = new WeakMap();
     this.activities.reset();
     this.services.reset();
     this.naval.reset();
@@ -438,6 +445,8 @@ export class Game implements WorldCtx {
     this.npcs = NPCS.filter((n) => n.map === id).map((n) => new NpcEntity(n));
     for (const n of this.npcs) {n.updateSchedule(this.hour);if(n.def.id.startsWith('aegean_')){const safe=this.findStandingSpot(n.x,n.y);n.x=safe.x;n.y=safe.y;n.anchorX=safe.x;n.anchorY=safe.y;n.destX=safe.x;n.destY=safe.y;}}
     this.updateMusic(true);
+    this.greekWeapons.reset();
+    this.aegeanHazards.reset();
     this.encounters.onMapEntered();
   }
 
@@ -600,8 +609,8 @@ export class Game implements WorldCtx {
     audio.play(name, volume);
   }
 
-  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: 'circle' | 'ring' | 'cone' | 'line' = 'circle', angle = 0, halfWidth = 13): void {
-    this.fx.telegraph(x, y, r, duration, color, shape, angle, halfWidth);
+  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: 'circle' | 'ring' | 'cone' | 'line' = 'circle', angle = 0, halfWidth = 13, coneHalfAngle = .55): void {
+    this.fx.telegraph(x, y, r, duration, color, shape, angle, halfWidth, coneHalfAngle);
   }
 
   ringAt(x: number, y: number, r: number, color: string): void {
@@ -741,11 +750,27 @@ export class Game implements WorldCtx {
     return { x: p.x + Math.cos(a) * range * 0.55, y: p.y + Math.sin(a) * range * 0.55 };
   }
 
+  /** Damage-driven recovery is bounded only in the Greek expansion. */
+  private aegeanRecovery = new AegeanRecovery();
+  private aegeanHitReceipts = new WeakMap<Enemy, number>();
+  get inAegean(): boolean {
+    return this.map?.id.startsWith('aegean_') || this.map?.id.startsWith('int_aegean_') ||
+      (this.map?.id === 'overworld' && this.player.x >= 960 * TILE);
+  }
+  recoverFromOffense(amount: number): number {
+    const p = this.player;
+    const healed = Math.min(Math.max(0, p.maxHp - p.hp), this.inAegean
+      ? this.aegeanRecovery.take(amount, p.maxHp, this.now) : Math.max(0, amount));
+    p.hp += healed;
+    return healed;
+  }
+
   /* ---------------- combat ---------------- */
 
-  damageEnemy(target: Entity, amount: number, opts: DamageOpts = {}): void {
+  damageEnemy(target: Entity, amount: number, opts: DamageOpts = {}): number {
     const e = target as Enemy;
-    if (e.dead) return;
+    if (this.inAegean) this.aegeanHitReceipts.set(e, 0);
+    if (e.dead) return 0;
     // An immune phase is absolute: nothing lands, no matter what is swinging.
     // Saying so on the boss rather than silently eating the hit is the whole
     // point — a player who cannot tell the difference between "warded" and
@@ -757,7 +782,7 @@ export class Game implements WorldCtx {
         this.fx.ring(e.x, e.y, e.radius * 2.2, '#8fd0f0');
         audio.play('ui', 0.3);
       }
-      return;
+      return 0;
     }
     // Debug one-shot sits after the ward check on purpose: an immune phase is
     // still immune, so this cannot hide a boss-phase bug it was meant to find.
@@ -799,13 +824,17 @@ export class Game implements WorldCtx {
       }
     }
 
-    if(!this.encounters.isDamageAllowed(e))return;
+    if(!this.encounters.isDamageAllowed(e))return 0;
     dmg=this.powers.onHit(e,dmg,opts);
-    if(e.dead)return;
+    if(e.dead)return 0;
     if(cap)dmg=Math.min(dmg,e.maxHp*cap);
     dmg = this.encounters.modifyDamage(e, dmg, opts);
-    if (dmg <= 0) return;
+    if (dmg <= 0) return 0;
+    const dealt = Math.min(e.hp, dmg);
+    if (this.inAegean) this.aegeanHitReceipts.set(e, dealt);
     e.hp -= dmg;
+    if (this.inAegean && !opts.noProc && !e.friendly)
+      this.recoverFromOffense(dealt * this.player.stats().lifesteal / 100);
     e.flash = 1;
     e.hurtTime = 0.18;
     if (e.state === 'idle' || e.state === 'patrol') {
@@ -826,6 +855,7 @@ export class Game implements WorldCtx {
     }
 
     if (e.hp <= 0) this.killEnemy(e, opts);
+    return dealt;
   }
 
   private killEnemy(e: Enemy, opts: DamageOpts): void {
@@ -933,8 +963,7 @@ export class Game implements WorldCtx {
     // on-kill enchantments
     const leech = p.enchantPower('leeching');
     if (leech > 0) {
-      const heal = p.maxHp * (leech / 100);
-      p.hp = Math.min(p.maxHp, p.hp + heal);
+      const heal = this.recoverFromOffense(p.maxHp * (leech / 100));
       this.floatText(p.x, p.y - 44, `+${Math.round(heal)}`, '#5dbf5a', 12);
     }
     const refresh = p.enchantPower('refreshment');
@@ -1240,6 +1269,7 @@ export class Game implements WorldCtx {
     const mult = power ? 1.85 : 1;
     const enchMul = 1 + (ranged ? p.enchantPower('power') : p.enchantPower('sharpness')) / 100;
     const base = p.attackPower() * mult * enchMul;
+    if (this.greekWeapons.attack(base, aim, power)) return;
 
     if (ranged) {
       p.mp -= manaCost;
@@ -1331,6 +1361,11 @@ export class Game implements WorldCtx {
   }
 
   applyHitEffects(target: Enemy, dmg: number, crit: boolean): void {
+    if (this.inAegean) {
+      dmg = this.aegeanHitReceipts.get(target) ?? 0;
+      this.aegeanHitReceipts.delete(target);
+      if (dmg <= 0) return;
+    }
     const p = this.player;
     const stats = p.stats();
 
@@ -1367,7 +1402,7 @@ export class Game implements WorldCtx {
         this.fx.spawn(o.x, o.y, 4, PAL.iron, { speed: 40, life: 0.4, size: 2 });
       }
     }
-    if (stats.lifesteal > 0) {
+    if (stats.lifesteal > 0 && !this.inAegean) {
       const heal = dmg * (stats.lifesteal / 100);
       p.hp = Math.min(p.maxHp, p.hp + heal);
     }
@@ -1413,8 +1448,8 @@ export class Game implements WorldCtx {
       }
       if (crit && eff.trigger === 'onCrit' && Math.random() < eff.chance) {
         if (id === 'vampiric') {
-          p.hp = Math.min(p.maxHp, p.hp + dmg * eff.power);
-          this.floatText(p.x, p.y - 40, `+${Math.round(dmg * eff.power)}`, '#6fbf5a', 12);
+          const healed = this.recoverFromOffense(dmg * eff.power);
+          if (healed > 0) this.floatText(p.x, p.y - 40, `+${Math.round(healed)}`, '#6fbf5a', 12);
         }
         if (id === 'sunflare') {
           this.fx.ring(target.x, target.y, 80, PAL.holy);
@@ -1548,13 +1583,13 @@ export class Game implements WorldCtx {
           if (e.dead || e.friendly) continue;
           if (dist(p.x, p.y, e.x, e.y) > r + e.radius) continue;
           const roll = this.rollDamage(power);
-          this.damageEnemy(e, roll.dmg, { element: ab.element, crit: roll.crit, knockback: 150, fromX: p.x, fromY: p.y });
+          const dealt = this.damageEnemy(e, roll.dmg, { element: ab.element, crit: roll.crit, knockback: 150, fromX: p.x, fromY: p.y });
           this.applyHitEffects(e, roll.dmg, roll.crit);
           if (ab.element === 'frost') e.applyStatusFrom('chill', 0.45, ab.duration ?? 4, PAL.frost, this.now);
-          if (ab.id === 'drain') healed += roll.dmg * 0.3;
+          if (ab.id === 'drain') healed += (this.inAegean ? dealt : roll.dmg) * 0.3;
         }
         if (healed > 0) {
-          p.hp = Math.min(p.maxHp, p.hp + healed);
+          healed = this.recoverFromOffense(healed);
           this.floatText(p.x, p.y - 44, `+${Math.round(healed)}`, '#6fbf5a', 13);
         }
         break;
@@ -2072,10 +2107,10 @@ export class Game implements WorldCtx {
         let healed = 0;
         for (const e of this.enemies) {
           if (e.dead || e.friendly || dist(p.x, p.y, e.x, e.y) > r + e.radius) continue;
-          this.damageEnemy(e, power * 2 * potency, { element: 'shadow', knockback: 120, fromX: p.x, fromY: p.y });
-          healed += power * 0.25;
+          const dealt = this.damageEnemy(e, power * 2 * potency, { element: 'shadow', knockback: 120, fromX: p.x, fromY: p.y });
+          healed += this.inAegean ? dealt * .125 : power * .25;
         }
-        p.hp = Math.min(p.maxHp, p.hp + healed);
+        this.recoverFromOffense(healed);
         break;
       }
       case 'time_fold': {
@@ -2955,7 +2990,7 @@ export class Game implements WorldCtx {
   waystoneAccessReason(siteId: string): string | null {
     const loc = LOCATION_BY_ID[siteId];
     if (this.naval.aboard) return 'Dock and step ashore before using a waystone.';
-    if (this.campaign.onIsland() || (loc?.travelPolicy && loc.travelPolicy !== 'waystone'))
+    if (loc?.travelPolicy && loc.travelPolicy !== 'waystone')
       return 'Reach or leave Asterion by ship through the storm sea.';
     return aegeanWaystoneAccess(siteId, this.waystoneContext()) ?? this.campaign.access(siteId);
   }
@@ -3997,6 +4032,8 @@ export class Game implements WorldCtx {
     this.services.update(dt);
     this.activities.update(dt);
     this.powers.update(dt);
+    this.greekWeapons.update();
+    this.aegeanHazards.update(dt);
     this.updateChests();
     for (const e of this.enemies) e.update(this);
     this.enemies = this.enemies.filter((e) => !e.dead);
@@ -4070,7 +4107,7 @@ export class Game implements WorldCtx {
     p.mp = Math.min(p.maxMp, p.mp + stats.manaRegen * dt);
     const moving = Math.abs(p.vx) + Math.abs(p.vy) > 5;
     p.sp = Math.min(p.maxSp, p.sp + stats.staminaRegen * (moving ? 0.5 : 1.3) * dt);
-    if (p.hp < p.maxHp && !this.enemies.some((e) => !e.friendly && !e.dead && dist2(e.x, e.y, p.x, p.y) < 360 * 360)) {
+    if (p.hp < p.maxHp && (!this.inAegean || (!this.encounters.running && this.now - this.lastDamageTaken > 6)) && !this.enemies.some((e) => !e.friendly && !e.dead && dist2(e.x, e.y, p.x, p.y) < 360 * 360)) {
       p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.012 * dt);
     }
     // Mending keeps working while you fight, which is the whole reason to
@@ -4078,7 +4115,8 @@ export class Game implements WorldCtx {
     if (p.regen) {
       if (this.now > p.regen.until) p.regen = null;
       else if (p.hp < p.maxHp) {
-        const tick = p.regen.rate * dt;
+        const fighting = this.inAegean && (this.encounters.running || this.now - this.lastDamageTaken < 6);
+        const tick = (fighting ? Math.min(p.regen.rate, p.maxHp * .025) : p.regen.rate) * dt;
         p.hp = Math.min(p.maxHp, p.hp + tick);
         this.regenFxTimer -= dt;
         if (this.regenFxTimer <= 0) {
@@ -4483,11 +4521,13 @@ export class Game implements WorldCtx {
           const p = this.player;
           if (dist2(pr.x, pr.y, p.x, p.y - 8) < (p.radius + pr.radius * 0.3) ** 2) {
             pr.dead = true;
+            const hpBefore = p.hp, shieldBefore = p.shield;
             this.damagePlayer(pr.damage, { trueDamageAmount: pr.trueDamageAmount, minHealthDamage: pr.minHealthDamage, element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
-            if (pr.element === 'shadow' && this.regionAtPlayer()?.startsWith('aegean_')) applyStatus(p,'curse',.2,8,'#bda4d5',this.now);
-            if (pr.element === 'poison') applyStatus(p, 'poison', pr.damage * 0.25, 5, PAL.toxic, this.now);
-            if (pr.element === 'fire') applyStatus(p, 'burn', pr.damage * 0.25, 4, PAL.flame, this.now);
-            if (pr.element === 'frost') applyStatus(p, 'chill', 0.3, 3, PAL.frost, this.now);
+            const landed = !this.inAegean || (!p.dead && (p.hp < hpBefore || p.shield < shieldBefore));
+            if (landed && pr.element === 'shadow' && this.regionAtPlayer()?.startsWith('aegean_')) applyStatus(p,'curse',.2,8,'#bda4d5',this.now);
+            if (landed && pr.element === 'poison') applyStatus(p, 'poison', pr.damage * 0.25, 5, PAL.toxic, this.now);
+            if (landed && pr.element === 'fire') applyStatus(p, 'burn', pr.damage * 0.25, 4, PAL.flame, this.now);
+            if (landed && pr.element === 'frost') applyStatus(p, 'chill', 0.3, 3, PAL.frost, this.now);
             this.fx.spawn(pr.x, pr.y, 8, pr.color, { speed: 90, life: 0.35, size: 2 });
           }
         }

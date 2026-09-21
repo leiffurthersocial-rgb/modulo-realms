@@ -1,3 +1,6 @@
+import { AEGEAN_SHIPS } from '../data/aegean/content';
+import { nextShipStep, shipGuidanceTarget } from '../game/aegean/guidance';
+import { aegeanName } from './aegeanNames';
 import { useEffect, useState } from 'react';
 import type { Game } from '../game/core/game';
 import { getIconUrl } from '../game/art/icons';
@@ -21,6 +24,10 @@ export default function Hud({ game }: { game: Game }) {
   const p = game.player;
   if (!p) return null;
   const stats = p.stats();
+  const component = game.campaign.state.trackedComponent;
+  const shipStep = component ? nextShipStep(game, component) : null;
+  const nextPart = component && !shipStep ? AEGEAN_SHIPS.find(s => s.id === 'aegean_stormbreaker')?.requirements.find(id => !game.campaign.has(id)) : undefined;
+  const shipTarget = component ? shipGuidanceTarget(game) : null;
   const landing = game.naval.landingGuide();
   const useKey = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
   const abilities = p.classDef.abilities;
@@ -31,7 +38,7 @@ export default function Hud({ game }: { game: Game }) {
     ? game.quests.get(game.trackedQuest) : undefined;
   const tracked = fieldQuest
     ? [fieldQuest, ...game.quests.active.filter(q => q.id !== fieldQuest.id)].slice(0, 3)
-    : game.quests.active.slice(0, 3);
+    : game.quests.active.slice(0, game.inAegean ? 1 : 3);
   const heroicChoices = [80, 85, 90, 95, 100].filter((level) => p.level >= level && !MASTERIES.some((m) => m.level === level && p.flags.has(`aegean:mastery:${m.id}`))).length;
 
   return (
@@ -96,6 +103,7 @@ export default function Hud({ game }: { game: Game }) {
         </div>
       </div>
 
+      {game.aegeanHazards.warning ? <div className="aegean-danger-cue" role="status">⚠ {game.aegeanHazards.warning}</div> : null}
       {game.bossTarget && !game.bossTarget.dead ? (
         <div className={`boss-bar${game.bossTarget.warded ? ' warded' : ''}`}>
           <div className="bname">{game.bossTarget.def.name}</div>
@@ -115,16 +123,23 @@ export default function Hud({ game }: { game: Game }) {
         </div>
       ) : null}
 
-      {tracked.length || game.encounters.active || game.naval.aboard ? (
+      {tracked.length || component || game.encounters.active || game.naval.aboard ? (
         <div className="quest-tracker">
+          {component ? <div className="next-action-card">
+            <strong>{aegeanName(component)}</strong>
+            <div>{shipStep?.action ?? (nextPart ? '✓ Part ready' : '✓ All parts ready — return to the shipwright')}</div>
+            {nextPart ? <button className="next-part" onClick={() => game.campaign.trackComponent(nextPart)}>Guide next part →</button> : null}
+            {shipTarget ? <small>→ {shipTarget.name} · {Math.round(Math.hypot(shipTarget.x - p.x, shipTarget.y - p.y) / 32)}m</small> : null}
+            <button aria-label="Stop component guidance" onClick={() => game.campaign.trackComponent()}>×</button>
+          </div> : null}
           {game.naval.aboard ? (
             <div style={{ marginBottom: 8 }}>
               <h4>{game.naval.definition?.name}</h4>
               <div className="qname">{game.naval.dangerLabel}</div>
-              <div className="obj">Go ashore at a harbour. Beaches and cliffs are not landings.</div>
+
               {landing ? <div className="obj">{landing.inRange
                 ? landing.reason ?? `${useKey} — Land at ${landing.port.name}`
-                : `${landing.port.name} · ${landing.direction} · ${Math.round(landing.distance / 32)}m. Follow the harbour marker, then press ${useKey} to land.`}</div> : null}
+                : `${landing.port.name} · ${landing.direction} · ${Math.round(landing.distance / 32)}m`}</div> : null}
               <div className="obj">R — Fight boarders on deck</div>
             </div>
           ) : null}
@@ -134,8 +149,8 @@ export default function Hud({ game }: { game: Game }) {
               <div className="obj">{game.encounters.status}</div>
             </div>
           ) : null}
-          {tracked.length ? <h4>Journal</h4> : null}
-          {tracked.map((aq) => {
+          {tracked.length && !game.encounters.active && !component ? <h4>Next adventure</h4> : null}
+          {(!game.encounters.active && !component ? tracked : []).map((aq) => {
             const def = QUEST_BY_ID[aq.id];
             if (!def) return null;
             return (
@@ -158,6 +173,7 @@ export default function Hud({ game }: { game: Game }) {
         </div>
       ) : null}
 
+      {game.inAegean && game.campaign.state.receipts?.[0] ? <button className="recent-reward" onClick={() => game.setPanel('quests')} title={game.campaign.state.receipts[0].lines.join(' · ')}>Earned · {game.campaign.state.receipts[0].lines[1] ?? game.campaign.state.receipts[0].lines[0]} ›</button> : null}
       <div className="toasts">
         {game.toasts.map((t) => (
           <div className="toast" key={t.id} style={{ borderLeftColor: t.color, opacity: t.t > 5 ? 0.3 : 1 }}>

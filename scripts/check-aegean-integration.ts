@@ -594,8 +594,8 @@ assert.equal(game.activities.state.runs[rescue].escort, undefined);
 game.setMap("aegean_army");
 assert.equal(
   game.encounters.armyStanding,
-  150,
-  "The saved second chapter restores exactly 150 remaining soldiers",
+  300,
+  "An unfinished old chapter restarts the single simultaneous 300-soldier battle",
 );
 assert(
   !game.campaign.has("aegean_army"),
@@ -619,7 +619,14 @@ for (let i = 0; i < 205; i++) {
 assert.equal(game.activities.state.runs[rescue].escort, undefined);
 assert.equal(game.activities.state.runs[rescue].progress, 0);
 assert(!game.enemies.some((e) => e.spawnId?.startsWith(`activity:${rescue}:`)));
+assert(game.activities.state.runs[rescue].retry, "A failed escort waits for deliberate regrouping");
+const failedGold = game.player.gold;
+for (let tick = 0; tick < 40; tick++) { game.now += .1; game.activities.update(.1); }
+assert.equal(game.activities.state.runs[rescue].escort, undefined, "Standing at the failure point cannot restart an unattended assault");
+assert.equal(game.player.gold, failedGold, "A failed escort never pays a reward");
+assert(!game.enemies.some(e => e.spawnId?.startsWith(`activity:${rescue}:`)));
 use(rescue, 1);
+assert.equal(game.activities.state.runs[rescue].retry, undefined, "Explicit regrouping clears the local failure state");
 function finishEscort(id: string): void {
   for (const index of [2, 3]) {
     const target = station(id, index);
@@ -694,7 +701,15 @@ assert.equal(
 const arena = "aegean_contract_arena";
 use(arena, 0);
 for (const index of [1, 3, 2]) use(arena, index);
-assert.equal(game.activities.current?.type, "defend");
+assert.equal(game.activities.current?.type, "dodge", "The old button order cannot solve the physical lane trial");
+assert.equal(game.activities.state.runs[arena].progress, 0);
+for (const index of [1, 2, 3]) {
+  at(station(arena, index));
+  for (let tick = 0; tick < 25 && game.activities.current?.type === "dodge"; tick++) {
+    game.now += .1; game.activities.update(.1);
+  }
+}
+assert.equal(game.activities.current?.type, "defend", "Occupying the indicated safe lanes completes the trial");
 use(arena, 0);
 assert(game.enemies.some((e) => e.spawnId?.startsWith(`activity:${arena}:`)));
 game.player.x += 400;
@@ -983,9 +998,19 @@ assert(Math.hypot(game.player.x - thyraDestination.x, game.player.y - thyraDesti
 game.player.waystones.add('aegean_island_asterion');
 game.travelToWaystone('aegean_island_asterion');
 assert.equal(game.fade.pending, null, 'Even a stale attunement cannot teleport to Leonidas island');
-at(islandPort.land);
+game.player.waystones.add('aegean_harbour_asterion');
+game.travelToWaystone('aegean_harbour_asterion');
+assert.equal(game.fade.pending, null, 'A stale royal harbour attunement cannot replace the first actual landing');
+game.naval.state.visitedPorts.push(islandPort.id);
+game.travelToWaystone('aegean_harbour_asterion');
+assert(game.fade.pending, 'After the first sea landing, the real royal harbour stone can be used');
+finishTravel();
+const royalHarbour = aegeanWaystoneDestination('aegean_harbour_asterion')!;
+assert(Math.hypot(game.player.x - royalHarbour.x, game.player.y - royalHarbour.y) < 80);
 game.travelToWaystone('aegean_thyra');
-assert.equal(game.fade.pending, null, 'Asterion still requires a physical voyage home');
+assert(game.fade.pending, 'Asterion waystones provide a real journey home after attunement');
+finishTravel();
+assert(Math.hypot(game.player.x - thyraDestination.x, game.player.y - thyraDestination.y) < 80);
 
 // The Gate Market is an actual shop building with the normal trading flow.
 const marketDoor = game.map.portals.find((portal) => portal.to === 'int_aegean_thyra_market');
@@ -1014,6 +1039,23 @@ game.sellItem(game.player.inventory.find((item) => item.defId === 'food_bread')!
 assert.equal(countItem(game.player.inventory, 'food_bread'), 0, 'Lysandra also buys travelling goods');
 assert(game.player.gold > afterPurchaseGold && game.player.gold < tradingGold);
 game.input.detach();
+// Old broad-arena saves must resume inside the compact dungeon, not outside
+// its new tile bounds or back on the unrelated mainland.
+game.naval.state.aboard = false;
+delete game.naval.state.deck;
+const beforeCompactGear = JSON.stringify(game.player.equipment);
+const beforeCompactGold = game.player.gold;
+game.setMap("aegean_hydra");
+assert(game.recoverSavedPosition(3200, 2400), "Old Hydra coordinates require relocation");
+assert.equal(game.map.id, "aegean_hydra", "Compaction keeps the saved dungeon destination");
+assertSafeFoot();
+assert(game.player.x >= 0 && game.player.x < game.map.w * 32 && game.player.y >= 0 && game.player.y < game.map.h * 32);
+const compactExit = game.map.portals.find(portal => portal.kind === "stairs")!;
+assert(Math.hypot(game.player.x - compactExit.x - compactExit.w / 2, game.player.y - compactExit.y - compactExit.h - 18) < 100,
+  "A distant old coordinate returns to the new reachable entrance");
+assert.equal(game.player.gold, beforeCompactGold);
+assert.equal(JSON.stringify(game.player.equipment), beforeCompactGear, "Map resize never changes equipment");
+
 console.log(
   "Aegean integration passed: real v1/v2 save migration, army/campaign/mastery/gear/resource persistence, provenance gates, ports/deck/wreck, rebuilt-coast/checkpoint recovery and activity retry/restore/repeat safety.",
 );

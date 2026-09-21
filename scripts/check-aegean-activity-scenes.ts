@@ -28,7 +28,7 @@ for (const a of AEGEAN_ACTIVITIES) {
   for (const p of [scene.anchor, ...scene.objects, ...(scene.scenery ?? [])])
     assert(art.has(p.art), `${a.id}: ${p.art} must have authored art, not a fallback`);
   const required = Math.max(0, ...a.steps.map(step => step.type === "puzzle" ? Math.max(...step.sequence!) :
-    step.type === "escort" || step.type === "visit" && !a.id.includes("_discovery_") ||
+    ["channel", "strike", "race", "dodge"].includes(step.type) || step.type === "escort" || step.type === "visit" && !a.id.includes("_discovery_") ||
       (step.type === "interact" || step.type === "visit") && step.count > 1 ? step.count : 0));
   assert.equal(scene.objects.length, required, `${a.id} has exactly the objects its mechanics need`);
   assert.equal(new Set([scene.anchor, ...scene.objects].map(p => p.name)).size, scene.objects.length + 1);
