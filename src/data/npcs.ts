@@ -305,7 +305,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'dealer_dario', name: 'Dario', title: 'Dealer at the Gilded Spade', race: 'human', faction: 'guild',
     personality: 'Courteous, endlessly patient, and has already worked out what you can afford to lose.',
-    map: 'int_casino', tx: 11, ty: 2,
+    map: 'int_casino', tx: 8, ty: 1,
     look: look({ skin: PAL.skin1, hair: '#d9a441', hairStyle: 'wild', shirt: '#efe6d6', pants: '#2e2740', boots: '#5a3b26', belt: '#d9a441', armor: 'light', armorColor: '#2e2740', armorTrim: PAL.gold }),
     wander: 10,
     greeting: [
