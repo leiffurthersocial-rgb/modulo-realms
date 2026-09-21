@@ -14,6 +14,7 @@ import {
   AEGEAN_TOWN_LAYOUTS,
   AEGEAN_WAYSTONES,
 } from "../src/data/aegean/world";
+import { AEGEAN_ISLAND_ECOLOGY } from "../src/data/aegean/ecology";
 import { aegeanWaystoneDestination } from "../src/game/aegean/waypoints";
 import { AEGEAN_ACTIVITIES } from "../src/data/aegean/progression";
 import { AEGEAN_PROP_NAMES } from "../src/game/art/aegean";
@@ -160,6 +161,11 @@ if (seed === baseline.seed) {
   }
 }
 const world = generateOverworld(seed);
+for (const island of AEGEAN_ISLANDS) {
+  const residents = world.spawns.filter(spawn => world.landmasses![Math.floor(spawn.y / TILE) * world.w + Math.floor(spawn.x / TILE)] === island.landmass);
+  for (const enemy of AEGEAN_ISLAND_ECOLOGY[island.id].enemies)
+    assert(residents.some(spawn => spawn.enemy === enemy), `${island.id}: its ${enemy} really occupies walkable territory`);
+}
 assertAuthoredArt(world.props.slice(legacy.props.length), "Greek overworld");
 assert.equal(world.w, 1920);
 assert.equal(world.h, 1088);

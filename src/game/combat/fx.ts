@@ -31,6 +31,8 @@ export interface Telegraph {
   color: string;
   shape: 'circle' | 'ring' | 'cone' | 'line';
   halfWidth: number;
+  /** Authored cone half-angle; original attacks keep their existing .55 radians. */
+  coneHalfAngle: number;
   angle: number;
 }
 
@@ -84,8 +86,8 @@ export class FxSystem {
     this.texts.push({ x: x + (Math.random() - 0.5) * 10, y, vy: -42, text, color, life: 0.95, size });
   }
 
-  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: Telegraph['shape'] = 'circle', angle = 0, halfWidth = 13): void {
-    this.telegraphs.push({ x, y, r, t: 0, duration, color, shape, angle, halfWidth });
+  telegraph(x: number, y: number, r: number, duration: number, color: string, shape: Telegraph['shape'] = 'circle', angle = 0, halfWidth = 13, coneHalfAngle = .55): void {
+    this.telegraphs.push({ x, y, r, t: 0, duration, color, shape, angle, halfWidth, coneHalfAngle });
   }
 
   ring(x: number, y: number, r: number, color: string): void {
@@ -140,7 +142,7 @@ export class FxSystem {
       g.beginPath();
       if (tg.shape === 'cone') {
         g.moveTo(tg.x, tg.y);
-        g.arc(tg.x, tg.y, tg.r, tg.angle - 0.55, tg.angle + 0.55);
+        g.arc(tg.x, tg.y, tg.r, tg.angle - tg.coneHalfAngle, tg.angle + tg.coneHalfAngle);
         g.closePath();
       } else if (tg.shape === 'line') {
         const w = tg.halfWidth * 2;

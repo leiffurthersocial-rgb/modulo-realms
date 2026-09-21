@@ -18,8 +18,8 @@ import { buildInterior } from "../src/game/world/interiors";
 import { boxHitsTerrain, propsInRect } from "../src/game/world/map";
 
 const towns = AEGEAN_LOCATIONS.filter((l) => l.kind === "village");
-assert.equal(AEGEAN_NPCS.length, 57);
-assert.equal(new Set(AEGEAN_NPCS.map((n) => n.id)).size, 57);
+assert.equal(AEGEAN_NPCS.length, 64);
+assert.equal(new Set(AEGEAN_NPCS.map((n) => n.id)).size, 64);
 assert.equal(AEGEAN_NPCS.filter((n) => n.services?.includes("inn")).length, 16);
 for (const town of towns) {
   const traders = AEGEAN_NPCS.filter((n) => n.map === `int_${town.id}_store`);
@@ -65,6 +65,12 @@ for (const town of towns) {
       `${n.id}: late-night schedules wrap correctly`,
     );
   }
+}
+for (const town of towns.filter(t => t.id !== "aegean_thyra")) {
+  const hosts = AEGEAN_NPCS.filter(n => n.map === `int_${town.id}_hall`);
+  assert.equal(hosts.length, 1, `${town.id}: refuge hall has one permanent host`);
+  assert(hosts[0].services?.includes("heal") && hosts[0].services?.includes("storage"));
+  assert.equal(NPC_BY_ID[hosts[0].id], hosts[0], `${town.id}: host is registered for actual interaction`);
 }
 for (const n of AEGEAN_NPCS) {
   for (const topic of n.topics ?? [])
@@ -336,5 +342,5 @@ if (process.argv.includes("--world")) {
   }
 }
 console.log(
-  `Aegean life:57 distinct residents in8 towns,25 inhabited interiors,8 staffed trading posts and caravan market,valid dialogue/stock/daily schedules,10 composed themes,original soundtrack preserved,7 finite cues and one timer passed${process.argv.includes("--world") ? ", including generated-town paths, house doors and reachable shop counters" : ""}.`,
+  `Aegean life:64 distinct residents in8 towns,32 inhabited interiors,8 staffed trading posts,7 refuge halls and caravan market,valid dialogue/stock/daily schedules,10 composed themes,original soundtrack preserved,7 finite cues and one timer passed${process.argv.includes("--world") ? ", including generated-town paths, house doors and reachable shop counters" : ""}.`,
 );

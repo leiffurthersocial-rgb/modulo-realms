@@ -27,11 +27,12 @@ const branches: Record<string, string[]> = {
   necromancer: ["Death", "Blight"],
 };
 const boss = new Enemy("aegean_leonidas", 0, 0, 100);
+assert.ok(boss.maxHp <= 40000, "The king is capped at 40k HP after scaling");
 console.log(
   `Leonidas HP ${boss.maxHp.toFixed(0)}, defense ${boss.defense.toFixed(0)}, basic damage ${boss.damage.toFixed(0)}; phase health shares 18/18/22/24/13/5%.`,
 );
 console.log(
-  "Assumptions: two complete offensive branches +36 universal talents (120 total); 55% attack uptime; .88 average formation effectiveness; +55 seconds for transitions/guards. Ranger fan counts use actual73px collision at300px; ground effects use authored duration and50% retention. Rotation shares finite regeneration; fixed item powers, on-hit DOTs and summons are excluded, so this remains a conservative diagnostic, not proof of a play win.",
+  "Assumptions: two complete offensive branches +36 universal talents (120 total); 35% attack uptime under aggressive pressure; .95 average shield effectiveness; +12 seconds for phase announcements and the last oath. Ranger fan counts use actual73px collision at300px; ground effects use authored duration and50% retention. Rotation shares finite regeneration; fixed item powers, on-hit DOTs and summons are excluded, so this remains a conservative diagnostic, not proof of a play win.",
 );
 
 for (const cls of CLASSES) {
@@ -134,9 +135,9 @@ for (const cls of CLASSES) {
           p.cooldownFor(a)
       );
     }, 0) * sustain;
-  const basicMinutes = (boss.maxHp / (basicDps * 0.55 * 0.88) + 55) / 60;
+  const basicMinutes = (boss.maxHp / (basicDps * 0.35 * 0.95) + 12) / 60;
   const rotationMinutes =
-    (boss.maxHp / ((basicDps + abilityDps) * 0.55 * 0.88) + 55) / 60;
+    (boss.maxHp / ((basicDps + abilityDps) * 0.35 * 0.95) + 12) / 60;
   const sweepShare =
     (boss.damage * 2.4 * 1.2 * damageTaken(stats.defense, 100)) /
     stats.maxHealth;
@@ -145,8 +146,8 @@ for (const cls of CLASSES) {
     `${cls.id}: reachable numeric damage baseline`,
   );
   assert.ok(
-    rotationMinutes >= 3 && rotationMinutes <= 18,
-    `${cls.id}: learned offensive build stays within the published3–18 minute diagnostic band; this does not assert that every build or player wins`,
+    rotationMinutes >= 0.2 && rotationMinutes <= 4,
+    `${cls.id}: learned offensive build stays within the 12-second–4-minute aggressive-combat diagnostic band; this does not assert that every build or player wins`,
   );
   assert.ok(
     sweepShare >= 0.35 && sweepShare <= 0.8,

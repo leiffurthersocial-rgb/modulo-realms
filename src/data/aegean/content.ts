@@ -1,3 +1,4 @@
+import { GREEK_WEAPON_STYLES } from './weapons';
 import type { ItemTemplate } from "../items";
 import type {
   ArmorLook,
@@ -108,9 +109,9 @@ const weapon = (
     kind,
     {
       ...bonus,
-      damage: weaponDamage(kind, level, rarity, speed),
-      attackSpeed: speed,
-      range,
+      damage: weaponDamage(kind, level, rarity, GREEK_WEAPON_STYLES[`aegean_${id}`]?.speed ?? speed),
+      attackSpeed: GREEK_WEAPON_STYLES[`aegean_${id}`]?.speed ?? speed,
+      range: GREEK_WEAPON_STYLES[`aegean_${id}`]?.range ?? range,
     },
     power,
     desc,

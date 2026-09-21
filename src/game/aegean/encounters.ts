@@ -1,8 +1,8 @@
 import type { Game } from "../core/game";
 import type { DamageOpts } from "../core/world";
-import { angleBetween, angleTo, dist } from "../core/math";
+import { angleBetween, angleTo, dist, dirFromVector } from "../core/math";
 import { Enemy } from "../entities/enemy";
-import { findOpenNear, type PropInstance } from "../world/map";
+import { boxHitsTerrain, findOpenNear, type PropInstance } from "../world/map";
 import { TILE } from "../world/tiles";
 import { AEGEAN_ATTACKS } from "../../data/aegean/enemies";
 import { aegeanMinimumHit } from "../../data/aegean/damage";
@@ -67,6 +67,7 @@ export const ARMY_COMPANIES = [
   "Sun",
   "Crown",
 ] as const;
+// Retained only to read victories/checkpoints from pre-overhaul saves.
 export const ARMY_CHAPTER_ENDS = [60, 150, 240, 300] as const;
 export const ARMY_ROSTER = ARMY_COMPANIES.flatMap((company, c) =>
   Array.from({ length: 30 }, (_, i) => ({
@@ -101,40 +102,50 @@ const COUNTS: Record<string, number> = {
   army: 4,
 };
 const LABELS: Record<string, string> = {
-  nemea: "Lure the lion into a pillar; seal it during recovery.",
-  hydra: "Sever a head, then cauterize its numbered wound within 8 seconds.",
-  hind: "Hold Brace to walk calmly beside the hind; guide it through the sanctuary stones.",
-  boar: "Bait a charge into a marked pen, then close its horn gate.",
-  augeas:
-    "Open the river sluices in order: I, III, II. Clear each guardian group.",
-  birds: "Sound a resonator, defeat its exposed flock, then advance.",
-  bull: "Lure a charge through each pylon and secure its exposed anchor.",
-  mares: "Draw each mare to its paddock gate and close the gate.",
-  hippolyta: "Rally the allied squad at each standard and hold the ground.",
-  geryon: "Gather the cattle at each refuge bell; overcome Geryon.",
-  hesperides:
-    "Take the sky at an anchor and relay it before endurance runs out.",
-  cerberus: "Evade three head patterns; place a restraint during recovery.",
-  python: "Vent the oracle fumes to expose the next coil.",
-  medusa: "Face away from the gaze; turn the mirrors to expose Medusa.",
-  minotaur: "Lure the Minotaur through the three marked gate mechanisms.",
-  chimera: "Bait the breath at the active vent, then open its sluice.",
-  cyclops: "Bait a boulder onto a crane counterweight, then operate the crane.",
-  talos: "Wait at a coastal station; open Talos’s ankle seal as he passes.",
-  scylla:
-    "Signal each beacon in order, defeat its two hunting heads, then light it. The three flames bind Charybdis and expose Scylla.",
-  titan:
-    "Defeat the chain horrors, then hold each anchor while it is repaired.",
-  sanctuary_aegis: "Turn three mirrors during the sentinel’s recovery.",
-  sanctuary_forge: "Work the forge after its cooling pulse; defeat the warden.",
-  sanctuary_names:
-    "Return the unspent names in order: II, I, III; contain their keeper.",
+  nemea: "Dodge the pounce. Bait a charge into a gold pillar to crack its hide.",
+  hydra: "Cut the five heads. Step into each glowing wound to burn it shut.",
+  hind: "Walk beside the hind with Brace. Protect it when it reaches sanctuary.",
+  boar: "Bait the boar through the three snow pens. Dodge sideways as it charges.",
+  augeas: "Stand on a sluice to open it. Fight through the flood while it turns.",
+  birds: "Kill the bronze flock. Resonators stun birds when you stand beside them.",
+  bull: "Break the three bull anchors with its own charge. Dodge sideways.",
+  mares: "Lead each red-eyed mare through its matching paddock. Defeat Diomedes.",
+  hippolyta: "Duel the Amazon queen. Hold a banner to call your allies' covering strike.",
+  geryon: "Defeat all three bodies. Lead the cattle into shelters for safe ground.",
+  hesperides: "Step into starlight. Carry the sky between glowing anchors before it falls.",
+  cerberus: "Dodge the three heads. Approach during REST to fasten a restraint.",
+  python: "Dodge the hunting coils. Stand by a vent to clear venom and stun Python.",
+  medusa: "LOOK AWAY during the gaze. A mirror reflects it and breaks her stance.",
+  minotaur: "Dodge the pursuit. Bait a charge into a labyrinth gate for a long opening.",
+  chimera: "Dodge three different heads. Bait flame across a vent to stun the beast.",
+  cyclops: "Keep moving under boulders. Land one on a crane weight to blind the eye.",
+  talos: "Stay inside the shockwave. Bait Talos onto a coastal drain to spill his heat.",
+  scylla: "Slay six hunting heads. Their beacon flames bind Charybdis; finish Scylla.",
+  titan: "Clear chain horrors. Stand inside an anchor to repair it; dodge chain falls.",
+  sanctuary_aegis: "Flank the sentinel. Stand at a mirror to turn its barrage back.",
+  sanctuary_forge: "Dodge the furnace pulses. Stand at an anvil to vent the heat.",
+  sanctuary_names: "Fight the keeper. Shelter at a grave to silence its echo strikes.",
+};
+
+const MECHANISM_CUES: Record<string, string> = {
+  nemea: "BAIT CHARGE → STUN", hydra: "CUT HEAD → STEP IN FLAME",
+  hind: "GUIDE HIND HERE", boar: "BAIT CHARGE → CAPTURE",
+  augeas: "HOLD → DIVERT FLOOD", birds: "STAND → GROUND FLOCK",
+  bull: "BAIT CHARGE → BREAK ANCHOR", mares: "LURE MARE HERE",
+  hippolyta: "HOLD → ALLIED STRIKE", geryon: "HERD → SHELTER",
+  hesperides: "CARRY SKY HERE", cerberus: "APPROACH RESTING HEADS",
+  python: "STAND → CLEAR VENOM", medusa: "STAND → REFLECT GAZE",
+  minotaur: "BAIT CHARGE → STUN", chimera: "BAIT FIRE → STUN",
+  cyclops: "BAIT BOULDER → BLIND", talos: "LURE TALOS → DRAIN HEAT",
+  scylla: "SLAY BOTH HEADS → LIGHT", titan: "CLEAR + HOLD → REPAIR",
+  sanctuary_aegis: "STAND → REFLECT BARRAGE", sanctuary_forge: "STAND → COOL FORGE",
+  sanctuary_names: "STAND → SILENCE ECHO",
 };
 
 /**
  * Owns encounter objectives and their actors. No objective is a kill-count skin:
  * each handler below changes damage windows, navigation, escorts, or controls.
- * Only whole army chapters and explicit expedition checkpoints persist. Combat
+ * Only complete army victories and explicit expedition checkpoints persist. Combat
  * actors and pending impacts are rebuilt on retry so reloading cannot duplicate
  * a reward, manufacture an army death, or leave an unreachable summoned enemy.
  */
@@ -157,9 +168,14 @@ export class AegeanEncounterDirector {
   private holding = -1;
   private holdTime = 0;
   private wounds: Record<number, number> = {};
+  private woundSites: Record<number, Point> = {};
   private sealed = new Set<number>();
   private armyDefeated = new Set<number>();
   private armyNext = 0;
+  private autoHold = 0;
+  private autoIndex = -1;
+  private arenaPulse = 1.6;
+  private lastCounterImpact = -1;
   private formationBreak: Record<number, number> = {};
   private brokenUntil: Record<number, number> = {};
   private phase = 0;
@@ -191,6 +207,9 @@ export class AegeanEncounterDirector {
   get active(): boolean {
     return !!this.id;
   }
+  get running(): boolean {
+    return this.started && !this.waiting && (!this.record.completed || this.practice);
+  }
   get isPractice(): boolean {
     return this.practice;
   }
@@ -215,8 +234,7 @@ export class AegeanEncounterDirector {
     return this.record.bestPhase;
   }
 
-  /** Called in world coordinates after terrain. Reserves have roster identities
-   * but no collision, AI, health bars or attacks until deployArmy activates them. */
+  /** Short, world-space instructions put each tool beside its actual effect. */
   draw(ctx: CanvasRenderingContext2D): void {
     if (!this.id) return;
     const p = this.game.player;
@@ -224,7 +242,8 @@ export class AegeanEncounterDirector {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = "bold 13px monospace";
-    for (const [i, prop] of this.props.entries()) {
+    for (const [i, original] of this.props.entries()) {
+      const prop = this.slug === "hydra" && this.woundSites[i] ? {...original, ...this.woundSites[i]} : original;
       if (this.distance(p, prop) > 1300) continue;
       const complete =
         this.done(i) ||
@@ -236,7 +255,9 @@ export class AegeanEncounterDirector {
           : this.slug === "leonidas"
             ? (this.phase === 1 && i < 4 && !this.sealed.has(i)) ||
               (this.phase >= 3 && i >= 4)
-            : this.holding === i;
+            : this.slug === "hesperides"
+              ? i === (this.carrying ? (this.carryIndex + 1) % 3 : 0)
+              : this.slug === "hind" ? i === this.record.steps.length : this.holding === i;
       const color = complete ? "#8fceb0" : live ? "#fff0b1" : "#d2b778";
       ctx.strokeStyle = color;
       ctx.fillStyle = "#18292be6";
@@ -258,6 +279,14 @@ export class AegeanEncounterDirector {
       ctx.strokeRect(prop.x - 15, prop.y - 58, 30, 23);
       ctx.fillStyle = color;
       ctx.fillText(complete ? "✓" : String(i + 1), prop.x, prop.y - 46);
+      if (!complete && this.distance(p, prop) < 470) {
+        const cue = this.slug === "leonidas"
+          ? (i < 4 ? "STAND → BREAK OATH / CHANT" : "STAND → SAFE STORM LANE")
+          : (MECHANISM_CUES[this.slug] ?? "STAND → COUNTERSTRIKE");
+        ctx.font = "bold 11px monospace";
+        ctx.fillText(cue, prop.x, prop.y - 76);
+        ctx.font = "bold 13px monospace";
+      }
       if (this.slug === "hydra" && live) {
         ctx.fillStyle = "#ffe3ac";
         ctx.fillText(
@@ -273,76 +302,44 @@ export class AegeanEncounterDirector {
         ctx.fillRect(
           prop.x - 36,
           prop.y + 32,
-          72 * Math.min(1, this.holdTime / (this.slug === "hippolyta" ? 8 : 6)),
+          72 * Math.min(1, this.holdTime / 3),
           6,
         );
       }
     }
+    // Required traversal mechanics get a nearby arrow and a lit target; the
+    // player never has to decode an island name or consult a journal mid-fight.
+    if (this.running) {
+      let target: Point | undefined;
+      if (this.slug === "hesperides") target = this.at(this.carrying ? (this.carryIndex + 1) % 3 : 0);
+      else if (this.slug === "hind" && !this.allSteps()) target = this.at(this.record.steps.length);
+      else if (this.slug === "hydra") target = Object.keys(this.wounds).map(Number)
+        .filter((i) => !this.sealed.has(i)).map((i) => this.at(i)).sort((a,b) => this.distance(p,a)-this.distance(p,b))[0];
+      else if (["boar","bull","augeas","titan"].includes(this.slug))
+        target = this.props.filter((_prop,i) => !this.done(i)).sort((a,b) => this.distance(p,a)-this.distance(p,b))[0];
+      if (target && this.distance(p,target)>150) {
+        const angle=angleTo(p.x,p.y,target.x,target.y), x=p.x+Math.cos(angle)*78, y=p.y+Math.sin(angle)*78;
+        ctx.save();ctx.translate(x,y);ctx.rotate(angle);
+        ctx.fillStyle="#ffe7a1";ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(-8,-8);ctx.lineTo(-3,0);ctx.lineTo(-8,8);ctx.closePath();ctx.fill();ctx.restore();
+      }
+      if (this.slug === "mares") for (const a of this.actors.filter((actor) => actor.role === "mare" && !actor.enemy.friendly)) {
+        if (this.distance(p,a.enemy)>500) continue;
+        ctx.fillStyle="#ffcf9d";ctx.fillText(`MARE ${a.index+1} → PEN ${a.index+1}`,a.enemy.x,a.enemy.y-a.enemy.radius*2-20);
+      }
+    }
+    if (this.boss && this.running) {
+      const b = this.boss;
+      const cue = this.slug === "medusa" && Math.floor(this.clock / 3.6) % 2 === 0 && !this.exposureActive
+        ? "LOOK AWAY!" : this.slug === "cerberus" && this.exposureActive
+          ? "REST · APPROACH TO RESTRAIN" : this.exposureActive ? "STAGGERED · STRIKE!" : "";
+      if (cue) { ctx.fillStyle = "#ffddb0"; ctx.fillText(cue,b.x,b.y-b.radius*2-32); }
+    }
     if (this.slug === "army" && !this.record.completed) {
-      const active = new Set(this.living.map((a) => a.roster));
-      for (const soldier of ARMY_ROSTER) {
-        if (this.armyDefeated.has(soldier.number) || active.has(soldier.number))
-          continue;
-        const chapter = ARMY_CHAPTER_ENDS.findIndex(
-          (end) => soldier.number < end,
-        );
-        const chapterStart = chapter === 0 ? 0 : ARMY_CHAPTER_ENDS[chapter - 1];
-        const ordinal = soldier.number - chapterStart,
-          anchor = this.node(`reserve_${chapter}`, ordinal % 6);
-        const x = anchor.x + ((Math.floor(ordinal / 6) % 3) - 1) * 24,
-          y = anchor.y - Math.floor(ordinal / 18) * 35;
-        if (dist(p.x, p.y, x, y) > 1350) continue;
-        ctx.globalAlpha = 0.82;
-        ctx.fillStyle = "#452d2b";
-        ctx.fillRect(x - 6, y - 28, 12, 25);
-        ctx.fillStyle = soldier.role === "captain" ? "#ebd192" : "#b39560";
-        ctx.fillRect(x - 7, y - 35, 14, 11);
-        ctx.fillStyle = "#743f38";
-        ctx.fillRect(x - 8, y - 40, 16, 5);
-        ctx.strokeStyle = "#d8c69c";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(x + 10, y + 1);
-        ctx.lineTo(x + 10, y - 44);
-        ctx.stroke();
-        ctx.fillStyle = "#9e7951";
-        ctx.beginPath();
-        ctx.ellipse(x - 7, y - 12, 9, 13, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#f0d6a0";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x - 12, y - 8);
-        ctx.lineTo(x - 7, y - 18);
-        ctx.lineTo(x - 2, y - 8);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-      for (let chapter = 0; chapter < 4; chapter++) {
-        const point = this.node(`chapter_${chapter}`);
-        if (this.distance(p, point) > 1300) continue;
-        const from = chapter === 0 ? 0 : ARMY_CHAPTER_ENDS[chapter - 1],
-          to = ARMY_CHAPTER_ENDS[chapter];
-        const standing = ARMY_ROSTER.slice(from, to).filter(
-          (s) => !this.armyDefeated.has(s.number),
-        ).length;
-        ctx.fillStyle = "#101d25dc";
-        ctx.fillRect(point.x - 155, point.y - 340, 310, 29);
-        ctx.fillStyle = "#e8d6ac";
-        ctx.fillText(
-          `CHAPTER ${chapter + 1} · ${standing}/${to - from} STANDING`,
-          point.x,
-          point.y - 325,
-        );
-      }
       for (const a of this.living) {
         if (a.role !== "captain" || this.distance(p, a.enemy) > 1000) continue;
         ctx.fillStyle = "#f5d186";
-        ctx.fillText(
-          a.enemy.windupAttack ? "INTERRUPT ORDER" : "CAPTAIN",
-          a.enemy.x,
-          a.enemy.y - a.enemy.radius * 2 - 22,
-        );
+        ctx.fillText(a.enemy.windupAttack ? "BREAK THE ORDER!" : "CAPTAIN · BREAK SHIELDS",
+          a.enemy.x, a.enemy.y - a.enemy.radius * 2 - 22);
       }
     }
     if (this.slug === "leonidas") {
@@ -354,7 +351,7 @@ export class AegeanEncounterDirector {
       ctx.setLineDash([]);
       ctx.fillStyle = "#a2d3c3";
       ctx.font = "11px monospace";
-      ctx.fillText("OPEN COURT · NO FIXED TRAPS", point.x, point.y + 50);
+      ctx.fillText("RETREAT LANE", point.x, point.y + 50);
       if (this.practice) {
         ctx.fillStyle = "#ceceef";
         ctx.fillText("PRACTICE ECHO · NO REWARDS", p.x, p.y - 88);
@@ -392,7 +389,7 @@ export class AegeanEncounterDirector {
     return { x: map.w * TILE * 0.5, y: map.h * TILE * 0.5 };
   }
   private at(index: number): Point {
-    return this.props[index] ?? this.node("enemy", index);
+    return (this.slug === "hydra" ? this.woundSites[index] : undefined) ?? this.props[index] ?? this.node("enemy", index);
   }
   private distance(a: Point, b: Point): number {
     return dist(a.x, a.y, b.x, b.y);
@@ -523,11 +520,9 @@ export class AegeanEncounterDirector {
     if (!this.id) return;
     if (this.game.aegeanHas(this.id)) this.record.completed = true;
     if (this.slug === "army") {
-      const cleared =
-        this.record.chapter === 0
-          ? 0
-          : ARMY_CHAPTER_ENDS[this.record.chapter - 1];
-      this.armyDefeated = new Set(Array.from({ length: cleared }, (_, n) => n));
+      // Old partial chapters do not become phantom kills in the new single battle.
+      this.record.chapter = this.record.completed ? 4 : 0;
+      this.armyDefeated = new Set(this.record.completed ? ARMY_ROSTER.map((s) => s.number) : []);
     }
     this.objective = this.record.completed
       ? "This oath is complete. Use the shrine for an optional rematch."
@@ -535,7 +530,8 @@ export class AegeanEncounterDirector {
         "Read the champion’s pattern; use the three training stations to make openings.");
     this.status = this.record.completed
       ? "Completed"
-      : "Approach the arena or activate a marked objective.";
+      : "The encounter is live.";
+    if (!this.record.completed) this.begin();
   }
 
   private clearActors(): void {
@@ -547,12 +543,13 @@ export class AegeanEncounterDirector {
   private resetRuntime(): void {
     this.clearActors();
     this.clock = 0;
-    this.next = 2;
+    this.next = 0.85;
     this.cycle = 0;
     this.exposedUntil = 0;
     this.holding = -1;
     this.holdTime = 0;
     this.wounds = {};
+    this.woundSites = {};
     this.sealed.clear();
     this.phaseObjective = 0;
     this.guardWaves = 0;
@@ -571,6 +568,10 @@ export class AegeanEncounterDirector {
     this.lastHP = this.game.player.hp;
     this.formationBreak = {};
     this.brokenUntil = {};
+    this.autoHold = 0;
+    this.autoIndex = -1;
+    this.arenaPulse = 1.6;
+    this.lastCounterImpact = -1;
   }
   private begin(): void {
     this.resetRuntime();
@@ -579,25 +580,11 @@ export class AegeanEncounterDirector {
     // Temporary combat progress is reset; expedition valve/anchor work is durable.
     if (!["augeas", "titan"].includes(this.slug)) this.record.steps = [];
     if (this.slug === "army") {
-      const from =
-        this.record.chapter === 0
-          ? 0
-          : ARMY_CHAPTER_ENDS[this.record.chapter - 1];
-      this.armyDefeated = new Set(Array.from({ length: from }, (_, n) => n));
-      this.armyNext = from;
-      if (
-        this.record.chapter < 4 &&
-        this.distance(
-          this.game.player,
-          this.node(`chapter_${this.record.chapter}`),
-        ) > 750
-      ) {
-        const safe = this.node("safe", this.record.chapter),
-          point = findOpenNear(this.game.map, safe.x, safe.y, 12, 8);
-        this.game.player.x = point.x;
-        this.game.player.y = point.y;
-      }
+      this.record.chapter = 0;
+      this.armyDefeated.clear();
+      this.armyNext = 0;
       this.deployArmy();
+      this.objective = "300 soldiers. One battlefield. Kill captains to break their companies' shields.";
       return;
     }
     const initial = ["hind", "boar", "bull"].includes(this.slug)
@@ -619,7 +606,7 @@ export class AegeanEncounterDirector {
     } else if (this.slug === "mares") {
       for (let i = 0; i < 4; i++) {
         const a = this.spawn(
-          "aegean_sacred_boar",
+          "aegean_man_eating_mare",
           "mare",
           i,
           this.node("arena"),
@@ -628,7 +615,7 @@ export class AegeanEncounterDirector {
         a.def = { ...a.def, name: `Mare ${i + 1} of Diomedes` };
       }
     } else if (this.slug === "hippolyta") {
-      principal.friendly = true;
+      principal.friendly = false;
       for (let i = 0; i < 2; i++) {
         const a = this.spawn("aegean_hoplite", "ally", i, this.node("entry"));
         a.friendly = true;
@@ -641,17 +628,20 @@ export class AegeanEncounterDirector {
         a.scripted = true;
         a.def = { ...a.def, name: "Cattle of the Red Herd" };
       }
-      for (let i = 0; i < 2; i++)
-        this.spawn(
-          "aegean_centaur_elder",
-          "body",
-          i,
-          this.node("enemy", i + 1),
-        );
+      for (let i = 0; i < 2; i++) {
+        const body = this.spawn("aegean_centaur_elder", "body", i, this.node("enemy", i + 1));
+        body.scripted = true;
+        body.def = {...body.def, name: i ? "Geryon's arrow-body" : "Geryon's spear-body", creature: principal.def.creature, kind: principal.def.kind, scale: 1.15};
+        body.radius = body.def.radius * 1.15;
+        body.maxHp = body.hp = 3600;
+        body.damage = principal.damage * .65;
+      }
+    } else if (this.slug === "scylla") {
+      for (let i = 0; i < 3; i++) this.spawnStraitHeads(i);
     }
     this.objective =
       LABELS[this.slug] ??
-      "Complete the training stations, then defeat the champion.";
+      "Defeat the champion. Nearby tools buy counterattack openings.";
   }
   private spawn(
     id: string,
@@ -666,7 +656,11 @@ export class AegeanEncounterDirector {
       boss: !!def?.boss,
     });
     e.state = "chase";
-    e.attackCd = 1.5 + index * 0.16;
+    e.attackCd = 0.55 + (index % 5) * 0.12;
+    if (def?.boss) {
+      e.maxHp = Math.min(e.maxHp, id === "aegean_leonidas" ? 40000 : 30000);
+      e.hp = e.maxHp;
+    }
     if (roster !== undefined) e.spawnId = ARMY_ROSTER[roster].id;
     this.actors.push({ enemy: e, role, index, roster });
     this.game.enemies.push(e);
@@ -762,10 +756,9 @@ export class AegeanEncounterDirector {
   }
   private resolveWarnings(): void {
     const p = this.game.player;
-    for (let i = this.warnings.length - 1; i >= 0; i--) {
-      const w = this.warnings[i];
-      if (w.at > this.now) continue;
-      this.warnings.splice(i, 1);
+    const due = this.warnings.filter((w) => w.at <= this.now);
+    this.warnings = this.warnings.filter((w) => w.at > this.now);
+    for (const w of due) {
       let hit = this.distance(p, w) < w.radius + p.radius;
       if (w.line) {
         const dx = p.x - w.x,
@@ -806,12 +799,7 @@ export class AegeanEncounterDirector {
       return;
     }
     if (!this.started) {
-      if (
-        !this.waiting &&
-        !this.record.completed &&
-        this.distance(this.game.player, this.node("arena")) < 480
-      )
-        this.begin();
+      if (!this.waiting && !this.record.completed) this.begin();
       return;
     }
     if (this.waiting || (this.record.completed && !this.practice)) return;
@@ -824,9 +812,11 @@ export class AegeanEncounterDirector {
     }
     if (this.slug === "leonidas") {
       this.updateLeonidas(dt);
+      if (this.started) this.updateArenaTools(dt);
       return;
     }
     this.updateAdventure(dt);
+    if (this.started) this.updateArenaTools(dt);
     this.lastPlayer = { x: this.game.player.x, y: this.game.player.y };
     this.lastHP = this.game.player.hp;
   }
@@ -837,7 +827,9 @@ export class AegeanEncounterDirector {
     extra: Partial<BossAttack> = {},
   ): boolean {
     if (!e || e.dead) return false;
-    return e.queueAttack(this.game, { ...AEGEAN_ATTACKS[key], ...extra });
+    const pattern = e.def.boss?.attacks.find((a) => a.id === key) ?? AEGEAN_ATTACKS[key];
+    if (!pattern) return false;
+    return e.queueAttack(this.game, { ...pattern, ...extra });
   }
   private updateAdventure(dt: number): void {
     const p = this.game.player,
@@ -846,13 +838,20 @@ export class AegeanEncounterDirector {
       this.updateStrait(dt);
       return;
     }
-    this.status = `${this.record.steps.length}/${this.count()} objectives${this.exposedUntil > this.now ? " · EXPOSED" : ""}`;
+    this.status = PUZZLE_ONLY.has(this.slug)
+      ? `${this.record.steps.length}/${this.count()} secured`
+      : this.exposedUntil > this.now ? "OPENING · +35% DAMAGE" : "DODGE · FLANK · COUNTER";
     if (
       boss &&
       !boss.windupAttack &&
       !["hind", "hesperides", "titan", "scylla", "talos"].includes(this.slug)
     ) {
-      if (this.distance(boss, p) > 170) this.move(boss, p, 0.68);
+      const distance = this.distance(boss, p);
+      if (this.slug === "champion_volley" && distance < 210) {
+        const angle = angleTo(p.x,p.y,boss.x,boss.y);
+        this.move(boss,{x:boss.x+Math.cos(angle)*160,y:boss.y+Math.sin(angle)*160},1.15);
+      } else if (distance > (this.slug === "champion_volley" ? 290 : 100))
+        this.move(boss,p,this.slug === "medusa" ? .9 : 1.25);
     }
     if (this.slug === "hydra") {
       this.updateHydra();
@@ -872,13 +871,20 @@ export class AegeanEncounterDirector {
     }
     if (this.slug === "hippolyta") this.updateStandard(dt);
     if (this.slug === "geryon") {
+      for (const a of this.living.filter((a) => a.role === "body")) {
+        const e=a.enemy;
+        if (!e.windupAttack && this.distance(e,p) > (a.index ? 280 : 100)) this.move(e,p,1.15);
+        if (!e.windupAttack && e.attackCd <= 0 && this.distance(e,p) < 500) {
+          const pattern=ENEMY_BY_ID.aegean_geryon.boss!.attacks[a.index ? 2 : 1];
+          e.queueAttack(this.game,{...pattern,windup:.85,power:1.05});
+        }
+      }
       for (const a of this.actors.filter((a) => a.role === "herd")) {
         if (this.distance(a.enemy, p) < 460 && this.distance(a.enemy, p) > 55)
           this.move(a.enemy, { x: p.x - 35 - a.index * 25, y: p.y + 40 }, 1.1);
       }
       if (
         !boss &&
-        this.allSteps() &&
         !this.living.some((a) => a.role === "body")
       )
         this.finish();
@@ -888,29 +894,29 @@ export class AegeanEncounterDirector {
       // heading. Looking away once must not permit firing at her indefinitely.
       const facing = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[p.dir];
       const gazing =
-        this.cycle % 3 === 1 &&
+        Math.floor(this.clock / 3.6) % 2 === 0 &&
         this.distance(p, boss) < 520 &&
         this.exposedUntil <= this.now;
       const looking =
         angleBetween(facing, angleTo(p.x, p.y, boss.x, boss.y)) < Math.PI / 3;
       this.gaze = Math.max(
         0,
-        Math.min(100, this.gaze + dt * (gazing && looking ? 27 : -35)),
+        Math.min(100, this.gaze + dt * (gazing && looking ? 42 : -40)),
       );
       this.status += ` · Petrification ${Math.round(this.gaze)}%${gazing ? " — LOOK AWAY" : ""}`;
       if (this.gaze >= 100) {
         this.gaze = 0;
-        this.game.damagePlayer(p.maxHp * 5, {
-          trueDamage: true,
-          element: "arcane",
-          label: "Petrification",
+        this.game.damagePlayer(boss.damage * 2.4, {
+          minHealthDamage: 0.24, element: "arcane", label: "Petrifying gaze",
+          fromX: boss.x, fromY: boss.y,
         });
+        this.say("PETRIFIED — break line of sight or use a mirror!");
       }
     }
     if (this.slug === "talos" && boss) {
       const station = this.at(this.record.steps.length % 3);
       if (!boss.windupAttack && this.distance(boss, station) > 80)
-        this.move(boss, station, 0.7);
+        this.move(boss, this.distance(p, boss) > 440 ? p : station, 1.1);
       this.status +=
         this.distance(boss, station) < 170
           ? " · Ankle seal in reach"
@@ -922,8 +928,8 @@ export class AegeanEncounterDirector {
         this.addCount() === 0
       ) {
         this.holdTime += dt;
-        this.status += ` · Hold ${Math.floor(this.holdTime)}/6s`;
-        if (this.holdTime >= 6) {
+        this.status += ` · Repair ${Math.floor(this.holdTime)}/3s`;
+        if (this.holdTime >= 3) {
           this.mark(this.holding);
           this.holding = -1;
           this.holdTime = 0;
@@ -948,211 +954,215 @@ export class AegeanEncounterDirector {
         if (
           !a.enemy.windupAttack &&
           a.enemy.attackCd <= 0 &&
-          this.distance(a.enemy, p) < 150 &&
-          this.cycle % 4 === a.index
+          this.distance(a.enemy, p) < 250
         )
-          this.attack(a.enemy, "thrust", { power: 0.55, windup: 1.25 });
+          this.attack(a.enemy, ["thrust", "charge", "sweep", "thrust"][a.index], {
+            name: ["MARE'S BITE — sidestep", "TRAMPLE — sidestep", "HOOF SWEEP — get behind", "RAVENOUS BITE — sidestep"][a.index],
+            element: "physical", color: "#d29a7d", power: 0.95, windup: 0.6,
+          });
       }
+    if (!this.started) return;
+    this.updateArenaPressure(dt, boss);
     if (this.next > 0 || !boss || boss.windupAttack) return;
     this.cycle++;
-    this.next = 4.6;
-    switch (this.slug) {
-      case "nemea":
-      case "boar":
-      case "bull":
-      case "minotaur":
-        this.attack(boss, this.cycle % 3 ? "charge" : "sweep");
-        break;
-      case "augeas":
-        this.warn(
-          { x: p.x, y: p.y },
-          90,
-          1.8,
-          boss.damage * 1.1,
-          "Reservoir flood",
-          "#76bccc",
-        );
-        break;
-      case "birds":
-        this.attack(boss, "volley");
-        break;
-      case "mares":
-        this.attack(boss, this.cycle % 2 ? "volley" : "thrust");
-        break;
-      case "hippolyta":
-        if (this.allSteps())
-          this.attack(boss, this.cycle % 2 ? "thrust" : "sweep");
-        break;
-      case "geryon":
-        this.attack(boss, ["thrust", "volley", "sweep"][this.cycle % 3]);
-        break;
-      case "python":
-        this.attack(boss, this.cycle % 2 ? "poison" : "charge");
-        break;
-      case "medusa":
-        this.attack(boss, this.cycle % 3 === 1 ? "thrust" : "poison");
-        break;
-      case "chimera":
-        this.attack(boss, ["flame", "poison", "charge"][this.cycle % 3]);
-        break;
-      case "cyclops": {
-        const target = { x: p.x, y: p.y };
-        this.warn(
-          target,
-          82,
-          1.8,
-          boss.damage * 2,
-          "Quarry boulder",
-          "#c9b992",
-          () => {
-            const i = this.props.findIndex(
-              (prop) =>
-                this.distance(prop, target) < 145 &&
-                !this.done(this.props.indexOf(prop)),
-            );
-            if (i >= 0) {
-              this.wounds[i] = this.now + 9;
-              this.say(`Counterweight ${i + 1} exposed`);
-            }
-          },
-        );
-        break;
-      }
-      case "talos":
-        this.attack(boss, this.cycle % 2 ? "ring" : "flame");
-        break;
-      case "titan":
-        this.warn(
-          { x: p.x, y: p.y },
-          100,
-          2,
-          boss.damage * 1.5,
-          "The Titan pulls the chain",
-          "#d78c65",
-        );
-        break;
-      case "sanctuary_aegis":
-        this.attack(boss, "volley");
-        break;
-      case "sanctuary_forge":
-        this.attack(boss, this.cycle % 2 ? "flame" : "ring");
-        break;
-      case "sanctuary_names":
-        this.attack(boss, "storm");
-        break;
-      default: {
-        const patterns = boss.def.boss?.attacks ?? [];
-        if (patterns.length)
-          this.attack(boss, patterns[this.cycle % patterns.length].id);
-        if (this.slug === "champion_guard" && this.cycle % 3 === 0)
-          this.adds(2, "aegean_royal_guard");
-      }
+    this.next = this.slug === "cyclops" || this.slug === "talos" ? 1.8 : 1.25;
+    boss.attackCd = 0;
+    if (this.slug === "cyclops" && this.cycle % 2 === 1) {
+      const target = { x: p.x, y: p.y };
+      this.warn(target, 78, 0.95, boss.damage * 1.8, "BOULDER — keep moving", "#c9b992", () => {
+        const i = this.props.findIndex((prop, index) => this.distance(prop, target) < 155 && !this.done(index));
+        if (i >= 0) {
+          this.wounds[i] = this.now + 7;
+          this.mark(i, "CRANE STRIKE — Cyclops blinded!");
+          this.openCounter(boss, 3);
+        }
+      });
+      return;
+    }
+    if (["augeas", "titan"].includes(this.slug)) {
+      this.warn({ x: p.x, y: p.y }, this.slug === "titan" ? 100 : 76, 0.95,
+        boss.damage * 1.35, this.slug === "titan" ? "CHAIN FALL — dodge" : "FLOOD — leave blue ground",
+        this.slug === "titan" ? "#d78c65" : "#76bccc");
+      return;
+    }
+    // Each enemy definition owns a different attack deck, including leaps,
+    // safe-center shockwaves, returning strikes, tugs and crossed lanes.
+    const patterns = boss.def.boss?.attacks ?? [];
+    if (patterns.length) {
+      const pattern = patterns[(this.cycle - 1) % patterns.length];
+      boss.queueAttack(this.game, pattern);
+    }
+    if (this.slug === "champion_guard" && this.cycle % 4 === 0)
+      this.adds(2, "aegean_royal_guard");
+  }
+
+  /** Supplemental hazards force movement across the actual occupied floor.
+   * They use stored telegraphs; optional arena tools cancel their local danger. */
+  private updateArenaPressure(dt: number, boss?: Enemy): void {
+    if (!boss) return;
+    this.arenaPulse -= dt;
+    if (this.arenaPulse > 0) return;
+    this.arenaPulse = 4.2;
+    const p = this.game.player;
+    if (this.distance(boss, p) > 900) return;
+    const anchor = this.props.findIndex((prop) => this.distance(prop, p) < 140);
+    if (anchor >= 0 && (this.groundedUntil[anchor] ?? 0) > this.now) return;
+    const theta = angleTo(boss.x, boss.y, p.x, p.y);
+    if (this.slug === "python") {
+      // A serpent's wake pins the place the player just left, not random decor.
+      for (let i = 0; i < 3; i++) this.warn({x: p.x - Math.cos(theta) * i * 86, y: p.y - Math.sin(theta) * i * 86},
+        52, 0.8 + i * 0.22, boss.damage * 0.8, "VENOM WAKE", "#a7bc64");
+    } else if (this.slug === "minotaur") {
+      this.line({x: p.x - 280, y: p.y - 90}, 0, 560, 0.9, boss.damage * 0.9, "LABYRINTH SPEARS");
+    } else if (this.slug === "chimera") {
+      this.warn({x: p.x + 85, y: p.y}, 68, 0.9, boss.damage, "GOAT'S CINDER", "#ef9565");
+      this.warn({x: p.x - 85, y: p.y}, 68, 1.25, boss.damage, "SERPENT'S VENOM", "#a8bf65");
+    } else if (this.slug === "birds" || this.slug === "champion_volley") {
+      this.line({x: p.x - 320, y: p.y}, 0, 640, 0.8, boss.damage, "FEATHER RAIN — cross the lane");
+    } else if (this.slug === "sanctuary_forge" || this.slug === "talos") {
+      this.warn({x: p.x, y: p.y}, 95, 1.05, boss.damage, "MOLTEN FOOTPRINT", "#ee9463");
+    } else if (this.slug === "sanctuary_names") {
+      const marked = {x: p.x, y: p.y};
+      this.warn(marked, 76, 0.85, boss.damage, "ECHO — move twice", "#b9b1de", () => {
+        if (this.started && !boss.dead) this.warn(marked, 112, 0.65, boss.damage * 1.1, "ECHO RETURNS", "#b9b1de");
+      });
     }
   }
 
-  /** The beacons lure Scylla's six heads onto the decks. Their deaths are
-   * attempt-local combat receipts: no timer, arrival or saved flag substitutes
-   * for defeating them. Charybdis keeps hunting the player's current deck until
-   * the three cleared beacons bind the vortex; Scylla is the final combatant. */
-  private useStraitBeacon(index: number): void {
-    if (index !== this.record.steps.length || index >= 3) {
-      this.say("Follow the passage: Outer beacon, Vortex beacon, Passage beacon.");
+  private openCounter(boss: Enemy, seconds = 2): void {
+    boss.windupAttack = null;
+    boss.windupTime = 0;
+    boss.attackGeometry = null;
+    boss.attackCd = Math.max(boss.attackCd, seconds);
+    this.next = Math.max(this.next, seconds);
+    this.exposedUntil = this.now + seconds + 2;
+    this.powerEvent("onStagger", boss);
+  }
+
+  /** No hidden order and no repeated E taps: lures, proximity and holding
+   * ground perform the tool's visible action. E remains an optional shortcut. */
+  private updateArenaTools(dt: number): void {
+    const p = this.game.player, boss = this.boss;
+    const near = this.props.findIndex((_prop, i) => this.distance(this.at(i), p) < 82 &&
+      (!this.done(i) || this.slug === "leonidas" || this.slug === "hesperides"));
+    if (near !== this.autoIndex) { this.autoIndex = near; this.autoHold = 0; }
+    if (near >= 0) this.autoHold += dt;
+    else this.autoHold = 0;
+    if (["nemea", "boar", "bull", "minotaur"].includes(this.slug) && boss?.lastImpact?.id === "charge" &&
+        boss.lastImpact.at !== this.lastCounterImpact && this.now - boss.lastImpact.at < 1.2) {
+      const index = this.props.findIndex((prop, i) => !this.done(i) && this.distance(prop, boss) < 225);
+      if (index >= 0) { this.lastCounterImpact = boss.lastImpact.at; this.useObjective(index); }
+    }
+    if (this.slug === "chimera" && (boss?.lastImpact?.id === "flame" || boss?.lastImpact?.id === "chimera_furnace") && boss.lastImpact.at !== this.lastCounterImpact) {
+      const index = this.props.findIndex((prop, i) => !this.done(i) && this.distance(prop, boss.lastImpact!) < 330 &&
+        (boss.lastImpact!.id === "chimera_furnace" || angleBetween(boss.lastImpact!.angle, angleTo(boss.lastImpact!.x, boss.lastImpact!.y, prop.x, prop.y)) < 0.55));
+      if (index >= 0) { this.lastCounterImpact = boss.lastImpact.at; this.useObjective(index); }
+    }
+    if (this.slug === "mares") {
+      for (const a of this.actors.filter((a) => a.role === "mare" && !a.enemy.friendly))
+        if (this.distance(a.enemy, this.at(a.index)) < 105) this.useObjective(a.index);
+      if (this.allSteps() && !boss) this.finish();
+    }
+    if (this.slug === "cerberus" && boss && this.exposureActive && this.distance(p, boss) < 155) {
+      this.mark(this.record.steps.length, "RESTRAINT FASTENED");
+      this.exposedUntil = 0;
+      this.next = 0.9;
+      if (this.allSteps()) this.finish();
       return;
     }
+    if (near < 0 || this.autoHold < 0.7) return;
+    const usable = this.slug === "hydra" ? (this.wounds[near] ?? 0) > this.now
+      : this.slug === "hind" ? !!boss && this.distance(boss, this.at(near)) < 130 && this.gaze < 40 && near === this.record.steps.length
+      : this.slug === "talos" ? !!boss && this.distance(boss, this.at(near)) < 210 && !boss.windupAttack
+      : ["birds", "augeas", "python", "medusa", "hesperides", "hippolyta", "geryon", "titan", "leonidas", "sanctuary_aegis", "sanctuary_forge", "sanctuary_names"].includes(this.slug)
+        || this.slug.startsWith("champion_");
+    if (usable && (this.mechanismCooldowns[near] ?? 0) <= this.now) {
+      this.useObjective(near);
+      this.autoHold = 0;
+      this.mechanismCooldowns[near] = Math.max(this.mechanismCooldowns[near] ?? 0, this.now + 2);
+    }
+  }
+
+  /** All six heads hunt immediately. Their paired deaths light the associated
+   * beacon automatically, so fighting the monster is the actual objective. */
+  private spawnStraitHeads(index: number): void {
     const boss = this.boss;
     if (!boss) return;
-    if (this.holding !== index) {
-      this.holding = index;
-      const point = this.at(index);
-      const perch = findOpenNear(this.game.map, point.x, point.y - 140, 28, 20);
-      boss.x = boss.homeX = perch.x;
-      boss.y = boss.homeY = perch.y;
-      this.game.particles(boss.x, boss.y, 24, "#8ac5d3", { speed: 130, life: 0.7, size: 4 });
-      for (let head = 0; head < 2; head++) {
-        const number = index * 2 + head;
-        const enemy = this.spawn("aegean_sea_serpent", "strait_head", number, {
-          x: point.x + (head ? 145 : -145),
-          y: point.y - 45,
-        });
-        enemy.scripted = true;
-        enemy.def = { ...enemy.def, name: `Scylla’s hunting head ${number + 1}`, scale: 1.5 };
-        enemy.radius = enemy.def.radius * 1.5;
-        enemy.maxHp = boss.maxHp * 0.12;
-        enemy.hp = enemy.maxHp;
-        enemy.damage = boss.damage * 0.62;
-      }
-      this.next = 1.4;
-      this.game.playSound("boss_phase", 0.6);
-      this.say("Two hunting heads surface. Defeat both, then light this beacon!");
-      return;
-    }
-    if (![index * 2, index * 2 + 1].every((head) => this.sealed.has(head))) {
-      this.say("Defeat both hunting heads before lighting this beacon.");
-      return;
-    }
-    this.mark(index, "Beacon lit — Charybdis loses its hold");
-    this.holding = -1;
-    if (this.allSteps()) {
-      // Extinguish only the vortex's pending surges. A head's already committed
-      // strike still resolves normally, just as attacks do elsewhere in the game.
-      this.warnings = this.warnings.filter((w) => !w.label.startsWith("Charybdis"));
-      boss.friendly = false;
-      boss.fightTime = 0;
-      this.exposedUntil = Infinity;
-      this.next = 1.8;
-      this.objective = "Charybdis is bound. Defeat the exposed Scylla to open the strait.";
-      this.game.playSound("boss_phase", 0.7);
-      this.say("Charybdis is bound — Scylla rises for the final fight!");
+    const point = this.at(index);
+    for (let head = 0; head < 2; head++) {
+      const number = index * 2 + head;
+      const enemy = this.spawn("aegean_scylla_head", "strait_head", number,
+        {x: point.x + (head ? 110 : -110), y: point.y - 45});
+      enemy.scripted = true;
+      enemy.def = {...enemy.def, name: `Scylla’s hunting head ${number + 1}`};
+      enemy.maxHp = Math.min(1900, boss.maxHp * 0.07);
+      enemy.hp = enemy.maxHp;
+      enemy.damage = boss.damage * 0.7;
     }
   }
-
+  private useStraitBeacon(index: number): void {
+    if (this.done(index)) return;
+    if (![index * 2, index * 2 + 1].every((head) => this.sealed.has(head))) {
+      this.say("SLAY BOTH HEADS — their deaths light this beacon.");
+      return;
+    }
+    this.mark(index, "BEACON LIT — whirlpool weakened");
+    if (this.allSteps() && this.boss) {
+      this.warnings = this.warnings.filter((w) => !w.label.startsWith("Charybdis"));
+      this.boss.friendly = false;
+      this.exposedUntil = this.now + 4;
+      this.next = 0.8;
+      this.objective = "CHARYBDIS BOUND · Finish Scylla!";
+      this.game.playSound("boss_phase", 0.7);
+      this.say("SCYLLA EXPOSED — finish the sea beast!");
+    }
+  }
   private updateStrait(dt: number): void {
     const boss = this.boss;
     if (!boss) return;
     const p = this.game.player;
     const heads = this.living.filter((a) => a.role === "strait_head");
-    this.status = `${this.record.steps.length}/3 beacons · ${this.sealed.size}/6 heads defeated`;
+    this.status = `${this.sealed.size}/6 heads slain · ${this.record.steps.length}/3 flames`;
     if (this.allSteps()) {
-      this.status += " · CHARYBDIS BOUND — SCYLLA EXPOSED";
-      if (!boss.windupAttack && this.distance(boss, p) > 150) this.move(boss, p, 0.9);
+      this.status = "WHIRLPOOL BOUND · SCYLLA HUNTS";
+      if (!boss.windupAttack && this.distance(boss, p) > 100) this.move(boss, p, 1.3);
       if (this.next <= 0 && !boss.windupAttack) {
-        this.cycle++;
-        this.next = 3.2;
-        const bite = this.cycle % 3 === 1;
-        this.attack(boss, bite ? "thrust" : this.cycle % 3 === 2 ? "poison" : "sweep", {
-          name: bite ? "Scylla’s last bite" : this.cycle % 3 === 2 ? "Venom of the strait" : "Scylla’s tearing jaws",
-        });
+        const patterns = boss.def.boss?.attacks ?? [];
+        if (patterns.length) { boss.attackCd = 0; boss.queueAttack(this.game, patterns[this.cycle++ % patterns.length]); }
+        this.next = 1.4;
       }
       return;
     }
-    if (this.holding < 0) this.status += ` · Signal beacon ${this.record.steps.length + 1}`;
-    else if (heads.length) this.status += ` · ${heads.length} hunting heads remain`;
-    else this.status += " · Return to the cleared beacon and light it";
-    for (const { enemy } of heads) {
-      if (!enemy.windupAttack && this.distance(enemy, p) > 120) this.move(enemy, p, 1.05);
-    }
+    for (const {enemy} of heads)
+      if (!enemy.windupAttack && this.distance(enemy, p) > 95) this.move(enemy, p, 1.2);
     if (this.next <= 0 && heads.length) {
       const head = heads[this.cycle++ % heads.length];
       if (!head.enemy.windupAttack) {
-        this.next = 1.65;
-        this.attack(head.enemy, head.index % 2 ? "poison" : "thrust", {
-          name: head.index % 2 ? "Scylla’s venom" : "Scylla’s snapping jaws",
-          windup: head.index % 2 ? 1.5 : 1.1,
+        this.next = 0.75;
+        head.enemy.attackCd = 0;
+        this.attack(head.enemy, ["thrust", "poison", "charge"][head.index % 3], {
+          name: ["SCYLLA'S BITE", "SCYLLA'S VENOM", "SCYLLA'S LUNGE"][head.index % 3],
+          element: head.index % 3 === 1 ? "poison" : "physical",
+          color: head.index % 3 === 1 ? "#84bd58" : "#73c9df",
+          windup: 0.65, power: 1.15,
         });
       }
     }
     this.guardNext -= dt;
     if (this.guardNext <= 0) {
-      this.guardNext = 4.8 - this.record.steps.length * 0.5;
-      this.warn({ x: p.x, y: p.y }, 90, 1.75, boss.damage * 1.35,
+      this.guardNext = 2.8 + this.record.steps.length * 0.3;
+      this.warn({x: p.x, y: p.y}, 102, 1.05, boss.damage * 1.35,
         "Charybdis — deck-breaking surge", "#73c9df");
+      const angle = angleTo(p.x, p.y, boss.x, boss.y);
+      this.line({x:p.x + Math.cos(angle) * 240,y:p.y + Math.sin(angle) * 240},
+        angle + Math.PI, 470, 1.4, boss.damage * 0.9, "Charybdis — crossing current");
     }
   }
 
   private spawnHydraHead(index: number): void {
-    const head = this.spawn("aegean_viper", "head", index, this.at(index));
+    const head = this.spawn("aegean_hydra_head", "head", index, this.at(index));
     head.scripted = true;
-    head.maxHp *= 5;
+    head.maxHp = 2200;
     head.hp = head.maxHp;
     head.def = {
       ...head.def,
@@ -1170,8 +1180,11 @@ export class AegeanEncounterDirector {
         this.say(`Head ${i + 1} regrows`);
       }
     }
+    const p = this.game.player;
+    for (const a of this.living.filter((a) => a.role === "head"))
+      if (!a.enemy.windupAttack && this.distance(a.enemy, p) > 175) this.move(a.enemy, p, 1.12);
     if (this.next <= 0) {
-      this.next = 2.3;
+      this.next = 0.75;
       this.cycle++;
       const heads = this.actors.filter(
         (a) => a.role === "head" && !a.enemy.dead,
@@ -1182,12 +1195,22 @@ export class AegeanEncounterDirector {
         this.attack(
           head.enemy,
           ["poison", "sweep", "charge", "volley", "ring"][head.index],
+          {
+            name: [
+              "HYDRA VENOM — leave the pools",
+              "NECK SWEEP — get behind",
+              "HYDRA LUNGE — sidestep",
+              "BROOD VENOM FAN — dodge the gaps",
+              "CRUSHING COIL — get clear",
+            ][head.index],
+            element: head.index === 0 || head.index === 3 ? "poison" : "physical",
+            color: head.index === 0 || head.index === 3 ? "#84bd58" : "#b2a46f",
+            windup: 0.7, power: 1.2,
+          },
         );
       }
     }
-    if (this.sealed.size === 5)
-      this.objective =
-        "All mortal necks are sealed. Return to the first brazier to drop the temple slab.";
+    if (this.sealed.size === 5) this.finish();
   }
   private updateHind(dt: number): void {
     const hind = this.boss;
@@ -1225,11 +1248,11 @@ export class AegeanEncounterDirector {
     } else {
       this.endurance -= dt * 5;
       if (this.next <= 0) {
-        this.next = 4;
+        this.next = 1.9;
         this.warn(
           { x: this.game.player.x, y: this.game.player.y },
           75,
-          1.7,
+          0.9,
           (this.boss?.damage ?? 300) * 1.3,
           "Falling starlight",
           "#b6c5ee",
@@ -1250,15 +1273,7 @@ export class AegeanEncounterDirector {
   private updateCerberus(dt: number): void {
     const boss = this.boss;
     if (!boss) return;
-    if (this.allSteps()) {
-      const entry = this.node("entry");
-      if (this.distance(boss, this.game.player) < 300)
-        this.move(boss, entry, 0.8);
-      this.objective =
-        "Escort the subdued guardian to the entry arch; then return him to his duty.";
-      if (this.distance(boss, entry) < 135) this.finish();
-      return;
-    }
+    if (this.allSteps()) { this.finish(); return; }
     this.status =
       this.exposedUntil > this.now
         ? "RESTING — place the next restraint"
@@ -1266,20 +1281,27 @@ export class AegeanEncounterDirector {
     if (this.next <= 0 && !boss.windupAttack) {
       this.cycle++;
       if (this.cycle % 4 === 0) {
-        this.exposedUntil = this.now + 6;
-        this.next = 6;
+        this.exposedUntil = this.now + 3.5;
+        this.next = 3.5;
         this.say("All three heads are resting");
       } else {
-        this.next = 2.5;
+        this.next = 1.1;
         boss.attackCd = 0;
-        this.attack(boss, ["thrust", "sweep", "ring"][(this.cycle - 1) % 3]);
+        const head = (this.cycle - 1) % 3;
+        this.attack(boss, ["thrust", "sweep", "ring"][head], {
+          name: ["CERBERUS BITE — sidestep", "CERBERUS CLAWS — get behind", "UNDERWORLD HOWL — get clear"][head],
+          element: head === 2 ? "arcane" : "physical",
+          color: head === 2 ? "#bb91db" : "#da796b",
+          windup: 0.65, power: 1.45,
+        });
       }
     }
     if (this.game.player.hp < this.lastHP) this.gaze += 22;
     this.gaze = Math.max(0, this.gaze - dt * 3);
     if (this.gaze > 100) {
-      this.say("The guardian is agitated. The judges restore the trial.");
-      this.begin();
+      this.gaze = 45;
+      this.say("CERBERUS ENRAGED — dodge, then approach during REST!");
+      this.next = 0.3;
     }
   }
   private updateStandard(dt: number): void {
@@ -1298,15 +1320,12 @@ export class AegeanEncounterDirector {
       allies.every((a) => this.distance(a.enemy, point) < 140)
     ) {
       this.holdTime += dt;
-      this.status = `Standard held ${Math.floor(this.holdTime)}/8s`;
-      if (this.holdTime >= 8) {
-        this.mark(this.holding);
+      this.status = `Rally ${Math.floor(this.holdTime)}/3s`;
+      if (this.holdTime >= 3) {
+        this.mark(this.holding, "ALLIED VOLLEY — the queen is staggered!");
         this.holding = -1;
         this.holdTime = 0;
-        if (this.allSteps() && this.boss) {
-          this.boss.friendly = false;
-          this.objective = "Win the queen’s nonlethal duel.";
-        }
+        if (this.boss) this.openCounter(this.boss, 3);
       }
     } else this.holdTime = 0;
   }
@@ -1363,8 +1382,8 @@ export class AegeanEncounterDirector {
     if (!this.id || !this.started) return false;
     let index = -1,
       distance = 130;
-    this.props.forEach((p, i) => {
-      const d = this.distance(p, this.game.player);
+    this.props.forEach((_p, i) => {
+      const d = this.distance(this.at(i), this.game.player);
       if (d < distance) {
         distance = d;
         index = i;
@@ -1403,7 +1422,7 @@ export class AegeanEncounterDirector {
       case "army":
         if (this.waiting) this.begin();
         else
-          this.say("Defeat this chapter’s remaining soldiers before resting.");
+          this.say("300 soldiers share this battlefield. Break their captains!");
         return;
       case "leonidas":
         this.leonidasMechanism(index);
@@ -1453,35 +1472,18 @@ export class AegeanEncounterDirector {
             ? "Pillar broken — golden hide exposed"
             : "The charge opens the mechanism",
         );
-        this.exposedUntil = this.now + 9;
+        this.openCounter(boss, 3);
         if (this.allSteps() && ["boar", "bull"].includes(this.slug))
           this.finish();
         return;
       case "augeas":
       case "sanctuary_names": {
-        const sequence = this.slug === "augeas" ? [0, 2, 1] : [1, 0, 2];
-        if (this.addCount()) {
-          this.say("Clear the guardians from the mechanism.");
-          return;
-        }
-        if (index !== sequence[this.record.steps.length]) {
-          this.say(
-            this.slug === "augeas"
-              ? "Read the river diagram: I → III → II."
-              : "The procession names its order: II → I → III.",
-          );
-          return;
-        }
-        this.mark(
-          index,
-          this.slug === "augeas" ? "River diverted" : "A name returns",
-        );
-        this.exposedUntil = this.now + 10;
-        this.adds(
-          2,
-          this.slug === "augeas" ? "aegean_talos_shard" : "aegean_oath_shade",
-          this.at(index),
-        );
+        if (this.addCount()) { this.say("CLEAR GUARDIANS — then hold the marked ground."); return; }
+        this.mark(index, this.slug === "augeas" ? "SLUICE OPEN — flood diverted" : "NAME RESTORED — echoes silenced");
+        this.groundedUntil[index] = this.now + 12;
+        this.warnings = this.warnings.filter((w) => this.distance(w, this.at(index)) > 260);
+        if (boss && this.slug !== "augeas") this.openCounter(boss, 2.5);
+        if (this.slug === "augeas") this.adds(2, "aegean_talos_shard", this.at(index));
         return;
       }
       case "birds":
@@ -1493,8 +1495,7 @@ export class AegeanEncounterDirector {
         }
         this.mark(index, "Bronze resonator sounds");
         this.game.playSound("bronze_gate", 0.7);
-        this.adds(3, "aegean_bronze_harpy", this.at(index));
-        this.exposedUntil = this.now + 12;
+        if (boss) this.openCounter(boss, 3);
         return;
       case "mares": {
         const mare = this.actors.find(
@@ -1511,18 +1512,17 @@ export class AegeanEncounterDirector {
         return;
       }
       case "hippolyta":
+        if (this.holding === index) return;
         this.holding = index;
         this.holdTime = 0;
-        this.adds(3, "aegean_satyr", this.at(index));
-        this.say("The squad rallies. Clear the ground and hold for 8 seconds.");
+        this.say("HOLD BANNER · allies need 3 seconds to line up their shot.");
         return;
       case "geryon": {
         const herd = this.actors.filter((a) => a.role === "herd");
         if (
-          index !== this.record.steps.length ||
           herd.some((a) => this.distance(a.enemy, this.at(index)) > 190)
         ) {
-          this.say("Gather the cattle here in the refuge-bell order.");
+          this.say("GUIDE BOTH CATTLE HERE → sheltered ground");
           return;
         }
         this.mark(index, "The herd reaches shelter");
@@ -1563,17 +1563,19 @@ export class AegeanEncounterDirector {
       case "python":
         this.mark(index, "Oracle fumes vented");
         this.exposedUntil = this.now + 9;
-        this.adds(2, "aegean_viper", this.at(index));
+        this.groundedUntil[index] = this.now + 12;
+        this.warnings = this.warnings.filter((w) => !w.label.includes("VENOM"));
+        if (boss) this.openCounter(boss, 2.5);
         return;
       case "medusa":
         this.mark(index, "Mirror aligned — reflected gaze");
         this.gaze = 0;
-        this.exposedUntil = this.now + 10;
+        if (boss) this.openCounter(boss, 2.5);
         return;
       case "chimera":
         if (
-          !boss ||
-          boss.lastImpact?.id !== "flame" ||
+          !boss || !boss.lastImpact ||
+          !["flame", "chimera_furnace"].includes(boss.lastImpact?.id ?? "") ||
           !recovery ||
           this.distance(boss.lastImpact, this.at(index)) > 330 ||
           angleBetween(
@@ -1584,15 +1586,15 @@ export class AegeanEncounterDirector {
               this.at(index).x,
               this.at(index).y,
             ),
-          ) > 0.55
+          ) > 0.55 && boss.lastImpact.id !== "chimera_furnace"
         ) {
           this.say(
             "Bait the Chimera’s furnace breath onto this vent, then open it.",
           );
           return;
         }
-        this.mark(index, "Vent ignited");
-        this.exposedUntil = this.now + 10;
+        this.mark(index, "VENT EXPLODES — Chimera staggered!");
+        this.openCounter(boss, 3);
         return;
       case "cyclops":
         if ((this.wounds[index] ?? 0) < this.now) {
@@ -1608,7 +1610,7 @@ export class AegeanEncounterDirector {
           return;
         }
         this.mark(index, "Ankle seal loosened");
-        this.exposedUntil = this.now + 14;
+        if (boss) this.openCounter(boss, 3);
         return;
       case "scylla":
         this.useStraitBeacon(index);
@@ -1618,15 +1620,17 @@ export class AegeanEncounterDirector {
         this.holding = index;
         this.holdTime = 0;
         this.adds(2, "aegean_jailer", this.at(index));
-        this.say("Clear the anchor, then hold it for 6 seconds.");
+        this.say("CLEAR HORRORS → HOLD ANCHOR 3s");
         return;
       default:
-        if (!boss || boss.windupAttack || !recovery) {
-          this.say("Use the station during the guardian’s recovery.");
+        if (!boss) {
+          this.say("No guardian remains.");
           return;
         }
-        this.mark(index, "Trial station attuned");
-        this.exposedUntil = this.now + 10;
+        this.mark(index, "COUNTERSTRIKE — guardian staggered!");
+        this.groundedUntil[index] = this.now + 10;
+        this.warnings = this.warnings.filter((w) => this.distance(w, this.at(index)) > 260);
+        this.openCounter(boss, 2.5);
         return;
     }
   }
@@ -1645,7 +1649,6 @@ export class AegeanEncounterDirector {
     if (actor.role !== "boss") return true;
     if (PUZZLE_ONLY.has(this.slug) || this.slug === "hydra") return false;
     if (this.slug === "scylla" && !this.allSteps()) return false;
-    if (this.slug === "hippolyta" && !this.allSteps()) return false;
     if (this.slug === "leonidas" && this.now < this.phaseIntroUntil)
       return false;
     return true;
@@ -1686,12 +1689,9 @@ export class AegeanEncounterDirector {
       return 0;
     if (actor.role !== "boss") return amount;
     if (PUZZLE_ONLY.has(this.slug) || this.slug === "hydra") return 0;
-    if (this.slug === "hippolyta" && !this.allSteps()) return 0;
-    const windowed = !["mares", "geryon"].includes(this.slug);
-    if (windowed && this.exposedUntil <= this.now) amount *= 0.08;
-    if (!this.allSteps())
-      amount = Math.min(amount, Math.max(0, enemy.hp - enemy.maxHp * 0.12));
-    return amount;
+    // Tools buy a real stagger and a short bonus; ordinary attacks always work.
+    // A few nonlethal labors and Scylla's physical heads retain their clear rule.
+    return this.exposedUntil > this.now ? amount * 1.35 : amount;
   }
   onEnemyKilled(enemy: Enemy): boolean {
     const actor = this.actors.find((a) => a.enemy === enemy);
@@ -1700,31 +1700,29 @@ export class AegeanEncounterDirector {
       if (actor.roster !== undefined) this.armyDefeated.add(actor.roster);
       if (actor.role === "captain")
         this.brokenUntil[Math.floor((actor.roster ?? 0) / 30)] = this.now + 30;
-      // Preserve the class's on-kill sustain without issuing 300 boss rewards.
-      const leech = this.game.player.enchantPower("leeching");
-      if (leech > 0)
-        this.game.player.hp = Math.min(
-          this.game.player.maxHp,
-          this.game.player.hp + (this.game.player.maxHp * leech) / 100,
-        );
+      // A mass battle cannot turn 300 tiny kills into 300 full leech procs.
+      // Weapon hit sustain is budgeted centrally by the Aegean combat rules.
       return true;
     }
     if (actor.role === "head") {
+      this.woundSites[actor.index] = {x: enemy.x, y: enemy.y};
       this.wounds[actor.index] = this.now + 8;
-      this.say(`Head ${actor.index + 1} severed — cauterize its wound!`);
+      this.game.ringAt(enemy.x, enemy.y, 82, "#ffb76b");
+      this.say(`HEAD ${actor.index + 1} CUT — step into its glowing wound!`);
       return true;
     }
     if (actor.role === "strait_head") {
       this.sealed.add(actor.index);
-      this.say(`Scylla’s head ${actor.index + 1} defeated${this.living.some((a) => a.role === "strait_head") ? "" : " — light the cleared beacon!"}`);
+      this.say(`HEAD ${actor.index + 1} SLAIN · ${this.sealed.size}/6`);
+      const beacon = Math.floor(actor.index / 2);
+      if ([beacon * 2, beacon * 2 + 1].every((n) => this.sealed.has(n))) this.useStraitBeacon(beacon);
       return true;
     }
     if (actor.role === "boss") {
       if (this.slug === "leonidas") {
         if (this.finalSequence >= 3) this.finish();
       } else if (
-        this.allSteps() &&
-        (this.slug !== "birds" || this.addCount() === 0) &&
+        (this.slug !== "mares" || this.allSteps()) &&
         (this.slug !== "geryon" || !this.living.some((a) => a.role === "body"))
       )
         this.finish();
@@ -1733,7 +1731,6 @@ export class AegeanEncounterDirector {
     if (
       this.slug === "geryon" &&
       actor.role === "body" &&
-      this.allSteps() &&
       !this.boss &&
       !this.living.some((a) => a.role === "body")
     )
@@ -1753,40 +1750,30 @@ export class AegeanEncounterDirector {
     this.started = false;
     this.game.completeAegean(this.id, this.game.aegeanHas(this.id));
     this.objective =
-      "Oath complete. Your victory and rewards are permanently recorded.";
+      "VICTORY · Open your reward card for the exact spoils.";
     this.status = "Completed";
     this.game.bossTarget = null;
     this.clearActors();
   }
 
   private deployArmy(): void {
-    const end = ARMY_CHAPTER_ENDS[this.record.chapter];
-    if (end === undefined) {
-      this.finish();
-      return;
-    }
-    if (this.armyNext === (ARMY_CHAPTER_ENDS[this.record.chapter - 1] ?? 0))
-      this.game.playSound("phalanx_horn", 0.65);
-    let active = this.living.length;
-    while (active < 36 && this.armyNext < end) {
-      const n = this.armyNext++,
-        r = ARMY_ROSTER[n],
-        anchor = this.node(`chapter_${this.record.chapter}`);
-      const slot = n % 30;
-      const e = this.spawn(
-        `aegean_army_${r.role}`,
-        r.role,
-        slot,
-        {
-          x: anchor.x + ((slot % 6) - 2.5) * 47,
-          y: anchor.y + Math.floor(slot / 6) * 46,
-        },
-        n,
-      );
+    if (this.armyNext >= ARMY_ROSTER.length) return;
+    this.game.playSound("phalanx_horn", 0.65);
+    const center = this.node("arena");
+    // Every roster member is a real, vulnerable actor from the first frame.
+    // Ten distinct 6x5 companies spread across one open soil battlefield.
+    while (this.armyNext < ARMY_ROSTER.length) {
+      const n = this.armyNext++, r = ARMY_ROSTER[n], company = Math.floor(n / 30), slot = n % 30;
+      const anchor = this.game.map.encounterNodes?.[`company_${company}`]?.[0] ?? {
+        x: center.x + ((company % 5) - 2) * 280,
+        y: center.y + (Math.floor(company / 5) - 0.5) * 370,
+      };
+      const e = this.spawn(`aegean_army_${r.role}`, r.role, slot,
+        {x:anchor.x + ((slot % 6) - 2.5) * 36, y:anchor.y + (Math.floor(slot / 6) - 2) * 36}, n);
       e.scripted = true;
-      e.def = { ...e.def, name: `${r.company} ${e.def.name}` };
-      active++;
+      e.def = {...e.def, name: `${r.company} ${e.def.name}`};
     }
+    this.status = "300 STANDING · ALL COMPANIES ENGAGED";
   }
   private armyDamage(actor: Actor, amount: number, opts: DamageOpts): number {
     const company = Math.floor((actor.roster ?? 0) / 30);
@@ -1834,104 +1821,75 @@ export class AegeanEncounterDirector {
       : amount;
   }
   private updateArmy(dt: number): void {
-    this.deployArmy();
-    const end = ARMY_CHAPTER_ENDS[this.record.chapter];
-    this.status = `${this.armyStanding} standing · Chapter ${this.record.chapter + 1}/4 · ${this.living.length} engaged`;
-    this.objective =
-      [
-        "Break the Bronze Door. Flank the linked shields.",
-        "Clear the Red Terraces. Use cover between javelin lanes.",
-        "Split the Turning Wall. Interrupt the visible captain’s order.",
-        "Overcome the Last Sixty. Both captains must fall.",
-      ][this.record.chapter] ?? "";
-    if (this.armyNext >= end && !this.living.length) {
-      this.record.chapter++;
-      if (this.record.chapter === 4) {
-        this.finish();
-        return;
-      }
-      this.waiting = true;
-      this.warnings = [];
-      this.game.player.hp = this.game.player.maxHp;
-      this.game.player.mp = this.game.player.maxMp;
-      this.game.player.sp = this.game.player.maxSp;
-      this.status = `Checkpoint: ${end}/300 defeated. Activate a rally shrine to continue.`;
-      this.objective = this.status;
+    const soldiers = this.living;
+    this.status = `${soldiers.length}/300 STANDING · ONE BATTLEFIELD`;
+    this.objective = "Flank shields. Kill captains to break each company's formation.";
+    if (!soldiers.length && this.armyDefeated.size === 300) {
+      this.record.chapter = 4;
+      this.finish();
       return;
     }
     const p = this.game.player;
-    for (const a of this.living) {
+    const bins = new Map<string, Enemy[]>();
+    for (const a of soldiers) {
+      const key = `${Math.floor(a.enemy.x / 96)},${Math.floor(a.enemy.y / 96)}`;
+      const bucket = bins.get(key);
+      if (bucket) bucket.push(a.enemy); else bins.set(key, [a.enemy]);
+    }
+    for (const a of soldiers) {
       const e = a.enemy;
       if (e.windupAttack || e.statuses.some((s) => s.kind === "stun")) continue;
-      const desired =
-        a.role === "javelin" ? 270 : a.role === "runner" ? 70 : 95;
-      if (this.distance(e, p) > desired) {
-        const flank =
-          a.role === "runner"
-            ? a.index % 2
-              ? 100
-              : -100
-            : ((a.index % 6) - 2.5) * 17;
-        const angle = this.clock * 0.09 + a.index * 0.21;
-        const target =
-          this.record.chapter === 2 && ["hoplite", "shield"].includes(a.role)
-            ? { x: p.x + Math.cos(angle) * 120, y: p.y + Math.sin(angle) * 120 }
-            : {
-                x: p.x + flank * (this.record.chapter === 1 ? 1.4 : 1),
-                y: p.y + (a.role === "runner" ? 45 : 0),
-              };
-        this.move(
-          e,
-          target,
-          a.role === "shield"
-            ? 0.65
-            : this.record.chapter === 3 && a.role === "runner"
-              ? 1.05
-              : 0.9,
-        );
-      }
+      const desired = a.role === "javelin" ? 330 : a.role === "runner" ? 65 : 85;
+      if (this.distance(e, p) <= desired) continue;
+      const company = Math.floor((a.roster ?? 0) / 30);
+      const flank = a.role === "runner" ? (a.index % 2 ? 135 : -135) : ((a.index % 6) - 2.5) * 24;
+      const target = {x:p.x + flank, y:p.y + (company % 2 ? 34 : -34)};
+      // Open-field steering uses small local separation buckets rather than
+      // 300 flood searches or a 300-by-300 neighbour scan every frame.
+      let dx = target.x - e.x, dy = target.y - e.y;
+      const length = Math.hypot(dx,dy) || 1;
+      dx /= length; dy /= length;
+      const cx = Math.floor(e.x/96), cy = Math.floor(e.y/96);
+      for (let by=cy-1;by<=cy+1;by++) for (let bx=cx-1;bx<=cx+1;bx++)
+        for (const other of bins.get(`${bx},${by}`) ?? []) {
+          if (other === e) continue;
+          const ox=e.x-other.x, oy=e.y-other.y, squared=ox*ox+oy*oy;
+          const spacing=e.radius+other.radius+3;
+          if (squared > .01 && squared < spacing*spacing) {
+            const d=Math.sqrt(squared);
+            dx += ox/d*.55; dy += oy/d*.55;
+          }
+        }
+      const scale=e.speed*(a.role === "shield" ? .85 : 1.15)*dt/(Math.hypot(dx,dy)||1);
+      const nx=e.x+dx*scale, ny=e.y+dy*scale;
+      if (!boxHitsTerrain(this.game.map,nx,e.y,e.radius*.7,e.radius*.5)) e.x=nx;
+      if (!boxHitsTerrain(this.game.map,e.x,ny,e.radius*.7,e.radius*.5)) e.y=ny;
+      e.dir=dirFromVector(dx,dy,e.dir);
+      e.anim="walk";
     }
     if (this.next <= 0) {
-      this.next = 1.2;
+      this.next = 0.45;
       this.cycle++;
-      // One locally relevant formation attack at a time. Distant reserves never hit.
-      const candidates = this.living.filter(
-        (a) =>
-          this.distance(a.enemy, p) < 430 &&
-          !a.enemy.windupAttack &&
-          !a.enemy.statuses.some((s) => s.kind === "stun"),
-      );
-      const priority =
-        this.cycle % 5 === 0
-          ? candidates.find((a) => a.role === "captain")
-          : this.record.chapter === 1 && this.cycle % 3 === 0
-            ? candidates.find((a) => a.role === "javelin")
-            : undefined;
-      const a =
-        priority ?? candidates[this.cycle % Math.max(1, candidates.length)];
-      if (a) {
-        a.enemy.attackCd = 0;
-        const attack =
-          a.role === "javelin"
-            ? "volley"
-            : a.role === "runner"
-              ? "charge"
-              : a.role === "captain"
-                ? "sweep"
-                : "thrust";
-        this.attack(a.enemy, attack, {
-          windup: a.role === "captain" ? 1.6 : 1.2,
-          range: a.role === "runner" ? 190 : 320,
-          power: a.role === "captain" ? 1.8 : 1.1,
-          count: 3,
+      const engaged = soldiers.filter((a) => this.distance(a.enemy, p) < 570 && !a.enemy.windupAttack &&
+        a.enemy.attackCd <= 0 && !a.enemy.statuses.some((s) => s.kind === "stun"));
+      // Several simultaneous threats, bounded to keep tells legible. This is
+      // scheduling of attacks only: no soldiers are hidden, invulnerable or held in reserve.
+      const committing = soldiers.filter((a) => !!a.enemy.windupAttack).length;
+      const count = Math.min(3, Math.max(0, 7 - committing), engaged.length);
+      for (let k = 0; k < count; k++) {
+        const a = engaged[(this.cycle * 3 + k) % engaged.length];
+        this.attack(a.enemy, a.role === "javelin" ? "volley" : a.role === "runner" ? "charge" : a.role === "captain" ? "sweep" : "thrust", {
+          name: a.role === "captain" ? "CAPTAIN'S ORDER — interrupt!" : a.role === "javelin" ? "JAVELIN LANE" : "PHALANX STRIKE",
+          windup: a.role === "captain" ? 0.9 : 0.65,
+          range: a.role === "runner" ? 235 : a.role === "javelin" ? 570 : 200,
+          radius: a.role === "javelin" ? 24 : 35,
+          power: a.role === "captain" ? 1.65 : 0.85,
+          count: a.role === "javelin" ? 2 : 1,
         });
       }
     }
     for (const key of Object.keys(this.formationBreak))
-      this.formationBreak[Number(key)] = Math.max(
-        0,
-        this.formationBreak[Number(key)] - dt * 0.014,
-      );
+      this.formationBreak[Number(key)] = Math.max(0, this.formationBreak[Number(key)] - dt * 0.014);
   }
 
   startPractice(phase: number): boolean {
@@ -2031,10 +1989,10 @@ export class AegeanEncounterDirector {
     if (!boss) return;
     boss.phase = this.phase;
     this.record.bestPhase = Math.max(this.record.bestPhase, this.phase);
-    this.phaseIntroUntil = this.now + 2.4;
+    this.phaseIntroUntil = this.now + 0.65;
     this.phaseObjective = 0;
     this.cycle = 0;
-    this.next = 2.5;
+    this.next = 0.8;
     boss.windupAttack = null;
     boss.windupTime = 0;
     boss.attackGeometry = null;
@@ -2049,7 +2007,7 @@ export class AegeanEncounterDirector {
     if (this.phase === 5) this.finalSequence = 0;
   }
   private deployGuards(): void {
-    if (this.guardWaves >= 2) return;
+    if (this.guardWaves >= 1) return;
     const wave = this.guardWaves++;
     for (let i = 0; i < 6; i++) {
       const e = this.spawn(
@@ -2060,7 +2018,7 @@ export class AegeanEncounterDirector {
       );
       e.scripted = true;
     }
-    this.say(`Royal Guard ${wave + 1}/2 — six loyal companions enter`);
+    this.say(`ROYAL GUARD — six spears join the king`);
   }
   private leonidasDamage(actor: Actor, amount: number): number {
     if (actor.role !== "boss") return amount;
@@ -2071,24 +2029,16 @@ export class AegeanEncounterDirector {
       this.phaseObjective < 2 &&
       this.exposedUntil <= this.now
     )
-      amount *= 0.15;
+      amount *= 0.75;
     if (
       this.phase === 2 &&
       this.living.some((a) => a.role === "guard") &&
       this.exposedUntil <= this.now
     )
-      amount *= 0.45;
+      amount *= 0.85;
     const thresholds = [0.82, 0.64, 0.42, 0.18, 0.05, 0];
     const floor = boss.maxHp * thresholds[this.phase];
-    const gate =
-      this.phase === 1
-        ? this.phaseObjective >= 2
-        : this.phase === 2
-          ? this.guardWaves === 2 &&
-            !this.living.some((a) => a.role === "guard")
-          : this.phase === 5
-            ? this.finalSequence >= 3
-            : true;
+    const gate = this.phase !== 5 || this.finalSequence >= 3;
     if (!gate)
       return Math.min(
         amount,
@@ -2096,7 +2046,7 @@ export class AegeanEncounterDirector {
       );
     if (this.phase < 5 && amount >= boss.hp - floor) {
       this.carryDamage = Math.min(
-        boss.maxHp * 0.015,
+        boss.maxHp * 0.12,
         Math.max(0, amount - (boss.hp - floor)),
       );
       return Math.max(0, boss.hp - floor);
@@ -2117,8 +2067,8 @@ export class AegeanEncounterDirector {
       }
       this.sealed.add(index);
       this.phaseObjective++;
-      this.exposedUntil = this.now + 9;
-      this.powerEvent("onStagger", boss);
+      this.openCounter(boss, 2.5);
+      this.exposedUntil = this.now + 7;
       this.say("Oath link extinguished — the shield opens");
     } else if (this.phase === 2 && index < 4) {
       if (!this.warnings.some((w) => w.label === "Oath chant")) {
@@ -2155,24 +2105,24 @@ export class AegeanEncounterDirector {
     const p = this.game.player;
     this.status = `Phase ${this.phase + 1}/6 · ${boss.def.boss!.phases[this.phase].name}${this.practice ? " · PRACTICE" : ""}`;
     this.objective = [
-      "Learn the committed combinations. Strike after the third blow.",
-      "Break two distinct brazier links; exploit the shield openings.",
-      "Defeat twelve finite guards. Interrupt the oath chant at a standard.",
-      "Ground conductors and avoid both journeys of the spear.",
-      "The king stands alone. Read his recovery before committing.",
+      "DODGE THE COMBO · punish the third strike.",
+      "FLANK THE SHIELD · braziers break his stance when you hold them.",
+      "KING + SIX GUARDS · hold a standard to interrupt his rally.",
+      "RETURNING SPEAR · step aside twice; conductors open a safe lane.",
+      "LAST DUEL · no shield, faster attacks. Keep moving.",
       `The Last Oath: survive the three patterns (${this.finalSequence}/3).`,
     ][this.phase];
     if (this.now < this.phaseIntroUntil) return;
     const guards = this.living.filter((a) => a.role === "guard");
     for (const a of guards)
       if (!a.enemy.windupAttack && this.distance(a.enemy, p) > 120)
-        this.move(a.enemy, p, 0.7);
+        this.move(a.enemy, p, 1.15);
     this.guardNext -= dt;
     const committedGuards = guards.filter((a) => a.enemy.windupAttack).length;
     if (
       guards.length &&
       this.guardNext <= 0 &&
-      committedGuards === 0 &&
+      committedGuards < 2 &&
       this.warnings.filter((w) => w.damage > 0).length +
         (boss.windupAttack ? 1 : 0) <
         2
@@ -2184,20 +2134,13 @@ export class AegeanEncounterDirector {
           !a.enemy.statuses.some((s) => s.kind === "stun"),
       );
       if (guard) {
-        this.attack(guard.enemy, "thrust", { windup: 1.5, power: 1.05 });
-        this.guardNext = 3.4;
+        this.attack(guard.enemy, "thrust", { windup: 0.65, power: 1.15 });
+        this.guardNext = 1.25;
       }
     }
     const threshold = [0.82, 0.64, 0.42, 0.18, 0.05][this.phase];
     if (this.phase < 5 && boss.hp <= boss.maxHp * threshold + 0.01) {
-      const gate =
-        this.phase === 1
-          ? this.phaseObjective >= 2
-          : this.phase === 2
-            ? this.guardWaves === 2 &&
-              !this.living.some((a) => a.role === "guard")
-            : true;
-      if (gate) {
+      {
         if (this.practice) {
           this.finish();
           return;
@@ -2215,20 +2158,20 @@ export class AegeanEncounterDirector {
     if (
       this.phase === 2 &&
       !this.living.some((a) => a.role === "guard") &&
-      this.guardWaves < 2
+      this.guardWaves < 1
     )
       this.deployGuards();
     if (this.phase === 5 && this.finalSequence < 3) {
       if (this.next <= 0 && !boss.windupAttack && !this.warnings.length) {
         const step = this.finalSequence;
-        this.next = 4.8;
+        this.next = 1.5;
         const point = { x: p.x, y: p.y };
         if (step === 0)
           this.line(
             boss,
             angleTo(boss.x, boss.y, p.x, p.y),
             560,
-            1.3,
+            0.85,
             boss.damage * 2,
             "Last Oath — the spear",
             () => {
@@ -2239,7 +2182,7 @@ export class AegeanEncounterDirector {
           this.warn(
             point,
             100,
-            1.7,
+            0.9,
             boss.damage * 2.1,
             "Last Oath — the sky",
             "#d0e7fa",
@@ -2251,7 +2194,7 @@ export class AegeanEncounterDirector {
           this.warn(
             { x: boss.x, y: boss.y },
             240,
-            2,
+            1.1,
             boss.damage * 2.3,
             "Last Oath — the king",
             "#e2c88e",
@@ -2264,8 +2207,8 @@ export class AegeanEncounterDirector {
       }
       return;
     }
-    if (!boss.windupAttack && this.distance(boss, p) > 170)
-      this.move(boss, p, this.phase >= 4 ? 0.95 : 0.7);
+    if (!boss.windupAttack && this.distance(boss, p) > 100)
+      this.move(boss, p, this.phase >= 4 ? 1.55 : 1.25);
     if (this.next > 0 || boss.windupAttack) return;
     if (
       this.warnings.filter((w) => w.damage > 0).length +
@@ -2275,7 +2218,7 @@ export class AegeanEncounterDirector {
       this.next = 0.3;
       return;
     }
-    this.next = this.phase >= 4 ? 2.2 : 3.2;
+    this.next = this.phase >= 4 ? 0.9 : 1.35;
     this.cycle++;
     boss.attackCd = 0;
     const grammar =
@@ -2295,7 +2238,7 @@ export class AegeanEncounterDirector {
         origin,
         angle,
         length,
-        1.15,
+        0.75,
         boss.damage * 1.7,
         "The Returning King — outbound",
         () => {
@@ -2306,13 +2249,18 @@ export class AegeanEncounterDirector {
             },
             angle + Math.PI,
             length,
-            1.3,
+            0.75,
             boss.damage * 1.7,
             "The Returning King — return",
           );
         },
       );
-    } else this.attack(boss, key);
+    } else {
+      const royal = boss.def.boss?.attacks ?? [];
+      if (this.cycle % 2 === 0 && royal.length)
+        boss.queueAttack(this.game, royal[(this.cycle / 2 - 1) % royal.length]);
+      else this.attack(boss, key, {windup: this.phase >= 4 ? 0.52 : 0.68, power: this.phase >= 4 ? 1.85 : 1.5});
+    }
     // Only one extra scheduled temple hazard; always preserve the opposite lane.
     if (
       this.phase >= 1 &&
@@ -2323,12 +2271,12 @@ export class AegeanEncounterDirector {
         2
     ) {
       const index = this.phase >= 3 ? 4 + (this.cycle % 4) : this.cycle % 4,
-        node = this.at(index);
+        node = this.distance(this.at(index), p) < 300 ? this.at(index) : {x:p.x, y:p.y};
       if ((this.groundedUntil[index] ?? 0) <= this.now)
         this.warn(
           node,
           100,
-          1.8,
+          0.95,
           boss.damage * 1.4,
           this.phase >= 3 ? "Storm conductor" : "Spear channel",
         );
@@ -2355,11 +2303,13 @@ export class AegeanEncounterDirector {
             this.phaseObjective === interruption &&
             !boss.dead
           )
-            boss.hp = Math.min(boss.maxHp * 0.64, boss.hp + boss.maxHp * 0.06);
+            for (const a of this.living.filter((a) => a.role === "guard")) {
+              a.enemy.attackCd = 0;
+              a.enemy.guardUntil = this.now + 3;
+            }
         },
       );
     }
-    // Capped endurance pressure; never an infinitely accelerating boss.
-    if (this.clock > 900) this.next = Math.max(1.8, this.next - 0.35);
+
   }
 }

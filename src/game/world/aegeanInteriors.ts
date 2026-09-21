@@ -15,6 +15,20 @@ const TOWN_NAMES: Record<string, [string, string, string]> = {
 
 /** Small, usable rooms follow the valley's doors, inns, anvils and shared stash. */
 export function buildAegeanInterior(id: string, returnX: number, returnY: number): GameMap | undefined {
+  const hall = /^int_aegean_(.+)_hall$/.exec(id);
+  if (hall && TOWN_NAMES[hall[1]]) {
+    const map = createMap({ id, name: `${TOWN_NAMES[hall[1]][0]} — Refuge Hall`, kind: 'interior', w: 23, h: 18, outdoor: false, music: 'village', parent: `aegean_${hall[1]}` });
+    fillRect(map, 0, 0, 23, 18, T.MARBLE_WALL); fillRect(map, 1, 1, 21, 16, T.MARBLE);
+    const put = (x: number, y: number, art: string, action: string, label: string) => map.props.push({ art, x: x * TILE + 16, y: y * TILE + 32, interact: 'aegean', label, nameplate: label, nameplateColor: '#e1ca8e', data: { action, settlement: `aegean_${hall[1]}` }, cw: 26, ch: 14 });
+    put(6, 5, 'aegean_fountain', 'rest', 'REST & CHECKPOINT');
+    put(16, 5, 'market_stall', 'shop', 'EXPEDITION SUPPLIES');
+    put(6, 11, 'chest', 'storage', 'YOUR STORAGE');
+    put(16, 11, 'aegean_anvil', 'forge', 'GREEK FORGE');
+    for (const x of [3, 19]) for (const y of [3, 13]) map.props.push({ art: 'aegean_column', x: x * TILE + 16, y: y * TILE + 32, cw: 20, ch: 12 });
+    setTile(map, 11, 17, T.MARBLE);
+    map.portals.push({ x: 11 * TILE - 12, y: 17 * TILE - 4, w: 32, h: 36, to: 'overworld', tx: returnX, ty: returnY, label: 'Step outside', kind: 'door' });
+    buildPropGrid(map); return map;
+  }
   const match = /^int_aegean_(.+)_(inn|smithy|store)$/.exec(id);
   if (!match || !TOWN_NAMES[match[1]]) return;
   const [, town, kind] = match;

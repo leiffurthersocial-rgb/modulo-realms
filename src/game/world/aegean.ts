@@ -8,6 +8,7 @@ import {
   type AegeanPort,
 } from "../../data/aegean/world";
 import { RNG } from "../core/rng";
+import { AEGEAN_ISLAND_ECOLOGY, AEGEAN_MAINLAND_ECOLOGY } from "../../data/aegean/ecology";
 import {
   aegeanPath,
   generateAegeanTerrain,
@@ -160,7 +161,7 @@ function town(map: GameMap, loc: (typeof AEGEAN_LOCATIONS)[number]): void {
   prop(map, x, y - 7, centreArt, {
     cw: 108,
     ch: 32,
-    nameplate: id === "aegean_thyra" ? "GATE MARKET — TRADE HALL" : loc.name,
+    nameplate: id === "aegean_thyra" ? "GATE MARKET — TRADE HALL" : `${loc.name.toUpperCase()} — REFUGE HALL`,
     nameplateColor: "#e2c787",
   });
   if (id === "aegean_thyra") {
@@ -170,6 +171,10 @@ function town(map: GameMap, loc: (typeof AEGEAN_LOCATIONS)[number]): void {
       label: "Enter the Gate Market — buy and sell", kind: "door",
     });
     fillRect(map, x - 1, y - 5, 3, 3, T.ROAD);
+  } else {
+    map.portals.push({ x: x * TILE - 2, y: (y - 6) * TILE + 2, w: 36, h: 36,
+      to: `int_${id}_hall`, tx: 0, ty: 0, label: "Enter the refuge hall — rest, supplies and storage", kind: "door" });
+    fillRect(map, x - 1, y - 5, 3, 3, T.ROAD_DIRT);
   }
   const services: Array<[number, number, string, string, string]> = [
     [-7, 3, "notice_board", "journal", "Read local rumours"],
@@ -381,7 +386,7 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
     chests: [...legacy.chests],
     regions: new Uint8Array(1920 * 1088),
     landmasses: new Uint8Array(1920 * 1088),
-    revision: `${seed}:aegean-v2`,
+    revision: `${seed}:aegean-living-myths-v3`,
   });
   for (let y = 0; y < legacy.h; y++) {
     map.tiles.set(
@@ -597,7 +602,7 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
         interact: "sign",
         label: `Read: ${loc.name}`,
         data: { text: loc.id === "aegean_army"
-          ? "The Three Hundred hold this pass. Enter the gate to challenge their army. Defeating them opens the Last Shore harbour and the sea route toward Leonidas. Cleared rally stages are remembered if you retreat."
+          ? "300 warriors. One battlefield. Break their captains and survive the charge to open the harbour toward Leonidas."
           : `${loc.name} — level ${loc.level}. ${loc.desc}` },
       });
       map.portals.push({
@@ -661,20 +666,6 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
   }
   scatterAegeanScenery(map, seed);
   const rng = new RNG(`${seed}:aegean:actors:v1`);
-  const rosters: Record<number, string[]> = {
-    12: ["aegean_hound", "aegean_satyr"],
-    13: ["aegean_centaur", "aegean_piper", "aegean_sacred_boar"],
-    14: ["aegean_harpy", "aegean_storm_harpy", "aegean_stag"],
-    15: ["aegean_torch_dancer", "aegean_hound"],
-    16: ["aegean_drakon", "aegean_automaton"],
-    17: ["aegean_crab", "aegean_siren", "aegean_hoplite"],
-    18: ["aegean_hoplite", "aegean_centaur_elder"],
-    19: ["aegean_viper", "aegean_constrictor", "aegean_bronze_harpy"],
-    20: ["aegean_furnace_guardian", "aegean_empousa", "aegean_kere"],
-    21: ["aegean_talos_shard", "aegean_serpent", "aegean_siren"],
-    22: ["aegean_oath_shade", "aegean_hoplite"],
-    23: ["aegean_royal_guard", "aegean_burial_priest", "aegean_oath_shade"],
-  };
   const levels: Record<number, number> = {
     12: 76,
     13: 79,
@@ -689,14 +680,14 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
     22: 97,
     23: 100,
   };
-  for (let y = 30; y < map.h - 30; y += 19)
-    for (let x = 985; x < map.w - 25; x += 19) {
+  for (let y = 30; y < map.h - 30; y += 15)
+    for (let x = 985; x < map.w - 25; x += 15) {
       const tx = x + rng.int(-5, 5),
         ty = y + rng.int(-5, 5),
         i = ty * map.w + tx;
       if (
         !map.landmasses![i] ||
-        isSolid(map.tiles[i]) ||
+        isSolid(map.tiles[i]) || isWater(map.tiles[i]) ||
         map.tiles[i] === T.MARBLE
       )
         continue;
@@ -708,17 +699,18 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
         )
       )
         continue;
-      const region = map.regions![i],
-        table = rosters[region];
+      const region = map.regions![i];
+      const island = AEGEAN_ISLANDS.find(island => island.landmass === map.landmasses![i]);
+      const table = (island ? AEGEAN_ISLAND_ECOLOGY[island.id] : AEGEAN_MAINLAND_ECOLOGY[region])?.enemies;
       if (!table) continue;
       map.spawns.push({
         id: `aegean:surface:${tx}:${ty}`,
-        enemy: rng.pick(table),
+        enemy: table[rng.int(0, table.length - 1)],
         x: tx * TILE + 16,
         y: ty * TILE + 16,
         level: Math.min(100, levels[region] + rng.int(0, 3)),
-        radius: 150,
-        group: rng.bool(0.32) ? 2 : 1,
+        radius: 190,
+        group: rng.bool(0.55) ? 2 : 1,
         respawn: 240 + rng.int(0, 120),
         region: AEGEAN_LOCATIONS.find(
           (l) =>
@@ -726,6 +718,27 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
         )?.region,
       });
     }
+  // Small islets can fall between the broad overworld grid. Guarantee one
+  // territory for every local species, on real walkable ground away from doors.
+  for (const island of AEGEAN_ISLANDS) {
+    const ecology = AEGEAN_ISLAND_ECOLOGY[island.id];
+    for (const [species, enemy] of ecology.enemies.entries()) {
+      if (map.spawns.some(spawn => spawn.enemy === enemy && map.landmasses![Math.floor(spawn.y / TILE) * map.w + Math.floor(spawn.x / TILE)] === island.landmass)) continue;
+      for (let attempt = 0; attempt < 36; attempt++) {
+        const angle = species * 1.9 + attempt * 2.39996, band = .43 + (attempt % 4) * .11;
+        const tx = Math.round(island.tx + Math.cos(angle) * island.rx * band);
+        const ty = Math.round(island.ty + Math.sin(angle) * island.ry * band);
+        const index = ty * map.w + tx;
+        if (map.landmasses![index] !== island.landmass || isSolid(map.tiles[index]) || isWater(map.tiles[index])) continue;
+        if (AEGEAN_LOCATIONS.some(loc => !loc.surfaceMap && Math.hypot(loc.tx - tx, loc.ty - ty) < (loc.kind === "village" ? 30 : loc.dungeon ? 8 : 0))) continue;
+        if (AEGEAN_PORTS.some(port => Math.hypot(port.land.x / TILE - tx, port.land.y / TILE - ty) < 7)) continue;
+        map.spawns.push({ id: `aegean:island:${island.id}:${enemy}`, enemy, x: tx * TILE + 16, y: ty * TILE + 16,
+          level: island.id === "asterion" ? 100 : 93, radius: 120, group: 1, respawn: 300,
+          region: island.id === "asterion" ? "aegean_asterion" : "aegean_cyclades" });
+        break;
+      }
+    }
+  }
   map.offshore = buildOffshoreField(map);
   buildPropGrid(map);
   return map;

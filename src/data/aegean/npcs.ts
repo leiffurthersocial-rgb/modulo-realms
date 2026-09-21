@@ -18,7 +18,7 @@ const names = [
     "Iason",
     "Master of the Two Rivers",
     "A river never agreed to become a moat. Open a gate and it remembers where it wanted to go.",
-    "Augeas built his estate across two waters. The sluices have a memory: first, third, second. Keep the guardians away from the wheels.",
+    "Augeas built his estate across two waters. Stand on the glowing sluice plates to open the channels; keep the guardians away while the wheels turn.",
   ],
   [
     "Thyone",
@@ -292,7 +292,7 @@ const residents: Resident[][] = [
         '"But a wheel is not a shield. Deal with whatever is reaching for your back before you work the sluice."',
       ],
       rumour: [
-        '"The sequence carved on the sluices is not a prayer. First, third, second. Whoever wrote it expected tired workers, not scholars."',
+        '"The glowing plates beside the sluices open the channels under your weight. Stand on one until the water runs, then move before the flood catches you."',
       ],
       stock: [
         "aegean_bronze",
@@ -1003,4 +1003,29 @@ const gateMarketTrader: NpcDef = {
   },
 };
 
-export const AEGEAN_NPCS: NpcDef[] = [...keepers, ...townsfolk, ...indoor, ...storekeepers, gateMarketTrader];
+const HALL_KEEPERS: Record<string, [string, string, string]> = {
+  aegean_nemean_hearth: ["Dione", "Keeper of the Grove Refuge", "Rest by the spring. Outside, cracked roots tighten before they strike."],
+  aegean_potamoi: ["Thraso", "Keeper of the River Hall", "Dry supplies to your right, the spring to your left. Leave the foaming ground when the river surges."],
+  aegean_delphi: ["Manto", "Keeper of the Pilgrims' Refuge", "The fountain restores you. Beyond the terraces, leave a watching eye before its light turns solid."],
+  aegean_aigialos: ["Sostratos", "Keeper of the Sailors' Hall", "Rest, mend and provision here. Your ship waits at the mooring outside."],
+  aegean_sparta: ["Eurytus", "Keeper of the Common Hall", "Rest here before the battlefield. All Three Hundred stand together; their captains keep the ranks moving."],
+  aegean_ember_quay: ["Phoibe", "Keeper of the Ash Refuge", "Cool water on the left, supplies on the right. Steam warns before the peninsula's vents erupt."],
+  aegean_kymene: ["Niko", "Keeper of the Island Refuge", "Come in out of the surf. Row sideways across a whirlpool's pull, and brace if its core catches you."],
+};
+/** Every newly opened civic hall has a permanent host, including late returns
+ * from sea. Services stay directly available at the four labelled fixtures. */
+const hallkeepers: NpcDef[] = settlements.filter(loc => HALL_KEEPERS[loc.id]).map((loc, index): NpcDef => {
+  const [name, title, greeting] = HALL_KEEPERS[loc.id];
+  return {
+    id: `${loc.id}_hallkeeper`, name, title, race: "human", faction: "guild",
+    personality: "An attentive local host who gives practical directions and keeps the refuge ready.",
+    map: `int_${loc.id}_hall`, tx: 11, ty: 7,
+    look: { ...look(index + 2), shirt: SHIRTS[(index + 3) % SHIRTS.length], armor: "none", hair: index % 2 ? "#b9ac93" : "#453329" },
+    wander: 6, services: ["heal", "storage"],
+    greeting: [{ lines: [greeting] }],
+    topics: [{ text: "What can I use here?", to: "refuge" }],
+    nodes: [{ id: "refuge", text: ["Fountain: heal and remember a checkpoint. Stall: expedition supplies. Chest: your storage. Anvil: Greek equipment and ship parts."] }],
+  };
+});
+
+export const AEGEAN_NPCS: NpcDef[] = [...keepers, ...townsfolk, ...indoor, ...storekeepers, ...hallkeepers, gateMarketTrader];

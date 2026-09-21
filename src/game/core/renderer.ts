@@ -1,3 +1,4 @@
+import { shipGuidanceTarget } from '../aegean/guidance';
 import { ANIM, ROW, getCharacterSheet, type CharacterSheet } from '../art/characters';
 import { getCreatureSheet, creatureStyle } from '../art/creatures';
 import { getBuilding } from '../art/buildings';
@@ -518,6 +519,7 @@ export function render(game: Game): void {
     });
   }
 
+  game.aegeanHazards.draw(g);
   game.encounters.draw(g);
   game.activities.draw(g);
   // A purchased hull remains beside its pier after the player steps ashore.
@@ -626,6 +628,8 @@ export function render(game: Game): void {
   if (game.debug) drawDebug(game, g, left, top, viewW, viewH);
 
   g.setTransform(1, 0, 0, 1, 0, 0);
+
+  game.aegeanHazards.drawWeather(g, canvas.width, canvas.height);
 
   // payoff flash — level ups, big drops, streak milestones
   if (game.screenFlash.alpha > 0.005) {
@@ -837,13 +841,14 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
 /** The original compass points to a harbour while sailing, or the tracked quest on foot. */
 function drawTrackedCompass(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {
   const landing = game.naval.landingGuide();
-  const target = landing ? { ...landing.approach, name: `Harbour: ${landing.port.name}` } : game.trackedTarget();
-  if (!target || game.map.id !== 'overworld') return;
+  const guided = shipGuidanceTarget(game);
+  const target = guided ?? (landing ? { ...landing.approach, name: `Harbour: ${landing.port.name}` } : game.trackedTarget());
+  if (!target || (!guided && game.map.id !== 'overworld')) return;
   const p = game.player;
   const dx = target.x - p.x;
   const dy = target.y - p.y;
   const distPx = Math.hypot(dx, dy);
-  if (landing ? landing.inRange : distPx < 260) return;
+  if (distPx < (guided ? 65 : 260)) return;
 
   const angle = Math.atan2(dy, dx);
   const radius = Math.min(viewW, viewH) * 0.36;

@@ -14,7 +14,7 @@ export interface DropEntry {
   max?: number;
 }
 
-export type AttackShape = 'circle' | 'cone' | 'line' | 'ring' | 'projectile' | 'summon' | 'dash' | 'rain';
+export type AttackShape = 'circle' | 'cone' | 'line' | 'ring' | 'projectile' | 'summon' | 'dash' | 'rain' | 'cross' | 'nova' | 'donut' | 'leap' | 'pull' | 'echo';
 
 export interface BossAttack {
   id: string;
@@ -41,6 +41,13 @@ export interface BossAttack {
    * footwork, not numbers.
    */
   lifeTax?: number;
+  /** Greek patterns: explicit projectile lanes, safe centres and delayed echoes. */
+  projectileSpeed?: number;
+  spread?: number;
+  innerRadius?: number;
+  repeatDelay?: number;
+  status?: { kind: 'chill' | 'curse' | 'fear' | 'bleed' | 'poison'; power: number; duration: number };
+
 }
 
 export interface BossPhase {
@@ -150,6 +157,12 @@ export interface EnemyDef {
   boss?: BossDef;
   /** Undead take extra holy damage; beasts extra poison, etc. */
   tags?: string[];
+  /** Individually authored Greek kits. Legacy enemies omit this. */
+  combat?: {
+    attacks: BossAttack[];
+    cadence: number;
+    movement: 'rush' | 'flank' | 'orbit' | 'stalk' | 'anchor';
+  };
   /** Greek field enemies carry a readable tactical move instead of a tint only. */
   tactic?: 'charge' | 'feint' | 'piper' | 'firetrail' | 'volley' | 'zone' | 'snatch' | 'bind' | 'guard' | 'revive' | 'lure' | 'surface';
 }

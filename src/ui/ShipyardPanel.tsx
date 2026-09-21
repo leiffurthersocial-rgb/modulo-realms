@@ -1,3 +1,4 @@
+import ShipComponentChart from './ShipComponentChart';
 import { useState } from 'react';
 import type { Game } from '../game/core/game';
 import { AEGEAN_SHIPS } from '../data/aegean/content';
@@ -22,7 +23,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
 
   return (
     <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" role="dialog" aria-modal="true" aria-label="Shipwright" style={{ width: 'min(760px, 95vw)', height: 'min(580px, 92vh)' }}>
+      <div className="modal panel" role="dialog" aria-modal="true" aria-label="Shipwright" style={{ width: 'min(1000px, 96vw)', height: 'min(760px, 94vh)' }}>
         <div className="panel-title">
           <span>Shipwright</span>
           <span className="sub">{port?.name ?? 'Harbour'} · {game.player.gold.toLocaleString()} gold</span>
@@ -48,6 +49,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
           <div className="inv-col scroll" style={{ overflowY: 'auto', minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, color: 'var(--gold)' }}>{ship.name}</div>
             <p className="help-p">{ship.description}</p>
+            {!owned && ship.requirements.length ? <ShipComponentChart game={game} requirements={ship.requirements} /> : null}
             <div className="obj-list">
               <div className="obj-item"><span>Hull</span><span>{Math.ceil(owned?.hull ?? ship.hull)} / {ship.hull}</span></div>
               <div className="obj-item"><span>Speed</span><span>{ship.speed}</span></div>
@@ -56,7 +58,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
             </div>
             {ship.requirements.length ? (
               <>
-                <div className="section-h">What the shipwright needs</div>
+                <details className="ship-route-details"><summary>Route details &amp; forging costs</summary>
                 {ship.requirements.map((id) => {
                   const obtained = game.campaign.has(id);
                   const source = AEGEAN_SHIPBUILDING_SOURCES[id];
@@ -78,8 +80,11 @@ export default function ShipyardPanel({ game }: { game: Game }) {
                     </div>
                   );
                 })}
+                </details>
               </>
             ) : null}
+            {!owned && missing.length ? <div className="ship-blocker">{missing.length} part{missing.length > 1 ? 's' : ''} missing — choose a gold marker above.</div> : null}
+            {!owned && game.player.gold < ship.cost ? <div className="ship-blocker">Need {(ship.cost - game.player.gold).toLocaleString()} more gold.</div> : null}
             {owned ? <p className="help-p">{ready ? `Your ${ship.name} is waiting beside the wooden pier.` : 'Bring this ship to the pier to see it beside the landing.'} Choose <b>Board ship</b> to step aboard and start sailing. You can also walk to the end of the pier and press <b>E</b>.</p> : null}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
               {!ready || !owned ? (
@@ -119,7 +124,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
                 {!FITTINGS.some((f) => game.campaign.has(f.requires)) ? <p className="help-p">Bring back trophies from Achaea&apos;s beasts and the shipwright can make fittings from them.</p> : null}
               </>
             ) : null}
-            <p className="help-p" style={{ marginTop: 16 }}>Steer with WASD, arrow keys or the movement stick. <b>You can only get off at a port.</b> Sail around an island to its wooden pier, approach the seaward end of the pier and press <b>E to land</b> when prompted. Beaches and cliffs are not landing places. The sailing display points you toward the nearest harbour.</p>
+            <p className="help-p" style={{ marginTop: 16 }}>Steer with WASD / movement stick. Follow the harbour arrow; <b>E / USE</b> lands at the pier.</p>
           </div>
         </div>
       </div>

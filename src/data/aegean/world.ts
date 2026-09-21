@@ -340,10 +340,47 @@ export interface AegeanAdventure {
   region: RegionId;
   level: number;
   verb: string;
+  /** One clear goal and one optional counterplay tip, shared by map and journal. */
+  goal: string;
+  tip: string;
   objectives: string[];
   surfaceMap?: string;
   gate?: string;
 }
+const ADVENTURE_GUIDANCE: Record<string, [string, string]> = {
+  nemea: ["Defeat the Nemean Lion", "Dodge pounces. A charge into a gold pillar stuns the lion."],
+  hydra: ["Cut and burn all five Hydra heads", "Stand in each glowing wound before its eight-second timer ends."],
+  hind: ["Guide the sacred hind and defend its rest", "Hold Brace to walk calmly beside it. Reach the glowing sanctuary stones."],
+  boar: ["Capture the boar in three snow pens", "Lure its charge through each marked pen, then dodge sideways."],
+  augeas: ["Open the three estate sluices", "Stand at any marked sluice, clear its guardians and dodge the flood."],
+  birds: ["Defeat the bronze-winged flock leader", "Stand beside a resonator to ground the bird and open a counterattack."],
+  bull: ["Break the bull's three binding pylons", "Bait its committed charge through each pylon; keep out of the lane."],
+  mares: ["Capture four mares and defeat Diomedes", "Lead each numbered mare into its matching paddock. Gates close automatically."],
+  hippolyta: ["Win the duel with Hippolyta", "Hold a banner for three seconds to call an allied strike and stagger her."],
+  geryon: ["Defeat Geryon's three fighting bodies", "His spear, bow and main body fight together. Cattle shelters create damage openings."],
+  hesperides: ["Carry the sky around all three anchors", "Step into an anchor to take the sky, follow its next light, and dodge falling stars."],
+  cerberus: ["Fasten three restraints on Cerberus", "Dodge the three-head combo. Approach during REST; restraints fasten automatically."],
+  python: ["Defeat Python beneath Delphi", "Keep moving through venom. Stand at a vent to clear poison and stagger Python."],
+  medusa: ["Defeat Medusa", "LOOK AWAY during her gaze. Stand at a mirror to reflect it and stagger her."],
+  minotaur: ["Defeat the Minotaur", "Bait a charge into a marked labyrinth gate to stun the pursuer."],
+  chimera: ["Defeat the three-headed Chimera", "Lure its fire beside a vent; the blast stuns the beast automatically."],
+  cyclops: ["Defeat the Cyclops", "Keep moving under boulders. A boulder on a crane weight blinds the eye."],
+  talos: ["Defeat Talos", "Lure him near a coastal drain, then stand there between his attacks to spill his heat."],
+  scylla: ["Slay six hunting heads, then Scylla", "Each slain pair lights its beacon. Three flames bind Charybdis automatically."],
+  titan: ["Repair the three Titan chain anchors", "Clear the horrors, hold an anchor for three seconds and dodge falling chains."],
+  army: ["Defeat all 300 soldiers in one battle", "Every company fights at once on open soil. Flank shields; kill captains to break formations."],
+  sanctuary_aegis: ["Defeat the Aegis sentinel", "Stand at a mirror for a reflected counterstrike; flank its shield."],
+  sanctuary_forge: ["Defeat the furnace warden", "Stand at an anvil to vent the heat and stun the warden."],
+  sanctuary_names: ["Defeat the keeper of unspent names", "Stand at any grave to silence nearby echoes and create a safe opening."],
+  champion_spear: ["Defeat Aster, Keeper of Distance", "Sidestep thrusts and crossed spear lanes. Floor circles grant counterstrikes."],
+  champion_shield: ["Defeat Damar, the Unbroken", "Flank shield charges; close inside shockwaves. Floor marks stagger him."],
+  champion_hunt: ["Defeat Pyrra, the Red Pursuit", "Dodge the pounce, then the second blade. Refuges open a counterstrike."],
+  champion_volley: ["Defeat Myron, Voice of Arrows", "Chase the retreating archer through gaps in his volleys; cover stations stagger him."],
+  champion_guard: ["Defeat Ionea, the Loyal", "Break crossed chains and fight the guards. A bell interrupts the champion."],
+  champion_storm: ["Defeat Kreon, the Storm-Bearer", "Step between lightning lanes; stand at a conductor to clear nearby strikes."],
+  leonidas: ["Defeat Leonidas and survive the Last Oath", "The king attacks through six fast phases. Braziers break his stance; conductors open safe storm lanes."],
+};
+
 const adventure = (
   slug: string,
   name: string,
@@ -364,6 +401,8 @@ const adventure = (
   region,
   level,
   verb,
+  goal: ADVENTURE_GUIDANCE[slug][0],
+  tip: ADVENTURE_GUIDANCE[slug][1],
   objectives,
   surfaceMap,
   gate,
@@ -389,11 +428,11 @@ export const AEGEAN_ADVENTURES: AegeanAdventure[] = [
     89,
     "cauterize",
     [
-      "Venom brazier",
-      "Sweep brazier",
-      "Lunge brazier",
-      "Brood brazier",
-      "Binding brazier",
+      "Venom head · burn its wound",
+      "Sweep head · burn its wound",
+      "Lunge head · burn its wound",
+      "Brood head · burn its wound",
+      "Coil head · burn its wound",
     ],
   ),
   adventure(
@@ -414,7 +453,7 @@ export const AEGEAN_ADVENTURES: AegeanAdventure[] = [
     "aegean_olympus",
     88,
     "corral",
-    ["Lower horn", "Switchback horn", "Summit pen"],
+    ["Lower charge pen", "Switchback charge pen", "Summit pen"],
   ),
   adventure(
     "augeas",
@@ -449,7 +488,7 @@ export const AEGEAN_ADVENTURES: AegeanAdventure[] = [
     "aegean_coast",
     92,
     "contain",
-    ["Runner gate", "Breaker gate", "Herald gate", "Sentinel gate"],
+    ["Mare 1 · Runner paddock", "Mare 2 · Breaker paddock", "Mare 3 · Herald paddock", "Mare 4 · Sentinel paddock"],
   ),
   adventure(
     "hippolyta",
@@ -469,7 +508,7 @@ export const AEGEAN_ADVENTURES: AegeanAdventure[] = [
     "aegean_cyclades",
     96,
     "convoy",
-    ["First refuge bell", "Tidal refuge bell", "Last refuge bell"],
+    ["First herd shelter", "Tidal herd shelter", "Last herd shelter"],
   ),
   adventure(
     "hesperides",
@@ -560,7 +599,7 @@ export const AEGEAN_ADVENTURES: AegeanAdventure[] = [
     "aegean_pelagic",
     99,
     "navigate",
-    ["Outer beacon", "Vortex beacon", "Passage beacon"],
+    ["Outer beacon · heads 1 + 2", "Vortex beacon · heads 3 + 4", "Passage beacon · heads 5 + 6"],
   ),
   adventure(
     "titan",
@@ -582,10 +621,10 @@ export const AEGEAN_ADVENTURES: AegeanAdventure[] = [
     100,
     "formation",
     [
-      "Bronze Door rally",
-      "Red Terraces rally",
-      "Turning Wall rally",
-      "Last Shore rally",
+      "West battlefield banner",
+      "East battlefield banner",
+      "North-west battlefield banner",
+      "North-east battlefield banner",
     ],
     undefined,
     "army",
@@ -618,7 +657,7 @@ export const AEGEAN_ADVENTURES: AegeanAdventure[] = [
     "aegean_asterion",
     100,
     "remember",
-    ["First procession", "Shield procession", "Well of names"],
+    ["Quiet grave", "Shield grave", "Well-side grave"],
   ),
   adventure(
     "champion_spear",
@@ -965,10 +1004,10 @@ export const AEGEAN_LOCATIONS: LocationDef[] = [
       ty: a.ty,
       region: a.region,
       level: a.level,
-      desc: `${a.name}. ${a.verb[0].toUpperCase() + a.verb.slice(1)}: each place obeys its own rules.`,
+      desc: `${a.goal}. ${a.tip}`,
       kind: "dungeon",
       radius: 12,
-      travelPolicy: a.surfaceMap || a.region === "aegean_asterion" ? "checkpoint" : "waystone",
+      travelPolicy: a.surfaceMap ? "checkpoint" : "waystone",
       gate: a.gate,
       surfaceMap: a.surfaceMap,
       dungeon: {
@@ -1008,7 +1047,7 @@ export const AEGEAN_LOCATIONS: LocationDef[] = [
   ),
   // Harbours are separate map destinations: the island's dungeon and landing
   // sometimes share a historic slug, so never reuse the naval port id here.
-  ...AEGEAN_PORTS.filter((p) => p.id !== "aegean_asterion").map(
+  ...AEGEAN_PORTS.map(
     (p): LocationDef => ({
       id: `aegean_harbour_${p.id.slice(7)}`,
       name: p.id === "aegean_ember_quay" ? "Ember Quay Harbour" : p.name,
@@ -1082,6 +1121,7 @@ export const AEGEAN_WAYSTONES: AegeanWaystone[] = AEGEAN_LOCATIONS
       id: loc.id, mapId: "overworld", tx: loc.tx - 6,
       ty: loc.ty + (loc.kind === "village" ? -5 : 3),
       radius: loc.radius ?? 12,
-      requiredPort: loc.id === "aegean_kymene" ? "aegean_kymene" : adventurePorts[loc.id],
+      requiredPort: loc.region === "aegean_asterion" ? "aegean_asterion" : loc.id === "aegean_kymene" ? "aegean_kymene" : adventurePorts[loc.id],
+      requiresArmy: loc.region === "aegean_asterion",
     };
   });

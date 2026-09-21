@@ -1,6 +1,6 @@
 import { AEGEAN_ADVENTURES } from '../../data/aegean/world';
 import { QUEST_BY_ID } from '../../data/quests';
-import { OLD_WORLD_TESTAMENT } from "../../data/aegean/progression";
+import { OLD_WORLD_TESTAMENT, AEGEAN_ACTIVITY_BY_ID } from "../../data/aegean/progression";
 import type { Game } from "../core/game";
 import {
   AEGEAN_REWARDS,
@@ -79,6 +79,8 @@ export const OLD_MINIS = [
   "emberjaw",
 ].map((s) => `mini_${s}`);
 export interface CampaignSnapshot {
+  trackedComponent?: string;
+  receipts?: Array<{ title: string; lines: string[] }>;
   checkpoint?: { map: string; x: number; y: number };
   pendingChoices: string[];
   claimed: string[];
@@ -180,8 +182,10 @@ export class AegeanCampaign {
     if (item.rarity === "olympian")
       this.game.player.flags.add("aegean:gear:olympian");
     // Important rewards never disappear because the forty-slot pack was full.
-    if (!addItem(this.game.player.inventory, item))
+    if (!addItem(this.game.player.inventory, item)) {
       this.game.player.storage.push(item);
+      this.game.toast('Sent to storage', `${qty} × ${item.name} · collect at any lodging chest`, '#b9dcff');
+    }
   }
   complete(id: string, repeat = false): void {
     const already = this.has(id);
@@ -203,13 +207,45 @@ export class AegeanCampaign {
     }
     if (id === "aegean_hesperides") p.flags.add("aegean:component:sail");
     if (id === "aegean_cerberus") p.flags.add("aegean:component:keel");
-    g.toast(
-      "Victory",
-      `${id.replace("aegean_", "").replaceAll("_", " ")} — reward received.`,
-      "#e7c778",
-    );
+    const title = AEGEAN_ADVENTURES.find(a => a.id === id)?.name ?? AEGEAN_ACTIVITY_BY_ID[id]?.name ?? 'Victory';
+    const unlockNames: Record<string, string> = {
+      'aegean:component:sail': 'Hesperid Star-Sail — Stormbreaker part',
+      'aegean:component:keel': 'Underworld Keel-Binding — Stormbreaker part',
+      'aegean:harbour:released': 'Released Harbour & storm route unlocked',
+      'aegean:title:unbroken': 'Title: The Unbroken',
+      'aegean:realm:restored': 'Asterion restored',
+      'aegean:crew:lookout': 'Lookout joined your crew',
+      'aegean:crew:shipwright': 'Shipwright joined — cheaper hull repairs',
+      'aegean:training:archery': 'Archery training completed',
+      'aegean:training:ship': 'Naval training completed',
+      'aegean:route:lighthouse': 'Lighthouse route charted',
+      'aegean:route:theatre': 'Theatre route opened',
+      'aegean:route:charon': 'Charon’s route opened',
+      'aegean:chart:icarian': 'Icarian chart recovered',
+      'aegean:shortcut:asphodel': 'Asphodel shortcut opened',
+      'aegean:refuge:olive': 'Olive refuge secured',
+      'aegean:refuge:persephone': 'Persephone’s refuge secured',
+      'aegean:harbour:warning': 'Harbour warning restored',
+      'aegean:guide:satyr': 'Satyr guide found',
+      'aegean:appearance:mess_cloak': 'Mess cloak appearance earned',
+      'aegean:appearance:memorial': 'Memorial appearance earned',
+      'aegean:lore:original_oath': 'Original oath discovered',
+    };
+    const awardedItems = new Map<string, number>();
+    for (const item of reward?.items ?? []) awardedItems.set(item, (awardedItems.get(item) ?? 0) + 1);
+    const lines = reward ? [
+      `+${reward.gold.toLocaleString()} gold · +${reward.xp.toLocaleString()} XP`,
+      ...[...awardedItems].map(([item, count]) => `+${count} × ${TEMPLATE_BY_ID[item]?.name ?? item}`),
+      ...(reward.flags ?? []).map(flag => unlockNames[flag]).filter((name): name is string => !!name),
+      ...(reward.choice?.length ? ['Royal weapon choice ready · claim at Asterion’s reward altar'] : []),
+    ] : ['Trial completed'];
+    this.recordReward(title, lines);
     g.autosave();
     g.touch();
+  }
+  recordReward(title: string, lines: string[]): void {
+    this.state.receipts = [{ title, lines }, ...(this.state.receipts ?? [])].slice(0, 8);
+    this.game.toast(title, lines.join(' · '), '#e7c778');
   }
   chooseReward(source: string, item: string): boolean {
     if (!this.onIsland()) return false;
@@ -219,6 +255,7 @@ export class AegeanCampaign {
     )
       return false;
     this.grant(item, 1, source);
+    this.recordReward("Royal weapon claimed", [`+1 × ${TEMPLATE_BY_ID[item]?.name ?? item}`]);
     this.game.player.flags.add("aegean:reward:royal");
     this.state.pendingChoices = this.state.pendingChoices.filter(
       (s) => s !== source,
@@ -257,10 +294,15 @@ export class AegeanCampaign {
     for (const m of r.materials) removeByDefId(p.inventory, m.id, m.count);
     this.grant(r.item, 1, r.id, true);
     if (r.flag) p.flags.add(r.flag);
-    this.game.toast("Forged", r.name, "#dfb65c");
+    this.game.toast("Forged", `${TEMPLATE_BY_ID[r.item]?.name ?? r.name}${r.flag ? " · Stormbreaker part ready" : ""}`, "#dfb65c");
     this.game.autosave();
     this.game.touch();
     return true;
+  }
+  trackComponent(id?: string): void {
+    this.state.trackedComponent = id;
+    this.game.autosave();
+    this.game.touch();
   }
   onIsland(): boolean {
     const g = this.game,

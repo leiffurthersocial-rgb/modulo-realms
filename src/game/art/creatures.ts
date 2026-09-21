@@ -1,4 +1,5 @@
 import { PAL, mix, shade, withAlpha } from './palette';
+import { drawMythCreature, type MythCreatureKind } from './aegeanCreatures';
 import { Px, sheetGrid, type Canvas } from './pixel';
 import { CH_W, CH_H, CH_FEET, SHEET_COLS, type CharacterSheet } from './characters';
 
@@ -7,7 +8,7 @@ export type CreatureKind =
   | 'scorpion' | 'wraith' | 'crawler' | 'boar' | 'serpent'
   | 'lion' | 'stag' | 'satyr' | 'centaur' | 'harpy' | 'hydra' | 'automaton'
   | 'hoplite' | 'cyclops' | 'crab' | 'ketos' | 'octopus' | 'bull' | 'geryon'
-  | 'cerberus' | 'medusa' | 'minotaur' | 'chimera';
+  | 'cerberus' | 'medusa' | 'minotaur' | 'chimera' | MythCreatureKind;
 
 export interface CreatureStyle {
   kind: CreatureKind;
@@ -110,6 +111,7 @@ function quadruped(
 }
 
 function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPose): Px {
+  if (s.kind.startsWith('myth_')) return drawMythCreature(s, dir, pose);
   const p = new Px(CH_W, CH_H);
   const cx = CH_W / 2;
   const { primary, secondary, accent, eye } = s;
@@ -476,11 +478,15 @@ export function getCreatureSheet(style: CreatureStyle): CharacterSheet {
   const hit = cache.get(key);
   if (hit) return hit;
   const scale = style.scale ?? 1;
+  const myth = style.kind.startsWith('myth_'), mythBoss = style.kind.startsWith('myth_boss_');
+  const frameW = myth ? mythBoss ? 64 : 48 : CH_W;
+  const frameH = myth ? mythBoss ? 64 : 56 : CH_H;
+  const feet = myth ? frameH - 4 : CH_FEET;
   const rows: Px[][] = (['down', 'up', 'right'] as const).map((dir) =>
     Array.from({ length: SHEET_COLS }, (_, c) => {
       const base = drawCreature(style, dir, poseFor(c));
       if (scale === 1) return base;
-      const up = new Px(CH_W * scale, CH_H * scale);
+      const up = new Px(frameW * scale, frameH * scale);
       up.g.imageSmoothingEnabled = false;
       up.g.drawImage(base.canvas, 0, 0, up.w, up.h);
       return up;
@@ -488,9 +494,9 @@ export function getCreatureSheet(style: CreatureStyle): CharacterSheet {
   );
   const sheet: CharacterSheet = {
     canvas: sheetGrid(rows) as Canvas,
-    fw: CH_W * scale,
-    fh: CH_H * scale,
-    feet: CH_FEET * scale,
+    fw: frameW * scale,
+    fh: frameH * scale,
+    feet: feet * scale,
   };
   if (cache.size > 80) cache.clear();
   cache.set(key, sheet);
