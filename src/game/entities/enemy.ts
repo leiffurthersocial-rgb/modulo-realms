@@ -3,7 +3,7 @@ import {
   enemyDamageAt, enemyHealthAt, enemyXpAt,
 } from '../../data/balance';
 import { ENEMY_BY_ID, type BossAttack, type BossPhase, type EnemyDef } from '../../data/enemies';
-import { aegeanMinimumHit } from '../../data/aegean/damage';
+import { aegeanBossHealthCap, aegeanMinimumHit } from '../../data/aegean/damage';
 import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
 import type { WorldCtx } from '../core/world';
 import { physicalOrigin, physicalPose, type PhysicalAttackCue } from '../combat/physical';
@@ -148,7 +148,7 @@ export class Enemy implements Entity {
     const promoted = this.elite && !this.isBoss && !def.elite;
     const threat = ENEMY_THREAT;
     this.maxHp = Math.round(def.health * hpScale * this.regionMul * (promoted ? 2.6 : 1));
-    if (this.isBoss && def.id.startsWith('aegean_')) this.maxHp = Math.min(def.id === 'aegean_leonidas' ? 40000 : 30000, this.maxHp);
+    if (this.isBoss && def.id.startsWith('aegean_')) this.maxHp = Math.min(aegeanBossHealthCap(def.id), this.maxHp);
     this.hp = this.maxHp;
     this.damage = def.damage * dmgScale * this.regionDmgMul * (promoted ? 1.3 : 1) * threat.damage;
     this.defense = def.defense * (this.level / from);
@@ -645,7 +645,7 @@ export class Enemy implements Entity {
     if (!this.isBoss && !this.def.id.startsWith('aegean_army_')) {
       let nearbyAttacks = 0;
       for (const other of ctx.enemies as Enemy[]) if (other !== this && !other.dead && other.windupAttack && dist(other.x, other.y, ctx.player.x, ctx.player.y) < 650) nearbyAttacks++;
-      if (nearbyAttacks >= 2) return false;
+      if (nearbyAttacks >= (this.def.id === 'aegean_royal_guard' ? 3 : 2)) return false;
     }
     const a = this.physicalPattern(authored), origin = physicalOrigin(this);
     const aim = target ?? { x: ctx.player.x, y: ctx.player.y - 8 };

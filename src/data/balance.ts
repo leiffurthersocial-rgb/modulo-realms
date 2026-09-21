@@ -37,13 +37,11 @@ export const RARITY_POWER: Record<Rarity, number> = {
   superRare: 1.12,
   epic: 1.19,
   legendary: 1.28,
-  // Mythic is not a tier anything rolls into — it is worn by a handful of
-  // hand-written relics, and it is meant to be the best thing in the game.
-  // The spread is deliberately narrow: a relic should be a better weapon,
-  // not a different game.
+  // Named relics sit above ordinary drops. Primordial is the final island's
+  // capstone, with a decisive lead even before its authored stats and powers.
   mythic: 1.38,
   olympian: 1.52,
-  primordial: 1.68,
+  primordial: 3.2,
 };
 
 const RANGED_KINDS = new Set<WeaponKind>(['bow', 'crossbow', 'javelin']);

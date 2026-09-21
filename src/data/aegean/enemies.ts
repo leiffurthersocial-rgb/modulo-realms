@@ -1,5 +1,6 @@
 import type { BossAttack, EnemyDef } from "../enemies";
 import { mythKit, mythBossKit } from "./combat";
+import { aegeanBossHealthCap } from "./damage";
 import {
   enemyHealthAt,
   enemyDefenseAt,
@@ -519,17 +520,21 @@ const bossEnemy = ([
   creature: { kind: `myth_boss_${slug}`, palette: kind === "automaton" || kind === "hoplite" ? "aegean_bronze" : kind === "hydra" || kind === "serpent" ? "aegean_sea" : "aegean_earth" },
   combat: undefined,
   tactic: undefined,
-  speed: 156,
+  speed: slug.startsWith("champion_") ? 188 : 156,
   radius: 17,
   sight: 1600,
   attackRange: 105,
   lootChance: 0,
   drops: [],
-  health: Math.min(30000, 16500 + (level - 80) * 625),
+  health: slug.startsWith("champion_") ? aegeanBossHealthCap(`aegean_${slug}`) : Math.min(30000, 16500 + (level - 80) * 625),
+  damage: Math.round(enemyDamageAt(level, "boss") * (slug.startsWith("champion_") ? 1.7 : HIT_POWER.boss)),
   boss: {
     title: "An Adventure of the Aegean Oath",
     uniqueDrop: "",
-    phases: [{ at: 1, name: "The Oath", speed: 1, damage: 1, line: "" }],
+    phases: slug.startsWith("champion_") ? [
+      { at: 1, name: "The Challenge", speed: 1, damage: 1, line: "Read every strike." },
+      { at: .5, name: "The Unbroken Oath", speed: 1.15, damage: 1.15, line: "Now earn your place beside the king." },
+    ] : [{ at: 1, name: "The Oath", speed: 1, damage: 1, line: "" }],
     attacks: mythBossKit(slug),
   },
 });
@@ -548,7 +553,7 @@ const army = (role: string, name: string, level: number): EnemyDef => ({
   creature: undefined,
   look: look(role === "captain"),
   scale: role === "captain" ? 1.8 : role === "shield" ? 1.7 : 1.4,
-  speed: role === "runner" ? 174 : role === "shield" ? 94 : 124,
+  speed: role === "runner" ? 198 : role === "shield" ? 106 : 140,
   drops: [],
   lootChance: 0,
   gold: [0, 0],
@@ -567,6 +572,9 @@ export const AEGEAN_ENEMIES: EnemyDef[] = [
     ...army("hoplite", "Royal Guard of Asterion", 100),
     id: "aegean_royal_guard",
     scale: 1.65,
+    health: 6200,
+    speed: 182,
+    damage: enemyDamageAt(100, "elite") * 1.6,
   },
   {
     ...bossEnemy([
@@ -579,12 +587,11 @@ export const AEGEAN_ENEMIES: EnemyDef[] = [
     kind: "creature",
     creature: { kind: "myth_boss_leonidas", palette: "aegean_bronze" },
     scale: 3,
-    health: 40000,
-    // The king already had a separate damage budget. Keep his increase smaller
-    // than the ordinary adventures: his late sweep must remain survivable at
-    // full health in the prepared six-class calibration.
-    damage: enemyDamageAt(100, "boss") * 1.5,
-    speed: 178,
+    health: aegeanBossHealthCap("aegean_leonidas"),
+    // Mechanics and committed combinations define the difficulty; health only
+    // gives the stronger endgame weapons room to matter between phase gates.
+    damage: enemyDamageAt(100, "boss") * 1.8,
+    speed: 198,
     radius: 17,
     boss: {
       title: "King of the Last Oath",
@@ -622,15 +629,15 @@ export const AEGEAN_ENEMIES: EnemyDef[] = [
         {
           at: 0.18,
           name: "The King Alone",
-          speed: 1.16,
-          damage: 1.2,
+          speed: 1.2,
+          damage: 1.25,
           line: "Now. Only you. Only me.",
         },
         {
           at: 0.05,
           name: "The Last Oath",
-          speed: 1.16,
-          damage: 1.2,
+          speed: 1.2,
+          damage: 1.25,
           line: "Let the realm see who will stand.",
         },
       ],

@@ -45,17 +45,17 @@ export const RARITY_LABEL: Record<Rarity, string> = {
 };
 
 export const RARITY_MULT: Record<Rarity, number> = {
-  common: 1, rare: 1.26, superRare: 1.58, epic: 1.95, legendary: 2.5, mythic: 2.9, olympian: 3.2, primordial: 3.54,
+  common: 1, rare: 1.26, superRare: 1.58, epic: 1.95, legendary: 2.5, mythic: 2.9, olympian: 3.2, primordial: 5.6,
 };
 
 /** Number of random stat affixes rolled onto an item of each rarity. */
 export const RARITY_AFFIXES: Record<Rarity, number> = {
-  common: 0, rare: 1, superRare: 2, epic: 3, legendary: 4, mythic: 4, olympian: 4, primordial: 4,
+  common: 0, rare: 1, superRare: 2, epic: 3, legendary: 4, mythic: 4, olympian: 4, primordial: 6,
 };
 
 /** How many enchantment slots an item of each rarity carries. */
 export const RARITY_ENCHANT_SLOTS: Record<Rarity, number> = {
-  common: 0, rare: 1, superRare: 1, epic: 2, legendary: 3, mythic: 3, olympian: 4, primordial: 4,
+  common: 0, rare: 1, superRare: 1, epic: 2, legendary: 3, mythic: 3, olympian: 4, primordial: 6,
 };
 
 /** Four slots only: one armour piece, a weapon, an off-hand and an artifact. */

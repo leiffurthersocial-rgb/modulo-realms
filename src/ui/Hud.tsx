@@ -8,6 +8,7 @@ import { QUEST_BY_ID } from '../data/quests';
 import { xpToNext } from '../game/player/player';
 import SpritePreview from './SpritePreview';
 import { MASTERIES } from '../game/aegean/mastery';
+import { AEGEAN_POWERS } from '../game/items/effects';
 
 /** Cheap ticker so the HUD refreshes without re-rendering the whole tree every frame. */
 function useTicker(hz = 15): number {
@@ -33,6 +34,13 @@ export default function Hud({ game }: { game: Game }) {
   const abilities = p.classDef.abilities;
   const quick = p.inventory.find((i) => i.type === 'consumable' && (p.quickItem ? i.defId === p.quickItem : true))
     ?? p.inventory.find((i) => i.type === 'consumable');
+  const weapon = p.equipment.mainHand;
+  const weaponArt = weapon?.aegeanPower ? AEGEAN_POWERS[weapon.aegeanPower] : weapon?.weaponPower;
+  const artifact = p.equipment.accessory;
+  const artifactArt = artifact?.aegeanPower ? AEGEAN_POWERS[artifact.aegeanPower] : artifact?.artifact;
+  const recoveryApplies = quick?.consume?.cooldownGroup === 'recovery' ||
+    (game.regionAtPlayer() === 'aegean_asterion' && !!(quick?.consume?.health || quick?.consume?.healthPct));
+  const recovery = recoveryApplies ? p.cooldowns['consume:recovery'] ?? 0 : 0;
 
   const fieldQuest = game.trackedQuest && QUEST_BY_ID[game.trackedQuest]?.fieldAdventure
     ? game.quests.get(game.trackedQuest) : undefined;
@@ -234,17 +242,17 @@ export default function Hud({ game }: { game: Game }) {
             </button>
           );
         })()}
-        {p.equipment.mainHand?.weaponPower ? (
+        {weapon && weaponArt ? (
           <button
             className={`slot ${p.weaponPowerCooldown > 0 ? '' : 'ready'}`}
-            title={`${p.equipment.mainHand.weaponPower.name} (V) — ${p.equipment.mainHand.weaponPower.desc}`}
+            title={`${weaponArt.name} (V) — ${weapon.aegeanPower ? weapon.desc ?? '' : weapon.weaponPower?.desc ?? ''}`}
             onClick={() => game.useWeaponPower()}
           >
             <span className="key">V</span>
             <img
-              src={getIconUrl(p.equipment.mainHand.icon, { metal: p.equipment.mainHand.iconMetal, glow: p.equipment.mainHand.glow })}
+              src={getIconUrl(weapon.icon, { metal: weapon.iconMetal, glow: weapon.glow })}
               alt=""
-              style={{ filter: `drop-shadow(0 0 5px ${p.equipment.mainHand.glow ?? '#fff'}aa)` }}
+              style={{ filter: `drop-shadow(0 0 5px ${weapon.glow ?? '#fff'}aa)` }}
             />
             {p.weaponPowerCooldown > 0
               ? <span className="cd">{p.weaponPowerCooldown.toFixed(p.weaponPowerCooldown < 1 ? 1 : 0)}</span>
@@ -252,8 +260,8 @@ export default function Hud({ game }: { game: Game }) {
           </button>
         ) : null}
         <button
-          className={`slot ${(game.naval.aboard||p.equipment.accessory?.artifact) ? 'ready' : 'locked'}`}
-          title={game.naval.aboard?'Fight boarders on deck (R)':p.equipment.accessory?.artifact ? `${p.equipment.accessory.artifact.name} (R) — ${p.equipment.accessory.artifact.desc}` : 'No artifact equipped'}
+          className={`slot ${game.naval.aboard ? 'ready' : artifactArt ? p.artifactCooldown > 0 ? '' : 'ready' : 'locked'}`}
+          title={game.naval.aboard?'Fight boarders on deck (R)':artifactArt ? `${artifactArt.name} (R) — ${artifact?.aegeanPower ? artifact.desc ?? '' : artifact?.artifact?.desc ?? ''}` : 'No artifact equipped'}
           onClick={() => game.naval.aboard?game.naval.enterDeck():game.useArtifact()}
         >
           <span className="key">R</span>
@@ -262,7 +270,7 @@ export default function Hud({ game }: { game: Game }) {
           ) : <span style={{ fontSize: 10, color: 'var(--muted)' }}>art</span>}
           {p.artifactCooldown > 0 ? <span className="cd">{p.artifactCooldown.toFixed(p.artifactCooldown < 1 ? 1 : 0)}</span> : null}
         </button>
-        <button className="slot ready" title="Quick potion (Q)" onClick={() => game.useQuickItem()}>
+        <button className={`slot ${recovery > 0 ? '' : 'ready'}`} title={recovery > 0 ? `Recovery: ${Math.ceil(recovery)}s (Q)` : 'Quick potion (Q)'} onClick={() => game.useQuickItem()}>
           <span className="key">Q</span>
           {quick ? (
             <>
@@ -272,6 +280,7 @@ export default function Hud({ game }: { game: Game }) {
           ) : (
             <span style={{ fontSize: 10, color: 'var(--muted)' }}>empty</span>
           )}
+          {recovery > 0 ? <span className="cd">{Math.ceil(recovery)}</span> : null}
         </button>
       </div>
 

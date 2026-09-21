@@ -197,7 +197,7 @@ export default function InventoryPanel({ game }: { game: Game }) {
                     </div>
                   ))}
                   <div style={{ marginTop: 14, fontSize: 11.5 }}>
-                    Rarer gear carries more enchantment slots: none, one, one, two, three.
+                    Mythic gear holds three enchantments, Olympian four, and Primordial six.
                   </div>
                 </div>
               )}
@@ -218,10 +218,10 @@ export function ItemCell({ item, selected, onClick, equipped }: { item: Item; se
   const color = rarityColor(item.rarity);
   return (
     <button
-      className={`item-cell ${selected ? 'selected' : ''} ${equipped ? 'equipped' : ''} ${item.rarity === 'mythic' ? 'mythic' : ''}`}
+      className={`item-cell ${selected ? 'selected' : ''} ${equipped ? 'equipped' : ''} ${item.rarity === 'mythic' || item.rarity === 'primordial' ? item.rarity : ''}`}
       onClick={onClick}
       title={item.name}
-      style={item.rarity === 'common' || item.rarity === 'mythic' ? undefined : { borderColor: color, boxShadow: `inset 0 0 12px ${color}22` }}
+      style={item.rarity === 'common' || item.rarity === 'mythic' || item.rarity === 'primordial' ? undefined : { borderColor: color, boxShadow: `inset 0 0 12px ${color}22` }}
     >
       <img src={itemIcon(item)} alt="" />
       {item.qty > 1 ? <span className="qty">{item.qty}</span> : null}
@@ -235,10 +235,10 @@ function EquipCell({ slot, item, onClick }: { slot: EquipSlot; item: Item | null
   const color = item ? rarityColor(item.rarity) : undefined;
   return (
     <button
-      className="equip-slot"
+      className={`equip-slot${item?.rarity === 'primordial' ? ' primordial' : ''}`}
       onClick={onClick}
       title={item ? `${item.name} — click to unequip` : SLOT_LABEL[slot]}
-      style={item && item.rarity !== 'common' ? { borderColor: color, boxShadow: `inset 0 0 14px ${color}22` } : undefined}
+      style={item && item.rarity !== 'common' && item.rarity !== 'primordial' ? { borderColor: color, boxShadow: `inset 0 0 14px ${color}22` } : undefined}
     >
       <span className="slot-name">{SLOT_LABEL[slot]}</span>
       {item ? <img src={itemIcon(item)} alt="" /> : null}

@@ -71,6 +71,10 @@ export const ENCHANTS: EnchantDef[] = [
   { id: 'looting', name: 'Looting', desc: 'Enemies drop {v}% more gold and loot.', host: ['melee', 'ranged', 'magic', 'armor', 'artifact'], maxLevel: 3, minRarity: 'rare', weight: 8, color: PAL.gold, power: [20, 35, 55], stat: { key: 'magicFind', per: 8 } },
   { id: 'potency', name: 'Potency', desc: 'Artifact effects are {v}% stronger.', host: ['artifact'], maxLevel: 3, minRarity: 'rare', weight: 10, color: PAL.arcaneLit, power: [20, 35, 55] },
   { id: 'refreshment', name: 'Refreshment', desc: 'Restores {v} mana on a kill.', host: ['artifact', 'magic'], maxLevel: 3, minRarity: 'rare', weight: 8, color: PAL.water, power: [6, 11, 18] },
+
+  /* A capstone artifact has six slots, so it needs six legal distinct runes. */
+  { id: 'first_oath', name: 'First Oath', desc: '+{v}% ability power.', host: ['melee', 'ranged', 'magic', 'armor', 'artifact'], maxLevel: 3, minRarity: 'primordial', weight: 10, color: '#b9dcff', power: [20, 35, 55], stat: { key: 'abilityPower', per: 20 } },
+  { id: 'undying_oath', name: 'Undying Oath', desc: '+{v} maximum health.', host: ['melee', 'ranged', 'magic', 'armor', 'artifact'], maxLevel: 3, minRarity: 'primordial', weight: 10, color: '#b9dcff', power: [120, 210, 320], stat: { key: 'maxHealth', per: 120 } },
 ];
 
 export const ENCHANT_BY_ID: Record<string, EnchantDef> = Object.fromEntries(ENCHANTS.map((e) => [e.id, e]));

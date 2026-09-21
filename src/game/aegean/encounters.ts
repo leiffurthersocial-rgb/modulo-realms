@@ -5,7 +5,7 @@ import { Enemy } from "../entities/enemy";
 import { boxHitsTerrain, findOpenNear, type PropInstance } from "../world/map";
 import { TILE } from "../world/tiles";
 import { AEGEAN_ATTACKS } from "../../data/aegean/enemies";
-import { aegeanMinimumHit } from "../../data/aegean/damage";
+import { aegeanBossHealthCap, aegeanMinimumHit } from "../../data/aegean/damage";
 import { ENEMY_BY_ID, type BossAttack } from "../../data/enemies";
 import { AegeanNavigation } from "./navigation";
 import type { AegeanPowersSave } from "./powers";
@@ -179,10 +179,11 @@ export class AegeanEncounterDirector {
   private phase = 0;
   private phaseIntroUntil = 0;
   private phaseObjective = 0;
+  private phaseStrikes = 0;
+  private lastPrincipalImpact = -1;
   private guardWaves = 0;
   private guardHealUsed = new Set<number>();
   private finalSequence = 0;
-  private carryDamage = 0;
   private practice = false;
   private practicePlayer: {
     player: PracticePlayer;
@@ -558,10 +559,11 @@ export class AegeanEncounterDirector {
     this.woundSites = {};
     this.sealed.clear();
     this.phaseObjective = 0;
+    this.phaseStrikes = 0;
+    this.lastPrincipalImpact = -1;
     this.guardWaves = 0;
     this.guardHealUsed.clear();
     this.finalSequence = 0;
-    this.carryDamage = 0;
     this.phaseIntroUntil = 0;
     this.gaze = 0;
     this.endurance = 100;
@@ -664,7 +666,7 @@ export class AegeanEncounterDirector {
     e.state = "chase";
     e.attackCd = 0.55 + (index % 5) * 0.12;
     if (def?.boss) {
-      e.maxHp = Math.min(e.maxHp, id === "aegean_leonidas" ? 40000 : 30000);
+      e.maxHp = Math.min(e.maxHp, aegeanBossHealthCap(id));
       e.hp = e.maxHp;
     }
     if (roster !== undefined) e.spawnId = ARMY_ROSTER[roster].id;
@@ -836,6 +838,18 @@ export class AegeanEncounterDirector {
     this.status = PUZZLE_ONLY.has(this.slug)
       ? `${this.record.steps.length}/${this.count()} secured`
       : this.exposedUntil > this.now ? "OPENING · +35% DAMAGE" : "DODGE · FLANK · COUNTER";
+    const champion = this.slug.startsWith("champion_");
+    if (champion && boss) {
+      this.countPrincipalStrike(boss);
+      if (boss.phase === 0 && boss.hp <= boss.maxHp * .5 && this.phaseStrikes >= 3) {
+        boss.phase = 1;
+        this.phaseStrikes = 0;
+        this.next = Math.min(this.next, .7);
+        this.say("OATH UNBROKEN — faster combinations!");
+      }
+      this.status = `DUEL ${boss.phase + 1}/2 · STRIKES ${Math.min(3, this.phaseStrikes)}/3 · ${this.exposureActive ? "COUNTER NOW" : "DODGE · FLANK"}`;
+      this.objective = "Survive three patterns in each duel. Training stations interrupt; punish the recovery.";
+    }
     if (
       boss &&
       !boss.windupAttack &&
@@ -846,7 +860,7 @@ export class AegeanEncounterDirector {
         const angle = angleTo(p.x,p.y,boss.x,boss.y);
         this.move(boss,{x:boss.x+Math.cos(angle)*160,y:boss.y+Math.sin(angle)*160},1.15);
       } else if (distance > (this.slug === "champion_volley" ? 290 : 100))
-        this.move(boss,p,this.slug === "medusa" ? .9 : 1.25);
+        this.move(boss,p,this.slug === "medusa" ? .9 : champion ? 1.35 : 1.25);
     }
     if (this.slug === "hydra") {
       this.updateHydra();
@@ -962,7 +976,8 @@ export class AegeanEncounterDirector {
     this.updateArenaPressure(dt, boss);
     if (this.next > 0 || !boss || boss.windupAttack) return;
     this.cycle++;
-    this.next = this.slug === "cyclops" || this.slug === "talos" ? 3 : 2.2;
+    this.next = champion ? (boss.phase ? 1.45 : 1.75)
+      : this.slug === "cyclops" || this.slug === "talos" ? 3 : 2.2;
     boss.attackCd = 0;
     if (this.slug === "cyclops" && this.cycle % 2 === 1) {
       const target = { x: p.x, y: p.y };
@@ -989,8 +1004,8 @@ export class AegeanEncounterDirector {
       const pattern = patterns[(this.cycle - 1) % patterns.length];
       boss.queueAttack(this.game, pattern);
     }
-    if (this.slug === "champion_guard" && this.cycle % 4 === 0)
-      this.adds(1, "aegean_royal_guard");
+    if (this.slug === "champion_guard" && this.cycle % 3 === 0)
+      this.adds(boss.phase ? 2 : 1, "aegean_royal_guard");
   }
 
   /** Occasional extra moves belong to the visible monster. They never create
@@ -1627,7 +1642,7 @@ export class AegeanEncounterDirector {
         this.mark(index, "COUNTERSTRIKE — guardian staggered!");
         this.groundedUntil[index] = this.now + 10;
         this.warnings = this.warnings.filter((w) => this.distance(w, this.at(index)) > 260);
-        this.openCounter(boss, 2.5);
+        this.openCounter(boss, this.slug.startsWith("champion_") ? 1.4 : 2.5);
         return;
     }
   }
@@ -1647,6 +1662,12 @@ export class AegeanEncounterDirector {
     if (PUZZLE_ONLY.has(this.slug) || this.slug === "hydra") return false;
     if (this.slug === "scylla" && !this.allSteps()) return false;
     if (this.slug === "leonidas" && this.now < this.phaseIntroUntil)
+      return false;
+    if (this.slug === "leonidas" && !this.leonidasPhaseReady() &&
+      enemy.hp <= enemy.maxHp * [0.82, 0.64, 0.42, 0.18, 0.05, 0][this.phase] + (this.phase === 5 ? 1 : 0))
+      return false;
+    if (this.slug.startsWith("champion_") && this.phaseStrikes < 3 &&
+      enemy.hp <= (enemy.phase === 0 ? enemy.maxHp * .5 : 1))
       return false;
     return true;
   }
@@ -1686,6 +1707,12 @@ export class AegeanEncounterDirector {
       return 0;
     if (actor.role !== "boss") return amount;
     if (PUZZLE_ONLY.has(this.slug) || this.slug === "hydra") return 0;
+    if (this.slug.startsWith("champion_")) {
+      // Both halves must show their full deck. No damage overflow can erase
+      // the second duel, and proc healing cannot farm an invulnerable floor.
+      const floor = enemy.phase === 0 ? enemy.maxHp * .5 : this.phaseStrikes < 3 ? 1 : 0;
+      return Math.min(amount * (this.exposureActive ? 1.35 : 1), Math.max(0, enemy.hp - floor));
+    }
     // Tools buy a real stagger and a short bonus; ordinary attacks always work.
     // A few nonlethal labors and Scylla's physical heads retain their clear rule.
     return this.exposedUntil > this.now ? amount * 1.35 : amount;
@@ -1863,14 +1890,14 @@ export class AegeanEncounterDirector {
       e.anim="walk";
     }
     if (this.next <= 0) {
-      this.next = 0.7;
+      this.next = 0.48;
       this.cycle++;
       const engaged = soldiers.filter((a) => this.distance(a.enemy, p) < 570 && !a.enemy.windupAttack &&
         a.enemy.attackCd <= 0 && !a.enemy.statuses.some((s) => s.kind === "stun"));
       // Several simultaneous threats, bounded to keep tells legible. This is
       // scheduling of attacks only: no soldiers are hidden, invulnerable or held in reserve.
       const committing = soldiers.filter((a) => !!a.enemy.windupAttack).length;
-      const count = Math.min(2, Math.max(0, 4 - committing), engaged.length);
+      const count = Math.min(2, Math.max(0, 5 - committing), engaged.length);
       for (let k = 0; k < count; k++) {
         const a = engaged[(this.cycle * 3 + k) % engaged.length];
         this.attack(a.enemy, a.role === "javelin" ? "volley" : a.role === "runner" ? "charge" : a.role === "captain" ? "sweep" : "thrust", {
@@ -1878,7 +1905,7 @@ export class AegeanEncounterDirector {
           windup: a.role === "captain" ? 0.9 : 0.65,
           range: a.role === "runner" ? 235 : a.role === "javelin" ? 570 : 200,
           radius: a.role === "javelin" ? 24 : 35,
-          power: a.role === "captain" ? 1.65 : 0.85,
+          power: a.role === "captain" ? 1.85 : a.role === "runner" ? 1.15 : 1,
           count: 1,
         });
       }
@@ -1986,8 +2013,11 @@ export class AegeanEncounterDirector {
     this.record.bestPhase = Math.max(this.record.bestPhase, this.phase);
     this.phaseIntroUntil = this.now + 0.65;
     this.phaseObjective = 0;
+    this.phaseStrikes = 0;
+    this.lastPrincipalImpact = boss.lastImpact?.at ?? -1;
+    this.exposedUntil = 0;
     this.cycle = 0;
-    this.next = 0.8;
+    this.next = 0.7;
     boss.cancelAttack();
     this.warnings = [];
     const ph = boss.def.boss!.phases[this.phase];
@@ -2022,29 +2052,30 @@ export class AegeanEncounterDirector {
       this.phaseObjective < 2 &&
       this.exposedUntil <= this.now
     )
-      amount *= 0.75;
+      amount *= 0.4;
     if (
       this.phase === 2 &&
       this.living.some((a) => a.role === "guard") &&
       this.exposedUntil <= this.now
     )
-      amount *= 0.85;
+      amount *= 0.65;
     const thresholds = [0.82, 0.64, 0.42, 0.18, 0.05, 0];
     const floor = boss.maxHp * thresholds[this.phase];
-    const gate = this.phase !== 5 || this.finalSequence >= 3;
-    if (!gate)
-      return Math.min(
-        amount,
-        Math.max(0, boss.hp - floor - (this.phase === 5 ? 1 : 0)),
-      );
-    if (this.phase < 5 && amount >= boss.hp - floor) {
-      this.carryDamage = Math.min(
-        boss.maxHp * 0.12,
-        Math.max(0, amount - (boss.hp - floor)),
-      );
-      return Math.max(0, boss.hp - floor);
-    }
-    return amount;
+    return Math.min(amount, Math.max(0, boss.hp - floor -
+      (this.phase === 5 && !this.leonidasPhaseReady() ? 1 : 0)));
+  }
+  private countPrincipalStrike(boss: Enemy): void {
+    if (!boss.lastImpact || boss.lastImpact.at <= this.lastPrincipalImpact) return;
+    this.lastPrincipalImpact = boss.lastImpact.at;
+    this.phaseStrikes++;
+  }
+  private leonidasPhaseReady(): boolean {
+    if (this.phase === 5) return this.finalSequence >= 3;
+    if (this.phaseStrikes < [3, 2, 2, 3, 4][this.phase]) return false;
+    if (this.phase === 1) return this.phaseObjective >= 2;
+    if (this.phase === 2) return !this.living.some(a => a.role === "guard");
+    if (this.phase === 3) return this.phaseObjective >= 1;
+    return true;
   }
   private leonidasMechanism(index: number): void {
     const boss = this.boss;
@@ -2060,16 +2091,16 @@ export class AegeanEncounterDirector {
       }
       this.sealed.add(index);
       this.phaseObjective++;
-      this.openCounter(boss, 2.5);
-      this.exposedUntil = this.now + 7;
+      this.openCounter(boss, 1.8);
+      this.exposedUntil = this.now + 4;
       this.say("Oath link extinguished — the shield opens");
     } else if (this.phase === 2 && index < 4) {
       if (!this.warnings.some((w) => w.label === "Oath chant")) {
         this.say("The standard can interrupt the king while he chants.");
         return;
       }
-      this.exposedUntil = this.now + 7;
-      this.openCounter(boss, 2.5);
+      this.openCounter(boss, 1.8);
+      this.exposedUntil = this.now + 4;
       this.phaseObjective++;
       this.mechanismCooldowns[index] = this.now + 9;
       for (const a of this.living.filter((a) => a.role === "guard"))
@@ -2079,16 +2110,16 @@ export class AegeanEncounterDirector {
         "The standard falls silent — the king cannot complete his chant",
       );
     } else if (this.phase >= 3 && index >= 4) {
-      this.exposedUntil = this.now + 7;
       this.phaseObjective++;
-      this.mechanismCooldowns[index] = this.now + 12;
-      this.groundedUntil[index] = this.now + 10;
+      this.mechanismCooldowns[index] = this.now + 18;
+      this.groundedUntil[index] = this.now + 4;
       const pending = this.warnings.length;
       this.warnings = this.warnings.filter(
         (w) => this.distance(w, this.at(index)) > 200,
       );
       if (this.warnings.length < pending) this.powerEvent("onInterrupt", boss);
-      this.openCounter(boss, 2.5);
+      this.openCounter(boss, 1.4);
+      this.exposedUntil = this.now + 3;
       this.say("Conductor discharges — incoming weapons deflected");
     } else {
       this.say("This mechanism belongs to another part of the king’s oath.");
@@ -2098,29 +2129,31 @@ export class AegeanEncounterDirector {
     const boss = this.boss;
     if (!boss) return;
     const p = this.game.player;
+    this.countPrincipalStrike(boss);
     this.status = `Phase ${this.phase + 1}/6 · ${boss.def.boss!.phases[this.phase].name}${this.practice ? " · PRACTICE" : ""}`;
+    if (this.phase < 5) this.status += ` · STRIKES ${Math.min(this.phaseStrikes, [3,2,2,3,4][this.phase])}/${[3,2,2,3,4][this.phase]}`;
     this.objective = [
-      "DODGE THE COMBO · punish the third strike.",
-      "FLANK THE SHIELD · braziers break his stance when you hold them.",
-      "KING + FOUR GUARDS · hold a standard to interrupt his rally.",
-      "RETURNING SPEAR · step aside twice; conductors deflect his weapons.",
-      "LAST DUEL · no shield, faster attacks. Keep moving.",
+      "DODGE THREE PATTERNS · punish the recovery to break his first stance.",
+      `BREAK TWO BRAZIERS (${Math.min(2, this.phaseObjective)}/2) · survive two patterns; hold beside each flame.`,
+      `SLAY ALL FOUR GUARDS (${4 - this.living.filter(a => a.role === "guard").length}/4) · two king patterns; standards interrupt his rally.`,
+      `RETURNING SPEAR · survive three patterns; discharge a conductor (${Math.min(1, this.phaseObjective)}/1).`,
+      "LAST DUEL · survive four fast patterns. No guard and no mercy.",
       `The Last Oath: survive the three patterns (${this.finalSequence}/3).`,
     ][this.phase];
     if (this.now < this.phaseIntroUntil) return;
     const guards = this.living.filter((a) => a.role === "guard");
     for (const a of guards)
       if (!a.enemy.windupAttack && this.distance(a.enemy, p) > 120)
-        this.move(a.enemy, p, 1.15);
+        this.move(a.enemy, p, 1.3);
     this.guardNext -= dt;
     const committedGuards = guards.filter((a) => a.enemy.windupAttack).length;
     if (
       guards.length &&
       this.guardNext <= 0 &&
-      committedGuards < 1 &&
+      committedGuards < 2 &&
       this.warnings.filter((w) => w.damage > 0).length +
         (boss.windupAttack ? 1 : 0) <
-        2
+        3
     ) {
       const guard = guards.find(
         (a) =>
@@ -2129,12 +2162,12 @@ export class AegeanEncounterDirector {
           !a.enemy.statuses.some((s) => s.kind === "stun"),
       );
       if (guard) {
-        this.attack(guard.enemy, "thrust", { windup: 0.65, power: 1.15 });
-        this.guardNext = 2.2;
+        this.attack(guard.enemy, "thrust", { windup: 0.68, power: 1.35 });
+        this.guardNext = 1.05;
       }
     }
     const threshold = [0.82, 0.64, 0.42, 0.18, 0.05][this.phase];
-    if (this.phase < 5 && boss.hp <= boss.maxHp * threshold + 0.01) {
+    if (this.phase < 5 && this.leonidasPhaseReady() && boss.hp <= boss.maxHp * threshold + 0.01) {
       {
         if (this.practice) {
           this.finish();
@@ -2142,11 +2175,6 @@ export class AegeanEncounterDirector {
         }
         this.phase++;
         this.enterLeonidasPhase();
-        boss.hp = Math.max(
-          boss.maxHp * [0.82, 0.64, 0.42, 0.18, 0.05, 0][this.phase] + 1,
-          boss.hp - this.carryDamage,
-        );
-        this.carryDamage = 0;
         return;
       }
     }
@@ -2157,11 +2185,11 @@ export class AegeanEncounterDirector {
     )
       this.deployGuards();
     if (!boss.windupAttack && this.distance(boss, p) > (this.phase === 5 ? 280 : 100))
-      this.move(boss, p, this.phase >= 4 ? 1.3 : 1.15);
+      this.move(boss, p, this.phase >= 4 ? 1.42 : 1.3);
     if (this.phase === 5 && this.finalSequence < 3) {
       if (this.next <= 0 && !boss.windupAttack && !this.warnings.length) {
         const step = this.finalSequence;
-        this.next = 2.2;
+        this.next = 1.7;
         const point = { x: p.x, y: p.y };
         if (step === 0)
           this.line(
@@ -2212,12 +2240,12 @@ export class AegeanEncounterDirector {
     if (
       this.warnings.filter((w) => w.damage > 0).length +
         guards.filter((a) => a.enemy.windupAttack).length >=
-      2
+      3
     ) {
       this.next = 0.3;
       return;
     }
-    this.next = this.phase >= 4 ? 1.6 : 2.2;
+    this.next = this.phase >= 4 ? 1.4 : this.phase === 2 ? 1.95 : 1.75;
     this.cycle++;
     boss.attackCd = 0;
     const grammar =
@@ -2261,7 +2289,7 @@ export class AegeanEncounterDirector {
       const royal = boss.def.boss?.attacks ?? [];
       if (this.cycle % 2 === 0 && royal.length)
         boss.queueAttack(this.game, royal[(this.cycle / 2 - 1) % royal.length]);
-      else this.attack(boss, key, {windup: this.phase >= 4 ? 0.8 : .95, power: this.phase >= 4 ? 1.85 : 1.5});
+      else this.attack(boss, key, {windup: this.phase >= 4 ? 0.72 : .85, power: this.phase >= 4 ? 2.15 : 1.8});
     }
     if (
       this.phase === 2 &&

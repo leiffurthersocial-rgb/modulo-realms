@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { AEGEAN_ENEMIES } from '../src/data/aegean/enemies';
 import { MYTH_ATTACKS } from '../src/data/aegean/combat';
+import { aegeanBossHealthCap } from '../src/data/aegean/damage';
 import { Enemy } from '../src/game/entities/enemy';
 import { Player } from '../src/game/player/player';
 import { createMap, setTile } from '../src/game/world/map';
@@ -43,8 +44,14 @@ for (const e of [...field, ...bosses]) {
   assert(deck && deck.length >= 2, `${e.id} has an authored repertoire`);
 }
 for (const e of bosses) {
-  assert(e.health <= (e.id === 'aegean_leonidas' ? 40000 : 30000));
-  assert(new Enemy(e.id, 500, 500, 150, { region: 'aegean_ash' }).maxHp <= (e.id === 'aegean_leonidas' ? 40000 : 30000), 'Post-scaling ceiling cannot regress into a sponge');
+  assert(e.health <= aegeanBossHealthCap(e.id));
+  assert(new Enemy(e.id, 500, 500, 150, { region: 'aegean_ash' }).maxHp <= aegeanBossHealthCap(e.id), 'Post-scaling ceiling preserves each authored boss budget');
+}
+assert.equal(new Enemy('aegean_leonidas', 0, 0, 100).maxHp, 110000, 'King is never silently flattened to the old 40k cap');
+for (const e of bosses.filter(e => e.id.startsWith('aegean_champion_'))) {
+  assert.equal(new Enemy(e.id, 0, 0, 100).maxHp, 58000);
+  assert.equal(e.boss?.phases.length, 2, 'Every champion has an aggressive second duel');
+  assert(e.boss!.attacks.every(a => a.windup >= .68), 'Champion windups retain time to read and evade');
 }
 // Attacks have a visible source preparation, then an actual body/weapon or missile.
 for (const a of Object.values(MYTH_ATTACKS)) {

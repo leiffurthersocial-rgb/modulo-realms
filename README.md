@@ -318,7 +318,7 @@ inventory slot borders, the drop glow, and the name that floats up when you coll
 | Legendary | Yellow / gold | 3 | yes |
 | Mythic | Crimson, animated | 3 | **no** |
 | Olympian | Ivory / divine gold | 4 | **no** |
-| Primordial | Starlight | 4 | **no; Asterion only** |
+| Primordial | Starlight | 6 | **no; Asterion only** |
 
 `Mythic` is placed by hand and nothing else can reach it: its weight in `RARITY_WEIGHTS` is
 zero, `rollRarity` draws from `ROLLABLE_RARITIES` which excludes it, and `canElevate` stops the

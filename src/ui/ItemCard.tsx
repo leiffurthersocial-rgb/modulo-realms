@@ -1,7 +1,7 @@
 import { GREEK_WEAPON_STYLES } from '../data/aegean/weapons';
 import type { ReactNode } from 'react';
 import { getIconUrl } from '../game/art/icons';
-import { EFFECT_BY_ID } from '../game/items/effects';
+import { AEGEAN_POWERS, EFFECT_BY_ID } from '../game/items/effects';
 import { ENCHANT_BY_ID, enchantDescription } from '../game/items/enchants';
 import {
   PERCENT_STATS, RARITY_COLOR, RARITY_LABEL, SLOT_LABEL, STAT_LABEL,
@@ -34,23 +34,31 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
   const color = rarityColor(item.rarity);
   const keys = Object.keys(item.stats) as StatKey[];
   const emptySlots = Math.max(0, item.enchantSlots - item.enchants.length);
+  const signature = item.aegeanPower ? AEGEAN_POWERS[item.aegeanPower] : undefined;
+  const radiant = item.rarity === 'mythic' || item.rarity === 'primordial';
+  const powerTrigger = signature?.trigger === 'active'
+    ? item.slot === 'mainHand' ? 'Weapon power · V' : item.slot === 'offHand' ? 'Off-hand power · F' : 'Artifact power · R'
+    : signature?.trigger === 'brace' ? 'Triggers after a timed brace'
+      : signature?.trigger === 'dodge' ? 'Triggers after dodging an attack'
+        : signature?.trigger === 'hazardExit' ? 'Triggers when leaving a hazard'
+          : signature ? `Triggers on ${signature.trigger}` : '';
 
   return (
-    <div className="item-card">
+    <div className={`item-card${item.rarity === 'primordial' ? ' primordial' : ''}`}>
       <div className="ic-head">
         <span className="ic-icon" style={{ borderColor: color, boxShadow: `0 0 12px ${color}33, inset 0 0 10px #0009` }}>
           <img src={itemIcon(item)} alt="" />
         </span>
         <div>
           <div
-            className={`ic-name${item.rarity === 'mythic' ? ' mythic' : ''}`}
-            style={item.rarity === 'mythic' ? undefined : { color, textShadow: item.rarity === 'common' ? 'none' : `0 0 14px ${color}55` }}
+            className={`ic-name${radiant ? ` ${item.rarity}` : ''}`}
+            style={radiant ? undefined : { color, textShadow: item.rarity === 'common' ? 'none' : `0 0 14px ${color}55` }}
           >
             {item.name}
           </div>
           <div className="ic-meta">
             <span
-              className={`rarity-pill${item.rarity === 'mythic' ? ' mythic' : ''}`}
+              className={`rarity-pill${radiant ? ` ${item.rarity}` : ''}`}
               style={{ color, borderColor: `${color}66`, background: `${color}14` }}
             >
               {RARITY_LABEL[item.rarity]}
@@ -67,6 +75,13 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
       </div>
 
       {GREEK_WEAPON_STYLES[item.defId] ? <div className="greek-weapon-style"><strong>{GREEK_WEAPON_STYLES[item.defId].label}</strong><span>{GREEK_WEAPON_STYLES[item.defId].rhythm}</span></div> : null}
+      {signature ? (
+        <div className="ic-signature" style={{ borderColor: `${color}66` }}>
+          <strong style={{ color }}>{signature.name}</strong>
+          <span>{powerTrigger} · {signature.cooldown}s cooldown</span>
+          {item.desc ? <p>{item.desc}</p> : null}
+        </div>
+      ) : null}
       {keys.length ? (
         <>
           <div className="divider" />
@@ -124,7 +139,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
         </>
       ) : null}
 
-      {item.artifact ? (
+      {item.artifact && !signature ? (
         <>
           <div className="divider" />
           <div className="ic-effect" style={{ borderLeftColor: 'var(--gold)' }}>
@@ -159,7 +174,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
         </div>
       ) : null}
 
-      {item.desc && !item.consume ? <div className="ic-flavour">{item.desc}</div> : null}
+      {item.desc && !item.consume && !signature ? <div className="ic-flavour">{item.desc}</div> : null}
 
       {showValue ? <div className="ic-meta" style={{ color: 'var(--gold)' }}>Value: {item.value} gold</div> : null}
 
