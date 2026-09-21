@@ -1,55 +1,55 @@
 import type { BossAttack, EnemyDef } from '../enemies';
 
-// Warnings describe the answer in a few words. Each species owns an ordered
-// repertoire rather than selecting the same generic swing with a different tint.
+// Every Greek move is a bodily action or a visible object released by its owner.
+// The old ring/cross/echo names remain stable as kit keys for saved content only.
 const move = (id: string, name: string, shape: BossAttack['shape'], over: Partial<BossAttack> = {}): BossAttack => ({
-  id, name, shape, windup: .7, cooldown: 3.5, power: 1.35, radius: 95,
-  range: 340, element: 'physical', color: '#e4bb6d', ...over,
+  id, name, shape, windup: .78, cooldown: 4.4, power: 1.15, radius: 82,
+  range: 300, element: 'physical', color: '#d8b26a', physical: 'claw', ...over,
 });
-const venom = { element: 'poison' as const, color: '#94cd6d' };
-const storm = { element: 'arcane' as const, color: '#a4d7ef' };
-const shade = { element: 'shadow' as const, color: '#b49bd5' };
-const fire = { element: 'fire' as const, color: '#ee914e' };
+const venom = { element: 'poison' as const, color: '#94bd6d' };
+const storm = { element: 'arcane' as const, color: '#a4c7dd' };
+const shade = { element: 'shadow' as const, color: '#a59bbd' };
+const fire = { element: 'fire' as const, color: '#de914e' };
 export const MYTH_ATTACKS = {
-  pounce: move('pounce', 'Pounce · sidestep', 'leap', { radius: 66, range: 280, windup: .65 }),
-  rend: move('rend', 'Claw fan · get behind', 'cone', { radius: 120, windup: .48 }),
-  charge: move('charge', 'Charge · leave the lane', 'dash', { range: 360, windup: .8, power: 1.65 }),
-  tusks: move('tusks', 'Tusk furrows · diagonal gap', 'cross', { radius: 20, range: 250, windup: .9 }),
-  antlers: move('antlers', 'Antler sweep · close in', 'donut', { radius: 165, innerRadius: 65, windup: .8 }),
-  root: move('root', 'Roots · leave both lines', 'cross', { ...venom, radius: 19, range: 260, status: { kind: 'chill', power: .32, duration: 2 } }),
-  seed: move('seed', 'Thorn spiral · between thorns', 'nova', { ...venom, count: 9, projectileSpeed: 235, radius: 8, windup: .85 }),
-  blade: move('blade', 'Twin blades · evade twice', 'echo', { radius: 64, repeatDelay: .65, windup: .6 }),
-  music: move('music', 'Discord · enter the quiet eye', 'donut', { ...shade, radius: 215, innerRadius: 72, windup: 1 }),
-  embers: move('embers', 'Ember crown · thread the gaps', 'nova', { ...fire, count: 7, radius: 10, projectileSpeed: 260 }),
-  hooves: move('hooves', 'Hoofbeat · evade the second hit', 'echo', { radius: 76, repeatDelay: .65 }),
-  arrows: move('arrows', 'Arrow fan · find a gap', 'projectile', { count: 5, spread: 1.1, radius: 9, projectileSpeed: 440, range: 620, windup: .65 }),
-  boulder: move('boulder', 'Falling stones · keep moving', 'rain', { radius: 64, count: 3, windup: .95, power: 1.8 }),
-  dive: move('dive', 'Wing dive · leave the shadow', 'leap', { radius: 56, range: 360, windup: .65 }),
-  feathers: move('feathers', 'Razor feathers · cross a gap', 'nova', { count: 12, radius: 7, projectileSpeed: 330, windup: .85 }),
-  lightning: move('lightning', 'Forked lightning · diagonal gap', 'cross', { ...storm, radius: 20, range: 390, windup: .95, power: 1.5 }),
-  jaws: move('jaws', 'Serpent lunge · sidestep', 'line', { ...venom, range: 290, radius: 25, windup: .52 }),
-  coil: move('coil', 'Coiling ring · stay inside', 'donut', { ...venom, innerRadius: 66, radius: 165, status: { kind: 'chill', power: .35, duration: 2.3 } }),
-  spit: move('spit', 'Venom fan · spread apart', 'projectile', { ...venom, count: 3, spread: .65, radius: 11, projectileSpeed: 350, range: 470 }),
-  furnace: move('furnace', 'Furnace vents · find a gap', 'nova', { ...fire, count: 8, radius: 12, projectileSpeed: 280, windup: 1 }),
-  hammer: move('hammer', 'Hammerfall · leave both blows', 'echo', { ...fire, radius: 82, repeatDelay: .9, power: 1.7, windup: .8 }),
-  spear: move('spear', 'Spear thrust · move sideways', 'line', { range: 285, radius: 15, windup: .5 }),
-  shield: move('shield', 'Shield bash · roll behind', 'dash', { range: 150, power: 1.5, windup: .62 }),
-  haunt: move('haunt', 'Haunting double · keep moving', 'echo', { ...shade, radius: 72, repeatDelay: .9, status: { kind: 'curse', power: .3, duration: 5 } }),
-  call: move('call', 'Dragon teeth · break the risen', 'summon', { ...shade, summon: 'aegean_spartoi', count: 2, cooldown: 12, windup: 1.25 }),
-  lure: move('lure', 'Siren tide · leave the circle', 'pull', { ...shade, radius: 185, power: .8, windup: 1.1 }),
-  chains: move('chains', 'Crossed chains · diagonal gap', 'cross', { ...shade, radius: 23, range: 320, windup: .9, status: { kind: 'chill', power: .4, duration: 2 } }),
-  breach: move('breach', 'Breach · leave the wake', 'leap', { ...storm, radius: 93, range: 300, windup: .9, power: 1.6 }),
-  tide: move('tide', 'Tide ring · hold the eye', 'donut', { ...storm, radius: 215, innerRadius: 85, windup: .85 }),
-  ink: move('ink', 'Ink burst · between the jets', 'nova', { ...shade, count: 10, radius: 12, projectileSpeed: 220, windup: .8 }),
-  trident: move('trident', 'Three prongs · step through', 'projectile', { ...storm, count: 3, spread: .55, radius: 13, projectileSpeed: 390, range: 590 }),
-  web: move('web', 'Silk cross · leave the web', 'cross', { radius: 25, range: 260, color: '#dce2ce', status: { kind: 'chill', power: .5, duration: 2.1 } }),
-  riddle: move('riddle', 'Sphinx verdict · enter the eye', 'donut', { ...storm, radius: 230, innerRadius: 92, windup: 1.1, power: 1.7 }),
-  needles: move('needles', 'Tail needles · split the fan', 'projectile', { ...venom, count: 7, spread: 1.25, radius: 7, projectileSpeed: 490, range: 610, windup: .65 }),
-  gaze: move('gaze', 'Stone gaze · get behind', 'cone', { radius: 330, color: '#cee4b4', windup: 1.1, status: { kind: 'chill', power: .6, duration: 2.3 }, power: 1.45 }),
-  judgement: move('judgement', 'Fury mark · evade twice', 'echo', { ...shade, radius: 82, repeatDelay: .55, windup: .7 }),
-  gust: move('gust', 'Four winds · diagonal gap', 'cross', { ...storm, radius: 32, range: 410, windup: .85 }),
-  maelstrom: move('maelstrom', 'Maelstrom · leave the spiral', 'pull', { ...storm, radius: 230, power: 1.3, windup: 1.1 }),
-  howl: move('howl', 'Dread howl · close in', 'donut', { ...shade, radius: 250, innerRadius: 94, windup: .9, status: { kind: 'fear', power: .2, duration: 2 } }),
+  pounce: move('pounce', 'Pounce', 'leap', { radius: 38, range: 245, windup: .78, physical: 'claw' }),
+  rend: move('rend', 'Raking claws', 'cone', { radius: 96, windup: .68, physical: 'claw' }),
+  charge: move('charge', 'Charging horns', 'dash', { range: 300, windup: .9, power: 1.45, physical: 'fang' }),
+  tusks: move('tusks', 'Tusk rush', 'dash', { range: 180, windup: .8, physical: 'fang' }),
+  antlers: move('antlers', 'Antler sweep', 'cone', { radius: 112, windup: .82, physical: 'fang' }),
+  root: move('root', 'Thrown root tangle', 'projectile', { ...venom, radius: 16, range: 335, projectileSpeed: 215, count: 1, physical: 'tendril', projectileSprite: 'net', status: { kind: 'chill', power: .28, duration: 1.6 } }),
+  seed: move('seed', 'Thorn seeds', 'projectile', { ...venom, count: 3, spread: .6, projectileSpeed: 250, radius: 10, physical: 'tendril', projectileSprite: 'fang' }),
+  blade: move('blade', 'Double cut', 'cone', { radius: 89, swings: 2, windup: .75, physical: 'blade' }),
+  music: move('music', 'Piper notes', 'projectile', { ...shade, count: 2, spread: .42, projectileSpeed: 195, radius: 12, range: 380, windup: 1, physical: 'spit', projectileSprite: 'note' }),
+  embers: move('embers', 'Thrown embers', 'projectile', { ...fire, count: 3, spread: .65, radius: 11, projectileSpeed: 245, physical: 'spit', projectileSprite: 'ember' }),
+  hooves: move('hooves', 'Rearing hoof kick', 'cone', { radius: 90, windup: .9, physical: 'hoof' }),
+  arrows: move('arrows', 'Drawn bow', 'projectile', { count: 3, spread: .65, radius: 10, projectileSpeed: 375, range: 550, windup: .8, physical: 'bow', projectileSprite: 'arrow' }),
+  boulder: move('boulder', 'Boulder throw', 'projectile', { radius: 29, count: 1, range: 540, windup: 1.1, power: 1.55, projectileSpeed: 235, physical: 'boulder', projectileSprite: 'boulder' }),
+  dive: move('dive', 'Wing dive', 'leap', { radius: 35, range: 295, windup: .82, physical: 'wing' }),
+  feathers: move('feathers', 'Flung bronze feathers', 'projectile', { count: 4, spread: 1, radius: 10, projectileSpeed: 295, windup: .88, physical: 'wing', projectileSprite: 'feather' }),
+  lightning: move('lightning', 'Storm javelin', 'projectile', { ...storm, radius: 14, range: 480, windup: .95, power: 1.35, projectileSpeed: 350, count: 1, physical: 'spear', projectileSprite: 'spear' }),
+  jaws: move('jaws', 'Snapping jaws', 'dash', { ...venom, range: 145, radius: 24, windup: .72, physical: 'fang' }),
+  coil: move('coil', 'Tail lash', 'cone', { ...venom, radius: 120, physical: 'tendril', status: { kind: 'chill', power: .25, duration: 1.6 } }),
+  spit: move('spit', 'Venom spit', 'projectile', { ...venom, count: 2, spread: .45, radius: 15, projectileSpeed: 285, range: 390, physical: 'spit', projectileSprite: 'venom' }),
+  furnace: move('furnace', 'Furnace fireballs', 'projectile', { ...fire, count: 3, spread: .68, radius: 16, projectileSpeed: 245, windup: 1, physical: 'spit', projectileSprite: 'ember' }),
+  hammer: move('hammer', 'Overhead hammer', 'cone', { radius: 110, power: 1.55, windup: .95, physical: 'hammer' }),
+  spear: move('spear', 'Spear thrust', 'line', { range: 145, radius: 10, windup: .72, physical: 'spear' }),
+  shield: move('shield', 'Shield rush', 'dash', { range: 130, power: 1.3, windup: .8, physical: 'shield' }),
+  haunt: move('haunt', 'Shade rush', 'leap', { ...shade, range: 210, radius: 30, windup: .9, physical: 'claw', status: { kind: 'curse', power: .2, duration: 3 } }),
+  call: move('call', 'Scattered dragon teeth', 'summon', { ...shade, summon: 'aegean_spartoi', count: 2, cooldown: 14, windup: 1.35, physical: 'fang' }),
+  lure: move('lure', 'Siren cast-net', 'projectile', { ...shade, count: 1, radius: 19, range: 335, projectileSpeed: 205, power: .8, windup: 1.05, physical: 'tendril', projectileSprite: 'net', status: { kind: 'chill', power: .3, duration: 1.4 } }),
+  chains: move('chains', 'Thrown chain-hook', 'projectile', { ...shade, radius: 15, range: 350, windup: .9, projectileSpeed: 260, physical: 'chain', projectileSprite: 'chain', status: { kind: 'chill', power: .3, duration: 1.6 } }),
+  breach: move('breach', 'Breaching jaws', 'leap', { ...storm, radius: 42, range: 255, windup: 1, power: 1.4, physical: 'fang' }),
+  tide: move('tide', 'Spat seawater', 'projectile', { ...storm, count: 2, spread: .55, radius: 22, range: 355, projectileSpeed: 235, windup: .95, physical: 'spit', projectileSprite: 'venom' }),
+  ink: move('ink', 'Ink jets', 'projectile', { ...shade, count: 3, spread: .8, radius: 18, range: 325, projectileSpeed: 210, windup: .95, physical: 'spit', projectileSprite: 'venom' }),
+  trident: move('trident', 'Three-pronged throw', 'projectile', { ...storm, count: 3, spread: .4, radius: 13, projectileSpeed: 345, range: 480, physical: 'spear', projectileSprite: 'spear' }),
+  web: move('web', 'Thrown silk snare', 'projectile', { radius: 18, range: 320, color: '#dce2ce', projectileSpeed: 205, physical: 'tendril', projectileSprite: 'net', status: { kind: 'chill', power: .35, duration: 1.6 } }),
+  riddle: move('riddle', 'Sphinx wing blades', 'projectile', { count: 3, spread: .7, radius: 14, range: 380, projectileSpeed: 275, windup: 1.05, power: 1.35, physical: 'wing', projectileSprite: 'feather' }),
+  needles: move('needles', 'Tail needles', 'projectile', { ...venom, count: 4, spread: .95, radius: 9, projectileSpeed: 355, range: 490, windup: .85, physical: 'tendril', projectileSprite: 'fang' }),
+  gaze: move('gaze', 'Petrifying stare', 'line', { range: 235, radius: 7, color: '#cee4b4', windup: 1.1, physical: 'gaze', status: { kind: 'chill', power: .45, duration: 1.6 }, power: 1.15 }),
+  judgement: move('judgement', 'Fury sickles', 'cone', { ...shade, radius: 100, swings: 2, windup: .9, physical: 'blade' }),
+  gust: move('gust', 'Wind-flung feathers', 'projectile', { ...storm, count: 2, spread: .65, radius: 13, range: 390, projectileSpeed: 280, windup: .92, physical: 'wing', projectileSprite: 'feather' }),
+  maelstrom: move('maelstrom', 'Tentacle grab', 'line', { ...storm, range: 155, radius: 10, power: 1.1, windup: 1, physical: 'tendril', pull: 165 }),
+  howl: move('howl', 'Bellowing breath', 'projectile', { ...shade, count: 2, spread: .55, radius: 14, range: 325, projectileSpeed: 180, windup: 1.05, physical: 'spit', projectileSprite: 'note', status: { kind: 'fear', power: .15, duration: 1.3 } }),
 } satisfies Record<string, BossAttack>;
 type Move = keyof typeof MYTH_ATTACKS;
 
@@ -87,7 +87,7 @@ const KIT: Record<string, [NonNullable<EnemyDef['combat']>['movement'], number, 
 };
 export function mythKit(slug: string): NonNullable<EnemyDef['combat']> {
   const [movement, cadence, names] = KIT[slug] ?? ['rush', 3, ['spear']];
-  return { movement, cadence, attacks: names.map(name => ({ ...MYTH_ATTACKS[name], id: `${slug}_${name}` })) };
+  return { movement, cadence: cadence * 1.22, attacks: names.map(name => ({ ...MYTH_ATTACKS[name], id: `${slug}_${name}` })) };
 }
 
 const BOSS_KITS: Record<string, Move[]> = {
@@ -110,12 +110,12 @@ const BOSS_KITS: Record<string, Move[]> = {
 export function mythBossKit(slug: string): BossAttack[] {
   return (BOSS_KITS[slug] ?? ['spear', 'charge', 'hammer']).map((name, index) => {
     const base: BossAttack = MYTH_ATTACKS[name];
-    return { ...base, id: name === 'charge' ? 'charge' : `${slug}_${name}`, cooldown: 3.8 + index * .4,
-      power: base.power * 1.16, windup: Math.max(.55, base.windup),
+    return { ...base, id: name === 'charge' ? 'charge' : `${slug}_${name}`, cooldown: 4.8 + index * .45,
+      power: base.power * 1.08, windup: Math.max(.72, base.windup),
       radius: base.radius ? base.radius * 1.16 : undefined,
       innerRadius: base.innerRadius ? base.innerRadius * 1.12 : undefined,
       range: (base.range ?? 340) * 1.15,
-      count: base.count ? base.count + (base.shape === 'summon' ? 0 : 2) : undefined,
+      count: base.count ? base.count : undefined,
     };
   });
 }

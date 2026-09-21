@@ -1,5 +1,5 @@
 import type { Game } from "../core/game";
-import type { DamageOpts } from "../core/world";
+import type { DamageOpts, ProjectileSpec } from "../core/world";
 import { angleBetween, angleTo, dist, dirFromVector } from "../core/math";
 import { Enemy } from "../entities/enemy";
 import { boxHitsTerrain, findOpenNear, type PropInstance } from "../world/map";
@@ -22,16 +22,14 @@ export interface AegeanEncounterSave {
   records: Record<string, RecordState>;
 }
 type Actor = { enemy: Enemy; role: string; index: number; roster?: number };
+/** A real actor's pending throw/rally, never a detached damage footprint. */
 type Warning = Point & {
-  radius: number;
   at: number;
   damage: number;
-  minHealthDamage?: number;
-  color: string;
   label: string;
-  threatened: boolean;
-  line?: { angle: number; length: number };
-  after?: () => void;
+  source: Enemy;
+  attackId: string;
+  after?: (point: Point, reason: "hit" | "wall" | "range") => void;
 };
 type PracticePlayer = Pick<
   Game["player"],
@@ -119,7 +117,7 @@ const LABELS: Record<string, string> = {
   minotaur: "Dodge the pursuit. Bait a charge into a labyrinth gate for a long opening.",
   chimera: "Dodge three different heads. Bait flame across a vent to stun the beast.",
   cyclops: "Keep moving under boulders. Land one on a crane weight to blind the eye.",
-  talos: "Stay inside the shockwave. Bait Talos onto a coastal drain to spill his heat.",
+  talos: "Dodge Talos’s hammer and thrown cinders. Bait him onto a drain to spill his heat.",
   scylla: "Slay six hunting heads. Their beacon flames bind Charybdis; finish Scylla.",
   titan: "Clear chain horrors. Stand inside an anchor to repair it; dodge chain falls.",
   sanctuary_aegis: "Flank the sentinel. Stand at a mirror to turn its barrage back.",
@@ -174,7 +172,7 @@ export class AegeanEncounterDirector {
   private armyNext = 0;
   private autoHold = 0;
   private autoIndex = -1;
-  private arenaPulse = 1.6;
+  private arenaPulse = 4.5;
   private lastCounterImpact = -1;
   private formationBreak: Record<number, number> = {};
   private brokenUntil: Record<number, number> = {};
@@ -281,7 +279,7 @@ export class AegeanEncounterDirector {
       ctx.fillText(complete ? "✓" : String(i + 1), prop.x, prop.y - 46);
       if (!complete && this.distance(p, prop) < 470) {
         const cue = this.slug === "leonidas"
-          ? (i < 4 ? "STAND → BREAK OATH / CHANT" : "STAND → SAFE STORM LANE")
+          ? (i < 4 ? "STAND → BREAK OATH / CHANT" : "STAND → DEFLECT WEAPONS")
           : (MECHANISM_CUES[this.slug] ?? "STAND → COUNTERSTRIKE");
         ctx.font = "bold 11px monospace";
         ctx.fillText(cue, prop.x, prop.y - 76);
@@ -329,6 +327,14 @@ export class AegeanEncounterDirector {
     }
     if (this.boss && this.running) {
       const b = this.boss;
+      if (this.slug === "medusa" && this.gaze > 1 && this.sourceVisible(b) && this.clearSight(b, p)) {
+        // Her eyes and the connected gaze are the attack; there is no remote
+        // ground marker to mistake for an unseen caster or a random trap.
+        ctx.strokeStyle = `rgba(163,217,125,${Math.min(.75, .2 + this.gaze / 140)})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(b.x - 5, b.y - b.radius * 1.5); ctx.lineTo(p.x, p.y - 16); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(b.x + 5, b.y - b.radius * 1.5); ctx.lineTo(p.x, p.y - 16); ctx.stroke();
+      }
       const cue = this.slug === "medusa" && Math.floor(this.clock / 3.6) % 2 === 0 && !this.exposureActive
         ? "LOOK AWAY!" : this.slug === "cerberus" && this.exposureActive
           ? "REST · APPROACH TO RESTRAIN" : this.exposureActive ? "STAGGERED · STRIKE!" : "";
@@ -570,7 +576,7 @@ export class AegeanEncounterDirector {
     this.brokenUntil = {};
     this.autoHold = 0;
     this.autoIndex = -1;
-    this.arenaPulse = 1.6;
+    this.arenaPulse = 4.5;
     this.lastCounterImpact = -1;
   }
   private begin(): void {
@@ -674,7 +680,7 @@ export class AegeanEncounterDirector {
     const existing = this.actors.filter(
       (a) => a.role === "add" && !a.enemy.dead,
     ).length;
-    for (let i = 0; i < Math.min(count, 8 - existing); i++) {
+    for (let i = 0; i < Math.min(count, 4 - existing); i++) {
       const angle = (i / Math.max(1, count)) * Math.PI * 2;
       this.spawn(id, "add", i, {
         x: point.x + Math.cos(angle) * 155,
@@ -685,13 +691,21 @@ export class AegeanEncounterDirector {
   private addCount(): number {
     return this.actors.filter((a) => a.role === "add" && !a.enemy.dead).length;
   }
-  private warningMinimum(damage: number): number | undefined {
-    const boss = this.boss;
-    // Store the attacking boss's minimum when the tell appears. Later phase
-    // changes cannot change its promised damage, and utility signals stay inert.
-    return damage > 0 && boss && boss.damage > 0
-      ? aegeanMinimumHit(boss.def, damage / boss.damage)
-      : undefined;
+  private sourceVisible(source: Enemy): boolean {
+    if (source.dead || !this.game.enemies.includes(source) || this.distance(source, this.game.player) > 560) return false;
+    const camera = this.game.camera, canvas = this.game.canvas;
+    // Runtime checks the actual viewport. Headless fixtures use the same
+    // conservative local distance instead of inventing a browser viewport.
+    if (!camera || !canvas) return true;
+    return Math.abs(source.x - camera.x) < canvas.width / (2 * camera.zoom) + source.radius &&
+      Math.abs(source.y - camera.y) < canvas.height / (2 * camera.zoom) + source.radius;
+  }
+  private clearSight(from: Point, to: Point): boolean {
+    const steps = Math.max(1, Math.ceil(this.distance(from, to) / (TILE / 2)));
+    for (let i = 1; i < steps; i++)
+      if (boxHitsTerrain(this.game.map, from.x + (to.x - from.x) * i / steps,
+        from.y + (to.y - from.y) * i / steps, 2, 2)) return false;
+    return true;
   }
   private warn(
     point: Point,
@@ -700,22 +714,41 @@ export class AegeanEncounterDirector {
     damage: number,
     label: string,
     color = "#ddb778",
-    after?: () => void,
+    after?: Warning["after"],
+    source = this.boss,
+    sprite?: ProjectileSpec["sprite"],
   ): void {
-    this.game.telegraph(point.x, point.y, radius, delay, color, "circle");
-    this.warnings.push({
-      ...point,
-      radius,
-      at: this.now + delay,
-      damage,
-      minHealthDamage: this.warningMinimum(damage),
-      color,
-      label,
-      after,
-      threatened:
-        this.distance(this.game.player, point) <
-        radius + this.game.player.radius,
-    });
+    if (!source || !this.sourceVisible(source) || (damage > 0 && source.windupAttack)) return;
+    const attackId = `encounter:${label}:${this.now}`;
+    const pending: Warning = {...point, at: this.now + (damage > 0 ? delay + 5 : delay), damage, label, source, attackId, after};
+    if (damage <= 0) {
+      this.game.floatText(source.x, source.y - source.radius * 2, "RALLY — interrupt", color, 14);
+      this.warnings.push(pending);
+      return;
+    }
+    const kind = sprite ?? (/CHAIN|chain/.test(label) ? "chain" : /VENOM|FLOOD|surge/i.test(label) ? "spit" :
+      /cinder|molten/i.test(label) ? "ember" : /spear|king|oath/i.test(label) ? "spear" : "boulder");
+    // The projectile leaves the raised hand/mouth, up to 28px above the feet.
+    // Let queueAttack clamp from that true origin so southward throws do not
+    // expire just short of the target because of a feet-to-feet range budget.
+    const range = Math.min(640, Math.max(85, this.distance(source, point) + 32));
+    source.attackCd = 0;
+    const queued = source.queueAttack(this.game, {
+      id: attackId, name: label, shape: "projectile", windup: Math.max(.85, delay), cooldown: 2.2,
+      power: damage / Math.max(1, source.damage), count: 1, range,
+      radius: Math.max(9, Math.min(18, radius * .2)), projectileSpeed: kind === "spear" ? 290 : 225,
+      projectileSprite: kind, physical: kind === "spear" ? "spear" : kind === "shield" ? "shield" : kind === "arrow" ? "bow" :
+        kind === "feather" ? "wing" : kind === "chain" ? "tendril" : kind === "spit" || kind === "ember" ? "spit" : "boulder",
+      element: /VENOM/i.test(label) ? "poison" : /cinder|molten/i.test(label) ? "fire" : "physical", color,
+      onImpact: (impact, reason) => {
+        if (!this.warnings.includes(pending)) return;
+        this.warnings = this.warnings.filter(w => w !== pending);
+        if (!this.running || !this.sourceVisible(source)) return;
+        if (reason === "range") this.powerEvent("onHazardExit");
+        after?.(impact, reason);
+      },
+    }, point);
+    if (queued) this.warnings.push(pending);
   }
   private line(
     point: Point,
@@ -724,65 +757,27 @@ export class AegeanEncounterDirector {
     delay: number,
     damage: number,
     label: string,
-    after?: () => void,
+    after?: Warning["after"],
   ): void {
-    this.game.telegraph(
-      point.x,
-      point.y,
-      length,
-      delay,
-      "#a8c5e6",
-      "line",
-      angle,
-      28,
-    );
-    const dx = this.game.player.x - point.x,
-      dy = this.game.player.y - point.y;
-    const along = dx * Math.cos(angle) + dy * Math.sin(angle);
-    const across = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
-    this.warnings.push({
-      ...point,
-      radius: 28,
-      at: this.now + delay,
-      damage,
-      minHealthDamage: this.warningMinimum(damage),
-      color: "#a8c5e6",
-      label,
-      line: { angle, length },
-      after,
-      threatened:
-        along >= 0 && along <= length && across < 28 + this.game.player.radius,
-    });
+    // A spear travels from its visible owner. The old full-lane rectangle no
+    // longer damages everything in the lane in a single frame.
+    this.warn({x: point.x + Math.cos(angle) * length, y: point.y + Math.sin(angle) * length},
+      50, delay, damage, label, "#d5bf87", after, this.boss, "spear");
   }
   private resolveWarnings(): void {
-    const p = this.game.player;
-    const due = this.warnings.filter((w) => w.at <= this.now);
-    this.warnings = this.warnings.filter((w) => w.at > this.now);
-    for (const w of due) {
-      let hit = this.distance(p, w) < w.radius + p.radius;
-      if (w.line) {
-        const dx = p.x - w.x,
-          dy = p.y - w.y;
-        const along = dx * Math.cos(w.line.angle) + dy * Math.sin(w.line.angle);
-        const across = Math.abs(
-          -dx * Math.sin(w.line.angle) + dy * Math.cos(w.line.angle),
-        );
-        hit =
-          along >= -p.radius &&
-          along <= w.line.length + p.radius &&
-          across < w.radius + p.radius;
+    const pending = this.warnings;
+    this.warnings = [];
+    for (const w of pending) {
+      if (!this.sourceVisible(w.source)) {
+        if (w.source.windupAttack?.id === w.attackId) {
+          w.source.cancelAttack();
+        }
+        continue;
       }
-      this.game.ringAt(w.x, w.y, w.radius, w.color);
-      if (hit && w.damage > 0)
-        this.game.damagePlayer(w.damage, {
-          element: "physical",
-          minHealthDamage: w.minHealthDamage,
-          label: w.label,
-          fromX: w.x,
-          fromY: w.y,
-        });
-      if (!hit && w.damage > 0 && w.threatened) this.powerEvent("onHazardExit");
-      w.after?.();
+      if (w.at > this.now) this.warnings.push(w);
+      else if (w.damage <= 0) w.after?.(w.source, "range");
+      // Damage is delivered only by the actual flying projectile; this timer
+      // merely discards stale bookkeeping if a throw was interrupted.
     }
   }
 
@@ -826,7 +821,7 @@ export class AegeanEncounterDirector {
     key: string,
     extra: Partial<BossAttack> = {},
   ): boolean {
-    if (!e || e.dead) return false;
+    if (!e || !this.sourceVisible(e)) return false;
     const pattern = e.def.boss?.attacks.find((a) => a.id === key) ?? AEGEAN_ATTACKS[key];
     if (!pattern) return false;
     return e.queueAttack(this.game, { ...pattern, ...extra });
@@ -874,7 +869,8 @@ export class AegeanEncounterDirector {
       for (const a of this.living.filter((a) => a.role === "body")) {
         const e=a.enemy;
         if (!e.windupAttack && this.distance(e,p) > (a.index ? 280 : 100)) this.move(e,p,1.15);
-        if (!e.windupAttack && e.attackCd <= 0 && this.distance(e,p) < 500) {
+        if (!e.windupAttack && e.attackCd <= 0 && this.sourceVisible(e) &&
+          this.living.filter(actor => !!actor.enemy.windupAttack).length < 2) {
           const pattern=ENEMY_BY_ID.aegean_geryon.boss!.attacks[a.index ? 2 : 1];
           e.queueAttack(this.game,{...pattern,windup:.85,power:1.05});
         }
@@ -895,19 +891,19 @@ export class AegeanEncounterDirector {
       const facing = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[p.dir];
       const gazing =
         Math.floor(this.clock / 3.6) % 2 === 0 &&
-        this.distance(p, boss) < 520 &&
+        this.sourceVisible(boss) && this.clearSight(boss, p) &&
         this.exposedUntil <= this.now;
       const looking =
         angleBetween(facing, angleTo(p.x, p.y, boss.x, boss.y)) < Math.PI / 3;
       this.gaze = Math.max(
         0,
-        Math.min(100, this.gaze + dt * (gazing && looking ? 42 : -40)),
+        Math.min(100, this.gaze + dt * (gazing && looking ? 32 : -40)),
       );
       this.status += ` · Petrification ${Math.round(this.gaze)}%${gazing ? " — LOOK AWAY" : ""}`;
       if (this.gaze >= 100) {
         this.gaze = 0;
         this.game.damagePlayer(boss.damage * 2.4, {
-          minHealthDamage: 0.24, element: "arcane", label: "Petrifying gaze",
+          minHealthDamage: 0.18, element: "arcane", label: "Petrifying gaze",
           fromX: boss.x, fromY: boss.y,
         });
         this.say("PETRIFIED — break line of sight or use a mirror!");
@@ -954,7 +950,8 @@ export class AegeanEncounterDirector {
         if (
           !a.enemy.windupAttack &&
           a.enemy.attackCd <= 0 &&
-          this.distance(a.enemy, p) < 250
+          this.actors.filter(actor => actor.role === "mare" && !!actor.enemy.windupAttack).length < 1 &&
+          this.distance(a.enemy, p) < 220
         )
           this.attack(a.enemy, ["thrust", "charge", "sweep", "thrust"][a.index], {
             name: ["MARE'S BITE — sidestep", "TRAMPLE — sidestep", "HOOF SWEEP — get behind", "RAVENOUS BITE — sidestep"][a.index],
@@ -965,12 +962,12 @@ export class AegeanEncounterDirector {
     this.updateArenaPressure(dt, boss);
     if (this.next > 0 || !boss || boss.windupAttack) return;
     this.cycle++;
-    this.next = this.slug === "cyclops" || this.slug === "talos" ? 1.8 : 1.25;
+    this.next = this.slug === "cyclops" || this.slug === "talos" ? 3 : 2.2;
     boss.attackCd = 0;
     if (this.slug === "cyclops" && this.cycle % 2 === 1) {
       const target = { x: p.x, y: p.y };
-      this.warn(target, 78, 0.95, boss.damage * 1.8, "BOULDER — keep moving", "#c9b992", () => {
-        const i = this.props.findIndex((prop, index) => this.distance(prop, target) < 155 && !this.done(index));
+      this.warn(target, 78, 0.95, boss.damage * 1.8, "BOULDER — keep moving", "#c9b992", (impact) => {
+        const i = this.props.findIndex((prop, index) => this.distance(prop, impact) < 155 && !this.done(index));
         if (i >= 0) {
           this.wounds[i] = this.now + 7;
           this.mark(i, "CRANE STRIKE — Cyclops blinded!");
@@ -981,58 +978,60 @@ export class AegeanEncounterDirector {
     }
     if (["augeas", "titan"].includes(this.slug)) {
       this.warn({ x: p.x, y: p.y }, this.slug === "titan" ? 100 : 76, 0.95,
-        boss.damage * 1.35, this.slug === "titan" ? "CHAIN FALL — dodge" : "FLOOD — leave blue ground",
+        boss.damage * 1.35, this.slug === "titan" ? "CHAIN THROW — sidestep" : "SLUDGE SPIT — sidestep",
         this.slug === "titan" ? "#d78c65" : "#76bccc");
       return;
     }
-    // Each enemy definition owns a different attack deck, including leaps,
-    // safe-center shockwaves, returning strikes, tugs and crossed lanes.
+    // Each enemy definition owns its physical attack deck: committed charges,
+    // weapon combinations, thrown objects and aimed spits.
     const patterns = boss.def.boss?.attacks ?? [];
     if (patterns.length) {
       const pattern = patterns[(this.cycle - 1) % patterns.length];
       boss.queueAttack(this.game, pattern);
     }
     if (this.slug === "champion_guard" && this.cycle % 4 === 0)
-      this.adds(2, "aegean_royal_guard");
+      this.adds(1, "aegean_royal_guard");
   }
 
-  /** Supplemental hazards force movement across the actual occupied floor.
-   * They use stored telegraphs; optional arena tools cancel their local danger. */
+  /** Occasional extra moves belong to the visible monster. They never create
+   * a second, sourceless attack field while its regular attack is winding up. */
   private updateArenaPressure(dt: number, boss?: Enemy): void {
     if (!boss) return;
     this.arenaPulse -= dt;
     if (this.arenaPulse > 0) return;
-    this.arenaPulse = 4.2;
+    this.arenaPulse = 7.5;
+    if (!this.sourceVisible(boss) || boss.windupAttack || this.warnings.length) return;
     const p = this.game.player;
-    if (this.distance(boss, p) > 900) return;
-    const anchor = this.props.findIndex((prop) => this.distance(prop, p) < 140);
+    const anchor = this.props.findIndex(prop => this.distance(prop, p) < 140);
     if (anchor >= 0 && (this.groundedUntil[anchor] ?? 0) > this.now) return;
-    const theta = angleTo(boss.x, boss.y, p.x, p.y);
     if (this.slug === "python") {
-      // A serpent's wake pins the place the player just left, not random decor.
-      for (let i = 0; i < 3; i++) this.warn({x: p.x - Math.cos(theta) * i * 86, y: p.y - Math.sin(theta) * i * 86},
-        52, 0.8 + i * 0.22, boss.damage * 0.8, "VENOM WAKE", "#a7bc64");
+      this.warn(p, 52, 1.1, boss.damage * .8, "PYTHON'S VENOM SPIT", "#a7bc64", undefined, boss, "spit");
     } else if (this.slug === "minotaur") {
-      this.line({x: p.x - 280, y: p.y - 90}, 0, 560, 0.9, boss.damage * 0.9, "LABYRINTH SPEARS");
+      this.attack(boss, "charge", {name: "MINOTAUR CHARGE", windup: 1.05, power: .95});
     } else if (this.slug === "chimera") {
-      this.warn({x: p.x + 85, y: p.y}, 68, 0.9, boss.damage, "GOAT'S CINDER", "#ef9565");
-      this.warn({x: p.x - 85, y: p.y}, 68, 1.25, boss.damage, "SERPENT'S VENOM", "#a8bf65");
+      const venom = this.cycle % 2 === 0;
+      this.warn(p, 68, 1.15, boss.damage * .85, venom ? "SERPENT'S VENOM" : "GOAT'S CINDER",
+        venom ? "#a8bf65" : "#ef9565", undefined, boss, venom ? "spit" : "ember");
     } else if (this.slug === "birds" || this.slug === "champion_volley") {
-      this.line({x: p.x - 320, y: p.y}, 0, 640, 0.8, boss.damage, "FEATHER RAIN — cross the lane");
+      this.warn(p, 60, 1.1, boss.damage * .85, this.slug === "birds" ? "BRONZE FEATHER" : "CHAMPION'S ARROW",
+        "#d5bc7c", undefined, boss, this.slug === "birds" ? "feather" : "arrow");
     } else if (this.slug === "sanctuary_forge" || this.slug === "talos") {
-      this.warn({x: p.x, y: p.y}, 95, 1.05, boss.damage, "MOLTEN FOOTPRINT", "#ee9463");
+      this.warn(p, 75, 1.2, boss.damage * .9, "FURNACE CINDER", "#ee9463", undefined, boss, "ember");
     } else if (this.slug === "sanctuary_names") {
-      const marked = {x: p.x, y: p.y};
-      this.warn(marked, 76, 0.85, boss.damage, "ECHO — move twice", "#b9b1de", () => {
-        if (this.started && !boss.dead) this.warn(marked, 112, 0.65, boss.damage * 1.1, "ECHO RETURNS", "#b9b1de");
-      });
+      this.warn(p, 60, 1.2, boss.damage * .85, "KEEPER'S THROWN CHAIN", "#b9b1de", undefined, boss, "chain");
     }
   }
 
   private openCounter(boss: Enemy, seconds = 2): void {
-    boss.windupAttack = null;
-    boss.windupTime = 0;
-    boss.attackGeometry = null;
+    boss.cancelAttack();
+    this.warnings = this.warnings.filter(w => w.source !== boss);
+    // Deflection shatters actual incoming objects, with sparks at each object.
+    // This replaces the old invisible deletion of a promised damage circle.
+    for (const shot of this.game.projectiles ?? []) {
+      if (shot.dead || shot.sourceId !== boss.id) continue;
+      shot.dead = true;
+      this.game.particles(shot.x, shot.y, 5, shot.color, {speed: 45, life: .3});
+    }
     boss.attackCd = Math.max(boss.attackCd, seconds);
     this.next = Math.max(this.next, seconds);
     this.exposedUntil = this.now + seconds + 2;
@@ -1129,7 +1128,7 @@ export class AegeanEncounterDirector {
       if (this.next <= 0 && !boss.windupAttack) {
         const patterns = boss.def.boss?.attacks ?? [];
         if (patterns.length) { boss.attackCd = 0; boss.queueAttack(this.game, patterns[this.cycle++ % patterns.length]); }
-        this.next = 1.4;
+        this.next = 2.25;
       }
       return;
     }
@@ -1138,7 +1137,7 @@ export class AegeanEncounterDirector {
     if (this.next <= 0 && heads.length) {
       const head = heads[this.cycle++ % heads.length];
       if (!head.enemy.windupAttack) {
-        this.next = 0.75;
+        this.next = 1.4;
         head.enemy.attackCd = 0;
         this.attack(head.enemy, ["thrust", "poison", "charge"][head.index % 3], {
           name: ["SCYLLA'S BITE", "SCYLLA'S VENOM", "SCYLLA'S LUNGE"][head.index % 3],
@@ -1150,12 +1149,10 @@ export class AegeanEncounterDirector {
     }
     this.guardNext -= dt;
     if (this.guardNext <= 0) {
-      this.guardNext = 2.8 + this.record.steps.length * 0.3;
-      this.warn({x: p.x, y: p.y}, 102, 1.05, boss.damage * 1.35,
-        "Charybdis — deck-breaking surge", "#73c9df");
-      const angle = angleTo(p.x, p.y, boss.x, boss.y);
-      this.line({x:p.x + Math.cos(angle) * 240,y:p.y + Math.sin(angle) * 240},
-        angle + Math.PI, 470, 1.4, boss.damage * 0.9, "Charybdis — crossing current");
+      this.guardNext = 6.5;
+      const spitter = heads.find(a => !a.enemy.windupAttack && this.sourceVisible(a.enemy));
+      if (spitter && !heads.some(a => !!a.enemy.windupAttack))
+        this.warn(p, 65, 1.2, spitter.enemy.damage, "SCYLLA'S BRINE SPIT", "#73c9df", undefined, spitter.enemy, "spit");
     }
   }
 
@@ -1184,7 +1181,7 @@ export class AegeanEncounterDirector {
     for (const a of this.living.filter((a) => a.role === "head"))
       if (!a.enemy.windupAttack && this.distance(a.enemy, p) > 175) this.move(a.enemy, p, 1.12);
     if (this.next <= 0) {
-      this.next = 0.75;
+      this.next = 1.4;
       this.cycle++;
       const heads = this.actors.filter(
         (a) => a.role === "head" && !a.enemy.dead,
@@ -1218,7 +1215,7 @@ export class AegeanEncounterDirector {
     if (this.allSteps()) {
       if (this.cycle === 0) {
         this.cycle = 1;
-        this.adds(4);
+        this.adds(2);
       }
       if (this.addCount() === 0) this.finish();
       this.objective = "Defend the sleeping hind from oath echoes.";
@@ -1248,13 +1245,13 @@ export class AegeanEncounterDirector {
     } else {
       this.endurance -= dt * 5;
       if (this.next <= 0) {
-        this.next = 1.9;
+        this.next = 4.5;
         this.warn(
           { x: this.game.player.x, y: this.game.player.y },
           75,
           0.9,
           (this.boss?.damage ?? 300) * 1.3,
-          "Falling starlight",
+          "ATLAS THROWS A STAR STONE",
           "#b6c5ee",
         );
       }
@@ -1281,11 +1278,11 @@ export class AegeanEncounterDirector {
     if (this.next <= 0 && !boss.windupAttack) {
       this.cycle++;
       if (this.cycle % 4 === 0) {
-        this.exposedUntil = this.now + 3.5;
-        this.next = 3.5;
+        this.exposedUntil = this.now + 4.5;
+        this.next = 4.5;
         this.say("All three heads are resting");
       } else {
-        this.next = 1.1;
+        this.next = 1.65;
         boss.attackCd = 0;
         const head = (this.cycle - 1) % 3;
         this.attack(boss, ["thrust", "sweep", "ring"][head], {
@@ -1482,8 +1479,8 @@ export class AegeanEncounterDirector {
         this.mark(index, this.slug === "augeas" ? "SLUICE OPEN — flood diverted" : "NAME RESTORED — echoes silenced");
         this.groundedUntil[index] = this.now + 12;
         this.warnings = this.warnings.filter((w) => this.distance(w, this.at(index)) > 260);
-        if (boss && this.slug !== "augeas") this.openCounter(boss, 2.5);
-        if (this.slug === "augeas") this.adds(2, "aegean_talos_shard", this.at(index));
+        if (boss) this.openCounter(boss, 2.5);
+        if (this.slug === "augeas") this.adds(1, "aegean_talos_shard", this.at(index));
         return;
       }
       case "birds":
@@ -1619,7 +1616,7 @@ export class AegeanEncounterDirector {
         if (this.holding === index) return;
         this.holding = index;
         this.holdTime = 0;
-        this.adds(2, "aegean_jailer", this.at(index));
+        this.adds(1, "aegean_jailer", this.at(index));
         this.say("CLEAR HORRORS → HOLD ANCHOR 3s");
         return;
       default:
@@ -1700,8 +1697,8 @@ export class AegeanEncounterDirector {
       if (actor.roster !== undefined) this.armyDefeated.add(actor.roster);
       if (actor.role === "captain")
         this.brokenUntil[Math.floor((actor.roster ?? 0) / 30)] = this.now + 30;
-      // A mass battle cannot turn 300 tiny kills into 300 full leech procs.
-      // Weapon hit sustain is budgeted centrally by the Aegean combat rules.
+      // Item healing is handled by the ordinary combat rules; this director
+      // adds no separate chapter refill or artificial heal on each army kill.
       return true;
     }
     if (actor.role === "head") {
@@ -1784,9 +1781,7 @@ export class AegeanEncounterDirector {
       e.windupAttack &&
       amount >= e.maxHp * 0.012
     ) {
-      e.windupAttack = null;
-      e.windupTime = 0;
-      e.attackGeometry = null;
+      e.cancelAttack();
       e.attackCd = 3;
       this.brokenUntil[company] = this.now + 7;
       this.powerEvent("onInterrupt", e);
@@ -1868,14 +1863,14 @@ export class AegeanEncounterDirector {
       e.anim="walk";
     }
     if (this.next <= 0) {
-      this.next = 0.45;
+      this.next = 0.7;
       this.cycle++;
       const engaged = soldiers.filter((a) => this.distance(a.enemy, p) < 570 && !a.enemy.windupAttack &&
         a.enemy.attackCd <= 0 && !a.enemy.statuses.some((s) => s.kind === "stun"));
       // Several simultaneous threats, bounded to keep tells legible. This is
       // scheduling of attacks only: no soldiers are hidden, invulnerable or held in reserve.
       const committing = soldiers.filter((a) => !!a.enemy.windupAttack).length;
-      const count = Math.min(3, Math.max(0, 7 - committing), engaged.length);
+      const count = Math.min(2, Math.max(0, 4 - committing), engaged.length);
       for (let k = 0; k < count; k++) {
         const a = engaged[(this.cycle * 3 + k) % engaged.length];
         this.attack(a.enemy, a.role === "javelin" ? "volley" : a.role === "runner" ? "charge" : a.role === "captain" ? "sweep" : "thrust", {
@@ -1884,7 +1879,7 @@ export class AegeanEncounterDirector {
           range: a.role === "runner" ? 235 : a.role === "javelin" ? 570 : 200,
           radius: a.role === "javelin" ? 24 : 35,
           power: a.role === "captain" ? 1.65 : 0.85,
-          count: a.role === "javelin" ? 2 : 1,
+          count: 1,
         });
       }
     }
@@ -1993,9 +1988,7 @@ export class AegeanEncounterDirector {
     this.phaseObjective = 0;
     this.cycle = 0;
     this.next = 0.8;
-    boss.windupAttack = null;
-    boss.windupTime = 0;
-    boss.attackGeometry = null;
+    boss.cancelAttack();
     this.warnings = [];
     const ph = boss.def.boss!.phases[this.phase];
     this.game.toast(ph.name, ph.line, "#e3c47b");
@@ -2009,16 +2002,16 @@ export class AegeanEncounterDirector {
   private deployGuards(): void {
     if (this.guardWaves >= 1) return;
     const wave = this.guardWaves++;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const e = this.spawn(
         "aegean_royal_guard",
         "guard",
-        wave * 6 + i,
+        wave * 4 + i,
         this.node("guard", i),
       );
       e.scripted = true;
     }
-    this.say(`ROYAL GUARD — six spears join the king`);
+    this.say(`ROYAL GUARD — four spears join the king`);
   }
   private leonidasDamage(actor: Actor, amount: number): number {
     if (actor.role !== "boss") return amount;
@@ -2076,6 +2069,7 @@ export class AegeanEncounterDirector {
         return;
       }
       this.exposedUntil = this.now + 7;
+      this.openCounter(boss, 2.5);
       this.phaseObjective++;
       this.mechanismCooldowns[index] = this.now + 9;
       for (const a of this.living.filter((a) => a.role === "guard"))
@@ -2094,7 +2088,8 @@ export class AegeanEncounterDirector {
         (w) => this.distance(w, this.at(index)) > 200,
       );
       if (this.warnings.length < pending) this.powerEvent("onInterrupt", boss);
-      this.say("Conductor grounded — a safe lane opens");
+      this.openCounter(boss, 2.5);
+      this.say("Conductor discharges — incoming weapons deflected");
     } else {
       this.say("This mechanism belongs to another part of the king’s oath.");
     }
@@ -2107,8 +2102,8 @@ export class AegeanEncounterDirector {
     this.objective = [
       "DODGE THE COMBO · punish the third strike.",
       "FLANK THE SHIELD · braziers break his stance when you hold them.",
-      "KING + SIX GUARDS · hold a standard to interrupt his rally.",
-      "RETURNING SPEAR · step aside twice; conductors open a safe lane.",
+      "KING + FOUR GUARDS · hold a standard to interrupt his rally.",
+      "RETURNING SPEAR · step aside twice; conductors deflect his weapons.",
       "LAST DUEL · no shield, faster attacks. Keep moving.",
       `The Last Oath: survive the three patterns (${this.finalSequence}/3).`,
     ][this.phase];
@@ -2122,7 +2117,7 @@ export class AegeanEncounterDirector {
     if (
       guards.length &&
       this.guardNext <= 0 &&
-      committedGuards < 2 &&
+      committedGuards < 1 &&
       this.warnings.filter((w) => w.damage > 0).length +
         (boss.windupAttack ? 1 : 0) <
         2
@@ -2135,7 +2130,7 @@ export class AegeanEncounterDirector {
       );
       if (guard) {
         this.attack(guard.enemy, "thrust", { windup: 0.65, power: 1.15 });
-        this.guardNext = 1.25;
+        this.guardNext = 2.2;
       }
     }
     const threshold = [0.82, 0.64, 0.42, 0.18, 0.05][this.phase];
@@ -2161,10 +2156,12 @@ export class AegeanEncounterDirector {
       this.guardWaves < 1
     )
       this.deployGuards();
+    if (!boss.windupAttack && this.distance(boss, p) > (this.phase === 5 ? 280 : 100))
+      this.move(boss, p, this.phase >= 4 ? 1.3 : 1.15);
     if (this.phase === 5 && this.finalSequence < 3) {
       if (this.next <= 0 && !boss.windupAttack && !this.warnings.length) {
         const step = this.finalSequence;
-        this.next = 1.5;
+        this.next = 2.2;
         const point = { x: p.x, y: p.y };
         if (step === 0)
           this.line(
@@ -2184,31 +2181,33 @@ export class AegeanEncounterDirector {
             100,
             0.9,
             boss.damage * 2.1,
-            "Last Oath — the sky",
+            "Last Oath — the thrown stone",
             "#d0e7fa",
             () => {
               this.finalSequence = Math.max(this.finalSequence, 2);
             },
+            boss,
+            "boulder",
           );
         else
           this.warn(
-            { x: boss.x, y: boss.y },
-            240,
+            point,
+            95,
             1.1,
             boss.damage * 2.3,
-            "Last Oath — the king",
+            "Last Oath — the flying shield",
             "#e2c88e",
             () => {
               this.finalSequence = 3;
               this.exposedUntil = this.now + 12;
               this.say("The oath is open. Finish the duel.");
             },
+            boss,
+            "shield",
           );
       }
       return;
     }
-    if (!boss.windupAttack && this.distance(boss, p) > 100)
-      this.move(boss, p, this.phase >= 4 ? 1.55 : 1.25);
     if (this.next > 0 || boss.windupAttack) return;
     if (
       this.warnings.filter((w) => w.damage > 0).length +
@@ -2218,7 +2217,7 @@ export class AegeanEncounterDirector {
       this.next = 0.3;
       return;
     }
-    this.next = this.phase >= 4 ? 0.9 : 1.35;
+    this.next = this.phase >= 4 ? 1.6 : 2.2;
     this.cycle++;
     boss.attackCd = 0;
     const grammar =
@@ -2241,45 +2240,28 @@ export class AegeanEncounterDirector {
         0.75,
         boss.damage * 1.7,
         "The Returning King — outbound",
-        () => {
-          this.line(
-            {
-              x: origin.x + Math.cos(angle) * length,
-              y: origin.y + Math.sin(angle) * length,
-            },
-            angle + Math.PI,
-            length,
-            0.75,
-            boss.damage * 1.7,
-            "The Returning King — return",
-          );
+        (impact, reason) => {
+          // A spear lodged in stone cannot turn around. Otherwise the same
+          // visible missile returns from its actual impact toward the king.
+          if (reason === "wall" || !this.sourceVisible(boss)) return;
+          const returnDistance = this.distance(impact, boss);
+          const returning: Warning = {...impact, source: boss, at: this.now + returnDistance / 260 + 1,
+            damage: boss.damage * 1.4, label: "The Returning King — return", attackId: "royal_return"};
+          this.warnings.push(returning);
+          this.game.spawnProjectile({x: impact.x, y: impact.y,
+            angle: angleTo(impact.x, impact.y, boss.x, boss.y), range: returnDistance,
+            speed: 260, radius: 10, damage: returning.damage,
+            minHealthDamage: aegeanMinimumHit(boss.def, 1.4), element: "physical",
+            friendly: false, color: "#d5bf87", sprite: "spear", sourceId: boss.id,
+            onImpact: () => { this.warnings = this.warnings.filter(w => w !== returning); },
+          });
         },
       );
     } else {
       const royal = boss.def.boss?.attacks ?? [];
       if (this.cycle % 2 === 0 && royal.length)
         boss.queueAttack(this.game, royal[(this.cycle / 2 - 1) % royal.length]);
-      else this.attack(boss, key, {windup: this.phase >= 4 ? 0.52 : 0.68, power: this.phase >= 4 ? 1.85 : 1.5});
-    }
-    // Only one extra scheduled temple hazard; always preserve the opposite lane.
-    if (
-      this.phase >= 1 &&
-      this.cycle % 3 === 0 &&
-      this.warnings.filter((w) => w.damage > 0).length +
-        (boss.windupAttack ? 1 : 0) +
-        guards.filter((a) => a.enemy.windupAttack).length <
-        2
-    ) {
-      const index = this.phase >= 3 ? 4 + (this.cycle % 4) : this.cycle % 4,
-        node = this.distance(this.at(index), p) < 300 ? this.at(index) : {x:p.x, y:p.y};
-      if ((this.groundedUntil[index] ?? 0) <= this.now)
-        this.warn(
-          node,
-          100,
-          0.95,
-          boss.damage * 1.4,
-          this.phase >= 3 ? "Storm conductor" : "Spear channel",
-        );
+      else this.attack(boss, key, {windup: this.phase >= 4 ? 0.8 : .95, power: this.phase >= 4 ? 1.85 : 1.5});
     }
     if (
       this.phase === 2 &&

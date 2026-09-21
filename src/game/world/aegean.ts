@@ -7,8 +7,8 @@ import {
   AEGEAN_WAYSTONES,
   type AegeanPort,
 } from "../../data/aegean/world";
-import { RNG } from "../core/rng";
-import { AEGEAN_ISLAND_ECOLOGY, AEGEAN_MAINLAND_ECOLOGY } from "../../data/aegean/ecology";
+import { RNG, hashString } from "../core/rng";
+import { AEGEAN_ISLAND_ECOLOGY, AEGEAN_MAINLAND_ECOLOGY, AEGEAN_RARE_SPECIES, AEGEAN_SURFACE_SPAWNS, pickAegeanSpecies } from "../../data/aegean/ecology";
 import {
   aegeanPath,
   generateAegeanTerrain,
@@ -680,8 +680,8 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
     22: 97,
     23: 100,
   };
-  for (let y = 30; y < map.h - 30; y += 15)
-    for (let x = 985; x < map.w - 25; x += 15) {
+  for (let y = 30; y < map.h - 30; y += AEGEAN_SURFACE_SPAWNS.spacing)
+    for (let x = 985; x < map.w - 25; x += AEGEAN_SURFACE_SPAWNS.spacing) {
       const tx = x + rng.int(-5, 5),
         ty = y + rng.int(-5, 5),
         i = ty * map.w + tx;
@@ -703,15 +703,24 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
       const island = AEGEAN_ISLANDS.find(island => island.landmass === map.landmasses![i]);
       const table = (island ? AEGEAN_ISLAND_ECOLOGY[island.id] : AEGEAN_MAINLAND_ECOLOGY[region])?.enemies;
       if (!table) continue;
+      const enemy = pickAegeanSpecies(table, rng.next());
+      const rare = AEGEAN_RARE_SPECIES.has(enemy);
+      // Consume the original RNG stream before thinning: surviving patrols keep
+      // their coordinate IDs, so old respawn/save receipts still address them.
+      const level = Math.min(100, levels[region] + rng.int(0, 3));
+      const paired = rng.bool(AEGEAN_SURFACE_SPAWNS.pairChance);
+      const respawnJitter = rng.int(0, 120);
+      const id = `aegean:surface:${tx}:${ty}`;
+      if ((hashString(id) >>> 0) / 4294967296 >= AEGEAN_SURFACE_SPAWNS.retained) continue;
       map.spawns.push({
-        id: `aegean:surface:${tx}:${ty}`,
-        enemy: table[rng.int(0, table.length - 1)],
+        id,
+        enemy,
         x: tx * TILE + 16,
         y: ty * TILE + 16,
-        level: Math.min(100, levels[region] + rng.int(0, 3)),
+        level,
         radius: 190,
-        group: rng.bool(0.55) ? 2 : 1,
-        respawn: 240 + rng.int(0, 120),
+        group: !rare && paired ? 2 : 1,
+        respawn: (rare ? 540 : 270) + respawnJitter,
         region: AEGEAN_LOCATIONS.find(
           (l) =>
             l.region && l.tx > 960 && Math.hypot(l.tx - tx, l.ty - ty) < 70,
@@ -733,7 +742,7 @@ export function appendAegean(legacy: GameMap, seed: number): GameMap {
         if (AEGEAN_LOCATIONS.some(loc => !loc.surfaceMap && Math.hypot(loc.tx - tx, loc.ty - ty) < (loc.kind === "village" ? 30 : loc.dungeon ? 8 : 0))) continue;
         if (AEGEAN_PORTS.some(port => Math.hypot(port.land.x / TILE - tx, port.land.y / TILE - ty) < 7)) continue;
         map.spawns.push({ id: `aegean:island:${island.id}:${enemy}`, enemy, x: tx * TILE + 16, y: ty * TILE + 16,
-          level: island.id === "asterion" ? 100 : 93, radius: 120, group: 1, respawn: 300,
+          level: island.id === "asterion" ? 100 : 93, radius: 120, group: 1, respawn: AEGEAN_RARE_SPECIES.has(enemy) ? 600 : 330,
           region: island.id === "asterion" ? "aegean_asterion" : "aegean_cyclades" });
         break;
       }

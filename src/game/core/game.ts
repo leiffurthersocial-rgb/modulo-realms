@@ -1,6 +1,5 @@
 import { AegeanHazards } from '../aegean/hazards';
 import { AegeanWeaponCombat } from '../aegean/weapons';
-import { AegeanRecovery } from '../aegean/recovery';
 import { AegeanServices } from '../aegean/services';
 import { AEGEAN_PORTS } from '../../data/aegean/world';
 import { AegeanPowers } from '../aegean/powers';
@@ -22,6 +21,7 @@ import type { Look } from '../art/characters';
 import { PAL } from '../art/palette';
 import { audio, aegeanMusicForRegion, type MusicTrack } from '../audio/audio';
 import { FxSystem } from '../combat/fx';
+import type { PhysicalAttackCue } from '../combat/physical';
 import { makeProjectile, type Projectile } from '../combat/projectiles';
 import { Enemy } from '../entities/enemy';
 import { NpcEntity } from '../entities/npcEntity';
@@ -345,7 +345,6 @@ export class Game implements WorldCtx {
     this.quests = new QuestLog();
     this.player = new Player(init);
     this.campaign.reset();
-    this.aegeanRecovery.reset();
     this.aegeanHitReceipts = new WeakMap();
     this.activities.reset();
     this.services.reset();
@@ -613,6 +612,10 @@ export class Game implements WorldCtx {
     this.fx.telegraph(x, y, r, duration, color, shape, angle, halfWidth, coneHalfAngle);
   }
 
+  physicalAttack(spec: PhysicalAttackCue): void {
+    this.fx.physicalAttack(spec);
+  }
+
   ringAt(x: number, y: number, r: number, color: string): void {
     this.fx.ring(x, y, r, color);
   }
@@ -750,8 +753,7 @@ export class Game implements WorldCtx {
     return { x: p.x + Math.cos(a) * range * 0.55, y: p.y + Math.sin(a) * range * 0.55 };
   }
 
-  /** Damage-driven recovery is bounded only in the Greek expansion. */
-  private aegeanRecovery = new AegeanRecovery();
+  /** Successful hits retain their full lifesteal and on-kill recovery. */
   private aegeanHitReceipts = new WeakMap<Enemy, number>();
   get inAegean(): boolean {
     return this.map?.id.startsWith('aegean_') || this.map?.id.startsWith('int_aegean_') ||
@@ -759,8 +761,8 @@ export class Game implements WorldCtx {
   }
   recoverFromOffense(amount: number): number {
     const p = this.player;
-    const healed = Math.min(Math.max(0, p.maxHp - p.hp), this.inAegean
-      ? this.aegeanRecovery.take(amount, p.maxHp, this.now) : Math.max(0, amount));
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    const healed = Math.min(Math.max(0, p.maxHp - p.hp), amount);
     p.hp += healed;
     return healed;
   }
@@ -860,7 +862,16 @@ export class Game implements WorldCtx {
 
   private killEnemy(e: Enemy, opts: DamageOpts): void {
     e.dead = true;
-    if (this.encounters.onEnemyKilled(e)) return;
+    const killedInPractice = this.encounters.isPractice;
+    if (this.encounters.onEnemyKilled(e)) {
+      // Encounter-owned rewards must not suppress the player's leeching build.
+      const leech = !e.friendly && (!killedInPractice || this.encounters.isPractice) ? this.player.enchantPower('leeching') : 0;
+      if (leech > 0) {
+        const heal = this.recoverFromOffense(this.player.maxHp * leech / 100);
+        if (heal > 0) this.floatText(this.player.x, this.player.y - 44, `+${Math.round(heal)}`, '#5dbf5a', 12);
+      }
+      return;
+    }
     const p = this.player;
     if (!e.friendly) p.flags.add(`feat:enemy:${e.def.id}`);
     this.fx.spawn(e.x, e.y - e.radius * 0.5, 22, PAL.blood, { speed: 140, life: 0.6, size: 3 });
@@ -3994,7 +4005,7 @@ export class Game implements WorldCtx {
     if (this.streak > 0 && this.now > this.streakUntil) this.streak = 0;
 
     if (this.screen !== 'playing') {
-      this.fx.update(dt);
+      this.fx.update(dt, 0);
       this.input.endFrame();
       return;
     }
@@ -4005,7 +4016,7 @@ export class Game implements WorldCtx {
 
     if (this.uiOpen) {
       this.input.uiCapture = true;
-      this.fx.update(dt * 0.2);
+      this.fx.update(dt * 0.2, 0);
       this.updateCamera(dt);
       this.input.endFrame();
       return;
@@ -4014,7 +4025,7 @@ export class Game implements WorldCtx {
 
     if (this.hitStop > 0) {
       this.hitStop -= dt;
-      this.fx.update(dt);
+      this.fx.update(dt, 0);
       this.updateCamera(dt);
       this.input.endFrame();
       return;
@@ -4455,8 +4466,27 @@ export class Game implements WorldCtx {
   }
 
   private updateProjectiles(dt: number): void {
-    for (const pr of this.projectiles) {
+    const projectileMap = this.map;
+    let sources: Map<number, Enemy> | undefined;
+    let damageContextChanged = false;
+    const finish = (pr: Projectile, reason: 'hit' | 'wall' | 'range') => {
+      if (pr.dead) return;
+      pr.dead = true;
+      if (this.map === projectileMap && pr.onImpact &&
+          (pr.sourceId === undefined || this.enemies.some(e => e.id === pr.sourceId && !e.dead)))
+        pr.onImpact({ x: pr.x, y: pr.y }, reason);
+    };
+    for (const pr of [...this.projectiles]) {
+      if (this.map !== projectileMap || damageContextChanged) break;
       if (pr.dead) continue;
+      if (!pr.friendly && pr.sourceId !== undefined) {
+        sources ??= new Map(this.enemies.map(e => [e.id, e]));
+        const source = sources.get(pr.sourceId);
+        if (!source || source.dead || dist2(source.x, source.y, this.player.x, this.player.y) > 850 * 850) {
+          pr.dead = true; // Cancel abandoned attacks; do not trigger impact counterplay.
+          continue;
+        }
+      }
       // Friendly shots correct slightly, so auto-aim stays true against a
       // target that steps aside. The window is deliberately short: over a
       // 500-pixel flight a wide homing radius turns every arrow into a guided
@@ -4491,9 +4521,9 @@ export class Game implements WorldCtx {
         pr.x += pr.vx * sdt;
         pr.y += pr.vy * sdt;
         pr.travelled += frameStep / subs;
-        if (pr.travelled > pr.range) { pr.dead = true; break; }
+        if (pr.travelled > pr.range) { finish(pr, 'range'); break; }
         if (blocksProjectiles(this.mapTileAt(pr.x, pr.y))) {
-          pr.dead = true;
+          finish(pr, 'wall');
           this.fx.spawn(pr.x, pr.y, 6, pr.color, { speed: 80, life: 0.3, size: 2 });
           break;
         }
@@ -4514,20 +4544,26 @@ export class Game implements WorldCtx {
               }
             }
             if (pr.pierceLeft > 0) pr.pierceLeft--;
-            else { pr.dead = true; }
+            else { finish(pr, 'hit'); }
             break;
           }
         } else {
           const p = this.player;
           if (dist2(pr.x, pr.y, p.x, p.y - 8) < (p.radius + pr.radius * 0.3) ** 2) {
-            pr.dead = true;
             const hpBefore = p.hp, shieldBefore = p.shield;
+            const xBefore = p.x, yBefore = p.y, aboardBefore = this.naval.aboard;
             this.damagePlayer(pr.damage, { trueDamageAmount: pr.trueDamageAmount, minHealthDamage: pr.minHealthDamage, element: pr.element, fromX: pr.x, fromY: pr.y, knockback: 60 });
-            const landed = !this.inAegean || (!p.dead && (p.hp < hpBefore || p.shield < shieldBefore));
+            if (this.map !== projectileMap || this.player !== p || this.naval.aboard !== aboardBefore ||
+                Math.hypot(p.x - xBefore, p.y - yBefore) > 100 || p.dead) {
+              pr.dead = true; damageContextChanged = true; break;
+            }
+            const landed = (!this.inAegean && pr.sourceId === undefined) || (!p.dead && (p.hp < hpBefore || p.shield < shieldBefore));
             if (landed && pr.element === 'shadow' && this.regionAtPlayer()?.startsWith('aegean_')) applyStatus(p,'curse',.2,8,'#bda4d5',this.now);
             if (landed && pr.element === 'poison') applyStatus(p, 'poison', pr.damage * 0.25, 5, PAL.toxic, this.now);
             if (landed && pr.element === 'fire') applyStatus(p, 'burn', pr.damage * 0.25, 4, PAL.flame, this.now);
             if (landed && pr.element === 'frost') applyStatus(p, 'chill', 0.3, 3, PAL.frost, this.now);
+            if (landed && pr.status) applyStatus(p, pr.status.kind, pr.status.power, pr.status.duration, pr.color, this.now);
+            finish(pr, 'hit');
             this.fx.spawn(pr.x, pr.y, 8, pr.color, { speed: 90, life: 0.35, size: 2 });
           }
         }

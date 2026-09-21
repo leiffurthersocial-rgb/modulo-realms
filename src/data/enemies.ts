@@ -3,6 +3,7 @@ import type { Look } from '../game/art/characters';
 import type { CreatureKind } from '../game/art/creatures';
 import type { FactionId } from './races';
 import type { EnemyRole } from './balance';
+import type { PhysicalAttackKind, PhysicalProjectileKind } from '../game/combat/physical';
 import { AEGEAN_ENEMIES } from './aegean/enemies';
 
 export type DamageElement = 'physical' | 'fire' | 'frost' | 'arcane' | 'shadow' | 'holy' | 'poison';
@@ -41,7 +42,12 @@ export interface BossAttack {
    * footwork, not numbers.
    */
   lifeTax?: number;
-  /** Greek patterns: explicit projectile lanes, safe centres and delayed echoes. */
+  /** Greek attacks: tangible held weapons, limbs and source-bound projectiles. */
+  physical?: PhysicalAttackKind;
+  projectileSprite?: PhysicalProjectileKind | 'bolt' | 'arrow' | 'orb' | 'shard' | 'spit';
+  swings?: number;
+  pull?: number;
+  onImpact?: (point: { x: number; y: number }, reason: 'hit' | 'wall' | 'range') => void;
   projectileSpeed?: number;
   spread?: number;
   innerRadius?: number;
