@@ -363,6 +363,40 @@ export class AudioManager {
         this.tone('sine', 300, t, 0.18, 0.08 * v, out);
         this.noise(t + 0.05, 0.14, 0.05 * v, 600, 'lowpass', out);
         break;
+      /* ---- the Gilded Spade's slot machine ---- */
+      // The handle going over: a spring, a ratchet and the motor catching.
+      case 'slot_lever':
+        this.noise(t, 0.12, 0.13 * v, 1800, 'bandpass', out);
+        this.tone('square', 220, t, 0.06, 0.05 * v, out);
+        this.tone('sawtooth', 90, t + 0.06, 0.3, 0.035 * v, out, 0.02);
+        break;
+      // One cell of the strip going past. Played many times a second, so it
+      // is deliberately tiny — anything with a tail turns into a drone.
+      case 'slot_reel_tick':
+        this.noise(t, 0.012, 0.09 * v, 5200, 'bandpass', out);
+        break;
+      // A reel dropping onto its stop.
+      case 'slot_reel_stop':
+        this.noise(t, 0.06, 0.16 * v, 1500, 'lowpass', out);
+        this.tone('square', 330, t, 0.05, 0.05 * v, out);
+        break;
+      // A coin into the slot, or out of the chute into the tray.
+      case 'slot_coin_in':
+        this.tone('sine', 1760, t, 0.07, 0.05 * v, out);
+        this.tone('sine', 2640, t + 0.03, 0.09, 0.035 * v, out);
+        this.noise(t, 0.05, 0.05 * v, 3400, 'bandpass', out);
+        break;
+      // The bell on top of the cabinet, for a crown line or better.
+      case 'slot_bell':
+        [1318, 1976, 2637].forEach((f, i) => this.tone('sine', f, t + i * 0.015, 1.5 - i * 0.3, (0.075 - i * 0.02) * v, out, 0.004));
+        this.noise(t, 0.05, 0.08 * v, 4200, 'bandpass', out);
+        break;
+      // The third reel being held back: a rising drum roll under it.
+      case 'slot_tease':
+        for (let i = 0; i < 14; i++) this.noise(t + i * 0.1, 0.06, (0.03 + i * 0.004) * v, 900 + i * 90, 'bandpass', out);
+        this.tone('triangle', 110, t, 1.5, 0.03 * v, out, 0.4);
+        break;
+
       /* ---- the Gilded Spade's wheel ---- */
       // A bolt going home: a short wooden tick with a little brass over it.
       case 'wheel_clack':

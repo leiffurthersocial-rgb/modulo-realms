@@ -101,9 +101,11 @@ src/
   game/aegean/           13 Module: campaign, encounters (2325 Z.), naval, powers,
                          activities, services, hazards, weapons, deck, mastery,
                          navigation, waypoints, guidance
-  game/casino/           games.ts (reine Regeln: Deck, Handwertung, Walzen) +
+  game/casino/           games.ts (reine Regeln: Deck, Handwertung, Walzen, STAKES) +
                          casino.ts (Sitzung, Einsatz, Auszahlung) + holdem.ts — Gilded Spade
                          + roulette.ts (Das Rad: Schaden, Reparatur-Sequenz, Idle-Show)
+                         + slotMachine.ts (Walzenmechanik, Hebel, Münzen)
+                         + rouletteTable.ts (Kessel-Regeln + spielbarer Tisch)
   game/art/casinoRoom.ts Inventar des Spielsaals: sitzende Gäste (4 Blickrichtungen,
                          6 Stammgäste), Croupier, Barkeeper, Roulette (heil/kaputt),
                          loser Radkopf, Kassenkäfig, Cocktailtische, Teppich, Porträt,
@@ -155,6 +157,15 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
   Strukturelle aus `x % 16` / `y % 8` ab, laufen also über die Kachelgrenze durch; nur das
   Rauschen variiert. Der Goldrand kommt vom Teppich-Prop, einem einzeln gezeichneten
   184×136-Bild — eine gekachelte Borte kann nicht auf Gehrung stoßen.
+- **Die Hausspiele sind keine Dialoge.** Slot und Roulette werden als *Gerät*
+  gezeichnet (`art/slotCabinet.ts`, `art/rouletteFelt.ts`): ein Canvas auf 1:1-Pixel,
+  per Nearest-Neighbour hochskaliert, kein Titelbalken, kein SPIN-Button, keine
+  Paytable-Liste. Die Paytable steht auf dem Bauchglas, der Einsatz sind fünf
+  Münzschlitze, und gespint wird am **Hebel** (ziehen; zu kurz gezogen = nichts
+  passiert). Roulette: Chip aus dem Rack, auf ein Feld, Kessel anschieben.
+  `slotCabinet.ts` bringt das 3×5-Pixelalphabet und die Siebensegment-Lampen mit,
+  `rouletteFelt.ts` borgt sie. **Nicht wieder in React-Panels zurückbauen.**
+  Mechanik läuft in Spielzeit aus `Casino.update`, die Panels nur zeichnen und lesen.
 - **Das Roulette startet kaputt.** Der Kopf ist abgeschraubt und liegt in Whisperwell
   Cave (`casino_wheel_head`-Prop, Item `q_wheel_head`). Dario gibt den Hinweis in seinem
   **goldgerahmten** Dialogknoten (`frame: 'gold'` + `accent: 'gold'` auf der Zeile — ersetzt
@@ -163,7 +174,9 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
   `casino_wheel_fixed`, +25 Gildenruf, Dario zieht ans Rad und spielt dort die Idle-Show.
   Zustand lebt ausschließlich in Player-Flags; `Game.applyStoryProps` baut Prop und
   Dario-Anker bei jedem `setMap` daraus neu auf — Maps werden aus dem Seed regeneriert
-  und können nichts davon speichern.
+  und können nichts davon speichern. **Repariert ist es spielbar**: Einzelnull-Kessel
+  (37 Fächer), Straight 35:1, Dutzend 2:1, einfache Chancen 1:1, Hausvorteil = allein
+  die Null (2,7 %).
 - **Keine Gear-Restriktionen**, keine Level-Anforderungen auf Items.
 - Level-Cap 100, heroische Masteries ab 80, normale Talentpunkte stoppen bei 75.
 - **Kein Level-Lock nach Achaea.** Schwierigkeit kommt aus Gegnern, Wetter, Expeditionskosten.

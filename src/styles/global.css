@@ -428,6 +428,35 @@ canvas.world {
 }
 
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ------------------------------------------------------------------ */
+/* Roulette table                                                      */
+/* ------------------------------------------------------------------ */
+
+/* Same rule as the machine next door: the table is a sprite, not a dialog. */
+.felt-room {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px;
+  background:
+    radial-gradient(ellipse 60% 62% at 50% 46%, rgba(30, 70, 44, 0.42), transparent 72%),
+    rgba(6, 4, 10, 0.9);
+  animation: fade-in 0.22s ease;
+}
+
+.felt-table {
+  height: min(82vh, 720px);
+  width: auto;
+  image-rendering: pixelated;
+  touch-action: none;
+  filter: drop-shadow(0 20px 38px rgba(0, 0, 0, 0.7));
+}
+
+.felt-leave {
+  font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(201, 177, 132, 0.5);
+  pointer-events: none;
+}
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes slide-in-left { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
 @keyframes pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
@@ -1593,343 +1622,38 @@ canvas.world {
 /* Slot machine                                                        */
 /* ------------------------------------------------------------------ */
 
-.slot-panel .panel-title { align-items: center; }
-
-.slot-crown {
-  width: 14px; height: 11px; margin-right: 2px;
-  background: var(--gold);
-  clip-path: polygon(0 100%, 12% 25%, 33% 60%, 50% 0, 67% 60%, 88% 25%, 100% 100%);
-}
-
-.slot-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-
-.slot-cabinet {
-  position: relative;
-  /* The carcass is sized to its window, not to the panel. A cabinet stretched
-     to the full modal width leaves two hands' width of bare wood either side
-     of the reels and stops reading as a machine. */
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 auto;
-  border-radius: 6px;
-  padding: 16px 18px 14px;
-  /* A carved walnut cabinet with a brass inlay, the way the concept sheet
-     draws it: two hard inner rules rather than one soft border, because a
-     single 1px outline reads as a web panel and not as a machine. */
-  background:
-    repeating-linear-gradient(94deg, rgba(0,0,0,0.11) 0 2px, rgba(255,255,255,0.045) 2px 5px),
-    linear-gradient(180deg, #7d5334 0%, #5a3a22 45%, #3c2317 100%);
-  box-shadow:
-    inset 0 0 0 3px #9a6a45,
-    inset 0 0 0 5px #24140d,
-    inset 0 0 0 8px #e0bb77,
-    inset 0 0 0 11px #24140d,
-    inset 0 0 0 13px #7a5134,
-    inset 0 20px 34px rgba(0, 0, 0, 0.3),
-    0 8px 22px rgba(0, 0, 0, 0.55);
-}
-
-.slot-cabinet.celebrating { animation: slot-shake 0.5s ease; }
-
-@keyframes slot-shake {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-2px, 1px); }
-  50% { transform: translate(2px, -1px); }
-  75% { transform: translate(-1px, -1px); }
-}
-
-/* candle sconces bolted to the cabinet shoulders */
-.slot-candle {
-  position: absolute;
-  top: 34px;
-  width: 9px; height: 34px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, #efe6d6 0 16px, #8a6a2c 16px 100%);
-  box-shadow: 0 0 10px 3px rgba(246, 191, 93, 0.22);
-}
-.slot-candle.left { left: 20px; }
-.slot-candle.right { right: 20px; }
-
-.slot-candle i {
-  display: block;
-  position: absolute;
-  left: 1px; top: -9px;
-  width: 7px; height: 10px;
-  border-radius: 50% 50% 40% 40%;
-  background: radial-gradient(circle at 50% 70%, #fff3cf, #f6bf5d 45%, #e8763a 80%);
-  animation: candle-flicker 0.55s steps(2) infinite alternate;
-}
-
-@keyframes candle-flicker {
-  from { transform: scaleY(1) translateY(0); opacity: 0.88; }
-  to { transform: scaleY(1.22) translateY(-1px); opacity: 1; }
-}
-
-.slot-head {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  padding: 2px 6px 8px;
-  width: fit-content;
-  margin: 0 auto;
-}
-
-.slot-bulbs { display: flex; gap: 6px; }
-
-.slot-bulb {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: #7a6434;
-  box-shadow: none;
-}
-
-.slot-bulb.on {
-  background: #f6bf5d;
-  box-shadow: 0 0 5px 2px rgba(246, 191, 93, 0.6);
-}
-
-.slot-badge {
-  min-width: 52px; height: 28px;
-  display: grid; place-items: center;
-  padding: 0 12px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, #a3283a, #5e1220);
-  box-shadow: inset 0 0 0 2px var(--gold-dim), 0 2px 6px rgba(0,0,0,0.45);
-  font-size: 13px; letter-spacing: 1.5px; color: var(--gold);
-}
-
-.slot-badge.jackpot {
-  color: #fff3cf;
-  text-shadow: 0 0 8px rgba(246, 191, 93, 0.9);
-  animation: jackpot-pulse 0.4s ease-in-out infinite alternate;
-}
-
-@keyframes jackpot-pulse {
-  from { box-shadow: inset 0 0 0 2px var(--gold); }
-  to { box-shadow: inset 0 0 0 2px #fff3cf, 0 0 14px rgba(246,191,93,0.7); }
-}
-
-.slot-badge-crown {
-  width: 18px; height: 13px;
-  background: var(--gold);
-  clip-path: polygon(0 100%, 12% 25%, 33% 60%, 50% 0, 67% 60%, 88% 25%, 100% 100%);
-}
-
-/* the window, the two arrows that flank it and the handle, on one row */
-.slot-stage {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding-right: 26px;
-}
-
-.slot-arrow {
-  width: 0; height: 0;
-  border-top: 10px solid transparent;
-  border-bottom: 10px solid transparent;
-  filter: drop-shadow(0 0 4px rgba(246, 191, 93, 0.45));
-  animation: arrow-blink 0.9s steps(2) infinite alternate;
-}
-.slot-arrow.left { border-right: 12px solid var(--gold); }
-.slot-arrow.right { border-left: 12px solid var(--gold); }
-
-@keyframes arrow-blink { from { opacity: 0.45; } to { opacity: 1; } }
-
-.slot-window {
-  position: relative;
-  /* Sized to the three reels, not to the panel — a window wider than the
-     reels leaves the machine looking half-empty. */
-  width: fit-content;
-  border-radius: 4px;
-  padding: 10px 12px;
-  background: linear-gradient(180deg, #8e2131, #6d1a22);
-  box-shadow: inset 0 0 0 3px #3c7a45, inset 0 0 0 5px #8a6a2c;
-  /* The win sunburst is drawn oversized so it fills the corners; without this
-     it escapes the cabinet and rakes across the whole screen. */
-  overflow: hidden;
-}
-
-.slot-reels { display: flex; gap: 6px; justify-content: center; position: relative; z-index: 1; }
-
-/* the pay line, drawn across all three reels rather than inside each one */
-.slot-payline {
-  position: absolute;
-  left: -4px; right: -4px; top: 50%;
-  height: 2px;
-  transform: translateY(-1px);
-  background: linear-gradient(90deg, rgba(232,117,122,0), #e8757a 12%, #e8757a 88%, rgba(232,117,122,0));
-  pointer-events: none;
-  z-index: 2;
-}
-
-.slot-reel {
-  width: 64px; height: 80px;
-  display: grid; place-items: center;
-  border-radius: 2px;
-  background: linear-gradient(180deg, #efe6d6, #cfc5b4 60%, #b8ae9d);
-  box-shadow: inset 0 0 0 1px #0f0d14, inset 0 6px 10px rgba(0,0,0,0.22), inset 0 -6px 10px rgba(0,0,0,0.22);
-  overflow: hidden;
-}
-
-.slot-reel.hit {
-  background: linear-gradient(180deg, #fff6df, #f2dfae 60%, #dcc68f);
-  box-shadow: inset 0 0 0 2px var(--gold), 0 0 12px rgba(246, 191, 93, 0.7);
-}
-
-.slot-reel img {
-  width: 46px; height: 46px;
-  image-rendering: pixelated;
-}
-
-.slot-reel.spinning img { animation: reel-roll 0.14s linear infinite; }
-
-@keyframes reel-roll {
-  from { transform: translateY(-14px); }
-  to { transform: translateY(14px); }
-}
-
-/* the coin tray along the bottom of the cabinet */
-.slot-tray {
-  margin: 8px auto 0;
-  width: fit-content;
-  display: flex; gap: 5px;
-  padding: 4px 12px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, #1c0f16, #2a1220);
-  box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
-}
-
-.slot-tray-coin {
-  width: 7px; height: 4px; border-radius: 50%;
-  background: linear-gradient(180deg, #f2cb60, #8a6a2c);
-}
-
-/* the sunburst behind a win */
-.slot-rays {
-  position: absolute; inset: -20%;
-  background: repeating-conic-gradient(
-    from 0deg,
-    rgba(246, 191, 93, 0.42) 0deg 8deg,
-    rgba(246, 191, 93, 0) 8deg 20deg
-  );
-  animation: rays-turn 6s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes rays-turn { to { transform: rotate(360deg); } }
-
-.slot-lever {
-  position: absolute;
-  right: 3px;
-  top: 76px;
-  width: 20px; height: 66px;
-  pointer-events: none;
-  z-index: 2;
-  /* A slot handle is pulled down, not swung sideways. Rotating it sent the
-     knob arcing across the reels instead of along the cabinet. */
-  transform: translateY(calc(var(--pull) * 22px));
-  transition: transform 0.12s ease-out;
-}
-
-/* mounting boss, bolted to the cabinet and pinned against the pull */
-.slot-lever::before {
-  content: '';
-  position: absolute; left: 4px;
-  top: calc(var(--pull) * -22px);
-  width: 12px; height: 8px; border-radius: 3px;
-  background: linear-gradient(180deg, #9aa2b3, #3d4350);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}
-
-.slot-lever-rod {
-  position: absolute; left: 8px; top: 5px;
-  width: 5px;
-  height: calc(44px - var(--pull) * 20px);
-  background: linear-gradient(90deg, #c3cad6 0%, #9aa2b3 45%, #3d4350 100%);
-  border-radius: 3px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.55);
-}
-
-.slot-lever-knob {
-  position: absolute; left: 0; top: 44px;
-  width: 20px; height: 20px; border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, #ff9aa0, #b8323a 55%, #6d1a22);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.6), inset 0 -2px 4px rgba(0,0,0,0.35);
-}
-
-.slot-status {
-  margin: 8px auto 0;
-  width: fit-content;
-  min-width: 250px;
-  padding: 6px 14px;
-  border-radius: 3px;
-  background: #16131f;
-  box-shadow: inset 0 0 0 1px #2a2432;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text);
-}
-
-.slot-status.win { color: var(--gold); font-weight: 600; }
-
-.slot-coins { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: 5px; }
-
-.slot-coin {
-  position: absolute;
-  width: 14px; height: 14px;
-  image-rendering: pixelated;
-  top: -16px;
-  animation: coin-fall 1.5s ease-in forwards;
-}
-
-.slot-coin.c0 { left: 6%;  animation-delay: 0s; }
-.slot-coin.c1 { left: 17%; animation-delay: 0.12s; }
-.slot-coin.c2 { left: 28%; animation-delay: 0.05s; }
-.slot-coin.c3 { left: 39%; animation-delay: 0.22s; }
-.slot-coin.c4 { left: 50%; animation-delay: 0.1s; }
-.slot-coin.c5 { left: 61%; animation-delay: 0.3s; }
-.slot-coin.c6 { left: 72%; animation-delay: 0.16s; }
-.slot-coin.c7 { left: 83%; animation-delay: 0.26s; }
-.slot-coin.c8 { left: 92%; animation-delay: 0.08s; }
-.slot-coin.c9 { left: 46%; animation-delay: 0.38s; }
-
-@keyframes coin-fall {
-  to { transform: translateY(240px) rotate(420deg); opacity: 0; }
-}
-
-.slot-controls {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-}
-
-.slot-spin { min-width: 104px; letter-spacing: 1.4px; }
-
-.slot-foot {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
+/*
+ * The machine is not a dialog. It is a sprite you stand in front of, so the
+ * only styling here is the dark room around it and the rule that says never
+ * to smooth a pixel. Everything else the player sees is painted into the
+ * canvas by `art/slotCabinet.ts`.
+ */
+.slot-room {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px;
+  background:
+    radial-gradient(ellipse 52% 60% at 50% 46%, rgba(70, 30, 26, 0.5), transparent 70%),
+    rgba(6, 4, 10, 0.88);
+  animation: fade-in 0.22s ease;
+  cursor: default;
 }
 
-.slot-pay, .slot-purse {
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  background: var(--panel-2);
-  padding: 8px 10px;
-}
-
-.slot-pay-row { display: inline-flex; align-items: center; gap: 2px; }
-/* Pay-table symbols sit on a slice of reel, both because that is what the
-   cabinet shows and because the spade is near-black and vanishes against the
-   panel without something pale behind it. */
-.slot-pay-row img {
-  width: 17px; height: 17px;
+.slot-cab {
+  height: min(86vh, 760px);
+  width: auto;
   image-rendering: pixelated;
-  border-radius: 2px;
-  background: linear-gradient(180deg, #efe6d6, #c6bcab);
-  box-shadow: inset 0 0 0 1px rgba(15, 13, 20, 0.55);
+  touch-action: none;
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.65));
 }
-.slot-pay-note { margin-left: 5px; color: var(--muted); }
 
-.slot-purse { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
-.slot-purse > div { display: flex; justify-content: space-between; gap: 8px; }
+.slot-leave {
+  font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(201, 177, 132, 0.5);
+  pointer-events: none;
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ------------------------------------------------------------------ */
 /* Hold'em table                                                       */
@@ -2131,9 +1855,7 @@ canvas.world {
 .hold-waiting { color: var(--muted); font-size: 12.5px; }
 
 @media (max-width: 760px) {
-  .slot-foot { grid-template-columns: minmax(0, 1fr); }
-  .slot-reel { width: 52px; height: 66px; }
-  .slot-reel img { width: 36px; height: 36px; }
+  .slot-cab { height: min(70vh, 560px); }
   .hold-card { width: 30px; height: 42px; }
   .hold-hero .hold-seat-cards .hold-card { width: 36px; height: 50px; }
   .hold-opponents { gap: 6px; }

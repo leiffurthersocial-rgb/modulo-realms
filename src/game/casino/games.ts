@@ -12,6 +12,9 @@
  * swings, and walk out having lost a little more often than they won.
  */
 
+/** Stakes a player can sit down for, smallest first. One coin slot each. */
+export const STAKES = [10, 25, 50, 100, 250] as const;
+
 export type Suit = 'spade' | 'heart' | 'club' | 'diamond';
 
 export interface Card {

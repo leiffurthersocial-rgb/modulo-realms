@@ -189,9 +189,10 @@ export class RouletteShow {
     const g = this.game;
     if (this.showing) return;
     if (this.fixed) {
-      g.toast('The Whirligig', 'Turning, ticking, and taking money off three people at once. As intended.', '#f6bf5d');
+      // The wheel works, so the wheel is a game. Lean in the way the poker
+      // table and the slot machines do, then hand the table over.
       this.burst();
-      audio.play('wheel_spin', 0.45);
+      g.leanIn(this.propX(), this.propY() - 16, 3.2, () => g.casino.openRoulette());
       return;
     }
     if (this.carryingHead) {
@@ -266,7 +267,7 @@ export class RouletteShow {
     pr.art = 'casino_roulette';
     pr.light = 70;
     pr.lightColor = '#f6bf5d';
-    pr.label = 'Watch the wheel';
+    pr.label = 'Play the Whirligig';
     pr.nameplate = undefined;
     pr.nameplateColor = undefined;
     this.game.touch();

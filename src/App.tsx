@@ -23,6 +23,7 @@ import ForgePanel from './ui/ForgePanel';
 import RemakePanel from './ui/RemakePanel';
 import CrownPanel from './ui/CrownPanel';
 import PokerPanel from './ui/PokerPanel';
+import RoulettePanel from './ui/RoulettePanel';
 import SlotsPanel from './ui/SlotsPanel';
 import DebugPanel from './ui/DebugPanel';
 import PausePanel from './ui/PausePanel';
@@ -202,6 +203,7 @@ function UiLayer({ game }: { game: Game }) {
       {game.panel === 'shipyard' ? <ShipyardPanel game={game} /> : null}
       {game.panel === 'poker' ? <PokerPanel game={game} /> : null}
       {game.panel === 'slots' ? <SlotsPanel game={game} /> : null}
+      {game.panel === 'roulette' ? <RoulettePanel game={game} /> : null}
       {game.panel === 'debug' ? <DebugPanel game={game} /> : null}
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
       {game.panel === 'help' ? <HelpPanel game={game} /> : null}
