@@ -341,7 +341,11 @@ function sitter(who: Patron, dir: Dir, t: number, rng: RNG): Px {
  * who just raised you across the felt is recognisably one of the figures you
  * walked past on your way to the table.
  */
+const bustCache = new Map<string, Px>();
+
 export function patronBust(key: string): Px {
+  const hit = bustCache.get(key);
+  if (hit) return hit;
   const who = PATRONS[key] ?? PATRONS.a;
   const W = 32;
   const H = 32;
@@ -361,19 +365,11 @@ export function patronBust(key: string): Px {
 
   head(p, who, cx, 11, 'down', 0);
   p.outline('rgba(12,9,18,0.85)');
+  // The hold'em table draws four of these every frame, so the bust is built
+  // once and kept — a fresh canvas per face per frame is sixty allocations a
+  // second for a picture that never changes.
+  bustCache.set(key, p);
   return p;
-}
-
-const bustCache = new Map<string, string>();
-
-/** The bust as a data URL, cached — the panel hands it straight to an <img>. */
-export function patronBustUrl(key: string): string {
-  let url = bustCache.get(key);
-  if (!url) {
-    url = patronBust(key).canvas.toDataURL();
-    bustCache.set(key, url);
-  }
-  return url;
 }
 
 /** The cast, in a stable order, so a seat can pick one by index. */

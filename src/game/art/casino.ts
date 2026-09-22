@@ -90,7 +90,26 @@ function glyph(p: Px, ch: string, x: number, y: number, color: string): number {
 const CARD_W = 30;
 const CARD_H = 42;
 
+/**
+ * Sprites, kept.
+ *
+ * The hold'em table draws up to fifteen cards and a dozen chips into its
+ * canvas on every animation frame. Building those from scratch each time is
+ * around thirty fresh offscreen canvases a frame for pictures that never
+ * change, so every one of them is made once and handed back after that.
+ */
+const pxCache = new Map<string, Px>();
+const keep = (key: string, make: () => Px): Px => {
+  let hit = pxCache.get(key);
+  if (!hit) { hit = make(); pxCache.set(key, hit); }
+  return hit;
+};
+
 export function cardFace(card: Card, label: string): Px {
+  return keep(`card:${card.rank}:${card.suit}`, () => buildCardFace(card, label));
+}
+
+function buildCardFace(card: Card, label: string): Px {
   const p = new Px(CARD_W, CARD_H);
   const red = card.suit === 'heart' || card.suit === 'diamond';
   const ink = red ? '#b8323a' : '#16131f';
@@ -117,6 +136,10 @@ export function cardFace(card: Card, label: string): Px {
 }
 
 export function cardBack(): Px {
+  return keep('cardback', buildCardBack);
+}
+
+function buildCardBack(): Px {
   const p = new Px(CARD_W, CARD_H);
   p.fill(0, 0, CARD_W, CARD_H, '#0f0d14');
   p.fill(1, 1, CARD_W - 2, CARD_H - 2, '#6d2330');
@@ -152,6 +175,11 @@ export const CHIP_TIERS: Array<{ value: number; body: string; edge: string }> = 
 ];
 
 export function chip(tier: number): Px {
+  const i = Math.max(0, Math.min(CHIP_TIERS.length - 1, tier));
+  return keep(`chip:${i}`, () => buildChip(i));
+}
+
+function buildChip(tier: number): Px {
   const t = CHIP_TIERS[Math.max(0, Math.min(CHIP_TIERS.length - 1, tier))];
   const p = new Px(16, 16);
   p.ellipse(8, 8, 7.5, 7.5, '#0f0d14');
@@ -250,6 +278,10 @@ function spadeSym(p: Px): void {
 }
 
 export function slotSymbol(sym: SlotSymbol): Px {
+  return keep(`slot:${sym}`, () => buildSlotSymbol(sym));
+}
+
+function buildSlotSymbol(sym: SlotSymbol): Px {
   const p = new Px(SYM, SYM);
   if (sym === 'cherry') cherries(p);
   else if (sym === 'bell') bell(p);
@@ -263,6 +295,10 @@ export const slotSymbolUrl = (sym: SlotSymbol): string => cached(`slot:${sym}`, 
 
 /** A blurred vertical smear of a symbol, for a reel still in motion. */
 export function slotBlur(sym: SlotSymbol): Px {
+  return keep(`blur:${sym}`, () => buildSlotBlur(sym));
+}
+
+function buildSlotBlur(sym: SlotSymbol): Px {
   const src = slotSymbol(sym);
   const p = new Px(SYM, SYM);
   for (let i = -6; i <= 6; i += 2) {

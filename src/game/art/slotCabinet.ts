@@ -28,9 +28,9 @@ import { SLOT_REEL, SLOT_TRIPLE, SLOT_TWO_CHERRY, STAKES, type SlotSymbol } from
 /* Geometry — the whole cabinet in one place                           */
 /* ------------------------------------------------------------------ */
 
-// Wide enough that the handle's full swing stays inside the frame — the
-// cabinet itself only occupies the left 142 pixels of it.
-export const CAB_W = 190;
+// Wide enough for the handle bolted to the right cheek — the cabinet itself
+// only occupies the left 142 pixels of it.
+export const CAB_W = 172;
 export const CAB_H = 302;
 
 /** Cabinet body, not counting the handle that sticks out to the right. */
@@ -51,29 +51,28 @@ export const REEL_W = 31;
 /** Top of the middle row — the one the pay line runs through. */
 export const ROW_Y = GLASS_Y + CELL;
 
-/** Handle pivot, and how far the arm reaches to its knob. */
-export const LEVER_PIVOT_X = 147;
-export const LEVER_PIVOT_Y = 118;
-export const LEVER_LEN = 38;
+/**
+ * The handle: a knob on a rod in a vertical guide, bolted to the right cheek.
+ *
+ * It ran on a pivot at first and swung its knob through a hundred and fifty
+ * degrees, which read as the handle going round in a circle rather than being
+ * pulled. It is a straight pull now — down the guide and back up on its
+ * spring — which is both what the hand expects and what the pointer can
+ * actually follow.
+ */
+export const LEVER_X = 152;
+export const LEVER_TOP = 96;
+export const LEVER_BOTTOM = 166;
 export const LEVER_KNOB = 8;
-/** Arm angle at rest and fully pulled, in radians from straight up. */
-const LEVER_REST = -0.38;
-const LEVER_DOWN = 2.24;
 
 /** Where the knob sits for a given pull, 0 at rest and 1 fully down. */
 export function leverKnob(v: number): { x: number; y: number } {
-  const a = LEVER_REST + (LEVER_DOWN - LEVER_REST) * v;
-  return { x: LEVER_PIVOT_X + Math.sin(a) * LEVER_LEN, y: LEVER_PIVOT_Y - Math.cos(a) * LEVER_LEN };
+  return { x: LEVER_X, y: LEVER_TOP + (LEVER_BOTTOM - LEVER_TOP) * v };
 }
 
-/**
- * How far down the handle a point is, as the arm would have to swing to
- * reach it. The pointer drags the knob around the pivot rather than straight
- * down the screen, so the handle tracks the hand instead of sliding.
- */
-export function leverValueAt(x: number, y: number): number {
-  const a = Math.atan2(x - LEVER_PIVOT_X, -(y - LEVER_PIVOT_Y));
-  return Math.max(0, Math.min(1, (a - LEVER_REST) / (LEVER_DOWN - LEVER_REST)));
+/** How far down its travel a point is. Straight down the guide, nothing else. */
+export function leverValueAt(_x: number, y: number): number {
+  return Math.max(0, Math.min(1, (y - LEVER_TOP) / (LEVER_BOTTOM - LEVER_TOP)));
 }
 
 /** Which coin slot a point is over, or -1. */
@@ -401,10 +400,15 @@ export function cabinetBody(): Px {
   p.fill(CHUTE_X - 9, TRAY_Y - 8, 18, 5, '#160f0a');
   p.fill(CHUTE_X - 9, TRAY_Y - 9, 18, 1, '#8a6a2c');
 
-  // --- the handle's mounting boss on the right cheek ---
-  p.ellipse(LEVER_PIVOT_X - 6, LEVER_PIVOT_Y, 8, 9, '#5d4a1e');
-  p.ellipse(LEVER_PIVOT_X - 6, LEVER_PIVOT_Y, 6.5, 7.5, '#8a6a2c');
-  p.ellipse(LEVER_PIVOT_X - 7, LEVER_PIVOT_Y - 1, 4, 5, PAL.gold);
+  // --- the handle's guide, bolted to the right cheek ---
+  // a bracket off the case, then the channel the rod slides in
+  p.fill(BODY_X + BODY_W - 4, LEVER_TOP - 8, LEVER_X - BODY_X - BODY_W + 2, 7, '#5d4a1e');
+  p.fill(BODY_X + BODY_W - 4, LEVER_TOP - 8, LEVER_X - BODY_X - BODY_W + 2, 2, '#8a6a2c');
+  p.fill(BODY_X + BODY_W - 4, LEVER_BOTTOM + 2, LEVER_X - BODY_X - BODY_W + 2, 7, '#5d4a1e');
+  p.fill(BODY_X + BODY_W - 4, LEVER_BOTTOM + 2, LEVER_X - BODY_X - BODY_W + 2, 2, '#8a6a2c');
+  p.fill(LEVER_X - 4, LEVER_TOP - 8, 8, LEVER_BOTTOM - LEVER_TOP + 17, '#3b2c10');
+  p.fill(LEVER_X - 3, LEVER_TOP - 7, 6, LEVER_BOTTOM - LEVER_TOP + 15, '#241408');
+  p.fill(LEVER_X - 3, LEVER_TOP - 7, 1, LEVER_BOTTOM - LEVER_TOP + 15, '#5d4a1e');
 
   p.outline('rgba(8,6,12,0.75)');
   bodyCache = p;
@@ -804,32 +808,25 @@ function drawTray(ctx: CanvasRenderingContext2D, v: SlotView): void {
 /* ---- the handle ---- */
 
 function drawLever(ctx: CanvasRenderingContext2D, v: SlotView): void {
-  const a = LEVER_REST + (LEVER_DOWN - LEVER_REST) * v.lever;
-  const kx = LEVER_PIVOT_X + Math.sin(a) * LEVER_LEN;
-  const ky = LEVER_PIVOT_Y - Math.cos(a) * LEVER_LEN;
+  const kx = LEVER_X;
+  const ky = Math.round(LEVER_TOP + (LEVER_BOTTOM - LEVER_TOP) * v.lever);
 
-  // the rod, drawn as a tapering brass bar
-  ctx.save();
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = '#5d4a1e';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(LEVER_PIVOT_X, LEVER_PIVOT_Y);
-  ctx.lineTo(kx, ky);
-  ctx.stroke();
-  ctx.strokeStyle = '#8a6a2c';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(LEVER_PIVOT_X, LEVER_PIVOT_Y);
-  ctx.lineTo(kx, ky);
-  ctx.stroke();
-  ctx.strokeStyle = PAL.gold;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(LEVER_PIVOT_X - 1, LEVER_PIVOT_Y);
-  ctx.lineTo(kx - 1, ky);
-  ctx.stroke();
-  ctx.restore();
+  // the rod, running from the knob down into the guide
+  ctx.fillStyle = '#5d4a1e';
+  ctx.fillRect(kx - 2, ky, 4, LEVER_BOTTOM + 8 - ky);
+  ctx.fillStyle = '#8a6a2c';
+  ctx.fillRect(kx - 2, ky, 3, LEVER_BOTTOM + 8 - ky);
+  ctx.fillStyle = PAL.gold;
+  ctx.fillRect(kx - 2, ky, 1, LEVER_BOTTOM + 8 - ky);
+
+  // the return spring above it, compressing as the handle comes down
+  const coils = 6;
+  const span = Math.max(4, ky - LEVER_TOP + 10);
+  for (let i = 0; i < coils; i++) {
+    const y = LEVER_TOP - 8 + (i / coils) * span;
+    ctx.fillStyle = i % 2 === 0 ? '#8d8599' : '#5a5462';
+    ctx.fillRect(kx - 4, Math.round(y), 8, 2);
+  }
 
   // the ball on the end
   const r = LEVER_KNOB + (v.leverHot ? 1 : 0);
@@ -852,12 +849,14 @@ function drawLever(ctx: CanvasRenderingContext2D, v: SlotView): void {
   if (v.attract > 0 && v.lever < 0.05) {
     const blink = 0.35 + Math.abs(Math.sin(v.t * 6)) * 0.5;
     ctx.fillStyle = withAlpha(PAL.goldLit, blink * v.attract);
+    // beside the guide rather than on it, so they point down the travel
+    // without being drawn over the rod they are pointing along
     for (let i = 0; i < 3; i++) {
-      const y = ky + 12 + i * 7;
+      const y = ky + 16 + i * 8;
       ctx.beginPath();
-      ctx.moveTo(kx - 4, y);
-      ctx.lineTo(kx + 4, y);
-      ctx.lineTo(kx, y + 4);
+      ctx.moveTo(kx + 8, y);
+      ctx.lineTo(kx + 14, y);
+      ctx.lineTo(kx + 11, y + 4);
       ctx.closePath();
       ctx.fill();
     }

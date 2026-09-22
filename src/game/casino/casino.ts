@@ -2,6 +2,7 @@ import { audio } from '../audio/audio';
 import { PAL } from '../art/palette';
 import type { Game } from '../core/game';
 import { HoldemTable } from './holdem';
+import { PokerShow } from './pokerShow';
 import { RouletteTable } from './rouletteTable';
 import { SlotMachine } from './slotMachine';
 
@@ -23,12 +24,16 @@ export class Casino {
   table: HoldemTable | null = null;
   slots: SlotMachine | null = null;
   roulette: RouletteTable | null = null;
+  /** The chips in the air at the hold'em table, and the hero's own hands. */
+  readonly pokerShow: PokerShow;
   /** What the hero bought in for, so leaving can settle the difference. */
   private buyIn = 0;
   /** Chip total at the start of the current hand, for the result line. */
   handStart = 0;
 
-  constructor(private game: Game) {}
+  constructor(private game: Game) {
+    this.pokerShow = new PokerShow(game);
+  }
 
   private take(amount: number): boolean {
     if (this.game.player.gold < amount) {
@@ -45,6 +50,7 @@ export class Casino {
   openPoker(): void {
     this.table = null;
     this.buyIn = 0;
+    this.pokerShow.reset(null);
     this.game.setPanel('poker');
   }
 
@@ -61,6 +67,7 @@ export class Casino {
     this.table = new HoldemTable({ stake, heroChips: buy });
     this.handStart = buy;
     this.table.startHand();
+    this.pokerShow.reset(this.table);
     audio.play('ui_big', 0.5);
     this.game.touch();
   }
@@ -75,6 +82,7 @@ export class Casino {
     }
     this.handStart = t.hero.chips;
     t.startHand();
+    this.pokerShow.reset(t);
     audio.play('ui', 0.5);
     this.game.touch();
   }
@@ -145,6 +153,7 @@ export class Casino {
     }
     this.slots?.update(dt);
     this.roulette?.update(dt);
+    if (this.game.panel === 'poker') this.pokerShow.update(dt);
   }
 
   /** Leaving the machine or the table settles anything still on the felt. */

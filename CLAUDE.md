@@ -106,6 +106,7 @@ src/
                          + roulette.ts (Das Rad: Schaden, Reparatur-Sequenz, Idle-Show)
                          + slotMachine.ts (Walzenmechanik, Hebel, Münzen)
                          + rouletteTable.ts (Kessel-Regeln + spielbarer Tisch)
+                         + pokerShow.ts (Chipflüge, Hero-Chips auf der Linie)
   game/art/casinoRoom.ts Inventar des Spielsaals: sitzende Gäste (4 Blickrichtungen,
                          6 Stammgäste), Croupier, Barkeeper, Roulette (heil/kaputt),
                          loser Radkopf, Kassenkäfig, Cocktailtische, Teppich, Porträt,
@@ -157,15 +158,29 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
   Strukturelle aus `x % 16` / `y % 8` ab, laufen also über die Kachelgrenze durch; nur das
   Rauschen variiert. Der Goldrand kommt vom Teppich-Prop, einem einzeln gezeichneten
   184×136-Bild — eine gekachelte Borte kann nicht auf Gehrung stoßen.
-- **Die Hausspiele sind keine Dialoge.** Slot und Roulette werden als *Gerät*
-  gezeichnet (`art/slotCabinet.ts`, `art/rouletteFelt.ts`): ein Canvas auf 1:1-Pixel,
-  per Nearest-Neighbour hochskaliert, kein Titelbalken, kein SPIN-Button, keine
-  Paytable-Liste. Die Paytable steht auf dem Bauchglas, der Einsatz sind fünf
-  Münzschlitze, und gespint wird am **Hebel** (ziehen; zu kurz gezogen = nichts
-  passiert). Roulette: Chip aus dem Rack, auf ein Feld, Kessel anschieben.
-  `slotCabinet.ts` bringt das 3×5-Pixelalphabet und die Siebensegment-Lampen mit,
-  `rouletteFelt.ts` borgt sie. **Nicht wieder in React-Panels zurückbauen.**
-  Mechanik läuft in Spielzeit aus `Casino.update`, die Panels nur zeichnen und lesen.
+- **Alle drei Hausspiele sind keine Dialoge.** Slot, Roulette und Hold'em werden als
+  *Gerät bzw. Tisch* gezeichnet (`art/slotCabinet.ts`, `art/rouletteFelt.ts`,
+  `art/pokerFelt.ts`): ein Canvas auf 1:1-Pixel, per Nearest-Neighbour hochskaliert,
+  kein Titelbalken, kein SPIN-Button, keine Paytable-Liste, keine Fold/Call/Raise-
+  Buttons. Bedient wird das Möbel: Slot-Paytable steht auf dem Bauchglas, Einsatz sind
+  fünf Münzschlitze, gespint wird am **Hebel** (senkrechte Führung, ziehen; zu kurz
+  gezogen = nichts passiert — kein Drehgelenk mehr, das las sich als Kreisen).
+  Roulette: Chip aus dem Rack auf ein Feld, Kessel anschieben. Poker: Chips vom Rack
+  auf die Linie werfen, Linie reinschieben (= Check/Call/Raise, je nachdem was
+  draufliegt), eigene Karten wegwerfen = Fold, aufs Namensschild klicken = auscashen.
+  Alle Legenden sind auf den Filz gedruckt. `slotCabinet.ts` bringt das
+  3×5-Pixelalphabet und die Siebensegment-Lampen mit, die beiden anderen borgen sie.
+  **Nicht wieder in React-Panels zurückbauen.** Mechanik läuft in Spielzeit aus
+  `Casino.update`, die Panels nur zeichnen und lesen.
+- **Sprites werden gecacht, nicht pro Frame gebaut** (`art/casino.ts` `keep()`,
+  `patronBust`). Der Pokertisch zeichnet bis zu 15 Karten und ein Dutzend Chips pro
+  Frame; frisch gebaut wären das ~30 Offscreen-Canvases je Frame für Bilder, die sich
+  nie ändern.
+- **Chips fliegen einzeln.** `pokerShow.ts` diffed `seat.committed` gegen den letzten
+  Stand und wirft pro Erhöhung eine Handvoll Chips mit 75 ms Versatz auf einer Parabel,
+  die beim Landen aufeinander stapeln; `collecting` fegt alle Stapel in den Pot, das
+  Handende wirft den Pot zum Gewinner. `holdem.ts` weiß davon nichts und soll das
+  auch nicht.
 - **Das Roulette startet kaputt.** Der Kopf ist abgeschraubt und liegt in Whisperwell
   Cave (`casino_wheel_head`-Prop, Item `q_wheel_head`). Dario gibt den Hinweis in seinem
   **goldgerahmten** Dialogknoten (`frame: 'gold'` + `accent: 'gold'` auf der Zeile — ersetzt

@@ -1,199 +1,176 @@
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { Game } from '../game/core/game';
-import { STAKES } from '../game/casino/casino';
-import { HOLDEM_LABEL, RANK_LABEL, type Card } from '../game/casino/games';
-import type { Seat } from '../game/casino/holdem';
-import { cardBackUrl, cardFaceUrl, chipBreakdown, chipUrl } from '../game/art/casino';
-import { PATRON_KEYS, patronBustUrl } from '../game/art/casinoRoom';
+import {
+  TABLE_H, TABLE_W, buyInAt, drawTable, onBoard, onHeroCards, onLine, onPlate, rackAt,
+  type SeatView, type TableView,
+} from '../game/art/pokerFelt';
+import { HOLDEM_LABEL, STAKES } from '../game/casino/games';
+import type { HoldemTable, Seat } from '../game/casino/holdem';
 
-function PlayingCard({ card, faceDown, className = '' }: {
-  card?: Card; faceDown?: boolean; className?: string;
-}) {
-  const src = faceDown || !card ? cardBackUrl() : cardFaceUrl(card, RANK_LABEL[card.rank]);
-  return <img src={src} alt="" className={`hold-card ${className}`} draggable={false} />;
-}
+/**
+ * Sitting at the hold'em table.
+ *
+ * Like the slot machine and the wheel, this is the table rather than a panel
+ * about the table: one canvas, drawn at 1:1 and blown up, and the player acts
+ * on the furniture — chips off the rack, cards into the muck, the line pushed
+ * in. React draws and listens, nothing more; the hand lives in
+ * `casino/holdem.ts` and the chips in the air in `casino/pokerShow.ts`.
+ */
 
-/** A little stack of chips standing for an amount. */
-function ChipStack({ amount, className = '' }: { amount: number; className?: string }) {
-  if (amount <= 0) return null;
-  const tiers = chipBreakdown(amount);
-  return (
-    <span className={`hold-chips ${className}`}>
-      <span className="hold-chip-stack">
-        {tiers.map((t, i) => (
-          <img key={i} src={chipUrl(t)} alt="" style={{ bottom: i * 3 }} draggable={false} />
-        ))}
-      </span>
-      <span className="hold-chip-n">{amount}</span>
-    </span>
-  );
-}
+const seatView = (s: Seat, t: HoldemTable): SeatView => ({
+  id: s.id,
+  name: s.name,
+  chips: s.chips,
+  hole: s.hole,
+  revealed: s.revealed,
+  folded: s.folded,
+  allIn: s.allIn,
+  committed: s.committed,
+  active: t.turn === s.id && !t.handOver,
+  winner: t.winners.includes(s.id),
+  button: t.dealer === s.id,
+  bubble: s.bubble > 0 ? s.lastAction : '',
+  shown: s.shown ? HOLDEM_LABEL[s.shown.rank] : null,
+});
 
-function SeatView({ seat, active, winner, collecting, onButton }: {
-  seat: Seat; active: boolean; winner: boolean; collecting: boolean; onButton: boolean;
-}) {
-  // Every opponent keeps the same face for as long as they are at the table:
-  // the seat id picks one of the regulars from the room downstairs.
-  const bust = seat.hero ? null : patronBustUrl(PATRON_KEYS[seat.id % PATRON_KEYS.length]);
-  return (
-    <div className={`hold-seat${seat.folded ? ' folded' : ''}${active ? ' active' : ''}${winner ? ' winner' : ''}`}>
-      <div className="hold-seat-cards">
-        {seat.hole.length === 0
-          ? null
-          : seat.hole.map((c, i) => (
-            <PlayingCard key={i} card={c} faceDown={!seat.revealed} className={seat.folded ? 'mucked' : ''} />
-          ))}
-      </div>
-      <div className="hold-seat-plate">
-        {bust ? <img src={bust} alt="" className="hold-seat-bust" draggable={false} /> : null}
-        <span className="hold-seat-name">{seat.name}</span>
-        <span className="hold-seat-chips">{seat.chips}</span>
-        {onButton ? <span className="hold-button" title="Dealer button">D</span> : null}
-      </div>
-      {seat.shown ? <div className="hold-seat-hand">{HOLDEM_LABEL[seat.shown.rank]}</div> : null}
-      {seat.bubble > 0 && seat.lastAction ? (
-        <div className="hold-bubble">{seat.lastAction}</div>
-      ) : null}
-      <ChipStack amount={seat.committed} className={collecting ? 'collecting' : ''} />
-    </div>
-  );
+/** What pushing the line would do, printed on the felt so nobody has to guess. */
+function lineLabel(t: HoldemTable | null, pending: number): string {
+  if (!t) return '';
+  if (t.handOver) return 'PUSH THE LINE FOR THE NEXT HAND';
+  if (!t.awaitingHero) return '';
+  const owed = Math.max(0, t.toCall - t.hero.committed);
+  const want = t.hero.committed + pending;
+  if (pending > owed && want >= t.minRaiseTotal) {
+    return `${t.toCall > 0 ? 'RAISE TO' : 'BET'} ${Math.min(want, t.allInTotal)}`;
+  }
+  if (owed > 0) return `CALL ${owed}`;
+  return 'CHECK';
 }
 
 export default function PokerPanel({ game }: { game: Game }) {
-  const t = game.casino.table;
-  const gold = game.player.gold;
-  const [raise, setRaise] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Not seated yet: pick a stake and buy in.
-  if (!t) {
-    return (
-      <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-        <div className="modal panel" style={{ width: 'min(520px, 94vw)' }}>
-          <div className="panel-title">
-            <span>Texas Hold&rsquo;em</span>
-            <span className="sub">Dario deals &middot; two to four others at the table</span>
-            <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
-          </div>
-          <div className="hold-buyin">
-            <p>Pick your blind. You buy in for twenty big blinds, and cash out whatever is left in front of you.</p>
-            <div className="cas-stakes">
-              {STAKES.map((v) => (
-                <button
-                  key={v}
-                  className="btn"
-                  disabled={gold < v * 2}
-                  onClick={() => game.casino.sitDown(v)}
-                >
-                  {v} / {v * 20}
-                </button>
-              ))}
-            </div>
-            <div className="hold-buyin-note">
-              <span>Your gold</span><span style={{ color: 'var(--gold)' }}>{gold}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let raf = 0;
+    const draw = () => {
+      const c = game.casino;
+      const t = c.table;
+      const show = c.pokerShow;
+      const view: TableView = {
+        t: show.t,
+        seated: !!t,
+        stake: t?.stake ?? 0,
+        gold: game.player.gold,
+        seats: t ? t.seats.slice(1).map((s) => seatView(s, t)) : [],
+        hero: t ? seatView(t.hero, t) : null,
+        board: t?.board ?? [],
+        boardShown: t?.boardShown ?? 0,
+        pot: t?.pot ?? 0,
+        message: t?.message ?? '',
+        seatStacks: show.seatStacks,
+        potStack: show.potStack,
+        heroStack: show.heroStack,
+        pending: show.pending,
+        pendingAmount: show.pendingAmount,
+        flights: show.inAir,
+        lineLabel: lineLabel(t, show.pendingAmount),
+        owed: t ? Math.max(0, t.toCall - t.hero.committed) : 0,
+        // The action is the hero's for as long as the turn is on them, not
+        // only in the gaps between queued beats — `awaitingHero` goes false
+        // while the table is mid-animation, and a rack that dims and lights
+        // three times a second reads as broken.
+        heroTurn: !!t && t.turn === 0 && !t.handOver && !t.hero.folded && !t.hero.allIn,
+        handOver: !!t?.handOver,
+        chip: 0,
+        hover: show.hover,
+        muck: show.muck,
+      };
+      drawTable(ctx, view);
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [game]);
 
-  const hero = t.hero;
-  const owed = Math.max(0, t.toCall - hero.committed);
-  const canRaise = hero.chips > owed;
-  const minTotal = Math.min(t.minRaiseTotal, t.allInTotal);
-  const maxTotal = t.allInTotal;
-  const raiseTotal = Math.max(minTotal, Math.min(maxTotal, raise || minTotal));
+  const at = (e: { clientX: number; clientY: number }) => {
+    const r = canvasRef.current!.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / r.width) * TABLE_W,
+      y: ((e.clientY - r.top) / r.height) * TABLE_H,
+    };
+  };
+
+  /** What the pointer is over, as the key the renderer highlights. */
+  const hitKey = (x: number, y: number): string | null => {
+    const t = game.casino.table;
+    if (!t) {
+      const buy = buyInAt(x, y);
+      return buy >= 0 ? `buy${buy}` : null;
+    }
+    const rack = rackAt(x, y);
+    if (rack >= 0) return `rack${rack}`;
+    if (onHeroCards(x, y)) return 'cards';
+    if (onLine(x, y) || (t.handOver && onBoard(x, y))) return 'line';
+    if (onPlate(x, y)) return 'plate';
+    return null;
+  };
+
+  const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const show = game.casino.pokerShow;
+    const { x, y } = at(e);
+    const key = hitKey(x, y);
+    if (show.hover !== key) {
+      show.hover = key;
+      game.touch();
+    }
+  };
+
+  const down = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const c = game.casino;
+    const { x, y } = at(e);
+    const t = c.table;
+
+    if (!t) {
+      const buy = buyInAt(x, y);
+      if (buy >= 0) c.sitDown(STAKES[buy]);
+      return;
+    }
+    const rack = rackAt(x, y);
+    if (rack >= 0) {
+      if (e.button === 2 || e.shiftKey) c.pokerShow.takeBack();
+      else c.pokerShow.throwChip(rack);
+      return;
+    }
+    if (onHeroCards(x, y)) { c.pokerShow.fold(); return; }
+    if (onLine(x, y) || (t.handOver && onBoard(x, y))) {
+      if (e.button === 2 || e.shiftKey) c.pokerShow.takeBack();
+      else c.pokerShow.pushLine();
+      return;
+    }
+    if (onPlate(x, y)) { c.close(); game.closeAll(); }
+  };
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel hold-panel" style={{ width: 'min(720px, 97vw)' }}>
-        <div className="panel-title">
-          <span>Texas Hold&rsquo;em</span>
-          <span className="sub">
-            blinds {Math.max(1, Math.round(t.stake / 2))}/{t.stake} &middot; {t.seats.length - 1} opponents
-          </span>
-          <button className="close-x" onClick={() => game.casino.close()}>&times;</button>
-        </div>
-
-        <div className="hold-body">
-          {/* opponents around the far rail */}
-          <div className="hold-opponents">
-            {t.seats.slice(1).map((s) => (
-              <SeatView
-                key={s.id}
-                seat={s}
-                active={t.turn === s.id}
-                winner={t.winners.includes(s.id)}
-                collecting={t.collecting}
-                onButton={t.dealer === s.id}
-              />
-            ))}
-          </div>
-
-          {/* the felt */}
-          <div className="hold-felt">
-            <span className="hold-felt-mark" aria-hidden />
-            <div className="hold-pot">
-              <ChipStack amount={t.pot} />
-              <span className="hold-pot-label">POT</span>
-            </div>
-            <div className="hold-board">
-              {[0, 1, 2, 3, 4].map((i) => (
-                i < t.boardShown
-                  ? <PlayingCard key={i} card={t.board[i]} className="dealt" />
-                  : <div key={i} className="hold-slot" />
-              ))}
-            </div>
-            {t.message ? <div className="hold-message">{t.message}</div> : null}
-          </div>
-
-          {/* the hero */}
-          <div className="hold-hero">
-            <SeatView
-              seat={hero}
-              active={t.turn === 0}
-              winner={t.winners.includes(0)}
-              collecting={t.collecting}
-              onButton={t.dealer === 0}
-            />
-          </div>
-
-          {/* actions */}
-          <div className="hold-actions">
-            {t.handOver ? (
-              <>
-                <button className="btn primary" onClick={() => game.casino.nextHand()}>Next hand</button>
-                <button className="btn" onClick={() => game.casino.close()}>Cash out ({hero.chips})</button>
-              </>
-            ) : t.awaitingHero ? (
-              <>
-                <button className="btn danger" onClick={() => game.casino.fold()}>Fold</button>
-                <button className="btn primary" onClick={() => game.casino.callOrCheck()}>
-                  {owed > 0 ? `Call ${owed}` : 'Check'}
-                </button>
-                {canRaise ? (
-                  <span className="hold-raise">
-                    <input
-                      type="range"
-                      min={minTotal}
-                      max={maxTotal}
-                      step={Math.max(1, Math.round(t.stake / 2))}
-                      value={raiseTotal}
-                      onChange={(e) => setRaise(Number(e.target.value))}
-                    />
-                    <button className="btn" onClick={() => { game.casino.raiseTo(raiseTotal); setRaise(0); }}>
-                      {t.toCall > 0 ? 'Raise to' : 'Bet'} {raiseTotal}
-                    </button>
-                  </span>
-                ) : null}
-              </>
-            ) : (
-              <span className="hold-waiting">
-                {t.turn > 0 ? `${t.seats[t.turn].name} is thinking…` : '…'}
-              </span>
-            )}
-          </div>
-        </div>
+    <div
+      className="poker-room"
+      onPointerDown={(e) => { if (e.target === e.currentTarget) { game.casino.close(); game.closeAll(); } }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="poker-table"
+        width={TABLE_W}
+        height={TABLE_H}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerLeave={() => { game.casino.pokerShow.hover = null; game.touch(); }}
+        onContextMenu={(e) => e.preventDefault()}
+      />
+      <div className="poker-leave">
+        Chips off the rack onto the line &middot; push the line to act &middot; throw your cards to fold &middot; Esc to leave
       </div>
     </div>
   );
