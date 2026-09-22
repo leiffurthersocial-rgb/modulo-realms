@@ -744,6 +744,13 @@ export const QUEST_ITEMS: ItemTemplate[] = [
   { id: 'q_crypt_key', name: 'Crypt Seal Key', type: 'quest', icon: 'key', rarity: 'rare', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Cold to the touch.' },
   { id: 'q_missing_ring', name: "Maren's Wedding Ring", type: 'quest', icon: 'ring', metal: PAL.gold, rarity: 'common', level: 1, value: 0, stats: {}, noDrop: true },
   { id: 'q_gate_sigil', name: 'Sigil of the Last Gate', type: 'quest', icon: 'rune', metal: PAL.frost, rarity: 'legendary', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Warm, in a place where nothing is.' },
+  // The Gilded Spade's missing wheel head. `noDrop` keeps it out of the
+  // random tables: it is one object in the world, not a loot tier.
+  {
+    id: 'q_wheel_head', name: 'The Whirligig\'s Head', type: 'quest', icon: 'wheel_head', metal: PAL.gold,
+    rarity: 'rare', level: 1, value: 0, stats: {}, noDrop: true,
+    desc: 'Eleven pounds of brass with thirty-seven little rooms in it, thirty-six of which are lying to you. Somebody carried this into a cave, down two flights of wet rock, past the spiders, and then put it behind a rock and went home. Nobody has ever explained how.',
+  },
   { id: 'q_kings_letter', name: "King Jovan's Letter", type: 'quest', icon: 'scroll', metal: PAL.gold, rarity: 'rare', level: 1, value: 0, stats: {}, noDrop: true, desc: 'Sealed in gold wax, and written by hand.' },
 ];
 

@@ -312,6 +312,9 @@ export const NPCS: NpcDef[] = [
       { cond: { races: ['dwarf'] }, lines: ['"Deepstone money spends the same as anyone\'s, and it counts faster."', '"Table is open. So is the door, when you want it."'] },
       { cond: { races: ['orc'] }, lines: ['"Ashborn. Good — you will not sulk when it goes against you."', '"Cards are dealt face up on this table. The odds are not."'] },
       { cond: { races: ['revenant'] }, lines: ['Dario deals a card, looks at you, and deals it again.', '"I have had quiet players before. None of them quite this quiet. Sit, if you like."'] },
+      { cond: { flag: 'casino_wheel_fixed' }, lines: ['Dario is standing at the wheel rather than behind the deck, and the room is louder for it.', '"The wheel turns because of you. Half the floor is over here betting on it. Sit wherever you like."'] },
+      { cond: { hasItem: { item: 'q_wheel_head' } }, lines: ['Dario looks at what you are carrying and stops mid-shuffle.', '"That is our head. Do not hand it to me — I would only put it on a shelf. Bolt it back on the wheel where it lives."'] },
+      { cond: { flag: 'casino_wheel_lead' }, lines: ['"Still open. Still one wheel short."', '"Whisperwell, south-west. It is not a long walk, it is just a dark one."'] },
       { cond: { minGold: 5000 }, lines: ['"That is a heavy purse for a valley this small."', '"Feeling lucky today? The house is happy either way — that is rather the point of a house."'] },
       { lines: ['"Welcome to the Gilded Spade. Poker at the table, the machines along the wall."', '"Feeling lucky today?"'] },
     ],
@@ -320,14 +323,34 @@ export const NPCS: NpcDef[] = [
       { text: 'And the machines?', to: 'about_slots' },
       { text: 'Who owns this place?', to: 'about_house' },
       { tag: 'Rogue', text: 'What stops a man marking the deck?', cond: { classes: ['rogue'] }, to: 'about_cheating' },
-      { tag: 'Warrior', text: 'I would rather hit something than bet on it.', cond: { classes: ['warrior', 'paladin'] }, to: 'about_fighting' },
+      // Replaces the old Warrior line. It is the one topic on this NPC that
+      // starts a job rather than a conversation, so it is framed in the
+      // house's own gold and open to everybody who walks in.
+      { tag: 'The Wheel', accent: 'gold', text: 'Your roulette wheel is in pieces. What happened to it?', cond: { notFlag: 'casino_wheel_fixed' }, to: 'wheel_theft' },
+      { text: 'How does the wheel run these days?', cond: { flag: 'casino_wheel_fixed' }, to: 'wheel_running' },
     ],
     nodes: [
       { id: 'about_poker', text: ['"Hold\'em. Two cards to you, five to the middle, four rounds to decide how much you believe them."', '"Buy in for twenty blinds and cash out whatever is still in front of you. The table does not bluff. The people at it do."'] },
       { id: 'about_slots', text: ['"Three reels, a lever, and a noise the whole street can hear when it comes in."', '"They pay less often than the table and far louder. That is deliberate."'] },
       { id: 'about_house', text: ['"The house does. The house is a ledger in a locked drawer, and I am the man who feeds it."', '"Hanne let us open on the condition we never lend. We never lend."'] },
       { id: 'about_cheating', text: ['Dario turns the deck over without looking down.', '"Nothing stops you. Something stops you twice."'], choices: [{ text: 'Understood.', actions: [{ type: 'rep', faction: 'guild', amount: 2 }] }] },
-      { id: 'about_fighting', text: ['"Then you are in the wrong room, and I say that with real affection."', '"Corin is up the lane. He will sell you something to hit it with."'] },
+      {
+        id: 'wheel_theft', frame: 'gold',
+        text: [
+          'Dario sets the deck down, which he does not do, and looks across the room at the dead wheel.',
+          '"Somebody came in at closing, unbolted the head off it and walked out with eleven pounds of brass under a coat. Nobody stopped them. Everybody was watching the cards."',
+          '"We know where it went. A carter saw them take it into Whisperwell Cave, south-west of town, and come back out without it. It is sitting in the dark down there being no use to anyone."',
+          '"I cannot leave the table for an afternoon. Somebody ought to go and look."',
+        ],
+        choices: [
+          {
+            text: 'I will go and look.', accent: 'gold',
+            actions: [{ type: 'flag', flag: 'casino_wheel_lead' }, { type: 'rep', faction: 'guild', amount: 5 }],
+          },
+          { text: 'Somebody, then. Not me.' },
+        ],
+      },
+      { id: 'wheel_running', text: ['"Like it never stopped. Better, if I am honest — whoever had it in that cave knocked the wobble out of the rim."', '"The house does not thank people. I am making an exception standing here."'] },
     ],
   },
   {

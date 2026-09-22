@@ -100,6 +100,10 @@ function dressCasino(map: GameMap, w: number, h: number): void {
   at(150, 110, 'card_table', { cw: 64, ch: 16 });
   at(122, 129, 'casino_sit_up_b', { cw: 16, ch: 9 });
   at(178, 129, 'casino_sit_up_c', { cw: 16, ch: 9, phase: 0.9 });
+  // Moved off the roulette rail: nobody bets a wheel with no head on it,
+  // and a patron sitting there stood squarely in front of the one fixture
+  // the room has to make the player walk over and look at.
+  at(150, 133, 'casino_sit_up_e', { cw: 16, ch: 9, phase: 2.1 });
 
   /* ---- the slot bank, west wall ---- */
   for (let i = 0; i < 3; i++) {
@@ -136,15 +140,18 @@ function dressCasino(map: GameMap, w: number, h: number): void {
   at(296, 256, 'casino_sit_left_b', { cw: 14, ch: 9, phase: 1.6 });
 
   /* ---- roulette, south-west ---- */
-  at(104, 300, 'casino_roulette', {
-    cw: 44, ch: 14, light: 55, lightColor: '#efe6d6',
-    interact: 'sign', label: 'Watch the wheel',
-    data: {
-      title: 'The Whirligig',
-      text: 'Nobody is betting it. Dario spins it because a room with a still wheel in it feels closed.',
-    },
+  // The wheel is laid out broken. Somebody took its head off before the game
+  // starts, and the room is built around the hole that leaves: the nameplate
+  // says so from across the floor, the art says so up close, and the prompt
+  // is the one interaction in the casino that is not a game you can play.
+  // `game.applyStoryProps` swaps this for the working wheel once it is fixed,
+  // so the repaired state survives a reload without a second layout.
+  at(104, 300, 'casino_roulette_broken', {
+    cw: 44, ch: 14, light: 30, lightColor: '#8a6a2c',
+    interact: 'roulette', label: 'Inspect the damaged wheel',
+    nameplate: 'DAMAGED', nameplateColor: '#d9553f',
+    data: { station: 'roulette' },
   });
-  at(104, 318, 'casino_sit_up_e', { cw: 14, ch: 9, phase: 2.1 });
 
   /* ---- the cashier's cage, south-east ---- */
   at(406, 302, 'casino_cashier', {

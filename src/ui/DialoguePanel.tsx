@@ -24,7 +24,7 @@ export default function DialoguePanel({ game }: { game: Game }) {
 
   return (
     <div className="dialogue-wrap">
-      <div className="dialogue">
+      <div className={`dialogue${d.frame === 'gold' ? ' framed' : ''}`}>
         <div className="d-head">
           <div className="d-portrait">
             <SpritePreview look={npc.look} scale={1.35} />
@@ -47,11 +47,12 @@ export default function DialoguePanel({ game }: { game: Game }) {
               const tagMatch = /^\[(.+?)\]\s*/.exec(c.text);
               const inlineTag = tagMatch ? tagMatch[1] : c.tag;
               const body = tagMatch ? c.text.slice(tagMatch[0].length) : c.text;
-              const kind = inlineTag === 'Quest' ? 'quest'
-                : inlineTag && ['Mage', 'Warrior', 'Rogue', 'Ranger', 'Paladin', 'Necromancer'].includes(inlineTag) ? 'class'
-                  : inlineTag ? 'race' : '';
+              const kind = c.accent === 'gold' ? 'gold'
+                : inlineTag === 'Quest' ? 'quest'
+                  : inlineTag && ['Mage', 'Warrior', 'Rogue', 'Ranger', 'Paladin', 'Necromancer'].includes(inlineTag) ? 'class'
+                    : inlineTag ? 'race' : '';
               return (
-                <button className="d-choice" key={i} onClick={() => game.chooseDialogue(i)}>
+                <button className={`d-choice${c.accent === 'gold' ? ' accent' : ''}`} key={i} onClick={() => game.chooseDialogue(i)}>
                   <span className="num">{i + 1}</span>
                   {inlineTag ? <span className={`tag ${kind}`}>{inlineTag}</span> : null}
                   <span>{body}</span>

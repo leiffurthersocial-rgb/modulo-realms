@@ -103,10 +103,16 @@ src/
                          navigation, waypoints, guidance
   game/casino/           games.ts (reine Regeln: Deck, Handwertung, Walzen) +
                          casino.ts (Sitzung, Einsatz, Auszahlung) + holdem.ts — Gilded Spade
+                         + roulette.ts (Das Rad: Schaden, Reparatur-Sequenz, Idle-Show)
   game/art/casinoRoom.ts Inventar des Spielsaals: sitzende Gäste (4 Blickrichtungen,
-                         6 Stammgäste), Croupier, Barkeeper, Roulette, Kassenkäfig,
-                         Cocktailtische, Teppich, Porträt, Kordeln, Rauch, Münzglanz.
-                         `getProp` greift hier zuerst zu, wie bei `aegean.ts`
+                         6 Stammgäste), Croupier, Barkeeper, Roulette (heil/kaputt),
+                         loser Radkopf, Kassenkäfig, Cocktailtische, Teppich, Porträt,
+                         Kordeln, Rauch, Münzglanz.
+                         `getProp` greift hier zuerst zu, wie bei `aegean.ts`.
+                         **Alle Personen dort sind auf Spielergröße gezeichnet**:
+                         `HEAD_W/HEAD_H/TORSO_W/TORSO_H` sind die Maße aus
+                         `characters.ts`. Nicht wieder verkleinern — ein 7-px-Kopf
+                         neben Dario liest sich als Kinderzimmer.
   data/                  races, classes, items, enemies, npcs, quests, locations,
                          balance.ts, aegean/*
   ui/                    28 React-Panels + hooks.ts, aegeanNames.ts
@@ -149,6 +155,15 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
   Strukturelle aus `x % 16` / `y % 8` ab, laufen also über die Kachelgrenze durch; nur das
   Rauschen variiert. Der Goldrand kommt vom Teppich-Prop, einem einzeln gezeichneten
   184×136-Bild — eine gekachelte Borte kann nicht auf Gehrung stoßen.
+- **Das Roulette startet kaputt.** Der Kopf ist abgeschraubt und liegt in Whisperwell
+  Cave (`casino_wheel_head`-Prop, Item `q_wheel_head`). Dario gibt den Hinweis in seinem
+  **goldgerahmten** Dialogknoten (`frame: 'gold'` + `accent: 'gold'` auf der Zeile — ersetzt
+  die alte Warrior-Zeile), das schaltet `bounty_roulette` frei. Die Reparatur am Rad ist
+  eine 16-Takt-Sequenz (`game/casino/roulette.ts`, `REPAIR`), kein Menü. Danach: Flag
+  `casino_wheel_fixed`, +25 Gildenruf, Dario zieht ans Rad und spielt dort die Idle-Show.
+  Zustand lebt ausschließlich in Player-Flags; `Game.applyStoryProps` baut Prop und
+  Dario-Anker bei jedem `setMap` daraus neu auf — Maps werden aus dem Seed regeneriert
+  und können nichts davon speichern.
 - **Keine Gear-Restriktionen**, keine Level-Anforderungen auf Items.
 - Level-Cap 100, heroische Masteries ab 80, normale Talentpunkte stoppen bei 75.
 - **Kein Level-Lock nach Achaea.** Schwierigkeit kommt aus Gegnern, Wetter, Expeditionskosten.
