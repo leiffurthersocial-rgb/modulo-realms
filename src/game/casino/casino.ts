@@ -2,6 +2,7 @@ import { audio } from '../audio/audio';
 import { PAL } from '../art/palette';
 import type { Game } from '../core/game';
 import { HoldemTable } from './holdem';
+import { RouletteTable } from './rouletteTable';
 import { SlotMachine } from './slotMachine';
 
 export { STAKES } from './games';
@@ -21,6 +22,7 @@ const BUY_IN_BLINDS = 20;
 export class Casino {
   table: HoldemTable | null = null;
   slots: SlotMachine | null = null;
+  roulette: RouletteTable | null = null;
   /** What the hero bought in for, so leaving can settle the difference. */
   private buyIn = 0;
   /** Chip total at the start of the current hand, for the result line. */
@@ -118,6 +120,20 @@ export class Casino {
     this.game.setPanel('slots');
   }
 
+  /* ---------------- roulette ---------------- */
+
+  /**
+   * Step up to the Whirligig.
+   *
+   * Only reachable once the wheel has its head back on — `RouletteShow.use`
+   * is what decides that, and until then the wheel is a repair job rather
+   * than a game.
+   */
+  openRoulette(): void {
+    this.roulette = new RouletteTable(this.game, (amount) => this.take(amount));
+    this.game.setPanel('roulette');
+  }
+
   /**
    * Drives the table and the machine. Called from the main update loop so the
    * timing is in game time and obeys pause, rather than running off a timer
@@ -128,11 +144,15 @@ export class Casino {
       if (this.table.update(dt)) this.game.touch();
     }
     this.slots?.update(dt);
+    this.roulette?.update(dt);
   }
 
   /** Leaving the machine or the table settles anything still on the felt. */
   close(): void {
     if (this.table) this.cashOut();
     this.slots = null;
+    // Roulette stakes are only taken when the wheel is pushed, so walking
+    // away from a cloth with chips on it costs nothing.
+    this.roulette = null;
   }
 }
