@@ -2,32 +2,12 @@ import { audio } from '../audio/audio';
 import { PAL } from '../art/palette';
 import type { Game } from '../core/game';
 import { HoldemTable } from './holdem';
-import { SLOT_TRIPLE, spinSlots, type SlotResult, type SlotSymbol, SLOT_REEL } from './games';
+import { SlotMachine } from './slotMachine';
 
-/** Stakes a player can sit down for, smallest first. */
-export const STAKES = [10, 25, 50, 100, 250] as const;
+export { STAKES } from './games';
 
 /** A buy-in is this many big blinds, so a sitting lasts more than two hands. */
 const BUY_IN_BLINDS = 20;
-
-export interface SlotsState {
-  stake: number;
-  result: SlotResult | null;
-  /** Seconds since the lever was pulled; drives the reel stops. */
-  elapsed: number;
-  spinning: boolean;
-  /** When each reel comes to rest, so they stop left to right. */
-  stops: [number, number, number];
-  /** What each reel is showing right now, settled or not. */
-  faces: [SlotSymbol, SlotSymbol, SlotSymbol];
-  /** How many reels have locked in. */
-  locked: number;
-  /** Counts down while the win banner is up. */
-  celebrate: number;
-  session: number;
-  /** Pulled-down lever, for the handle animation. */
-  lever: number;
-}
 
 /**
  * The house games, kept off `Game` itself.
@@ -40,7 +20,7 @@ export interface SlotsState {
  */
 export class Casino {
   table: HoldemTable | null = null;
-  slots: SlotsState | null = null;
+  slots: SlotMachine | null = null;
   /** What the hero bought in for, so leaving can settle the difference. */
   private buyIn = 0;
   /** Chip total at the start of the current hand, for the result line. */
@@ -126,95 +106,28 @@ export class Casino {
 
   /* ---------------- slots ---------------- */
 
+  /**
+   * Walk up to a machine.
+   *
+   * There is no session to open and nothing to buy in for: a slot machine
+   * takes one coin at a time out of the purse, which is what `take` below
+   * does on every pull.
+   */
   openSlots(): void {
-    this.slots = {
-      stake: STAKES[0], result: null, elapsed: 0, spinning: false,
-      stops: [0, 0, 0], faces: ['cherry', 'bell', 'seven'], locked: 0,
-      celebrate: 0, session: 0, lever: 0,
-    };
+    this.slots = new SlotMachine(this.game, (amount) => this.take(amount));
     this.game.setPanel('slots');
   }
 
-  setSlotStake(stake: number): void {
-    if (!this.slots || this.slots.spinning) return;
-    this.slots.stake = stake;
-    this.game.touch();
-  }
-
-  spin(): void {
-    const s = this.slots;
-    if (!s || s.spinning) return;
-    if (!this.take(s.stake)) return;
-    s.session -= s.stake;
-    // Decide the outcome up front, then let the reels catch up to it. Stopping
-    // left to right with a beat between each is the whole feel of a slot
-    // machine; a single simultaneous reveal has no tension in it.
-    s.result = spinSlots();
-    s.elapsed = 0;
-    s.spinning = true;
-    s.locked = 0;
-    s.celebrate = 0;
-    s.lever = 1;
-    s.stops = [0.85, 1.35, 1.95];
-    audio.play('ui', 0.5);
-    this.game.touch();
-  }
-
   /**
-   * Drives the reels and the win banner. Called from the main update loop so
-   * the timing is in game time and obeys pause, rather than running off a
-   * timer of its own inside React.
+   * Drives the table and the machine. Called from the main update loop so the
+   * timing is in game time and obeys pause, rather than running off a timer
+   * of its own inside React.
    */
   update(dt: number): void {
     if (this.table) {
       if (this.table.update(dt)) this.game.touch();
     }
-    const s = this.slots;
-    if (!s) return;
-
-    if (s.lever > 0) {
-      s.lever = Math.max(0, s.lever - dt * 2.2);
-      this.game.touch();
-    }
-    if (s.celebrate > 0) {
-      s.celebrate = Math.max(0, s.celebrate - dt);
-      this.game.touch();
-    }
-    if (!s.spinning) return;
-
-    s.elapsed += dt;
-    // Reels that have not stopped yet keep tumbling through the strip.
-    for (let i = 0; i < 3; i++) {
-      if (s.elapsed >= s.stops[i]) {
-        if (s.locked <= i) {
-          s.locked = i + 1;
-          s.faces[i] = s.result!.reels[i];
-          audio.play('ui', 0.4);
-        }
-      } else {
-        s.faces[i] = SLOT_REEL[Math.floor((s.elapsed * 22 + i * 7) % SLOT_REEL.length)];
-      }
-    }
-    this.game.touch();
-
-    if (s.locked < 3) return;
-    s.spinning = false;
-    const result = s.result!;
-    const back = result.payout > 0 ? s.stake * (result.payout + 1) : 0;
-    s.session += back;
-    if (back > 0) {
-      this.game.player.gold += back;
-      s.celebrate = 2.6;
-      audio.play('gold', 0.6);
-    }
-    if (result.payout >= SLOT_TRIPLE.crown) {
-      this.game.flashScreen(PAL.goldLit, 0.4);
-      this.game.shake(8);
-      audio.play('levelup', 0.8);
-      this.game.toast(result.label, `${back} gold.`, PAL.goldLit);
-    } else if (result.payout > 0) {
-      audio.play('loot', 0.5);
-    }
+    this.slots?.update(dt);
   }
 
   /** Leaving the machine or the table settles anything still on the felt. */

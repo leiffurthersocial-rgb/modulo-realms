@@ -1,188 +1,135 @@
+import { useEffect, useRef } from 'react';
 import type { Game } from '../game/core/game';
-import { STAKES } from '../game/casino/casino';
-import { SLOT_TRIPLE, SLOT_TWO_CHERRY, type SlotSymbol } from '../game/casino/games';
-import { coinUrl, slotBlurUrl, slotSymbolUrl } from '../game/art/casino';
+import {
+  CAB_H, CAB_W, LEVER_KNOB, drawCabinet, leverKnob, leverValueAt, slotAt,
+} from '../game/art/slotCabinet';
 
 /**
- * The pay table, derived from the payouts rather than written out by hand.
+ * Standing at the slot machine.
  *
- * It used to be a hand-kept list, and it had drifted: it was in no particular
- * order and it left out three spades entirely, so a player could hit a x14 and
- * never have been told it existed. Sorting the real table means the panel
- * cannot fall out of step with `games.ts` again.
+ * There is no panel here in the usual sense: no title bar, no buttons, no
+ * pay-table list. The screen is one cabinet, drawn at 1:1 into a canvas and
+ * blown up with nearest neighbour like every other sprite in the game, and
+ * everything the player can do is done to the machine itself — coins into the
+ * slots along the front, hand on the handle.
+ *
+ * React owns none of the motion. The reels, the handle, the coins and the
+ * lights all live on `game.casino.slots` and tick in game time from the main
+ * loop; this component is a render target and a pointer surface, and its
+ * animation frame only ever reads.
  */
-const LADDER: SlotSymbol[] = (Object.keys(SLOT_TRIPLE) as SlotSymbol[])
-  .sort((a, b) => SLOT_TRIPLE[b] - SLOT_TRIPLE[a]);
-
-/** The bulbs chase around the cabinet head; index decides the phase. */
-function Bulbs({ count, lit }: { count: number; lit: number }) {
-  return (
-    <div className="slot-bulbs">
-      {Array.from({ length: count }, (_, i) => (
-        <span key={i} className={`slot-bulb${(i + lit) % 3 === 0 ? ' on' : ''}`} />
-      ))}
-    </div>
-  );
-}
-
-function Reel({ symbol, spinning, hit }: { symbol: SlotSymbol; spinning: boolean; hit: boolean }) {
-  return (
-    <div className={`slot-reel${spinning ? ' spinning' : ''}${hit ? ' hit' : ''}`}>
-      <img
-        src={spinning ? slotBlurUrl(symbol) : slotSymbolUrl(symbol)}
-        alt=""
-        draggable={false}
-      />
-    </div>
-  );
-}
-
 export default function SlotsPanel({ game }: { game: Game }) {
-  const s = game.casino.slots;
-  if (!s) return null;
-  const gold = game.player.gold;
-  const won = !s.spinning && s.result && s.result.payout > 0 ? s.stake * (s.result.payout + 1) : 0;
-  const jackpot = !s.spinning && s.result?.label === 'JACKPOT';
-  const celebrating = s.celebrate > 0 && won > 0;
-  const lit = Math.floor((s.elapsed + s.celebrate) * 8);
-  // Which reels are part of the winning line, so they can be lit on their own.
-  const winning = (i: number): boolean => {
-    if (s.spinning || won <= 0 || !s.result) return false;
-    const r = s.result.reels;
-    if (r[0] === r[1] && r[1] === r[2]) return true;
-    return r[i] === 'cherry';
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dragged = useRef(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let raf = 0;
+    const draw = () => {
+      const m = game.casino.slots;
+      if (m) {
+        drawCabinet(ctx, {
+          t: m.t,
+          pos: m.pos,
+          speed: m.speed,
+          lever: m.lever,
+          leverHot: m.hot || m.held,
+          stake: m.stake,
+          credit: Math.round(m.credit),
+          win: m.win,
+          hit: m.hits(),
+          celebrate: m.celebrate,
+          bell: m.bell,
+          anticipation: m.anticipation,
+          coins: m.coins,
+          tray: m.tray,
+          insert: m.insert,
+          attract: m.attract,
+          message: m.message,
+          jackpot: m.jackpot,
+        });
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [game]);
+
+  /** Pointer position in cabinet pixels. */
+  const at = (e: { clientX: number; clientY: number }) => {
+    const r = canvasRef.current!.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / r.width) * CAB_W,
+      y: ((e.clientY - r.top) / r.height) * CAB_H,
+    };
   };
 
-  const status = s.spinning ? 'Spinning…'
-    : won > 0 ? `You win ${won} gold!`
-      : s.result ? 'No win. Try again!'
-        : 'Pick a stake and pull.';
+  const onKnob = (x: number, y: number): boolean => {
+    const m = game.casino.slots;
+    if (!m) return false;
+    const k = leverKnob(m.lever);
+    return Math.hypot(x - k.x, y - k.y) <= LEVER_KNOB + 6;
+  };
+
+  const down = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const m = game.casino.slots;
+    if (!m) return;
+    const { x, y } = at(e);
+    const slot = slotAt(x, y);
+    if (slot >= 0) {
+      m.insertCoin(slot);
+      return;
+    }
+    if (onKnob(x, y)) {
+      dragged.current = false;
+      m.grab();
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  };
+
+  const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const m = game.casino.slots;
+    if (!m) return;
+    const { x, y } = at(e);
+    if (m.held) {
+      const v = leverValueAt(x, y);
+      if (v > 0.06) dragged.current = true;
+      m.drag(v);
+    } else {
+      m.hover(onKnob(x, y));
+    }
+  };
+
+  const up = () => {
+    const m = game.casino.slots;
+    if (!m || !m.held) return;
+    // A click on the knob without a drag is still a pull: not everybody is
+    // going to work out that the handle is draggable, and a machine that
+    // refuses a click on its own handle is a machine that looks broken.
+    if (!dragged.current) m.yank();
+    else m.release();
+  };
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel slot-panel" style={{ width: 'min(580px, 96vw)' }}>
-        <div className="panel-title">
-          <span className="slot-crown" aria-hidden />
-          <span>Slot Machine</span>
-          <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
-        </div>
-
-        <div className="slot-body">
-          {/* the cabinet */}
-          <div className={`slot-cabinet${celebrating ? ' celebrating' : ''}`}>
-            {/* candle sconces, one bolted to each shoulder of the cabinet */}
-            <span className="slot-candle left" aria-hidden><i /></span>
-            <span className="slot-candle right" aria-hidden><i /></span>
-
-            <div className="slot-head">
-              <Bulbs count={6} lit={lit} />
-              <div className={`slot-badge${jackpot && s.celebrate > 0 ? ' jackpot' : ''}`}>
-                {jackpot && s.celebrate > 0 ? 'JACKPOT!' : <span className="slot-badge-crown" aria-hidden />}
-              </div>
-              <Bulbs count={6} lit={lit + 1} />
-            </div>
-
-            <div className="slot-stage">
-              <span className="slot-arrow left" aria-hidden />
-              <div className="slot-window">
-                {celebrating ? <div className="slot-rays" aria-hidden /> : null}
-                <div className="slot-reels">
-                  {[0, 1, 2].map((i) => (
-                    <Reel
-                      key={i}
-                      symbol={s.faces[i]}
-                      spinning={s.spinning && s.locked <= i}
-                      hit={winning(i)}
-                    />
-                  ))}
-                  <span className="slot-payline" aria-hidden />
-                </div>
-              </div>
-              <span className="slot-arrow right" aria-hidden />
-              {/* the handle, pulled on a spin */}
-              <div className="slot-lever" style={{ ['--pull' as string]: s.lever.toFixed(2) }}>
-                <span className="slot-lever-rod" />
-                <span className="slot-lever-knob" />
-              </div>
-            </div>
-
-            <div className={`slot-status${won > 0 ? ' win' : ''}`}>{status}</div>
-
-            {/* the coin tray, and what has just fallen into it */}
-            <div className="slot-tray" aria-hidden>
-              {Array.from({ length: 5 }, (_, i) => <span key={i} className="slot-tray-coin" />)}
-            </div>
-
-            {celebrating ? (
-              <div className="slot-coins" aria-hidden>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <img key={i} src={coinUrl()} alt="" className={`slot-coin c${i % 10}`} draggable={false} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="slot-controls">
-            <div className="cas-stakes">
-              {STAKES.map((v) => (
-                <button
-                  key={v}
-                  className={`btn small${s.stake === v ? ' primary' : ''}`}
-                  disabled={s.spinning || gold < v}
-                  onClick={() => game.casino.setSlotStake(v)}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-            <button
-              className="btn primary slot-spin"
-              disabled={s.spinning || gold < s.stake}
-              onClick={() => game.casino.spin()}
-            >
-              {s.spinning ? 'SPIN…' : 'SPIN'}
-            </button>
-          </div>
-
-          <div className="slot-foot">
-            <div className="slot-pay">
-              <div className="cas-side-head">Pay table</div>
-              {LADDER.map((sym) => (
-                <div
-                  key={sym}
-                  className={`cas-rung${!s.spinning && won > 0 && s.result!.reels.every((r) => r === sym) ? ' hit' : ''}`}
-                >
-                  <span className="slot-pay-row">
-                    <img src={slotSymbolUrl(sym)} alt="" draggable={false} />
-                    <img src={slotSymbolUrl(sym)} alt="" draggable={false} />
-                    <img src={slotSymbolUrl(sym)} alt="" draggable={false} />
-                  </span>
-                  <span className="cas-mult">&times;{SLOT_TRIPLE[sym]}</span>
-                </div>
-              ))}
-              <div className={`cas-rung${!s.spinning && s.result?.label === 'Two cherries' ? ' hit' : ''}`}>
-                <span className="slot-pay-row">
-                  <img src={slotSymbolUrl('cherry')} alt="" draggable={false} />
-                  <img src={slotSymbolUrl('cherry')} alt="" draggable={false} />
-                  <span className="slot-pay-note">anywhere</span>
-                </span>
-                <span className="cas-mult">&times;{SLOT_TWO_CHERRY}</span>
-              </div>
-            </div>
-
-            <div className="slot-purse">
-              <div><span>Your gold</span><span style={{ color: 'var(--gold)' }}>{gold}</span></div>
-              <div><span>This bet</span><span style={{ color: 'var(--danger)' }}>&minus;{s.stake}</span></div>
-              <div>
-                <span>This sitting</span>
-                <span style={{ color: s.session >= 0 ? 'var(--sp)' : 'var(--danger)' }}>
-                  {s.session >= 0 ? '+' : ''}{s.session}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div
+      className="slot-room"
+      onPointerDown={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="slot-cab"
+        width={CAB_W}
+        height={CAB_H}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={up}
+        onPointerLeave={() => game.casino.slots?.hover(false)}
+      />
+      <div className="slot-leave">Esc &mdash; step away from the machine</div>
     </div>
   );
 }
