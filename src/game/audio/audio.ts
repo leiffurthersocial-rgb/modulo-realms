@@ -363,6 +363,39 @@ export class AudioManager {
         this.tone('sine', 300, t, 0.18, 0.08 * v, out);
         this.noise(t + 0.05, 0.14, 0.05 * v, 600, 'lowpass', out);
         break;
+      /* ---- the Gilded Spade's wheel ---- */
+      // A bolt going home: a short wooden tick with a little brass over it.
+      case 'wheel_clack':
+        this.noise(t, 0.05, 0.18 * v, 2600, 'bandpass', out);
+        this.tone('square', 880, t, 0.04, 0.05 * v, out);
+        break;
+      // The head coming up to speed: filtered noise under a rising fifth.
+      case 'wheel_spin':
+        this.noise(t, 0.85, 0.07 * v, 900, 'bandpass', out);
+        this.tone('triangle', 220, t, 0.5, 0.035 * v, out, 0.12);
+        this.tone('triangle', 330, t + 0.22, 0.45, 0.028 * v, out, 0.1);
+        break;
+      // The ivory hopping across the frets.
+      case 'wheel_ball':
+        this.noise(t, 0.035, 0.14 * v, 4200, 'bandpass', out);
+        this.tone('sine', 1560, t, 0.03, 0.04 * v, out);
+        break;
+      // A year of dust off a fixture nobody has touched.
+      case 'wheel_dust':
+        this.noise(t, 0.34, 0.07 * v, 480, 'lowpass', out);
+        break;
+      // The head seating on the spindle: one heavy brass thump and a ring.
+      case 'wheel_lock':
+        this.noise(t, 0.14, 0.2 * v, 420, 'lowpass', out);
+        this.tone('triangle', 165, t, 0.22, 0.09 * v, out);
+        [330, 494].forEach((f, i) => this.tone('sine', f, t + 0.04 + i * 0.05, 0.6, 0.05 * v, out, 0.01));
+        break;
+      // A dozen people at a dozen tables, all at once and none of them clear.
+      case 'crowd_cheer':
+        this.noise(t, 0.6, 0.09 * v, 760, 'bandpass', out);
+        this.noise(t + 0.12, 0.45, 0.06 * v, 1250, 'bandpass', out);
+        [262, 330, 392].forEach((f, i) => this.tone('sine', f, t + i * 0.06, 0.3, 0.025 * v, out, 0.03));
+        break;
       case 'discover':
         [440, 554, 659, 880].forEach((f, i) => this.tone('sine', f, t + i * 0.12, 0.5, 0.09 * v, out, 0.04));
         break;

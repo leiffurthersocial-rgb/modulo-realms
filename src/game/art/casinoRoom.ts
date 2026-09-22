@@ -80,7 +80,6 @@ function chipStack(p: Px, x: number, y: number, body: string, n: number, w = 7):
 /* ------------------------------------------------------------------ */
 /* Seated patrons                                                      */
 /* ------------------------------------------------------------------ */
-
 interface Patron {
   skin: string;
   hair: string;
@@ -105,73 +104,124 @@ const PATRONS: Record<string, Patron> = {
   f: { skin: '#9a6a48', hair: '#d8cfc4', coat: '#33313e', trim: '#c3cad6', hat: 'none' },
 };
 
-const SITTER_W = 24;
-const SITTER_H = 38;
+/**
+ * Everyone in this room is drawn at the player's scale.
+ *
+ * The first cut of the gaming floor used a compact 24x38 sitter with a 7px
+ * head, and it read as a room full of children the moment Dario — an ordinary
+ * `characters.ts` body with an 11px head — walked past one. These constants
+ * are the character sheet's own proportions (head 11x12, torso 9 wide and 11
+ * tall, `CH_FEET` under it), folded into a seated pose. Change one of them and
+ * the room stops matching the people who walk through it.
+ */
+const HEAD_W = 11;
+const HEAD_H = 12;
+const TORSO_W = 9;
+const TORSO_H = 11;
+
+const SITTER_W = 34;
+const SITTER_H = 50;
 /** Where the stool's feet land inside the frame. */
-const SITTER_FEET = 34;
+const SITTER_FEET = 45;
+/** Top of the stool's seat — the line a seated hip rests on. */
+const SEAT_Y = 37;
 
 /** Legs of the stool. The seat itself is always hidden by the body above it. */
 function stoolUnder(p: Px, cx: number, feet: number): void {
-  p.fill(cx - 6, feet - 7, 2, 7, PAL.woodDark);
-  p.fill(cx + 4, feet - 7, 2, 7, PAL.woodDark);
-  p.fill(cx - 6, feet - 3, 12, 1, shade(PAL.wood, 0.9));
-  p.ellipse(cx, feet - 8, 7, 3, PAL.woodDark);
-  p.ellipse(cx, feet - 9, 6.2, 2.6, '#6d2330');
-}
-
-/** Hair, hat and face, shared by every facing. */
-function head(p: Px, who: Patron, hx: number, hy: number, dir: Dir, t: number): void {
-  const side = dir === 'left' || dir === 'right';
-  const face = dir === 'right' ? 1 : dir === 'left' ? -1 : 0;
-
-  p.fill(hx - 3, hy, 7, 8, who.skin);
-  p.fill(hx - 3, hy, 7, 1, mix(who.skin, PAL.white, 0.2));
-  p.fill(hx - 3, hy + 7, 7, 1, shade(who.skin, 0.78));
-  if (side) {
-    // a nose, which is most of what sells a profile at this size
-    p.set(hx + face * 4, hy + 4, who.skin);
-    p.fill(hx - face * 4, hy + 1, 1, 6, who.hair);
-  }
-  p.fill(hx - 1, hy + 8, 3, 2, shade(who.skin, 0.74));
-
-  if (who.hood) {
-    p.fill(hx - 4, hy - 2, 9, 9, shade(who.coat, 0.6));
-    p.fill(hx - 3, hy + 2, 7, 4, withAlpha(PAL.ink, 0.82));
-    if (dir !== 'up') p.set(hx + face * 2, hy + 3, withAlpha(PAL.flameLit, 0.85));
-    return;
-  }
-
-  // hair: full cap from behind, a fringe and sideburns from any other angle
-  p.fill(hx - 3, hy - 2, 7, 3, who.hair);
-  p.fill(hx - 4, hy - 1, 1, 5, who.hair);
-  p.fill(hx + 3, hy - 1, 1, 5, who.hair);
-  if (dir === 'up') p.fill(hx - 3, hy - 2, 7, 8, who.hair);
-  if (side) p.fill(hx - face * 3, hy - 1, 3, 6, who.hair);
-
-  if (who.hat === 'wide') {
-    // brim, crown, hat band — three bands is the whole hat at this size
-    p.fill(hx - 6, hy - 3, 13, 2, PAL.charcoal);
-    p.fill(hx - 4, hy - 6, 9, 3, PAL.charcoal);
-    p.fill(hx - 3, hy - 7, 7, 1, mix(PAL.charcoal, PAL.fog, 0.3));
-    p.fill(hx - 4, hy - 4, 9, 1, who.trim);
-  } else if (who.hat === 'cap') {
-    // a soft cap with a peak that shades the eyes on the facing side
-    p.fill(hx - 3, hy - 5, 7, 3, who.trim);
-    p.fill(hx - 4, hy - 4, 9, 2, who.trim);
-    p.fill(hx - 4, hy - 3, 9, 1, shade(who.trim, 0.66));
-    p.fill(hx - 3, hy - 5, 7, 1, mix(who.trim, PAL.white, 0.3));
-    if (side) p.fill(hx + face * 4, hy - 3, 3, 1, shade(who.trim, 0.66));
-    else p.fill(hx - 4, hy - 2, 9, 1, shade(who.trim, 0.5));
-  }
-
-  if (dir === 'up') return;
-  // eyes, closed on the last frame of the idle
-  const eye = t === 3 ? shade(who.skin, 0.72) : PAL.ink;
-  if (side) p.set(hx + face * 2, hy + 3, eye);
-  else { p.set(hx - 2, hy + 3, eye); p.set(hx + 2, hy + 3, eye); }
+  p.fill(cx - 9, SEAT_Y + 1, 2, feet - SEAT_Y - 1, PAL.woodDark);
+  p.fill(cx + 7, SEAT_Y + 1, 2, feet - SEAT_Y - 1, PAL.woodDark);
+  p.fill(cx - 9, feet - 4, 18, 1, shade(PAL.wood, 0.9));
+  p.ellipse(cx, SEAT_Y, 10, 4, PAL.woodDark);
+  p.ellipse(cx, SEAT_Y - 1, 9, 3.4, '#6d2330');
+  p.ellipse(cx, SEAT_Y - 2, 7, 2.4, '#8e2131');
 }
 
 type Dir = 'up' | 'down' | 'left' | 'right';
+
+/**
+ * Hair, hat and face, shared by every facing and by the staff below.
+ *
+ * `y` is the top of the skull, exactly as `drawHead` in `characters.ts` takes
+ * it, so a patron's head and the player's are the same eleven pixels wide and
+ * sit the same distance above the shoulders.
+ */
+function head(p: Px, who: Patron, cx: number, y: number, dir: Dir, t: number): void {
+  const side = dir === 'left' || dir === 'right';
+  const face = dir === 'right' ? 1 : -1;
+  const skin = who.skin;
+  const dark = shade(skin, 0.74);
+  const hx = cx - Math.floor(HEAD_W / 2);
+
+  // neck, and the ears either side of the skull
+  p.fill(cx - 2, y + HEAD_H - 2, 4, 3, dark);
+  if (!side) {
+    p.fill(hx - 1, y + 5, 1, 3, dark);
+    p.fill(hx + HEAD_W, y + 5, 1, 3, dark);
+  } else {
+    p.fill(cx - face * 5, y + 5, 1, 3, dark);
+  }
+
+  // skull — corners knocked off, lit from the front-left like every other face
+  p.fill(hx, y + 1, HEAD_W, HEAD_H - 2, skin);
+  p.fill(hx + 1, y, HEAD_W - 2, 1, skin);
+  p.set(hx, y + 1, dark);
+  p.set(hx + HEAD_W - 1, y + 1, dark);
+  p.fill(hx + 1, y + 1, HEAD_W - 3, 1, shade(skin, 1.12));
+  p.fill(hx, y + 2, 1, 6, shade(skin, 1.06));
+  p.fill(hx + HEAD_W - 2, y + 1, 2, HEAD_H - 2, dark);
+  p.fill(hx, y + HEAD_H - 2, HEAD_W, 1, dark);
+  if (side) {
+    // a nose, which is most of what sells a profile at this size
+    p.fill(cx + face * 5, y + 4, 2, 3, skin);
+    p.set(cx + face * 6, y + 5, skin);
+    p.fill(cx - face * 5, y + 1, 2, HEAD_H - 3, dark);
+  }
+
+  if (who.hood) {
+    // A hood is a shape, not a face: cowl, shadow, one catch-light for an eye.
+    p.fill(hx - 1, y - 3, HEAD_W + 2, HEAD_H, shade(who.coat, 0.6));
+    p.fill(hx - 1, y - 3, HEAD_W + 2, 2, shade(who.coat, 0.78));
+    p.fill(hx, y + 2, HEAD_W - 1, 6, withAlpha(PAL.ink, 0.84));
+    if (dir !== 'up') p.set(cx + face * 2, y + 5, withAlpha(PAL.flameLit, 0.85));
+    return;
+  }
+
+  // hair: a full cap from behind, a fringe and sideburns from any other angle
+  p.fill(hx, y - 2, HEAD_W, 4, who.hair);
+  p.fill(hx + 1, y - 3, HEAD_W - 2, 1, who.hair);
+  p.fill(hx - 1, y - 1, 1, 6, who.hair);
+  p.fill(hx + HEAD_W, y - 1, 1, 6, who.hair);
+  if (dir === 'up') p.fill(hx, y - 2, HEAD_W, HEAD_H, who.hair);
+  if (side) p.fill(cx - face * 4, y - 1, 4, 7, who.hair);
+
+  if (who.hat === 'wide') {
+    // brim, crown, hat band — three bands is the whole hat at this size
+    p.fill(hx - 3, y - 4, HEAD_W + 6, 2, PAL.charcoal);
+    p.fill(hx - 4, y - 3, HEAD_W + 8, 1, shade(PAL.charcoal, 0.7));
+    p.fill(hx, y - 9, HEAD_W, 5, PAL.charcoal);
+    p.fill(hx + 1, y - 10, HEAD_W - 2, 1, mix(PAL.charcoal, PAL.fog, 0.3));
+    p.fill(hx, y - 6, HEAD_W, 2, who.trim);
+  } else if (who.hat === 'cap') {
+    // a soft cap with a peak that shades the eyes on the facing side
+    p.fill(hx, y - 6, HEAD_W, 4, who.trim);
+    p.fill(hx + 1, y - 7, HEAD_W - 2, 1, mix(who.trim, PAL.white, 0.3));
+    p.fill(hx - 1, y - 3, HEAD_W + 2, 1, shade(who.trim, 0.66));
+    if (side) p.fill(cx + face * 4, y - 2, 4, 1, shade(who.trim, 0.66));
+    else p.fill(hx - 2, y - 2, HEAD_W + 4, 1, shade(who.trim, 0.5));
+  }
+
+  if (dir === 'up') return;
+  // eyes, closed on the last frame of the idle, and a mouth under them
+  const eye = t === 3 ? shade(skin, 0.72) : PAL.ink;
+  if (side) {
+    p.fill(cx + face * 2, y + 5, 1, 2, eye);
+    p.fill(cx + face * 3, y + 8, 2, 1, shade(skin, 0.6));
+  } else {
+    p.fill(cx - 3, y + 5, 2, 2, eye);
+    p.fill(cx + 2, y + 5, 2, 2, eye);
+    p.fill(cx - 2, y + 8, 4, 1, shade(skin, 0.6));
+  }
+}
 
 /**
  * One seated patron, drawn for a facing and an animation phase.
@@ -188,68 +238,81 @@ function sitter(who: Patron, dir: Dir, t: number, rng: RNG): Px {
   const side = dir === 'left' || dir === 'right';
   const face = dir === 'right' ? 1 : -1;
 
-  shadow(p, cx, feet, 9, 3);
+  shadow(p, cx, feet, 12, 4);
   stoolUnder(p, cx, feet);
 
-  const hipY = feet - 8;
-  const torsoTop = hipY - 10 + breath;
-  const headTop = torsoTop - 9;
+  const hipY = SEAT_Y - 1;
+  const torsoTop = hipY - TORSO_H + breath;
+  const headTop = torsoTop - (HEAD_H - 1);
   const coatLit = mix(who.coat, PAL.white, 0.16);
   const coatDark = shade(who.coat, 0.64);
   const sleeve = shade(who.coat, 0.84);
   const trouser = shade(who.coat, 0.58);
+  const boot = shade(who.coat, 0.4);
 
-  // thighs, forward of the seat — this is what makes it read as *sitting*
+  // thighs forward of the seat and shins dropping to the floor — this is what
+  // makes the pose read as *sitting* rather than as a short standing body
   if (dir === 'up') {
-    p.fill(cx - 6, hipY - 1, 12, 5, trouser);
-    p.fill(cx - 6, hipY - 1, 12, 1, shade(who.coat, 0.7));
+    p.fill(cx - 6, hipY, 12, 4, trouser);
+    p.fill(cx - 6, hipY, 12, 1, shade(who.coat, 0.7));
+    p.fill(cx - 6, hipY + 4, 4, 5, trouser);
+    p.fill(cx + 2, hipY + 4, 4, 5, trouser);
+    p.fill(cx - 6, feet - 2, 4, 2, boot);
+    p.fill(cx + 2, feet - 2, 4, 2, boot);
   } else if (dir === 'down') {
     p.fill(cx - 6, hipY, 5, 6, trouser);
     p.fill(cx + 1, hipY, 5, 6, trouser);
-    p.fill(cx - 6, hipY + 6, 5, 2, PAL.ink);
-    p.fill(cx + 1, hipY + 6, 5, 2, PAL.ink);
+    p.fill(cx - 6, hipY, 5, 1, shade(who.coat, 0.7));
+    p.fill(cx + 1, hipY, 5, 1, shade(who.coat, 0.7));
+    p.fill(cx - 5, hipY + 6, 4, 3, trouser);
+    p.fill(cx + 1, hipY + 6, 4, 3, trouser);
+    p.fill(cx - 6, feet - 2, 5, 2, boot);
+    p.fill(cx + 1, feet - 2, 5, 2, boot);
   } else {
-    // knee toward the table, shin dropping to a boot on the rail
-    p.fill(face > 0 ? cx - 2 : cx - 7, hipY - 1, 9, 5, trouser);
-    p.fill(cx + (face > 0 ? 5 : -7), hipY + 3, 2, 5, trouser);
-    p.fill(cx + (face > 0 ? 4 : -7), hipY + 8, 4, 2, PAL.ink);
+    // knee toward the table, shin dropping to a boot on the stool's rail
+    const kx = face > 0 ? cx - 1 : cx - 9;
+    p.fill(kx, hipY, 10, 5, trouser);
+    p.fill(kx, hipY, 10, 1, shade(who.coat, 0.7));
+    p.fill(cx + (face > 0 ? 6 : -8), hipY + 5, 3, 5, trouser);
+    p.fill(cx + (face > 0 ? 5 : -9), feet - 2, 5, 2, boot);
   }
 
   // torso — narrower in profile than head-on, which is what reads as a turn
-  const halfW = side ? 4 : 5;
+  const halfW = side ? Math.floor(TORSO_W / 2) : Math.ceil(TORSO_W / 2);
   const tx = side ? cx + face : cx;
-  p.fill(tx - halfW, torsoTop, halfW * 2, 11, who.coat);
+  p.fill(tx - halfW, torsoTop, halfW * 2, TORSO_H, who.coat);
+  p.fill(tx - halfW - 1, torsoTop + 1, halfW * 2 + 2, 3, who.coat);
   p.fill(tx - halfW, torsoTop, halfW * 2, 1, coatLit);
-  p.fill(tx + halfW - 1, torsoTop, 1, 11, coatDark);
+  p.fill(tx + halfW - 2, torsoTop, 2, TORSO_H, coatDark);
   // the far shoulder, dropped back into shadow
-  if (side) p.fill(tx - face * halfW, torsoTop + 1, 1, 10, shade(who.coat, 0.5));
+  if (side) p.fill(tx - face * halfW, torsoTop + 1, 1, TORSO_H - 1, shade(who.coat, 0.5));
   if (dir === 'down') {
-    p.poly([[cx - 4, torsoTop + 1], [cx, torsoTop + 8], [cx + 4, torsoTop + 1]], who.trim);
-    p.poly([[cx - 2, torsoTop + 1], [cx, torsoTop + 6], [cx + 2, torsoTop + 1]], PAL.cloth);
-    p.set(cx, torsoTop + 8, PAL.gold);
+    p.poly([[cx - 5, torsoTop + 1], [cx, torsoTop + 9], [cx + 5, torsoTop + 1]], who.trim);
+    p.poly([[cx - 3, torsoTop + 1], [cx, torsoTop + 7], [cx + 3, torsoTop + 1]], PAL.cloth);
+    p.set(cx, torsoTop + 9, PAL.gold);
   } else if (dir === 'up') {
-    p.fill(cx - 5, torsoTop + 4, 10, 1, who.trim);
-    p.fill(cx - 1, torsoTop + 1, 2, 9, coatDark);
+    p.fill(cx - 5, torsoTop + 5, 10, 1, who.trim);
+    p.fill(cx - 1, torsoTop + 1, 2, TORSO_H - 1, coatDark);
   } else {
-    p.fill(tx - halfW, torsoTop + 3, halfW * 2, 1, who.trim);
-    p.fill(tx + face * 3, torsoTop + 1, 1, 10, coatDark);
+    p.fill(tx - halfW, torsoTop + 4, halfW * 2, 1, who.trim);
+    p.fill(tx + face * 3, torsoTop + 1, 1, TORSO_H - 1, coatDark);
   }
 
   // arms, resting on the table edge in front of them
   const armY = torsoTop + 4 + (t === 2 ? 1 : 0);
   if (side) {
     // only the near arm shows; it reaches toward whatever they are playing
-    const ax = face > 0 ? cx + 2 : cx - 6;
+    const ax = face > 0 ? cx + 2 : cx - 7;
     const reach = t === 1 ? 1 : 0;
-    p.fill(ax, armY, 4, 4, sleeve);
-    p.fill(ax + face * 3 + (face > 0 ? 1 : 0), armY + 3 + reach, 3, 3, sleeve);
-    p.fill(ax + face * 6 + (face > 0 ? 0 : 1), armY + 5 + reach, 2, 2, who.skin);
+    p.fill(ax, armY, 5, 5, sleeve);
+    p.fill(ax + face * 4 + (face > 0 ? 1 : 0), armY + 4 + reach, 4, 4, sleeve);
+    p.fill(ax + face * 8 + (face > 0 ? 0 : 1), armY + 7 + reach, 3, 3, who.skin);
   } else {
     const drop = t === 1 ? 1 : 0;
-    p.fill(cx - 8, armY, 3, 6, sleeve);
-    p.fill(cx + 5, armY - drop, 3, 6, sleeve);
-    p.fill(cx - 8, armY + 6, 3, 2, who.skin);
-    p.fill(cx + 5, armY + 6 - drop, 3, 2, who.skin);
+    p.fill(cx - 9, armY, 4, 7, sleeve);
+    p.fill(cx + 5, armY - drop, 4, 7, sleeve);
+    p.fill(cx - 9, armY + 7, 4, 3, who.skin);
+    p.fill(cx + 5, armY + 7 - drop, 4, 3, who.skin);
   }
 
   const lean = dir === 'down' && t === 2 ? 1 : 0;
@@ -259,11 +322,11 @@ function sitter(who: Patron, dir: Dir, t: number, rng: RNG): Px {
   // Only the ones facing the camera — in profile both hands are on the felt,
   // and a glass out there floats away from the body.
   if (rng.bool(0.5) && dir === 'down') {
-    const gx = cx + 5;
-    const gy = armY + 2;
-    p.fill(gx, gy, 3, 5, withAlpha('#f6bf5d', 0.55));
-    p.fill(gx, gy, 3, 1, PAL.white);
-    p.fill(gx, gy + 3, 3, 2, withAlpha('#f6bf5d', 0.95));
+    const gx = cx + 6;
+    const gy = armY + 3;
+    p.fill(gx, gy, 4, 6, withAlpha('#f6bf5d', 0.55));
+    p.fill(gx, gy, 4, 1, PAL.white);
+    p.fill(gx, gy + 4, 4, 2, withAlpha('#f6bf5d', 0.95));
   }
 
   p.outline('rgba(12,9,18,0.85)');
@@ -280,23 +343,23 @@ function sitter(who: Patron, dir: Dir, t: number, rng: RNG): Px {
  */
 export function patronBust(key: string): Px {
   const who = PATRONS[key] ?? PATRONS.a;
-  const W = 26;
-  const H = 26;
+  const W = 32;
+  const H = 32;
   const p = new Px(W, H);
-  const cx = 13;
+  const cx = 16;
 
   // a lit oval behind them, so the bust reads on any panel colour
-  p.ellipse(cx, 17, 12, 11, '#241823');
-  p.ellipse(cx, 16, 11, 10, '#33243055');
+  p.ellipse(cx, 21, 15, 13, '#241823');
+  p.ellipse(cx, 20, 14, 12, '#33243055');
 
   // shoulders
-  p.fill(cx - 8, 19, 16, 7, who.coat);
-  p.fill(cx - 8, 19, 16, 1, mix(who.coat, PAL.white, 0.18));
-  p.fill(cx + 7, 20, 1, 6, shade(who.coat, 0.62));
-  p.poly([[cx - 4, 19], [cx, 25], [cx + 4, 19]], who.trim);
-  p.poly([[cx - 2, 19], [cx, 23], [cx + 2, 19]], PAL.cloth);
+  p.fill(cx - 9, 23, 18, 9, who.coat);
+  p.fill(cx - 9, 23, 18, 1, mix(who.coat, PAL.white, 0.18));
+  p.fill(cx + 7, 24, 2, 8, shade(who.coat, 0.62));
+  p.poly([[cx - 5, 23], [cx, 31], [cx + 5, 23]], who.trim);
+  p.poly([[cx - 3, 23], [cx, 29], [cx + 3, 23]], PAL.cloth);
 
-  head(p, who, cx, 8, 'down', 0);
+  head(p, who, cx, 11, 'down', 0);
   p.outline('rgba(12,9,18,0.85)');
   return p;
 }
@@ -320,36 +383,43 @@ export const PATRON_KEYS = Object.keys(PATRONS);
 /* Staff                                                               */
 /* ------------------------------------------------------------------ */
 
+/** Feet line for both members of staff, who stand rather than sit. */
+const STAFF_FEET = 45;
+
 /**
  * The croupier at the blackjack table. Four frames: a card leaves the shoe,
  * travels out across the felt and settles, then the hand comes back. The
  * player never has to interact with them — they are there so the table is
  * never a piece of empty furniture.
+ *
+ * Built on the same head, torso and leg measurements as the patrons, which
+ * are the player's own.
  */
 function croupier(t: number): Px {
-  const W = 34;
-  const H = 40;
+  const W = 42;
+  const H = 50;
   const p = new Px(W, H);
-  const cx = 13;
-  const feet = 37;
+  const cx = 15;
+  const feet = STAFF_FEET;
   const bob = t === 1 || t === 3 ? 1 : 0;
+  const who: Patron = { skin: '#e0b48c', hair: '#d9a441', coat: PAL.cloth, trim: PAL.gold };
 
-  shadow(p, cx, feet, 8, 3);
+  shadow(p, cx, feet, 10, 4);
 
-  const legTop = feet - 10;
-  p.fill(cx - 4, legTop, 3, 10, '#241f2e');
-  p.fill(cx + 1, legTop, 3, 10, '#241f2e');
-  p.fill(cx - 5, feet - 2, 5, 2, PAL.ink);
-  p.fill(cx, feet - 2, 5, 2, PAL.ink);
+  const legTop = feet - 9;
+  p.fill(cx - 5, legTop, 4, 9, '#241f2e');
+  p.fill(cx + 1, legTop, 4, 9, '#241f2e');
+  p.fill(cx - 6, feet - 2, 5, 2, PAL.ink);
+  p.fill(cx + 1, feet - 2, 5, 2, PAL.ink);
 
-  const torsoTop = legTop - 12 + bob;
+  const torsoTop = legTop - TORSO_H + bob;
   // waistcoat over a white shirt — house uniform, the same crimson as the room
-  p.fill(cx - 5, torsoTop, 11, 12, PAL.cloth);
-  p.fill(cx - 5, torsoTop, 11, 1, PAL.white);
-  p.fill(cx - 5, torsoTop + 1, 4, 11, '#6d2330');
-  p.fill(cx + 2, torsoTop + 1, 4, 11, '#6d2330');
-  p.fill(cx - 5, torsoTop + 1, 1, 11, '#8e2131');
-  p.fill(cx + 5, torsoTop + 1, 1, 11, '#4e1723');
+  p.fill(cx - 5, torsoTop, 11, TORSO_H, PAL.white);
+  p.fill(cx - 6, torsoTop + 1, 13, 3, PAL.white);
+  p.fill(cx - 5, torsoTop + 1, 4, TORSO_H - 1, '#6d2330');
+  p.fill(cx + 2, torsoTop + 1, 4, TORSO_H - 1, '#6d2330');
+  p.fill(cx - 5, torsoTop + 1, 1, TORSO_H - 1, '#8e2131');
+  p.fill(cx + 5, torsoTop + 1, 1, TORSO_H - 1, '#4e1723');
   p.set(cx - 2, torsoTop + 5, PAL.gold);
   p.set(cx - 2, torsoTop + 8, PAL.gold);
   // bow tie
@@ -362,35 +432,27 @@ function croupier(t: number): Px {
   // that to read as a deal rather than as an arm growing out of a sleeve.
   const lift = [0, 1, 1, 0][t];
   const out = [0, 3, 6, 3][t];
-  p.fill(cx - 8, torsoTop + 3, 3, 7, PAL.cloth);
-  p.fill(cx - 8, torsoTop + 10, 3, 2, '#d8a273');
+  p.fill(cx - 9, torsoTop + 3, 4, 8, PAL.cloth);
+  p.fill(cx - 9, torsoTop + 11, 4, 3, who.skin);
   // upper arm, then the cuff and hand at its far end
-  p.fill(cx + 5, torsoTop + 4 - lift, 2 + out, 3, PAL.cloth);
-  p.fill(cx + 5, torsoTop + 4 - lift, 2 + out, 1, PAL.white);
-  p.fill(cx + 7 + out, torsoTop + 4 - lift, 1, 3, '#6d2330');
-  p.fill(cx + 8 + out, torsoTop + 4 - lift, 2, 3, '#d8a273');
+  p.fill(cx + 6, torsoTop + 4 - lift, 3 + out, 4, PAL.cloth);
+  p.fill(cx + 6, torsoTop + 4 - lift, 3 + out, 1, PAL.white);
+  p.fill(cx + 9 + out, torsoTop + 4 - lift, 1, 4, '#6d2330');
+  p.fill(cx + 10 + out, torsoTop + 4 - lift, 3, 4, who.skin);
   if (t >= 1) {
     // the card, already gone from the hand and still sliding
-    const cardX = cx + 11 + out;
+    const cardX = cx + 13 + out;
     const cardY = torsoTop + 3 - lift + (t === 3 ? 2 : 0);
-    p.fill(cardX, cardY, 4, 6, PAL.white);
-    p.fill(cardX, cardY, 4, 1, PAL.bone);
-    p.fill(cardX + 3, cardY, 1, 6, PAL.bone);
+    p.fill(cardX, cardY, 5, 7, PAL.white);
+    p.fill(cardX, cardY, 5, 1, PAL.bone);
+    p.fill(cardX + 4, cardY, 1, 7, PAL.bone);
     p.set(cardX + 1, cardY + 2, PAL.blood);
-    p.set(cardX + 2, cardY + 4, PAL.blood);
+    p.set(cardX + 3, cardY + 5, PAL.blood);
   }
 
-  const headTop = torsoTop - 9;
-  p.fill(cx - 3, headTop, 7, 8, '#e0b48c');
-  p.fill(cx - 3, headTop, 7, 1, mix('#e0b48c', PAL.white, 0.2));
-  p.fill(cx - 3, headTop - 1, 7, 3, '#d9a441');
-  p.fill(cx - 4, headTop, 1, 3, '#d9a441');
-  p.fill(cx + 3, headTop, 1, 3, '#d9a441');
-  const eye = t === 3 ? '#b08662' : PAL.ink;
-  p.set(cx - 2, headTop + 4, eye);
-  p.set(cx + 2, headTop + 4, eye);
+  head(p, who, cx, torsoTop - (HEAD_H - 1), 'down', t);
   // the smile that has already worked out what you can afford to lose
-  p.fill(cx - 1, headTop + 6, 3, 1, '#a8704a');
+  p.fill(cx - 2, torsoTop - 3, 4, 1, '#a8704a');
 
   p.outline('rgba(12,9,18,0.85)');
   return p;
@@ -398,47 +460,45 @@ function croupier(t: number): Px {
 
 /** The barkeep, working a glass with a cloth. */
 function barkeep(t: number): Px {
-  const W = 24;
-  const H = 38;
+  const W = 32;
+  const H = 50;
   const p = new Px(W, H);
-  const cx = 12;
-  const feet = 35;
+  const cx = 16;
+  const feet = STAFF_FEET;
   const bob = t % 2;
+  const who: Patron = { skin: '#b8825a', hair: '#2b2026', coat: '#3f3949', trim: '#6d2330' };
 
-  shadow(p, cx, feet, 7, 3);
-  p.fill(cx - 4, feet - 10, 3, 10, '#2a2432');
-  p.fill(cx + 1, feet - 10, 3, 10, '#2a2432');
+  shadow(p, cx, feet, 9, 4);
+  const legTop = feet - 9;
+  p.fill(cx - 5, legTop, 4, 9, '#2a2432');
+  p.fill(cx + 1, legTop, 4, 9, '#2a2432');
+  p.fill(cx - 6, feet - 2, 5, 2, PAL.ink);
+  p.fill(cx + 1, feet - 2, 5, 2, PAL.ink);
 
-  const torsoTop = feet - 22 + bob;
-  p.fill(cx - 5, torsoTop, 10, 12, '#3f3949');
+  const torsoTop = legTop - TORSO_H + bob;
+  p.fill(cx - 5, torsoTop, 10, TORSO_H, '#3f3949');
+  p.fill(cx - 6, torsoTop + 1, 12, 3, '#3f3949');
   p.fill(cx - 5, torsoTop, 10, 1, '#585165');
-  p.fill(cx - 3, torsoTop + 1, 6, 11, PAL.cloth);
-  p.fill(cx - 4, torsoTop + 6, 9, 6, '#6d2330');
+  p.fill(cx - 3, torsoTop + 1, 6, TORSO_H - 1, PAL.cloth);
+  p.fill(cx - 4, torsoTop + 6, 9, 5, '#6d2330');
   p.fill(cx - 4, torsoTop + 6, 9, 1, '#8e2131');
 
   // both hands on the glass; the polish is a small rotation frame to frame
-  const gx = cx + 5 + (t === 1 ? 1 : t === 3 ? -1 : 0);
-  p.fill(cx + 4, torsoTop + 2, 3, 6, '#3f3949');
-  p.fill(cx - 8, torsoTop + 3, 3, 6, '#3f3949');
-  p.fill(gx, torsoTop - 3, 4, 6, withAlpha(PAL.frost, 0.6));
-  p.fill(gx, torsoTop - 3, 4, 1, PAL.white);
-  p.fill(gx + 1, torsoTop + 3, 2, 2, withAlpha(PAL.frost, 0.8));
-  p.set(gx + (t % 2), torsoTop - 2, PAL.white);
+  const gx = cx + 6 + (t === 1 ? 1 : t === 3 ? -1 : 0);
+  p.fill(cx + 5, torsoTop + 2, 4, 7, '#3f3949');
+  p.fill(cx - 9, torsoTop + 3, 4, 7, '#3f3949');
+  p.fill(gx, torsoTop - 4, 5, 8, withAlpha(PAL.frost, 0.6));
+  p.fill(gx, torsoTop - 4, 5, 1, PAL.white);
+  p.fill(gx + 1, torsoTop + 4, 3, 2, withAlpha(PAL.frost, 0.8));
+  p.set(gx + (t % 2), torsoTop - 3, PAL.white);
 
-  const headTop = torsoTop - 9;
-  p.fill(cx - 3, headTop, 7, 8, '#b8825a');
-  p.fill(cx - 3, headTop - 2, 7, 4, '#2b2026');
-  p.fill(cx - 4, headTop, 1, 3, '#2b2026');
-  p.fill(cx + 3, headTop, 1, 3, '#2b2026');
-  p.set(cx - 2, headTop + 4, PAL.ink);
-  p.set(cx + 2, headTop + 4, PAL.ink);
+  head(p, who, cx, torsoTop - (HEAD_H - 1), 'down', t);
   // moustache
-  p.fill(cx - 2, headTop + 6, 5, 1, '#2b2026');
+  p.fill(cx - 3, torsoTop - 4, 6, 1, '#2b2026');
 
   p.outline('rgba(12,9,18,0.85)');
   return p;
 }
-
 /* ------------------------------------------------------------------ */
 /* Furniture                                                           */
 /* ------------------------------------------------------------------ */
@@ -513,20 +573,24 @@ function bottleShelf(rng: RNG): Px {
   return p;
 }
 
-/**
- * The roulette wheel. Eight frames of the head turning against a ball running
- * the other way — the single most legible "this is a casino" object in the
- * room, and the only one that moves fast enough to catch the eye from the door.
- */
-function roulette(t: number): Px {
-  const W = 56;
-  const H = 40;
-  const p = new Px(W, H);
-  const cx = 28;
-  const cy = 22;
-  shadow(p, cx, H - 3, 24, 5);
+/* ------------------------------------------------------------------ */
+/* The wheel, in three states                                          */
+/* ------------------------------------------------------------------ */
 
-  // table under the wheel
+const WHEEL_W = 56;
+const WHEEL_H = 40;
+const WHEEL_CX = 28;
+const WHEEL_CY = 22;
+
+/**
+ * Everything under the head: the table, the betting cloth and the empty bowl.
+ *
+ * Both wheels draw it, because the whole point of the repair is that the
+ * player put the *same* wheel back together — a broken frame and a working
+ * frame that disagreed about where the table edge is would read as two
+ * different objects swapped when you blinked.
+ */
+function wheelTable(p: Px, cx: number, cy: number): void {
   p.ellipse(cx, cy + 4, 26, 13, '#241408');
   p.ellipse(cx, cy + 3, 25, 12, '#6a4430');
   p.ellipse(cx, cy + 2, 24, 11, '#8a5c40');
@@ -535,29 +599,50 @@ function roulette(t: number): Px {
   // the betting layout, printed on the cloth either side of the bowl
   for (const sx of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
-      p.fill(cx + sx * (18 - i * 0) - (sx < 0 ? 3 : 0), cy - 2 + i * 3, 3, 2,
+      p.fill(cx + sx * 18 - (sx < 0 ? 3 : 0), cy - 2 + i * 3, 3, 2,
         i % 2 === 0 ? '#8e2131' : '#1c1725');
     }
   }
-
   // the bowl
   p.ellipse(cx, cy, 17, 8, '#241408');
   p.ellipse(cx, cy - 1, 16, 7.4, '#6a4430');
   p.ellipse(cx, cy, 15, 7, '#3b2415');
+}
 
-  // the head: alternating red and black pockets, turning one step per frame
-  const spin = (t * Math.PI * 2) / 16;
+/** The pocketed head itself, turned to `spin` radians. */
+function wheelHead(p: Px, cx: number, cy: number, spin: number, rx = 11, ry = 5): void {
   for (let i = 0; i < 16; i++) {
     const a = spin + (i * Math.PI * 2) / 16;
-    const rx = Math.cos(a) * 11;
-    const ry = Math.sin(a) * 5;
+    const px = Math.cos(a) * rx;
+    const py = Math.sin(a) * ry;
     const c = i === 0 ? '#4f9a55' : i % 2 === 0 ? '#b8323a' : '#2a2432';
-    p.ellipse(cx + rx, cy + ry, 2.8, 1.9, c);
-    p.line(cx + rx * 0.45, cy + ry * 0.45, cx + rx, cy + ry, withAlpha(PAL.goldLit, 0.45));
+    p.ellipse(cx + px, cy + py, rx * 0.255, ry * 0.38, c);
+    p.line(cx + px * 0.45, cy + py * 0.45, cx + px, cy + py, withAlpha(PAL.goldLit, 0.45));
   }
   // hub and the cross-handle on top of the spindle
-  p.ellipse(cx, cy, 5, 2.8, '#8a6a2c');
-  p.ellipse(cx, cy - 1, 3.8, 2.2, PAL.gold);
+  p.ellipse(cx, cy, rx * 0.45, ry * 0.56, '#8a6a2c');
+  p.ellipse(cx, cy - 1, rx * 0.35, ry * 0.44, PAL.gold);
+}
+
+/**
+ * The roulette wheel, working. Eight frames of the head turning against a
+ * ball running the other way — the single most legible "this is a casino"
+ * object in the room, and the only one that moves fast enough to catch the
+ * eye from the door.
+ *
+ * The ball does not simply orbit: it rides high on the rim, drops toward the
+ * pockets and climbs again over the cycle, because a ball at a constant
+ * radius reads as a painted dot rather than as something with momentum.
+ */
+function roulette(t: number): Px {
+  const p = new Px(WHEEL_W, WHEEL_H);
+  const cx = WHEEL_CX;
+  const cy = WHEEL_CY;
+  shadow(p, cx, WHEEL_H - 3, 24, 5);
+  wheelTable(p, cx, cy);
+
+  const spin = (t * Math.PI * 2) / 16;
+  wheelHead(p, cx, cy, spin);
   p.fill(cx - 1, cy - 7, 2, 7, '#8a6a2c');
   p.fill(cx - 1, cy - 7, 1, 7, PAL.gold);
   p.fill(cx - 4, cy - 8, 9, 2, PAL.gold);
@@ -566,10 +651,115 @@ function roulette(t: number): Px {
 
   // the ball, running the opposite way around the rim and catching the light
   const ba = -spin * 2.5 + 1.2;
-  const bx = cx + Math.cos(ba) * 14.5;
-  const by = cy + Math.sin(ba) * 6.6;
+  const hop = [0, 1, 2, 2, 1, 0, 0, 1][t];
+  const bx = cx + Math.cos(ba) * (14.5 - hop * 0.5);
+  const by = cy + Math.sin(ba) * (6.6 - hop * 0.3) - hop;
+  if (hop > 0) p.ellipse(bx, by + hop, 2, 1, withAlpha(PAL.ink, 0.4));
   p.ellipse(bx, by, 2.2, 2, '#8d8599');
   p.ellipse(bx, by - 0.4, 1.5, 1.2, PAL.white);
+
+  p.outline(PAL.ink);
+  return p;
+}
+
+/**
+ * The same wheel with its head unbolted and carried off.
+ *
+ * What is left has to read as *repairable* rather than as scrap, so the table
+ * and the bowl are untouched and everything missing is missing from one
+ * place: the spindle stands bare, the four hold-down bolts are still in their
+ * holes, and the cross-handle that used to sit on top lies snapped on the
+ * cloth. The only motion is a loose fret rocking and dust coming off it —
+ * just enough that the wheel is not mistaken for a still frame of the working
+ * one.
+ */
+function rouletteBroken(t: number): Px {
+  const p = new Px(WHEEL_W, WHEEL_H);
+  const cx = WHEEL_CX;
+  const cy = WHEEL_CY;
+  shadow(p, cx, WHEEL_H - 3, 24, 5);
+  wheelTable(p, cx, cy);
+
+  // the empty bowl floor, scratched where the head was levered out
+  p.ellipse(cx, cy + 1, 13, 6, '#2a1a0e');
+  p.ellipse(cx, cy + 1, 12, 5.4, '#1d1208');
+  for (const [ax, ay] of [[-6, -2], [4, -3], [7, 2], [-3, 3]] as Array<[number, number]>) {
+    p.line(cx + ax, cy + ay, cx + ax + 3, cy + ay + 1, withAlpha('#8a5c40', 0.55));
+  }
+  // the four hold-down bolts, still in their holes and still bright
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2 + Math.PI / 4;
+    p.ellipse(cx + Math.cos(a) * 10, cy + Math.sin(a) * 4.6, 1.6, 1.2, '#8a6a2c');
+  }
+  // the bare spindle, with the sheared stub of the cross-handle on top
+  p.fill(cx - 1, cy - 5, 2, 6, '#5d4a1e');
+  p.fill(cx - 1, cy - 5, 1, 6, '#8a6a2c');
+  p.fill(cx - 2, cy - 6, 4, 1, '#8a6a2c');
+  p.set(cx + 1, cy - 6, withAlpha(PAL.goldLit, 0.5));
+
+  // the snapped handle and one pocket fret, lying where they were dropped
+  const rock = [0, 1, 1, 0][t];
+  p.fill(cx + 6, cy + 6 - rock, 9, 2, '#8a6a2c');
+  p.fill(cx + 6, cy + 6 - rock, 9, 1, PAL.gold);
+  p.ellipse(cx - 9, cy + 7, 4, 1.8, '#b8323a');
+  p.ellipse(cx - 9, cy + 6.6, 3, 1.2, '#2a2432');
+
+  // dust coming off the rocking fret, and the notice nailed to the rim
+  if (t === 1 || t === 2) {
+    p.set(cx + 11, cy + 3 - rock, withAlpha('#c9b184', 0.5));
+    p.set(cx + 13, cy + 1, withAlpha('#c9b184', 0.32));
+  }
+  p.fill(cx - 12, cy + 10, 16, 6, '#d8cfc4');
+  p.fill(cx - 12, cy + 10, 16, 1, PAL.white);
+  p.box(cx - 12, cy + 10, 16, 6, '#3b2415');
+  for (let i = 0; i < 2; i++) p.fill(cx - 10, cy + 12 + i * 2, 12 - i * 5, 1, '#6d2330');
+
+  p.outline(PAL.ink);
+  return p;
+}
+
+/**
+ * The stolen head, lying in a cave.
+ *
+ * It is drawn as a loose object on the ground — propped against a rock, half
+ * in the grit, with the same red and black pockets it has in the bowl — so
+ * that the thing on the floor of Whisperwell is visibly the thing missing
+ * from the Gilded Spade, and not a generic glowing pickup.
+ */
+function wheelHeadLoose(t: number): Px {
+  const W = 28;
+  const H = 26;
+  const p = new Px(W, H);
+  const cx = 14;
+  const cy = 15;
+
+  shadow(p, cx, H - 3, 11, 4);
+  // the rock it leans on
+  p.ellipse(cx + 8, H - 6, 7, 5, '#3c3a44');
+  p.ellipse(cx + 8, H - 7, 6, 4, '#4c4a56');
+
+  // the head, tilted toward the viewer: rim, pockets, hub
+  p.ellipse(cx, cy + 2, 12, 7, '#241408');
+  p.ellipse(cx, cy + 1, 12, 7, '#8a6a2c');
+  p.ellipse(cx, cy, 11, 6.4, PAL.gold);
+  p.ellipse(cx, cy, 9.5, 5.4, '#3b2415');
+  wheelHead(p, cx, cy, 0.4, 7.5, 4.2);
+  // the snapped bolt holes along the rim, which is what makes it read as torn
+  // off something rather than as a decorative plate
+  for (const a of [-2.2, -0.5, 1.1, 2.6]) {
+    p.set(cx + Math.round(Math.cos(a) * 10), cy + Math.round(Math.sin(a) * 5.4), '#2a1a0e');
+  }
+
+  // grit around the edge, and a travelling glint that says "pick me up"
+  for (const [gx, gy] of [[-13, 8], [-8, 10], [6, 10], [12, 7]] as Array<[number, number]>) {
+    p.set(cx + gx, cy + gy, withAlpha('#5a5462', 0.7));
+  }
+  const glint: Array<[number, number]> = [[-6, -3], [0, -5], [6, -3], [0, -5]];
+  const [sx, sy] = glint[t];
+  p.set(cx + sx, cy + sy, PAL.white);
+  p.set(cx + sx + 1, cy + sy, withAlpha(PAL.goldLit, 0.8));
+  p.set(cx + sx, cy + sy + 1, withAlpha(PAL.goldLit, 0.55));
+  p.ellipse(cx + sx, cy + sy, 5, 4, withAlpha(PAL.goldLit, 0.08));
 
   p.outline(PAL.ink);
   return p;
@@ -900,11 +1090,15 @@ for (const [key, who] of Object.entries(PATRONS)) {
   }
 }
 
-GEN.casino_croupier = () => art([0, 1, 2, 3].map(croupier), 37, 3.2);
-GEN.casino_barkeep = () => art([0, 1, 2, 3].map(barkeep), 35, 2.6);
+GEN.casino_croupier = () => art([0, 1, 2, 3].map(croupier), STAFF_FEET, 3.2);
+GEN.casino_barkeep = () => art([0, 1, 2, 3].map(barkeep), STAFF_FEET, 2.6);
 GEN.casino_bar = (rng) => art([barCounter(rng)], 32);
 GEN.casino_shelf = (rng) => art([bottleShelf(rng)], 30);
 GEN.casino_roulette = () => art([0, 1, 2, 3, 4, 5, 6, 7].map(roulette), 38, 9);
+// The same wheel with its head carried off. Slow, because a broken thing
+// that fidgets at the working wheel's nine frames a second is not broken.
+GEN.casino_roulette_broken = () => art([0, 1, 2, 3].map(rouletteBroken), 38, 1.6);
+GEN.casino_wheel_head = () => art([0, 1, 2, 3].map(wheelHeadLoose), 24, 2.2);
 GEN.casino_cashier = () => art([0, 1, 2, 3].map(cashierCage), 44, 2);
 GEN.casino_cocktail = () => art([0, 1, 2, 3].map((t) => cocktailTable(t, new RNG('casino:cocktail'))), 32, 7);
 GEN.casino_portrait = () => art([portrait()], 40);

@@ -12,7 +12,7 @@ export type IconKind =
   | 'food_bread' | 'food_meat' | 'food_cheese' | 'food_apple'
   | 'mat_ore' | 'mat_ingot' | 'mat_leather' | 'mat_cloth' | 'mat_herb' | 'mat_bone' | 'mat_crystal' | 'mat_essence'
   | 'gold' | 'key' | 'scroll' | 'map' | 'gem' | 'quest' | 'skull' | 'rune' | 'torch_item' | 'bomb'
-  | 'lantern' | 'horn' | 'chalice' | 'hourglass' | 'mask' | 'weathervane' | 'drum';
+  | 'lantern' | 'horn' | 'chalice' | 'hourglass' | 'mask' | 'weathervane' | 'drum' | 'wheel_head';
 
 interface IconOpts {
   metal?: string;
@@ -585,6 +585,38 @@ const GEN: Record<string, (rng: RNG, o: IconOpts) => Px> = {
     p.fill(2, 6, 12, 2, PAL.woodDark);
     p.circle(14, 7, 2.4, PAL.bone);
     for (let i = 0; i < 4; i++) p.set(rng.int(7, 25), rng.int(14, 21), withAlpha(PAL.white, 0.2));
+    p.outline(PAL.ink);
+  }),
+
+  // The head of a roulette wheel, off its spindle: a brass ring of red and
+  // black pockets seen at a shallow angle, with the sheared bolt holes that
+  // say it was taken off something rather than made this way.
+  wheel_head: (rng, o) => centered((p) => {
+    const brass = o.metal ?? PAL.gold;
+    const cx = 16;
+    const cy = 17;
+    p.ellipse(cx, cy + 2, 13, 8, shade(brass, 0.4));
+    p.ellipse(cx, cy, 13, 8, brass);
+    p.ellipse(cx, cy - 1, 12, 7.2, shade(brass, 1.3));
+    p.ellipse(cx, cy, 10.5, 6.2, '#3b2415');
+    // sixteen pockets, alternating, with a single green zero at the top
+    for (let i = 0; i < 16; i++) {
+      const a = 0.4 + (i * Math.PI * 2) / 16;
+      const px = cx + Math.cos(a) * 8;
+      const py = cy + Math.sin(a) * 4.6;
+      p.ellipse(px, py, 2, 1.4, i === 0 ? '#4f9a55' : i % 2 === 0 ? '#b8323a' : '#2a2432');
+      p.line(cx + (px - cx) * 0.4, cy + (py - cy) * 0.4, px, py, withAlpha(shade(brass, 1.4), 0.45));
+    }
+    // hub, and the stub of the spindle it was pulled off
+    p.ellipse(cx, cy, 4, 2.6, shade(brass, 0.7));
+    p.ellipse(cx, cy - 1, 3, 2, shade(brass, 1.35));
+    p.fill(cx - 1, cy - 6, 2, 5, shade(brass, 0.75));
+    p.set(cx - 1, cy - 6, shade(brass, 1.4));
+    // sheared bolt holes around the rim
+    for (const a of [-2.3, -0.6, 1.0, 2.5]) {
+      p.set(cx + Math.round(Math.cos(a) * 11), cy + Math.round(Math.sin(a) * 6), '#241408');
+    }
+    for (let i = 0; i < 3; i++) p.set(rng.int(8, 24), rng.int(11, 22), withAlpha(PAL.white, 0.35));
     p.outline(PAL.ink);
   }),
 

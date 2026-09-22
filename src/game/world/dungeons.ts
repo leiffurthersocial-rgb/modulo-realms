@@ -228,6 +228,22 @@ export function generateDungeon(loc: LocationDef, seed: number): GameMap {
     }
   });
 
+  // Whisperwell holds one authored object among all the generated scenery:
+  // the head off the Gilded Spade's roulette wheel, which somebody carried
+  // down here and left. It goes in the room furthest from the stairs, lit
+  // just enough to be spotted from the doorway of that room and no further,
+  // and it is a prop rather than a chest drop so it is always in the same
+  // place when the player comes looking for it a second time.
+  if (spec.mapId === 'dungeon_whisper') {
+    const far = rooms[farIdx] ?? rooms[rooms.length - 1];
+    const c = roomCenter(far);
+    prop(map, c.x + 1, c.y - 1, 'casino_wheel_head', {
+      cw: 16, ch: 10, light: 60, lightColor: '#f6bf5d',
+      interact: 'wheel_head', label: 'Take the brass wheel head',
+      nameplate: 'Something brass', nameplateColor: '#f6bf5d',
+    });
+  }
+
   buildPropGrid(map);
   return map;
 }

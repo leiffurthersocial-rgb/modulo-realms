@@ -67,6 +67,18 @@ export const QUESTS: QuestDef[] = [
     prereq: { quest: 'tutorial' }, marker: 'whisperwell',
   },
   {
+    id: 'bounty_roulette', name: 'Bounty: The Stopped Wheel', giver: 'dealer_dario', level: 4, auto: true,
+    summary: 'Fetch the Gilded Spade\'s stolen wheel head out of Whisperwell Cave and bolt it back on.',
+    detail: 'Somebody unbolted the head off Dario\'s roulette wheel and walked it into the cave south-west of town. Bring it back and put it where it belongs.',
+    objectives: [
+      { type: 'collect', item: 'q_wheel_head', count: 1, label: 'Recover the wheel head from Whisperwell Cave' },
+      { type: 'interact', target: 'roulette_repair', label: 'Fit it back into the wheel at the Gilded Spade' },
+    ],
+    rewards: { xp: 360, gold: 300, rep: [{ faction: 'guild', amount: 30 }], loot: { level: 5, rarity: 'rare' } },
+    // Dario has to say the words before this is a job rather than a rumour.
+    prereq: { flag: 'casino_wheel_lead' }, marker: 'whisperwell',
+  },
+  {
     id: 'bounty_mine', name: 'Bounty: The Brood Mother', giver: 'notice', level: 7, auto: true,
     summary: 'Something with too many legs has taken the Ironroot dig.',
     detail: 'Twelve miners went down. The web came back up.',

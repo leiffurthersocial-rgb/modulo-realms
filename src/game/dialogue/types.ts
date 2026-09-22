@@ -42,6 +42,12 @@ export interface DialogueChoice {
   text: string;
   /** Rendered as a tag in front of the line, e.g. [Mage]. */
   tag?: string;
+  /**
+   * Draws the line in the house's gold instead of the default grey. Reserved
+   * for the one option on an NPC that starts something, so a player scanning
+   * a list of six pleasantries can see which one is the door.
+   */
+  accent?: 'gold';
   cond?: DialogueCond;
   actions?: DialogueAction[];
   /** Node to move to; omit to close the conversation. */
@@ -52,6 +58,12 @@ export interface DialogueNode {
   id: string;
   /** Lines are shown one at a time; the player advances through them. */
   text: string[];
+  /**
+   * Frames the whole dialogue box in gold while this node is showing. The
+   * node is not a topic among topics — it is the room telling you something —
+   * and the border is what says so without a word of extra text.
+   */
+  frame?: 'gold';
   choices?: DialogueChoice[];
   /** Runs when the node is first shown. */
   onEnter?: DialogueAction[];

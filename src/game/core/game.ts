@@ -9,6 +9,7 @@ import { AegeanCampaign } from '../aegean/campaign';
 import { NavalSystem } from '../aegean/naval';
 import { aegeanEarnedWaystones, aegeanWaystoneAccess, aegeanWaystoneDestination, aegeanWaystonesInReach } from '../aegean/waypoints';
 import { Casino } from '../casino/casino';
+import { RouletteShow, WHEEL_FIXED, WHEEL_HEAD_TAKEN } from '../casino/roulette';
 import { AegeanEncounterDirector } from '../aegean/encounters';
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
@@ -36,7 +37,7 @@ import { DEFAULT_SWING_ARC, MAX_LEVEL, Player, SWING_ARC, skillPointsFor, type P
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
 import { buildInterior, interiorEntry } from '../world/interiors';
-import { boxHitsTerrain, findOpenNear, propsInRect, type GameMap, type PropInstance, type SpawnPoint } from '../world/map';
+import { boxHitsTerrain, buildPropGrid, findOpenNear, propsInRect, type GameMap, type PropInstance, type SpawnPoint } from '../world/map';
 import { T, TILE, TILES, blocksProjectiles } from '../world/tiles';
 import { generateOverworld } from '../world/worldgen';
 import { Input } from './input';
@@ -111,6 +112,8 @@ export interface DialogueState {
   choices: DialogueChoice[];
   /** Quest currently being offered, for the accept/decline panel. */
   offer?: QuestDef;
+  /** Set by the node being shown; frames the whole box in gold. */
+  frame?: 'gold';
 }
 
 export interface ShopState {
@@ -176,6 +179,8 @@ export class Game implements WorldCtx {
   aegeanHazards = new AegeanHazards(this);
   encounters = new AegeanEncounterDirector(this);
   casino = new Casino(this);
+  /** The Gilded Spade's wheel: its damage, its repair and the show after it. */
+  roulette = new RouletteShow(this);
 
   itemMigrationReport: ItemCurveMigration[] = [];
   seed = 1337;
@@ -466,6 +471,7 @@ export class Game implements WorldCtx {
     this.duelling = null;
     this.npcs = NPCS.filter((n) => n.map === id).map((n) => new NpcEntity(n));
     for (const n of this.npcs) {n.updateSchedule(this.hour);if(n.def.id.startsWith('aegean_')){const safe=this.findStandingSpot(n.x,n.y);n.x=safe.x;n.y=safe.y;n.anchorX=safe.x;n.anchorY=safe.y;n.destX=safe.x;n.destY=safe.y;}}
+    this.applyStoryProps();
     this.updateMusic(true);
     this.greekWeapons.reset();
     this.aegeanHazards.reset();
@@ -2701,7 +2707,10 @@ export class Game implements WorldCtx {
             break;
           case 'flag':
             if (a.value === false) this.player.flags.delete(a.flag);
-            else this.player.flags.add(a.flag);
+            else {
+              this.player.flags.add(a.flag);
+              this.offerFlaggedQuests(a.flag);
+            }
             break;
           case 'give':
             this.giveItem(a.item, a.qty ?? 1);
@@ -2746,6 +2755,7 @@ export class Game implements WorldCtx {
     if (nodeId === '__root' || !nodeId) {
       if (choice.to === undefined && !gotoAction) {
         // plain informational choice with only side effects
+        d.frame = undefined;
         this.refreshDialogueChoices();
         this.touch();
         return;
@@ -2753,6 +2763,7 @@ export class Game implements WorldCtx {
       d.lines = greetingFor(npc, this.player, this.quests);
       d.lineIndex = 0;
       d.offer = undefined;
+      d.frame = undefined;
       this.refreshDialogueChoices();
       this.touch();
       return;
@@ -2769,6 +2780,7 @@ export class Game implements WorldCtx {
 
     const node = npc.nodes?.find((n) => n.id === nodeId);
     if (node) {
+      d.frame = node.frame;
       if (node.onEnter) {
         for (const a of node.onEnter) {
           if (a.type === 'heal') {
@@ -2874,6 +2886,71 @@ export class Game implements WorldCtx {
       if (this.quests.isComplete(def.id, p)) this.turnInQuest(def.id);
     }
     this.touch();
+  }
+
+  /**
+   * Hand over any bounty that was waiting on a flag, the moment a
+   * conversation sets it.
+   *
+   * `offerAutoQuests` keys off *finding a place*. A job that only exists
+   * because somebody told you about it has no place to be found, so the line
+   * that sets the flag has to offer it — otherwise it would sit unoffered
+   * until the player happened to walk past its map marker.
+   */
+  private offerFlaggedQuests(flag: string): void {
+    for (const def of QUESTS) {
+      if (!def.auto || def.prereq?.flag !== flag) continue;
+      if (!this.quests.canAccept(def, this.player)) continue;
+      this.quests.accept(def.id);
+      this.toast(def.name, def.summary, '#6fbf5a', 'quest');
+      audio.play('quest', 0.55);
+      if (!this.trackedQuest) this.trackedQuest = def.id;
+      if (this.quests.isComplete(def.id, this.player)) this.turnInQuest(def.id);
+    }
+    this.touch();
+  }
+
+  /**
+   * Re-apply everything about a room that a player flag owns.
+   *
+   * Maps are generated from the seed and rebuilt from scratch on load, so a
+   * change the player made to one — a wheel they repaired, an object they
+   * carried out of a cave — cannot live in the map. It lives in a flag, and
+   * this is where the flag is turned back into furniture, on every entry.
+   */
+  private applyStoryProps(): void {
+    const flags = this.player.flags;
+    if (this.map.id === 'int_casino') {
+      if (flags.has(WHEEL_FIXED)) {
+        this.roulette.fitHead();
+        this.stationDarioAtWheel();
+      } else this.roulette.breakAgain();
+    }
+    if (this.map.id === 'dungeon_whisper' && flags.has(WHEEL_HEAD_TAKEN)) {
+      const i = this.map.props.findIndex((p) => p.interact === 'wheel_head');
+      if (i >= 0) {
+        this.map.props.splice(i, 1);
+        buildPropGrid(this.map);
+      }
+    }
+  }
+
+  /**
+   * Once the wheel turns, Dario works it rather than the card table.
+   *
+   * He carries no schedule, so his anchor is wherever he spawned; moving the
+   * anchor is the whole of it — he walks over on his own and his ten-pixel
+   * wander keeps him shifting his weight beside the wheel instead of
+   * standing in the middle of it.
+   */
+  stationDarioAtWheel(): void {
+    const npc = this.npcs.find((n) => n.def.id === 'dealer_dario');
+    const wheel = this.roulette.prop();
+    if (!npc || !wheel) return;
+    npc.anchorX = wheel.x + 30;
+    npc.anchorY = wheel.y + 4;
+    npc.destX = npc.anchorX;
+    npc.destY = npc.anchorY;
   }
 
   /**
@@ -3289,6 +3366,25 @@ export class Game implements WorldCtx {
       case 'slots':
         this.leanIn(prop.x, prop.y - 14, 3.8, () => this.casino.openSlots());
         break;
+      case 'roulette':
+        this.roulette.use();
+        break;
+      case 'wheel_head': {
+        // The one authored object in Whisperwell. Taking it removes the prop
+        // from the room for good — `applyStoryProps` keeps it gone on every
+        // later visit — so the cave never grows a second wheel head.
+        this.giveItem('q_wheel_head');
+        this.player.flags.add(WHEEL_HEAD_TAKEN);
+        const i = this.map.props.indexOf(prop);
+        if (i >= 0) this.map.props.splice(i, 1);
+        buildPropGrid(this.map);
+        this.fx.ring(prop.x, prop.y - 12, 90, PAL.goldLit);
+        this.particles(prop.x, prop.y - 12, 26, PAL.goldLit, { speed: 110, life: 0.9, size: 2, gravity: -40, spread: Math.PI * 2 });
+        this.floatText(prop.x, prop.y - 46, 'Heavier than it looks', PAL.goldLit, 13);
+        audio.play('loot', 0.8);
+        this.touch();
+        break;
+      }
       case 'notice':
         this.panel = 'quests';
         this.touch();
@@ -4061,6 +4157,7 @@ export class Game implements WorldCtx {
     // The reels have to spin down while their own panel is open, so this sits
     // above the `uiOpen` early-out rather than with the world simulation.
     this.casino.update(dt);
+    this.roulette.update(dt);
     const focus = this.cameraFocus;
     if (focus && focus.hold > 0) {
       focus.hold -= dt;
@@ -4211,6 +4308,9 @@ export class Game implements WorldCtx {
     }
 
     if (this.naval.aboard) { this.naval.update(dt); return; }
+    // A staged scene owns the player for its duration: no walking out of
+    // the shot, and no swinging a sword at the furniture halfway through.
+    if (this.roulette.showing) { p.vx = 0; p.vy = 0; return; }
     p.bracing=this.input.isDown('brace') && p.sp>0;
     // input
     const mv = this.input.moveVector();
