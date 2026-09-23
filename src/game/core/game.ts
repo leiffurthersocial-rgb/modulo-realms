@@ -218,6 +218,8 @@ export class Game implements WorldCtx {
   day = 1;
   paused = false;
   showMinimap = true;
+  /** The HUD's minimap canvas; the renderer draws into it while it is mounted. */
+  minimapCanvas: HTMLCanvasElement | null = null;
   debug = false;
   godMode = false;
   /** Debug: how fast the world runs. 1 is normal. */
@@ -283,6 +285,10 @@ export class Game implements WorldCtx {
     sfx: 0.65,
     uiScale: 1,
     showDamage: true,
+    /** Numbers on the vitals bars all the time, not only on hover. */
+    showNumbers: false,
+    /** Cut UI animation to the minimum, on top of the OS setting. */
+    reduceMotion: false,
     batterySaver: false,
     touchControls: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
   };

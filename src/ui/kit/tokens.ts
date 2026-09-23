@@ -76,21 +76,4 @@ export function installTokens(root: HTMLElement = document.documentElement): voi
   for (const [k, v] of Object.entries(RARITY_COLOR)) root.style.setProperty(`--r-${kebab(k)}`, v);
 }
 
-/**
- * How many device pixels one UI pixel is.
- *
- * The UI is laid out in UI pixels and the whole overlay is zoomed by an
- * integer number of *device* pixels, so a frame's one-pixel border is always
- * a whole number of real pixels wide and a glyph never lands between two.
- * Chosen from the CSS size of the window (which tracks physical size) and
- * then snapped to the device grid.
- */
-export function uiScale(cssW: number, cssH: number, dpr: number): { device: number; zoom: number } {
-  const want = cssH < 600 ? 1 : Math.max(2, Math.floor(cssH / 480));
-  let device = Math.max(1, Math.round(want * dpr));
-  // never leave less than a 560x320 UI canvas to lay out in
-  while (device > 1 && ((cssW * dpr) / device < 560 || (cssH * dpr) / device < 320)) device--;
-  return { device, zoom: device / dpr };
-}
-
-export { worldZoom } from '../../game/core/zoom';
+export { uiScale, worldZoom } from '../../game/core/zoom';

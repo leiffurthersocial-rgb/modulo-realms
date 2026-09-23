@@ -84,6 +84,23 @@ function frameAsh(): Px {
   });
 }
 
+/**
+ * Plate: the HUD's forged backing — an iron rim with brass rivets in the
+ * corners round an ash field. 12x12, slice 4.
+ */
+function framePlate(): Px {
+  return px(12, 12, (p) => {
+    p.fillAll(PAL.void);
+    p.fill(1, 1, 10, 10, PAL.iron);
+    bevel(p, 1, 1, 10, 10, PAL.ironLit, PAL.ironDark);
+    p.fill(2, 2, 8, 8, PAL.ironDark);
+    p.fill(3, 3, 6, 6, PAL.charcoal);
+    p.fill(3, 3, 6, 1, PAL.slate);
+    for (const [x, y] of [[1, 1], [10, 1], [1, 10], [10, 10]]) p.set(x, y, PAL.goldLit);
+    notch(p);
+  });
+}
+
 /** Inset: a sunken well inside a panel (lists, text boxes). 8x8, slice 3. */
 function frameInset(): Px {
   return px(8, 8, (p) => {
@@ -536,6 +553,7 @@ function logo(word = 'MODULO', k = 4): Px {
 const BUILDERS: Record<string, () => Px> = {
   'frame-wood': frameWood,
   'frame-ash': frameAsh,
+  'frame-plate': framePlate,
   'frame-inset': frameInset,
   'frame-iron': () => frameMetal(PAL.ironLit, PAL.iron, PAL.ironDark, PAL.ink),
   'frame-brass': () => frameMetal(PAL.goldLit, PAL.gold, PAL.copper, PAL.ink),

@@ -42,3 +42,15 @@ the Epic rarity and faction colours.
   gold item icon.
 - **The three casino machines stay their own pixel art**, now scaled by the
   largest whole number that fits (they used to stretch to `82vh`).
+
+## Phase 2 — HUD, hotbar, minimap, prompts
+
+| Piece | Where | What changed |
+| --- | --- | --- |
+| Vitals | `src/ui/hud/Vitals.tsx` | Portrait, name, class, HP/MP/SP and XP on one riveted iron plate. Segmented bars with a pale **damage ghost** that drains after a hit. At 25% health the fill and the portrait frame blink ember. Numbers only on hover, or always with the new `showNumbers` setting. |
+| Purse | same | Gold is a coin glyph and a number that **rolls** to its new value. Unspent skill points and heroic talents are ember badges that hop until clicked; "pack full" is a bag badge. Buffs are small labelled tags. |
+| Hotbar | `src/ui/hud/Hotbar.tsx` | Iron sockets (brass for the weapon and its power), key caps from the actual key bindings, a **cooldown sweep** in 16 ticks, locked abilities show a lock and their unlock level instead of "Lv 8", empty sockets are just empty instead of "off"/"art", potion stack count, a mana/stamina sill when an ability can't be paid for, one bright frame when a cooldown ends. |
+| Minimap | `src/ui/hud/Minimap.tsx`, `drawMinimapInto` in `renderer.ts` | Moved off the world canvas into its own canvas in the HUD (drawn at device resolution), iron frame, brass plaque with **region** name and time. Markers are hard pixel squares; the player is a cross. Coordinates only for a debug character or with F3. |
+| Prompts | `src/game/art/uiCanvas.ts` | "[E] Enter your home" is a key cap and pixel text on an ash plate. Nameplates over shops, quest "!"/"?", the compass label and the kill-streak counter use the pixel font on whole pixels, drawn in screen space at the UI scale (not at the camera's zoom). |
+| Controls text | `Hud.tsx` `FirstSteps` | The permanent key list in the corner is gone. A new character sees a small key-cap card for its first three minutes; after that the prompts and How to Play do the job. |
+| Performance | `useGameValue` in `src/ui/hooks.ts` | The HUD no longer re-renders the whole tree 15 times a second. Each piece polls on its own clock and only re-renders when its rounded values change, so an idle HUD does no React work. |

@@ -69,8 +69,9 @@ for (const m of css.matchAll(/font-size\s*:\s*([^;]+);/g)) {
 /* ---------------- component inline styles ---------------- */
 
 const uiDir = join(root, 'src/ui');
-const tsx = readdirSync(uiDir).filter((f) => f.endsWith('.tsx')).map((f) => join(uiDir, f));
-tsx.push(...readdirSync(join(uiDir, 'kit')).filter((f) => f.endsWith('.tsx')).map((f) => join(uiDir, 'kit', f)));
+const tsx = (readdirSync(uiDir, { recursive: true }) as string[])
+  .filter((f) => f.endsWith('.tsx'))
+  .map((f) => join(uiDir, f));
 
 for (const file of tsx) {
   const text = readFileSync(file, 'utf8');

@@ -1,309 +1,196 @@
 import { AEGEAN_SHIPS } from '../data/aegean/content';
 import { nextShipStep, shipGuidanceTarget } from '../game/aegean/guidance';
 import { aegeanName } from './aegeanNames';
-import { useEffect, useState } from 'react';
 import type { Game } from '../game/core/game';
 import { getIconUrl } from '../game/art/icons';
 import { QUEST_BY_ID } from '../data/quests';
-import { xpToNext } from '../game/player/player';
-import SpritePreview from './SpritePreview';
-import { MASTERIES } from '../game/aegean/mastery';
-import { AEGEAN_POWERS } from '../game/items/effects';
-import { Icon } from './kit';
+import { Icon, KeyCap, SegBar } from './kit';
+import { useGameValue, useTicker } from './hooks';
+import { Purse, Vitals } from './hud/Vitals';
+import Hotbar from './hud/Hotbar';
+import Minimap from './hud/Minimap';
 
-/** Cheap ticker so the HUD refreshes without re-rendering the whole tree every frame. */
-function useTicker(hz = 15): number {
-  const [, setT] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setT((v) => v + 1), 1000 / hz);
-    return () => window.clearInterval(id);
-  }, [hz]);
-  return 0;
+/**
+ * The heads-up display. Each piece polls the game on its own clock and only
+ * re-renders when what it shows has changed (see `useGameValue`), so an idle
+ * HUD costs no React work and a fight only touches the bars that moved.
+ */
+export default function Hud({ game }: { game: Game }) {
+  if (!game.player) return null;
+  return (
+    <div className="hud">
+      <div className="hud-left">
+        <Vitals game={game} />
+        <Purse game={game} />
+        <Toasts game={game} />
+      </div>
+      <DangerCue game={game} />
+      <BossBar game={game} />
+      <div className="hud-right">
+        <Minimap game={game} />
+        <Tracker game={game} />
+      </div>
+      <RecentReward game={game} />
+      <Hotbar game={game} />
+      <FirstSteps game={game} />
+    </div>
+  );
 }
 
-export default function Hud({ game }: { game: Game }) {
-  useTicker(15);
+function DangerCue({ game }: { game: Game }) {
+  const warning = useGameValue(() => game.aegeanHazards.warning ?? '', 6);
+  if (!warning) return null;
+  return <div className="aegean-danger-cue" role="status">⚠ {warning}</div>;
+}
+
+function BossBar({ game }: { game: Game }) {
+  const b = useGameValue(() => {
+    const t = game.bossTarget;
+    if (!t || t.dead) return null;
+    return {
+      name: t.def.name,
+      title: t.def.boss?.title ?? '',
+      hp: Math.ceil(t.hp),
+      max: t.maxHp,
+      warded: !!t.warded,
+      ward: t.immuneLabel || 'Immune',
+      phase: t.phase,
+      phases: t.def.boss?.phases.length ?? 0,
+    };
+  }, 15);
+  if (!b) return null;
+  return (
+    <div className={`boss-bar${b.warded ? ' warded' : ''}`}>
+      <div className="bname">{b.name}</div>
+      {b.title ? <div className="btitle">{b.title}</div> : null}
+      <SegBar kind="boss" value={b.hp} max={b.max} label={`${b.hp}/${b.max}`} className="show-label" />
+      {b.warded ? <div className="boss-ward">{b.ward}</div> : null}
+      <div className="boss-phases">
+        {Array.from({ length: b.phases }).map((_, i) => <span key={i} className={i <= b.phase ? 'on' : ''} />)}
+      </div>
+    </div>
+  );
+}
+
+function Tracker({ game }: { game: Game }) {
+  // The tracker reads a lot of campaign state; four refreshes a second is
+  // plenty for words that change when you finish a step.
+  useTicker(4);
   const p = game.player;
-  if (!p) return null;
-  const stats = p.stats();
   const component = game.campaign.state.trackedComponent;
   const shipStep = component ? nextShipStep(game, component) : null;
   const nextPart = component && !shipStep ? AEGEAN_SHIPS.find(s => s.id === 'aegean_stormbreaker')?.requirements.find(id => !game.campaign.has(id)) : undefined;
   const shipTarget = component ? shipGuidanceTarget(game) : null;
   const landing = game.naval.landingGuide();
   const useKey = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
-  const abilities = p.classDef.abilities;
-  const quick = p.inventory.find((i) => i.type === 'consumable' && (p.quickItem ? i.defId === p.quickItem : true))
-    ?? p.inventory.find((i) => i.type === 'consumable');
-  const weapon = p.equipment.mainHand;
-  const weaponArt = weapon?.aegeanPower ? AEGEAN_POWERS[weapon.aegeanPower] : weapon?.weaponPower;
-  const artifact = p.equipment.accessory;
-  const artifactArt = artifact?.aegeanPower ? AEGEAN_POWERS[artifact.aegeanPower] : artifact?.artifact;
-  const recoveryApplies = quick?.consume?.cooldownGroup === 'recovery' ||
-    (game.regionAtPlayer() === 'aegean_asterion' && !!(quick?.consume?.health || quick?.consume?.healthPct));
-  const recovery = recoveryApplies ? p.cooldowns['consume:recovery'] ?? 0 : 0;
-
   const fieldQuest = game.trackedQuest && QUEST_BY_ID[game.trackedQuest]?.fieldAdventure
     ? game.quests.get(game.trackedQuest) : undefined;
   const tracked = fieldQuest
     ? [fieldQuest, ...game.quests.active.filter(q => q.id !== fieldQuest.id)].slice(0, 3)
     : game.quests.active.slice(0, game.inAegean ? 1 : 3);
-  const heroicChoices = [80, 85, 90, 95, 100].filter((level) => p.level >= level && !MASTERIES.some((m) => m.level === level && p.flags.has(`aegean:mastery:${m.id}`))).length;
 
+  if (!(tracked.length || component || game.encounters.active || game.naval.aboard)) return null;
   return (
-    <div className="hud">
-      <div className="hud-left">
-        <div className="vitals">
-          <div className="portrait">
-            <SpritePreview look={p.look()} scale={1} />
-            <span className="lvl">{p.level}</span>
-          </div>
-          <div className="vitals-body">
-            <div className="who">
-              <span className="who-name">{p.name}</span>
-              <span className="who-class" style={{ color: p.classDef.color }}>{p.classDef.name}</span>
-            </div>
-            <div className="bars">
-              <Bar cls="hp" value={p.hp} max={p.maxHp} label={`${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`} shield={p.shield} />
-              <Bar cls="mp" value={p.mp} max={p.maxMp} label={`${Math.ceil(p.mp)} / ${Math.round(p.maxMp)}`} />
-              <Bar cls="sp" value={p.sp} max={p.maxSp} label={`${Math.ceil(p.sp)} / ${Math.round(p.maxSp)}`} />
-              {game.naval.aboard ? <Bar cls="hp" value={game.naval.vessel?.hull ?? 0} max={game.naval.definition?.hull ?? 1} label={`Hull ${Math.ceil(game.naval.vessel?.hull ?? 0)} / ${game.naval.definition?.hull ?? 0}`} /> : null}
-            </div>
-            <div className="xp-row">
-              <Bar cls="xp" value={p.xp} max={xpToNext(p.level)} label="" />
-              <span className="xp-text">{Math.round((p.xp / Math.max(1, xpToNext(p.level))) * 100)}%</span>
-            </div>
-          </div>
-        </div>
-        <div className="chip-row">
-          <div className="chip gold">
-            <Icon name="coin" />
-            {p.gold.toLocaleString()}
-          </div>
-          {heroicChoices > 0 ? (
-            <button className="chip action" onClick={() => game.setPanel('skills')}><span className="chip-dot" />{heroicChoices} heroic talent{heroicChoices > 1 ? 's' : ''}</button>
-          ) : null}
-          {p.skillPoints > 0 ? (
-            <button className="chip action" onClick={() => game.setPanel('skills')}>
-              <span className="chip-dot" />
-              {p.skillPoints} skill point{p.skillPoints > 1 ? 's' : ''}
-            </button>
-          ) : null}
-          {game.bagFull ? (
-            <button
-              className="chip warn"
-              title="Your pack is full — loot on the ground will stay there. Sell or drop something."
-              onClick={() => game.setPanel('inventory')}
-            >
-              <span className="chip-dot" />
-              Pack full
-            </button>
-          ) : null}
-          {p.buffs.map((b) => (
-            <span className="chip effect" key={b.id} style={{ color: b.color, borderColor: `${b.color}66` }}>
-              {b.name} <em>{Math.max(0, Math.ceil(b.until - game.now))}s</em>
-            </span>
-          ))}
-          {p.statuses.map((s, i) => (
-            <span className="chip effect" key={`${s.kind}${i}`} style={{ color: s.color, borderColor: `${s.color}66` }}>
-              {s.kind}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {game.aegeanHazards.warning ? <div className="aegean-danger-cue" role="status">⚠ {game.aegeanHazards.warning}</div> : null}
-      {game.bossTarget && !game.bossTarget.dead ? (
-        <div className={`boss-bar${game.bossTarget.warded ? ' warded' : ''}`}>
-          <div className="bname">{game.bossTarget.def.name}</div>
-          <div className="btitle">{game.bossTarget.def.boss?.title}</div>
-          <div className="bar">
-            <div className="fill" style={{ width: `${Math.max(0, (game.bossTarget.hp / game.bossTarget.maxHp) * 100)}%` }} />
-            <span className="label">{Math.ceil(game.bossTarget.hp)} / {game.bossTarget.maxHp}</span>
-          </div>
-          {game.bossTarget.warded ? (
-            <div className="boss-ward">{game.bossTarget.immuneLabel || 'Immune'}</div>
-          ) : null}
-          <div className="boss-phases">
-            {game.bossTarget.def.boss?.phases.map((_, i) => (
-              <span key={i} className={i <= game.bossTarget!.phase ? 'on' : ''} />
-            ))}
-          </div>
+    <div className="quest-tracker frame-ash">
+      {component ? <div className="next-action-card">
+        <strong>{aegeanName(component)}</strong>
+        <div>{shipStep?.action ?? (nextPart ? '✓ Part ready' : '✓ All parts ready — return to the shipwright')}</div>
+        {nextPart ? <button className="next-part" onClick={() => game.campaign.trackComponent(nextPart)}>Guide next part →</button> : null}
+        {shipTarget ? <small>→ {shipTarget.name} · {Math.round(Math.hypot(shipTarget.x - p.x, shipTarget.y - p.y) / 32)}m</small> : null}
+        <button className="nac-close" aria-label="Stop component guidance" onClick={() => game.campaign.trackComponent()}><Icon name="close" /></button>
+      </div> : null}
+      {game.naval.aboard ? (
+        <div className="qt-block">
+          <h4>{game.naval.definition?.name}</h4>
+          <div className="qname">{game.naval.dangerLabel}</div>
+          {landing ? <div className="obj">{landing.inRange
+            ? landing.reason ?? `${useKey} — Land at ${landing.port.name}`
+            : `${landing.port.name} · ${landing.direction} · ${Math.round(landing.distance / 32)}m`}</div> : null}
+          <div className="obj"><span><KeyCap>R</KeyCap> fight boarders on deck</span></div>
         </div>
       ) : null}
-
-      {tracked.length || component || game.encounters.active || game.naval.aboard ? (
-        <div className="quest-tracker">
-          {component ? <div className="next-action-card">
-            <strong>{aegeanName(component)}</strong>
-            <div>{shipStep?.action ?? (nextPart ? '✓ Part ready' : '✓ All parts ready — return to the shipwright')}</div>
-            {nextPart ? <button className="next-part" onClick={() => game.campaign.trackComponent(nextPart)}>Guide next part →</button> : null}
-            {shipTarget ? <small>→ {shipTarget.name} · {Math.round(Math.hypot(shipTarget.x - p.x, shipTarget.y - p.y) / 32)}m</small> : null}
-            <button aria-label="Stop component guidance" onClick={() => game.campaign.trackComponent()}>×</button>
-          </div> : null}
-          {game.naval.aboard ? (
-            <div style={{ marginBottom: 8 }}>
-              <h4>{game.naval.definition?.name}</h4>
-              <div className="qname">{game.naval.dangerLabel}</div>
-
-              {landing ? <div className="obj">{landing.inRange
-                ? landing.reason ?? `${useKey} — Land at ${landing.port.name}`
-                : `${landing.port.name} · ${landing.direction} · ${Math.round(landing.distance / 32)}m`}</div> : null}
-              <div className="obj">R — Fight boarders on deck</div>
-            </div>
-          ) : null}
-          {game.encounters.active ? (
-            <div style={{ marginBottom: 8 }}>
-              <div className="qname">{game.encounters.objective}</div>
-              <div className="obj">{game.encounters.status}</div>
-            </div>
-          ) : null}
-          {tracked.length && !game.encounters.active && !component ? <h4>Next adventure</h4> : null}
-          {(!game.encounters.active && !component ? tracked : []).map((aq) => {
-            const def = QUEST_BY_ID[aq.id];
-            if (!def) return null;
-            return (
-              <div key={aq.id} style={{ marginBottom: 8 }}>
-                <div className="qname">{def.name}</div>
-                {def.objectives.map((o, i) => {
-                  const cur = game.quests.objectiveCount(def, aq, i, p);
-                  const target = game.quests.objectiveTarget(o);
-                  const done = cur >= target;
-                  return (
-                    <div className={`obj ${done ? 'done' : ''}`} key={i}>
-                      <span>{o.label}</span>
-                      <span>{target > 1 ? `${cur}/${target}` : done ? 'done' : ''}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+      {game.encounters.active ? (
+        <div className="qt-block">
+          <div className="qname">{game.encounters.objective}</div>
+          <div className="obj">{game.encounters.status}</div>
         </div>
       ) : null}
-
-      {game.inAegean && game.campaign.state.receipts?.[0] ? <button className="recent-reward" onClick={() => game.setPanel('quests')} title={game.campaign.state.receipts[0].lines.join(' · ')}>Earned · {game.campaign.state.receipts[0].lines[1] ?? game.campaign.state.receipts[0].lines[0]} ›</button> : null}
-      <div className="toasts">
-        {game.toasts.map((t) => (
-          <div className="toast" key={t.id} style={{ borderLeftColor: t.color, opacity: t.t > 5 ? 0.3 : 1 }}>
-            {t.icon ? <img src={getIconUrl(t.icon as 'gold')} alt="" /> : null}
-            <div>
-              <div className="t-title" style={{ color: t.color }}>{t.title}</div>
-              {t.sub ? <div className="t-sub">{t.sub}</div> : null}
-            </div>
+      {tracked.length && !game.encounters.active && !component ? <h4>Next adventure</h4> : null}
+      {(!game.encounters.active && !component ? tracked : []).map((aq) => {
+        const def = QUEST_BY_ID[aq.id];
+        if (!def) return null;
+        return (
+          <div key={aq.id} className="qt-block">
+            <div className="qname">{def.name}</div>
+            {def.objectives.map((o, i) => {
+              const cur = game.quests.objectiveCount(def, aq, i, p);
+              const target = game.quests.objectiveTarget(o);
+              const done = cur >= target;
+              return (
+                <div className={`obj ${done ? 'done' : ''}`} key={i}>
+                  <span><i className={`obj-dot ${done ? 'on' : ''}`} />{o.label}</span>
+                  <span>{target > 1 ? `${cur}/${target}` : ''}</span>
+                </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
-
-      <div className="hud-abilities">
-        <button className="slot weapon" title="Attack (Space)" onClick={() => game.basicAttack(false)}>
-          <span className="key">SPC</span>
-          {p.equipment.mainHand ? (
-            <img src={getIconUrl(p.equipment.mainHand.icon, { metal: p.equipment.mainHand.iconMetal, glow: p.equipment.mainHand.glow })} alt="" />
-          ) : <span className="muted">fists</span>}
-        </button>
-        {abilities.map((a, i) => {
-          const locked = p.level < a.level;
-          const cd = p.cooldowns[a.id] ?? 0;
-          return (
-            <button
-              key={a.id}
-              className={`slot ${locked ? 'locked' : cd <= 0 ? 'ready' : ''}`}
-              title={locked ? `${a.name} — unlocks at level ${a.level}` : `${a.name}: ${a.desc}`}
-              onClick={() => !locked && game.useAbility(i)}
-            >
-              <span className="key">{i + 1}</span>
-              <img src={getIconUrl(a.icon as 'sword')} alt=""  />
-              {cd > 0 ? <span className="cd">{cd.toFixed(cd < 1 ? 1 : 0)}</span> : null}
-              {locked ? <span className="cd">Lv {a.level}</span> : null}
-            </button>
-          );
-        })}
-        {(() => {
-          // A shield never uses offhandCooldown at all — it is held to block,
-          // not triggered — so a countdown left over from whatever was in
-          // this slot before must not bleed onto it after a swap.
-          const isShield = p.equipment.offHand?.weaponKind === 'shield';
-          const cd = isShield&&!p.equipment.offHand?.aegeanPower ? 0 : p.offhandCooldown;
-          return (
-            <button
-              className={`slot ${p.equipment.offHand ? (cd <= 0 ? 'ready' : '') : 'locked'}`}
-              title={p.equipment.offHand ? `${p.equipment.offHand.name} (F)` : 'No off-hand (F uses a potion)'}
-              onClick={() => game.useOffhand()}
-            >
-              <span className="key">F</span>
-              {p.equipment.offHand ? (
-                <img src={getIconUrl(p.equipment.offHand.icon, { metal: p.equipment.offHand.iconMetal, glow: p.equipment.offHand.glow })} alt="" />
-              ) : <span className="muted">off</span>}
-              {p.blocking
-                ? <span className="cd">BLOCK</span>
-                : cd > 0
-                ? <span className="cd">{cd.toFixed(cd < 1 ? 1 : 0)}</span>
-                : null}
-            </button>
-          );
-        })()}
-        {weapon && weaponArt ? (
-          <button
-            className={`slot ${p.weaponPowerCooldown > 0 ? '' : 'ready'}`}
-            title={`${weaponArt.name} (V) — ${weapon.aegeanPower ? weapon.desc ?? '' : weapon.weaponPower?.desc ?? ''}`}
-            onClick={() => game.useWeaponPower()}
-          >
-            <span className="key">V</span>
-            <img
-              src={getIconUrl(weapon.icon, { metal: weapon.iconMetal, glow: weapon.glow })}
-              alt=""
-            />
-            {p.weaponPowerCooldown > 0
-              ? <span className="cd">{p.weaponPowerCooldown.toFixed(p.weaponPowerCooldown < 1 ? 1 : 0)}</span>
-              : null}
-          </button>
-        ) : null}
-        <button
-          className={`slot ${game.naval.aboard ? 'ready' : artifactArt ? p.artifactCooldown > 0 ? '' : 'ready' : 'locked'}`}
-          title={game.naval.aboard?'Fight boarders on deck (R)':artifactArt ? `${artifactArt.name} (R) — ${artifact?.aegeanPower ? artifact.desc ?? '' : artifact?.artifact?.desc ?? ''}` : 'No artifact equipped'}
-          onClick={() => game.naval.aboard?game.naval.enterDeck():game.useArtifact()}
-        >
-          <span className="key">R</span>
-          {p.equipment.accessory ? (
-            <img src={getIconUrl(p.equipment.accessory.icon, { metal: p.equipment.accessory.iconMetal, glow: p.equipment.accessory.glow })} alt="" />
-          ) : <span className="muted">art</span>}
-          {p.artifactCooldown > 0 ? <span className="cd">{p.artifactCooldown.toFixed(p.artifactCooldown < 1 ? 1 : 0)}</span> : null}
-        </button>
-        <button className={`slot ${recovery > 0 ? '' : 'ready'}`} title={recovery > 0 ? `Recovery: ${Math.ceil(recovery)}s (Q)` : 'Quick potion (Q)'} onClick={() => game.useQuickItem()}>
-          <span className="key">Q</span>
-          {quick ? (
-            <>
-              <img src={getIconUrl(quick.icon, { metal: quick.iconMetal })} alt="" />
-              <span className="qty">{quick.qty}</span>
-            </>
-          ) : (
-            <span className="muted">empty</span>
-          )}
-          {recovery > 0 ? <span className="cd">{Math.ceil(recovery)}</span> : null}
-        </button>
-      </div>
-
-      <div className="hud-hint">
-        <div><kbd>WASD</kbd> move · <kbd>Space</kbd> attack · <kbd>G</kbd> heavy · <kbd>Shift</kbd> dodge</div>
-        <div><kbd>E</kbd> interact · <kbd>I</kbd> bag · <kbd>M</kbd> map · <kbd>J</kbd> journal · <kbd>P</kbd> pause</div>
-        <div style={{ color: '#6d6478' }}>{game.map.name} · {game.timeLabel} · Armour {Math.round(stats.defense)}</div>
-      </div>
+        );
+      })}
     </div>
   );
 }
 
-function Bar({ cls, value, max, label, shield }: { cls: string; value: number; max: number; label: string; shield?: number }) {
-  const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
-  const shieldPct = shield ? Math.min(100 - pct, (shield / Math.max(1, max)) * 100) : 0;
-  // A health bar under a quarter reads as an emergency, so it says so.
-  const critical = cls === 'hp' && pct <= 25;
+function RecentReward({ game }: { game: Game }) {
+  const r = useGameValue(() => {
+    const receipt = game.inAegean ? game.campaign.state.receipts?.[0] : undefined;
+    return receipt ? { line: receipt.lines[1] ?? receipt.lines[0], all: receipt.lines.join(' · ') } : null;
+  }, 2);
+  if (!r) return null;
   return (
-    <div className={`bar ${cls}${critical ? ' critical' : ''}`}>
-      <div className="fill" style={{ width: `${pct}%` }} />
-      {shieldPct > 0 ? <div className="shield" style={{ left: `${pct}%`, width: `${shieldPct}%` }} /> : null}
-      <span className="ticks" />
-      {label ? <span className="label">{label}</span> : null}
+    <button className="recent-reward" onClick={() => game.setPanel('quests')} title={r.all}>
+      Earned · {r.line} ›
+    </button>
+  );
+}
+
+function Toasts({ game }: { game: Game }) {
+  const toasts = useGameValue(() => game.toasts.map((t) => ({
+    id: t.id, title: t.title, sub: t.sub ?? '', color: t.color, icon: t.icon ?? '', fading: t.t > 5,
+  })), 8);
+  return (
+    <div className="toasts" aria-live="polite">
+      {toasts.map((t) => (
+        <div className={`toast frame-ash${t.fading ? ' fading' : ''}`} key={t.id} style={{ ['--toast' as string]: t.color }}>
+          {t.icon ? <img src={getIconUrl(t.icon as 'gold')} alt="" /> : null}
+          <div>
+            <div className="t-title" style={{ color: t.color }}>{t.title}</div>
+            {t.sub ? <div className="t-sub">{t.sub}</div> : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The controls, shown only while a character is brand new. The old HUD kept
+ * a block of key hints in the corner for good; after the first few minutes
+ * the prompts over doors and people and the How to Play page do that job.
+ */
+function FirstSteps({ game }: { game: Game }) {
+  const show = useGameValue(() => game.player.playTime < 180 && !game.input.touchMode && !game.uiOpen, 1);
+  if (!show) return null;
+  const k = (a: Parameters<typeof game.input.keyLabel>[0]) => {
+    const l = game.input.keyLabel(a);
+    return l === 'Space' ? 'SPC' : l;
+  };
+  return (
+    <div className="first-steps frame-ash" role="note">
+      <div><span><KeyCap>W</KeyCap><KeyCap>A</KeyCap><KeyCap>S</KeyCap><KeyCap>D</KeyCap></span> move</div>
+      <div><KeyCap>{k('attack')}</KeyCap> attack · <KeyCap>{k('heavy')}</KeyCap> heavy</div>
+      <div><KeyCap>{k('dash')}</KeyCap> dodge · <KeyCap>{k('interact')}</KeyCap> use</div>
+      <div><KeyCap>{k('inventory')}</KeyCap> pack · <KeyCap>{k('map')}</KeyCap> map</div>
+      <div><KeyCap>ESC</KeyCap> menu &amp; how to play</div>
     </div>
   );
 }
