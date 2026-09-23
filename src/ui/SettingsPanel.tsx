@@ -25,6 +25,10 @@ export default function SettingsPanel({ game, onClose }: { game: Game; onClose: 
         <Switch label="Vital numbers" checked={s.showNumbers} onChange={(v) => set({ showNumbers: v })}>
           Always show the numbers on the health, mana and stamina bars, not only when you point at them.
         </Switch>
+        <Switch label="Reduce motion" checked={s.reduceMotion} onChange={(v) => set({ reduceMotion: v })}>
+          Panels, banners and badges stop sliding, hopping and blinking. Your system&apos;s reduced-motion
+          setting does the same on its own.
+        </Switch>
         <Switch
           label="Minimap"
           checked={game.showMinimap}

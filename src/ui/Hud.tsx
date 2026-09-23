@@ -9,6 +9,7 @@ import { useGameValue, useTicker } from './hooks';
 import { Purse, Vitals } from './hud/Vitals';
 import Hotbar from './hud/Hotbar';
 import Minimap from './hud/Minimap';
+import Banners from './hud/Banners';
 
 /**
  * The heads-up display. Each piece polls the game on its own clock and only
@@ -33,6 +34,7 @@ export default function Hud({ game }: { game: Game }) {
       <RecentReward game={game} />
       <Hotbar game={game} />
       <FirstSteps game={game} />
+      <Banners game={game} />
     </div>
   );
 }

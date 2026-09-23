@@ -609,7 +609,7 @@ export function render(game: Game): void {
   drawLighting(game, g, left, top, viewW, viewH);
 
   // interaction prompt and world-space text
-  game.fx.drawText(g);
+  game.fx.drawText(g, toScreen, ui);
   if (game.interact) {
     // No key to name when there is no keyboard — the USE button says it.
     const key = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
@@ -645,15 +645,13 @@ export function render(game: Game): void {
   if (game.fade.alpha > 0.001) {
     g.save();
     g.globalAlpha = Math.min(1, game.fade.alpha);
-    g.fillStyle = '#05040a';
+    g.fillStyle = PAL.void;
     g.fillRect(0, 0, canvas.width, canvas.height);
     if (game.fade.label && game.fade.alpha > 0.6) {
-      g.globalAlpha = Math.min(1, (game.fade.alpha - 0.6) / 0.4);
-      g.fillStyle = '#e8c27a';
-      g.font = '600 20px "Cinzel", Georgia, serif';
-      g.textAlign = 'center';
-      g.fillText(game.fade.label, canvas.width / 2, canvas.height / 2);
-      g.textAlign = 'left';
+      // the destination, lettered in the UI font while the screen is dark
+      g.globalAlpha = Math.ceil(Math.min(1, (game.fade.alpha - 0.6) / 0.4) * 3) / 3;
+      setFont(g, ui, 20, false, true);
+      pixelText(g, game.fade.label.toUpperCase(), canvas.width / 2, canvas.height / 2, ui, { color: PAL.goldLit, shadow: PAL.emberDark, align: 'center' });
     }
     g.restore();
   }

@@ -76,6 +76,9 @@ html, body, #root {
 
 body { user-select: none; }
 
+button:focus-visible, [role='slider']:focus-visible, summary:focus-visible { outline: 1px solid var(--c-gold-lit); outline-offset: 1px; }
+button:focus:not(:focus-visible) { outline: none; }
+
 button, input, select, textarea {
   font-family: inherit;
   font-size: 10px;
@@ -453,7 +456,7 @@ canvas.world {
   color: var(--dim);
   text-align: right;
 }
-.px-toggle.on .pt-label { color: var(--c-ink); text-align: left; }
+.px-toggle.on .pt-label { color: var(--c-white); text-align: left; text-shadow: 1px 1px 0 var(--c-ember-dark); }
 
 .name-input, input[type='text'], input[type='number'], input[type='search'], select, textarea {
   border: 3px solid transparent;
@@ -1633,3 +1636,32 @@ details[open] > summary::before { content: '↓ '; }
 .frame-parchment details > summary { color: var(--c-ember-dark); }
 .frame-parchment .reward-pill { color: var(--c-cloth); }
 .journal-page { padding: 2px 4px; overflow-y: auto; }
+
+/* ================================================================== */
+/* Banners: place names and level-ups                                 */
+/* ================================================================== */
+
+.banner {
+  position: absolute; left: 50%; top: 22%; translate: -50% 0;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  pointer-events: none; text-align: center;
+  animation: banner 3.2s steps(1, end) forwards;
+}
+.banner .bn-title {
+  color: var(--c-gold-lit); font-size: 20px; line-height: 24px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--c-ember-dark), -1px 0 0 var(--c-void), 0 -1px 0 var(--c-void), 1px 0 0 var(--c-void);
+}
+.banner .rule { width: 160px; }
+.banner .bn-sub { color: var(--c-bone); text-shadow: var(--hard-shadow); }
+.banner.level { animation-duration: 2.6s; }
+.banner.level .bn-title { color: var(--c-flame-lit); font-size: 40px; line-height: 48px; letter-spacing: 4px; text-shadow: 4px 4px 0 var(--c-ember-dark), -2px 0 0 var(--c-void), 0 -2px 0 var(--c-void), 2px 0 0 var(--c-void); }
+/* drop in over three frames, hold, then leave in two */
+@keyframes banner {
+  0% { translate: -50% -8px; opacity: 0; }
+  3% { translate: -50% -4px; opacity: 0.5; }
+  6% { translate: -50% 0; opacity: 1; }
+  85% { opacity: 1; }
+  92% { opacity: 0.5; }
+  100% { opacity: 0; }
+}

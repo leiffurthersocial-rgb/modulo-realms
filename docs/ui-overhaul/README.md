@@ -66,3 +66,34 @@ the Epic rarity and faction colours.
 | Skills | `src/ui/SkillPanel.tsx` | Ability cards on ash plates with their key cap. |
 | Settings | `src/ui/SettingsPanel.tsx` | Pixel sliders and lever toggles, key caps for bindings, new "Vital numbers" switch. |
 | Waystone travel | `src/ui/TravelPanel.tsx` | Waystone icon per gate. |
+
+## Phase 4 — making it move
+
+| Piece | Where | What changed |
+| --- | --- | --- |
+| Panels | `.modal` in `global.css` | Open with a three-frame drop (`steps()` timing, no easing), the scrim dithers in over two frames. Buttons drop onto their lip when pressed. |
+| Gold | `Ticker` in `ui/kit` | Counts to its new value, brighter going up, ember going down. |
+| Level-up | `src/ui/hud/Banners.tsx` | A big LEVEL UP banner in 4× lettering with the new level under it. |
+| Place names | same | Walking into a settlement, a region or through a door letters its name across the top ("The Gilded Spade", "Crag Reach · Level 22–36"); each place announces itself at most once every two minutes. The travel fade names the destination in the pixel font. |
+| Floating numbers | `drawText` in `src/game/combat/fx.ts` | Damage, heals and words in the pixel font with a one-pixel outline, drawn in screen space at the UI scale; crits and big numbers at double size; they fade in three hard steps. |
+| Pickup toasts | `Toasts` in `Hud.tsx` | Slide in from the left over three frames with the item's icon; dim for their last second. |
+| Sound hooks | `src/ui/kit/sfx.ts`, `App.tsx` | Every button press plays the `click` cue and every hover the `hover` cue, delegated from the overlay (tabs, toggles, hotbar, touch pad and casino are left to their own sounds). `open`, `tab`, `coin` (money coming in outside the casino), `confirm`, `deny`, `banner`, `toast` and `close` are wired; `hover`, `close`, `deny`, `banner` and `toast` are silent until a sound is assigned in the one table. |
+| Reduced motion | `global.css`, Settings | Honours `prefers-reduced-motion`, and a new **Reduce motion** setting does the same in-game (animations cut to a single frame). |
+
+## Testing
+
+Checked at 1280×720, 1920×1080 and 2560×1440 (`phase2/` has the HUD at all
+three). `npm run typecheck`, `npm run build` and `npm run check:aegean` (now
+26 groups, including `check-ui-style`) pass. Nothing in the simulation,
+balance or save format changed; the only additions to stored data are two
+optional fields in the *settings* entry (`showNumbers`, `reduceMotion`).
+
+Known limits:
+
+- A browser zoom or OS scale that is not a whole multiple (125%, 150%)
+  still gets whole *device* pixels for the UI; the world canvas is drawn at
+  CSS resolution as before, so there the world itself is scaled by the
+  browser.
+- The world camera's zoom animates between whole numbers when boarding a
+  ship or entering an arena, and is only pixel-exact once it lands.
+- The debug menu is now only reachable in a development build.

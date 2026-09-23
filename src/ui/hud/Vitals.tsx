@@ -2,7 +2,8 @@ import type { Game } from '../../game/core/game';
 import { xpToNext } from '../../game/player/player';
 import { MASTERIES } from '../../game/aegean/mastery';
 import SpritePreview from '../SpritePreview';
-import { Badge, Icon, SegBar, Ticker } from '../kit';
+import { useEffect, useRef } from 'react';
+import { Badge, Icon, SegBar, Ticker, uiSound } from '../kit';
 import { useGameValue } from '../hooks';
 
 /**
@@ -73,6 +74,13 @@ export function Purse({ game }: { game: Game }) {
       ...p.statuses.map((s, i) => ({ id: `s${s.kind}${i}`, name: s.kind, color: s.color, left: -1 })),
     ],
   }), 8);
+  // money coming in clinks — except at the casino tables, which ring their own
+  const lastGold = useRef(v.gold);
+  useEffect(() => {
+    const casino = game.panel === 'poker' || game.panel === 'slots' || game.panel === 'roulette';
+    if (v.gold > lastGold.current && !casino) uiSound('coin');
+    lastGold.current = v.gold;
+  }, [v.gold, game]);
 
   return (
     <div className="purse">

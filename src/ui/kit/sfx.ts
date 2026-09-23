@@ -40,9 +40,10 @@ let lastCue: UiCue | null = null;
 export function uiSound(cue: UiCue): void {
   const entry = CUES[cue];
   if (!entry) return;
-  // one keypress can close one panel and open another; do not stack clicks
+  // one press can close a panel and open another: within a frame or two,
+  // only the first sound plays (money and banners always get through)
   const now = performance.now();
-  if (cue === lastCue && now - lastAt < 60) return;
+  if (now - lastAt < 50 && (cue === lastCue || (cue !== 'coin' && cue !== 'banner'))) return;
   lastAt = now;
   lastCue = cue;
   audio.play(entry.sound, entry.volume);
