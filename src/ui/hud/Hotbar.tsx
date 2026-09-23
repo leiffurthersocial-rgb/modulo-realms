@@ -3,7 +3,7 @@ import type { Game } from '../../game/core/game';
 import type { ActionName } from '../../game/core/input';
 import { getIconUrl } from '../../game/art/icons';
 import { AEGEAN_POWERS } from '../../game/items/effects';
-import { Badge, Icon, KeyCap } from '../kit';
+import { KeyCap } from '../kit';
 import { useGameValue } from '../hooks';
 
 interface SlotView {
@@ -30,8 +30,8 @@ const seconds = (cd: number) => (cd <= 0 ? 0 : cd < 1 ? Math.ceil(cd * 10) / 10 
 
 /**
  * The ability bar. Each slot is an iron socket with the key it answers to on
- * a key cap, a stepped cooldown sweep, a lock and the unlock level on
- * abilities not yet learned, and a count on the potion.
+ * a key cap, a stepped cooldown sweep, "LVL n" on abilities not yet
+ * learned, and a count on the potion.
  */
 export default function Hotbar({ game }: { game: Game }) {
   const p = game.player;
@@ -137,8 +137,8 @@ const Slot = memo(function Slot({ view: s, fire }: { view: SlotView; fire: (id: 
       ) : null}
       {s.locked ? (
         <span className="lock">
-          <Icon name="lock" />
-          <Badge tone="iron">{s.locked}</Badge>
+          <span className="lock-tag">LVL</span>
+          <span className="lock-lvl">{s.locked}</span>
         </span>
       ) : null}
       {s.qty && s.qty > 1 ? <span className="qty">{s.qty}</span> : null}

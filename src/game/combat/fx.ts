@@ -1,6 +1,6 @@
 import { drawPhysicalAttack, type PhysicalAttackCue, type LivePhysicalCue } from './physical';
 import { PAL, withAlpha } from '../art/palette';
-import { pixelText, setFont } from '../art/uiCanvas';
+import { pixelText, rectsOverlap, setFont, type ScreenRect } from '../art/uiCanvas';
 
 export interface Particle {
   x: number;
@@ -22,6 +22,8 @@ export interface FloatText {
   color: string;
   life: number;
   size: number;
+  /** UI pixels this text has been pushed up to clear another; only grows */
+  lift?: number;
 }
 
 export interface Telegraph {
@@ -206,17 +208,32 @@ export class FxSystem {
    * camera zoom. Big numbers (crits, heals, level-ups) use the double size.
    * They fade in three hard steps and rise on whole pixels.
    */
-  drawText(g: CanvasRenderingContext2D, toScreen: (x: number, y: number) => [number, number], k: number): void {
+  drawText(g: CanvasRenderingContext2D, toScreen: (x: number, y: number) => [number, number], k: number, taken: ScreenRect[] = []): void {
     g.save();
     g.setTransform(1, 0, 0, 1, 0, 0);
+    // Oldest first: a text that is already up keeps its place and a newer one
+    // climbs over it. The climb is remembered and only ever grows, so two
+    // texts rising side by side do not swap places every frame.
+    const placed = taken.slice();
     for (const t of this.texts) {
       const a = Math.ceil(Math.max(0, Math.min(1, t.life / 0.6)) * 3) / 3;
       if (a <= 0) continue;
       g.globalAlpha = a;
       const big = t.size >= 16;
       setFont(g, k, big ? 20 : 10, false, true);
-      const [sx, sy] = toScreen(t.x, t.y);
-      pixelText(g, t.text, sx, sy, k, { color: t.color, outline: PAL.void, align: 'center' });
+      const [sx, sy0] = toScreen(t.x, t.y);
+      const w = g.measureText(t.text).width + 2 * k;
+      const line = (big ? 18 : 9) * k;
+      let lift = t.lift ?? 0;
+      let box = { x: sx - w / 2, y: sy0 - lift * k - line, w, h: line + 2 * k };
+      for (let i = 0; i < 12 && placed.some((r) => rectsOverlap(r, box)); i++) {
+        const hit = placed.find((r) => rectsOverlap(r, box))!;
+        lift += Math.ceil((box.y + box.h - hit.y) / k) + 1;
+        box = { ...box, y: sy0 - lift * k - line };
+      }
+      t.lift = lift;
+      placed.push(box);
+      pixelText(g, t.text, sx, sy0 - lift * k, k, { color: t.color, outline: PAL.void, align: 'center' });
     }
     g.restore();
   }

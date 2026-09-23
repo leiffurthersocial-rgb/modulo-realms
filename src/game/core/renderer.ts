@@ -16,7 +16,7 @@ import { drawMarineDepth } from './marineDepth';
 import { propsInRect, type GameMap } from '../world/map';
 import type { Game } from './game';
 import { LOCATIONS } from '../../data/locations';
-import { drawPrompt, pixelText, setFont } from '../art/uiCanvas';
+import { drawPrompt, pixelText, promptBox, rectsOverlap, setFont, type ScreenRect } from '../art/uiCanvas';
 import { canvasUiScale } from './zoom';
 
 const identities = new WeakMap<GameMap,number>();
@@ -608,19 +608,31 @@ export function render(game: Game): void {
   // lighting
   drawLighting(game, g, left, top, viewW, viewH);
 
-  // interaction prompt and world-space text
-  game.fx.drawText(g, toScreen, ui);
+  // Interaction prompt, nameplates and floating words share one layout: the
+  // prompt claims its box first, a nameplate under it steps aside (the
+  // prompt already names the thing), and floating words climb clear of both
+  // and of each other instead of printing on top.
+  const taken: ScreenRect[] = [];
+  let prompt: { key: string; label: string; sx: number; sy: number } | null = null;
   if (game.interact) {
     // No key to name when there is no keyboard — the USE button says it.
     const key = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
     const [sx, sy] = toScreen(game.interact.x, game.interact.y - 6);
+    prompt = { key, label: game.interact.label, sx, sy };
     g.save();
     g.setTransform(1, 0, 0, 1, 0, 0);
-    drawPrompt(g, key, game.interact.label, sx, sy, ui);
+    taken.push(promptBox(g, key, prompt.label, sx, sy, ui).screen);
     g.restore();
   }
 
-  drawNameplates(game, g, propIdx, toScreen, ui);
+  drawNameplates(game, g, propIdx, toScreen, ui, taken);
+  if (prompt) {
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    drawPrompt(g, prompt.key, prompt.label, prompt.sx, prompt.sy, ui);
+    g.restore();
+  }
+  game.fx.drawText(g, toScreen, ui, taken);
   drawTrackedCompass(game, g, left, top, viewW, viewH, toScreen, ui);
 
   if (game.debug) drawDebug(game, g, left, top, viewW, viewH);
@@ -665,9 +677,11 @@ export function render(game: Game): void {
 function drawNameplates(
   game: Game, g: CanvasRenderingContext2D, propIdx: number[],
   toScreen: (x: number, y: number) => [number, number], k: number,
+  taken: ScreenRect[],
 ): void {
   const p = game.player;
   const props = game.map.props;
+  const prompts = taken.slice();
   g.save();
   g.setTransform(1, 0, 0, 1, 0, 0);
   setFont(g, k, 10, true);
@@ -685,6 +699,9 @@ function drawNameplates(
     const [sx, sy] = toScreen(pr.x, pr.y - 44);
     const x = Math.round(sx - (w * k) / 2);
     const y = sy - 12 * k;
+    const box = { x: x - k, y: y - k, w: (w + 2) * k, h: 14 * k };
+    if (prompts.some((r) => rectsOverlap(r, box))) continue;
+    taken.push(box);
     g.globalAlpha = alpha;
     g.fillStyle = PAL.void;
     g.fillRect(x - k, y - k, (w + 2) * k, 12 * k);

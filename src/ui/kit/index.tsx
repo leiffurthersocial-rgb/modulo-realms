@@ -329,7 +329,7 @@ export function SegBar({
       <span className="sb-ghost" style={{ width: `${pct}%` }} />
       <span className="sb-fill" style={{ width: `${pct}%` }} />
       {shieldPct > 0 ? <span className="sb-shield" style={{ left: `${pct}%`, width: `${shieldPct}%` }} /> : null}
-      {label != null ? <span className="sb-label">{label}</span> : null}
+      {label != null ? <span className="sb-label"><span>{label}</span></span> : null}
     </div>
   );
 }

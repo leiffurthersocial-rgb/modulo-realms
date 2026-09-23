@@ -137,11 +137,17 @@ export function drawKeyCap(g: CanvasRenderingContext2D, label: string, x: number
   return w * k;
 }
 
+/** A box on the canvas, in canvas pixels. */
+export interface ScreenRect { x: number; y: number; w: number; h: number }
+
+export const rectsOverlap = (a: ScreenRect, b: ScreenRect): boolean =>
+  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
 /**
- * The interaction prompt: key cap and words on an ash plate, e.g.
- * "[E] Enter the Gilded Spade". Centred on `cx`, sitting on `bottom`.
+ * Where `drawPrompt` will put its plate: `x, y` in canvas pixels, `w, h` in
+ * UI pixels. `screen` is the same box in canvas pixels, for layout checks.
  */
-export function drawPrompt(g: CanvasRenderingContext2D, key: string, text: string, cx: number, bottom: number, k: number): void {
+export function promptBox(g: CanvasRenderingContext2D, key: string, text: string, cx: number, bottom: number, k: number) {
   setFont(g, k, 10);
   const textW = Math.round(g.measureText(text).width / k);
   setFont(g, k, 10, true);
@@ -150,6 +156,15 @@ export function drawPrompt(g: CanvasRenderingContext2D, key: string, text: strin
   const h = 4 + 15 + 4;
   const x = Math.round(cx - (w * k) / 2);
   const y = Math.round(bottom - h * k);
+  return { x, y, w, h, capW, screen: { x, y, w: w * k, h: h * k } as ScreenRect };
+}
+
+/**
+ * The interaction prompt: key cap and words on an ash plate, e.g.
+ * "[E] Enter the Gilded Spade". Centred on `cx`, sitting on `bottom`.
+ */
+export function drawPrompt(g: CanvasRenderingContext2D, key: string, text: string, cx: number, bottom: number, k: number): void {
+  const { x, y, w, h, capW } = promptBox(g, key, text, cx, bottom, k);
   drawNine(g, 'frame-ash', 4, x, y, w, h, k);
   drawKeyCap(g, key, x + 6 * k, y + 5 * k, k);
   setFont(g, k, 10);
