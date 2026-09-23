@@ -4,6 +4,7 @@ import { getIconUrl } from '../game/art/icons';
 import { useState } from 'react';
 import { MASTERIES } from '../game/aegean/mastery';
 import { KeyCap, Modal } from './kit';
+import { FIRST_POINT_FLAG } from './hud/Vitals';
 
 export default function SkillPanel({ game }: { game: Game }) {
   const p = game.player;
@@ -23,6 +24,7 @@ export default function SkillPanel({ game }: { game: Game }) {
     if (node.tier > 1 && prevTierPoints < (node.tier - 1) * 3) return;
     p.skills[id] = cur + 1;
     p.skillPoints--;
+    p.flags.add(FIRST_POINT_FLAG);
     game.playSound('levelup', 0.5);
     game.touch();
   };
@@ -32,6 +34,94 @@ export default function SkillPanel({ game }: { game: Game }) {
             {spent > 0 ? ` · ${spent} spent` : ''} · {p.gold} gold</>} size="xl" tall onClose={() => game.closeAll()}>
 
         <div className="inv-col scroll" style={{ overflowY: 'auto', flex: 1 }}>
+          <div className="section-h">Talent branches</div>
+          <div className="skill-branches">
+            {branches.map((branch) => (
+              <div key={branch}>
+                <div className="branch-title">{branch}</div>
+                {c.skills.filter((n) => n.branch === branch).sort((a, b) => a.tier - b.tier).map((node) => {
+                  const cur = p.skills[node.id] ?? 0;
+                  const prevTierPoints = c.skills
+                    .filter((n) => n.branch === node.branch && n.tier < node.tier)
+                    .reduce((sum, n) => sum + (p.skills[n.id] ?? 0), 0);
+                  const unlocked = node.tier === 1 || prevTierPoints >= (node.tier - 1) * 3;
+                  const maxed = cur >= node.max;
+                  const canBuy = unlocked && !maxed && p.skillPoints > 0;
+                  return (
+                    <div className={`skill-node ${maxed ? 'maxed' : canBuy ? 'available' : ''}`} key={node.id} style={{ opacity: unlocked ? 1 : 0.5 }}>
+                      <div className="sn-head">
+                        <span className="sn-name">{node.name}</span>
+                        <span className="sn-pts">{cur}/{node.max}</span>
+                      </div>
+                      <div className="skill-pips">
+                        {Array.from({ length: node.max }).map((_, i) => <i key={i} className={i < cur ? 'on' : ''} />)}
+                      </div>
+                      <div className="sn-desc">{node.desc}</div>
+                      {!unlocked ? (
+                        <div className="sn-desc" style={{ color: 'var(--danger)' }}>
+                          Requires {(node.tier - 1) * 3} points in earlier {branch} talents.
+                        </div>
+                      ) : null}
+                      <button className="btn small sn-buy" disabled={!canBuy} onClick={() => spend(node.id)}>
+                        {maxed ? 'Mastered' : 'Spend point'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {p.level >= 80 ? (
+            <>
+              <div className="section-h">Heroic talents</div>
+              <p style={{ color: 'var(--muted)' }}>Choose one permanent talent every five levels, from level 80.</p>
+              {[80, 85, 90, 95, 100].filter((level) => level <= p.level).map((level) => {
+                const choices = MASTERIES.filter((m) => m.level === level);
+                const chosen = choices.find((m) => p.flags.has(`aegean:mastery:${m.id}`));
+                return (
+                  <div key={level}>
+                    <div className="branch-title" style={{ textAlign: 'left', marginTop: 6 }}>Level {level}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 5 }}>
+                      {(chosen ? [chosen] : choices).map((m) => (
+                        <div className={`skill-node ${chosen ? 'maxed' : 'available'}`} key={m.id}>
+                          <div className="sn-head"><span className="sn-name">{m.name}</span>{chosen ? <span className="sn-pts">Mastered</span> : null}</div>
+                          <div className="sn-desc">{m.description}</div>
+                          {!chosen ? <button className="btn small sn-buy" onClick={() => game.campaign.selectMastery(m.id)}>Learn talent</button> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : null}
+
+          <div className="section-h">Abilities</div>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 3 }}>
+            {c.abilities.map((a, i) => {
+              const locked = p.level < a.level;
+              return (
+                <div
+                  key={a.id}
+                  className={`ability-card${locked ? ' locked' : ''}`}
+                >
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <img src={getIconUrl(a.icon as 'sword')} alt="" />
+                    <div>
+                      <div style={{ color: a.color }}>{a.name}</div>
+                      <div className="muted"><KeyCap>{i + 1}</KeyCap> {locked ? `Level ${a.level}` : `${a.cooldown}s cooldown`}</div>
+                    </div>
+                  </div>
+                  <div className="note" style={{ marginTop: 2 }}>{a.desc}</div>
+                  <div style={{ color: 'var(--gold-dim)' }}>
+                    {a.mana > 0 ? `${a.mana} mana ` : ''}{a.stamina > 0 ? `${a.stamina} stamina` : ''}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="section-h">Class</div>
           <div className="retrain-bar">
             <div>
               <div className="rt-title">Retrain</div>
@@ -74,93 +164,6 @@ export default function SkillPanel({ game }: { game: Game }) {
             </div>
           ) : null}
 
-          <div className="section-h">Abilities</div>
-          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 3 }}>
-            {c.abilities.map((a, i) => {
-              const locked = p.level < a.level;
-              return (
-                <div
-                  key={a.id}
-                  className={`ability-card${locked ? ' locked' : ''}`}
-                >
-                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                    <img src={getIconUrl(a.icon as 'sword')} alt="" />
-                    <div>
-                      <div style={{ color: a.color }}>{a.name}</div>
-                      <div className="muted"><KeyCap>{i + 1}</KeyCap> {locked ? `Level ${a.level}` : `${a.cooldown}s cooldown`}</div>
-                    </div>
-                  </div>
-                  <div className="note" style={{ marginTop: 2 }}>{a.desc}</div>
-                  <div style={{ color: 'var(--gold-dim)' }}>
-                    {a.mana > 0 ? `${a.mana} mana ` : ''}{a.stamina > 0 ? `${a.stamina} stamina` : ''}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {p.level >= 80 ? (
-            <>
-              <div className="section-h">Heroic talents</div>
-              <p style={{ color: 'var(--muted)' }}>Choose one permanent talent every five levels, from level 80.</p>
-              {[80, 85, 90, 95, 100].filter((level) => level <= p.level).map((level) => {
-                const choices = MASTERIES.filter((m) => m.level === level);
-                const chosen = choices.find((m) => p.flags.has(`aegean:mastery:${m.id}`));
-                return (
-                  <div key={level}>
-                    <div className="branch-title" style={{ textAlign: 'left', marginTop: 6 }}>Level {level}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 5 }}>
-                      {(chosen ? [chosen] : choices).map((m) => (
-                        <div className={`skill-node ${chosen ? 'maxed' : 'available'}`} key={m.id}>
-                          <div className="sn-head"><span className="sn-name">{m.name}</span>{chosen ? <span className="sn-pts">Mastered</span> : null}</div>
-                          <div className="sn-desc">{m.description}</div>
-                          {!chosen ? <button className="btn small sn-buy" onClick={() => game.campaign.selectMastery(m.id)}>Learn talent</button> : null}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          ) : null}
-
-          <div className="section-h">Talent branches</div>
-          <div className="skill-branches">
-            {branches.map((branch) => (
-              <div key={branch}>
-                <div className="branch-title">{branch}</div>
-                {c.skills.filter((n) => n.branch === branch).sort((a, b) => a.tier - b.tier).map((node) => {
-                  const cur = p.skills[node.id] ?? 0;
-                  const prevTierPoints = c.skills
-                    .filter((n) => n.branch === node.branch && n.tier < node.tier)
-                    .reduce((sum, n) => sum + (p.skills[n.id] ?? 0), 0);
-                  const unlocked = node.tier === 1 || prevTierPoints >= (node.tier - 1) * 3;
-                  const maxed = cur >= node.max;
-                  const canBuy = unlocked && !maxed && p.skillPoints > 0;
-                  return (
-                    <div className={`skill-node ${maxed ? 'maxed' : canBuy ? 'available' : ''}`} key={node.id} style={{ opacity: unlocked ? 1 : 0.5 }}>
-                      <div className="sn-head">
-                        <span className="sn-name">{node.name}</span>
-                        <span className="sn-pts">{cur}/{node.max}</span>
-                      </div>
-                      <div className="skill-pips">
-                        {Array.from({ length: node.max }).map((_, i) => <i key={i} className={i < cur ? 'on' : ''} />)}
-                      </div>
-                      <div className="sn-desc">{node.desc}</div>
-                      {!unlocked ? (
-                        <div className="sn-desc" style={{ color: 'var(--danger)' }}>
-                          Requires {(node.tier - 1) * 3} points in earlier {branch} talents.
-                        </div>
-                      ) : null}
-                      <button className="btn small sn-buy" disabled={!canBuy} onClick={() => spend(node.id)}>
-                        {maxed ? 'Mastered' : 'Spend point'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
         </div>
     </Modal>
   );

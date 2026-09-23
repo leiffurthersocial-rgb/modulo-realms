@@ -5,7 +5,7 @@ import { AegeanServices } from '../aegean/services';
 import { AEGEAN_PORTS } from '../../data/aegean/world';
 import { AegeanPowers } from '../aegean/powers';
 import { AegeanActivities } from '../aegean/activities';
-import { invalidateChunks } from './renderer';
+import { DEATH_SETTLE, invalidateChunks } from './renderer';
 import { AegeanCampaign } from '../aegean/campaign';
 import { NavalSystem } from '../aegean/naval';
 import { aegeanEarnedWaystones, aegeanWaystoneAccess, aegeanWaystoneDestination, aegeanWaystonesInReach } from '../aegean/waypoints';
@@ -260,6 +260,9 @@ export class Game implements WorldCtx {
   streakUntil = 0;
   /** Full-screen colour pop, drained by the renderer each frame. */
   screenFlash = { alpha: 0, color: '#ffffff' };
+  /** Seconds since the player fell, and the shake they fell with: the death screen settles, then goes dark. */
+  deadFor = 0;
+  private deathShake = 0;
   uiVersion = 0;
   private listeners = new Set<() => void>();
   private toastId = 1;
@@ -1207,6 +1210,8 @@ export class Game implements WorldCtx {
     p.deaths++;
     this.screen = 'dead';
     this.shake(18);
+    this.deadFor = 0;
+    this.deathShake = this.camera.shake;
     audio.play('die', 0.8);
     this.touch();
   }
@@ -4152,6 +4157,13 @@ export class Game implements WorldCtx {
     if (this.screenFlash.alpha > 0) this.screenFlash.alpha = Math.max(0, this.screenFlash.alpha - dt * 2.4);
     if (this.streak > 0 && this.now > this.streakUntil) this.streak = 0;
 
+    if (this.screen === 'dead') {
+      // the world stops, so the camera's own decay does not run: ease the
+      // shake out over two seconds here instead of letting it rattle forever
+      this.deadFor += dt;
+      const t = Math.min(1, this.deadFor / DEATH_SETTLE);
+      this.camera.shake = this.deathShake * (0.5 + 0.5 * Math.cos(Math.PI * t));
+    }
     if (this.screen !== 'playing') {
       this.fx.update(dt, 0);
       this.input.endFrame();

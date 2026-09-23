@@ -285,6 +285,10 @@ interface Drawable {
 const lightBuffer = document.createElement('canvas');
 const propIdx: number[] = [];
 
+/** Seconds the death shake takes to die away; the world then fades to black over `DEATH_DARKEN`. */
+export const DEATH_SETTLE = 2;
+const DEATH_DARKEN = 1.2;
+
 export function render(game: Game): void {
   const g = game.g;
   const { canvas, camera, map, player } = game;
@@ -667,6 +671,15 @@ export function render(game: Game): void {
     }
     g.restore();
   }
+
+  // fallen: once the shake has settled, the world goes dark under the death screen
+  if (game.screen === 'dead' && game.deadFor > DEATH_SETTLE) {
+    g.save();
+    g.globalAlpha = Math.min(1, (game.deadFor - DEATH_SETTLE) / DEATH_DARKEN);
+    g.fillStyle = PAL.void;
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.restore();
+  }
 }
 
 /**
@@ -866,7 +879,10 @@ function drawTrackedCompass(
   const cx = p.x + Math.cos(angle) * radius;
   const cy = p.y + Math.sin(angle) * radius;
   const clampedX = Math.max(left + 30, Math.min(left + viewW - 30, cx));
-  const clampedY = Math.max(top + 30, Math.min(top + viewH - 42, cy));
+  // keep the arrow and the name lettered under it clear of the ability bar:
+  // bar (~48 UI px with its key caps) + the label 20-30 UI px below the arrow
+  const barClear = (84 * k) / game.camera.zoom;
+  const clampedY = Math.max(top + 30, Math.min(top + viewH - Math.max(42, barClear), cy));
 
   g.save();
   g.translate(clampedX, clampedY);
@@ -895,6 +911,9 @@ function drawTrackedCompass(
   g.restore();
 }
 
+/** Side of the HUD minimap square, in UI pixels. */
+export const MINIMAP_SIZE = 104;
+
 /**
  * The minimap, drawn into the HUD's own canvas (see `ui/hud/Minimap.tsx`)
  * rather than onto the world, so its frame and plaque are ordinary UI. The
@@ -904,13 +923,13 @@ export function drawMinimapInto(game: Game, canvas: HTMLCanvasElement): void {
   const g = canvas.getContext('2d');
   if (!g) return;
   const size = canvas.width;
-  const m = Math.max(1, Math.round(size / 72));
+  const m = Math.max(1, Math.round(size / MINIMAP_SIZE));
   const map = game.map;
   const overworld = map.id === 'overworld';
   const step = overworld ? 2 : 1;
   const mini = getMinimap(map, step);
   // how much map the square shows, in minimap pixels
-  const span = overworld ? 344 : 136;
+  const span = overworld ? 420 : 166;
   const scale = size / span;
   const px = (game.player.x / TILE / step) - span / 2;
   const py = (game.player.y / TILE / step) - span / 2;

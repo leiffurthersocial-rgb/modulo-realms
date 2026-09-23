@@ -122,9 +122,10 @@ export default function Hotbar({ game }: { game: Game }) {
 
 const Slot = memo(function Slot({ view: s, fire }: { view: SlotView; fire: (id: string) => void }) {
   const ready = s.cd <= 0 && !s.locked && !s.empty;
+  const off = !ready || !!s.starved;
   return (
     <button
-      className={`slot${s.tone ? ` ${s.tone}` : ''}${s.locked ? ' locked' : ''}${s.empty ? ' empty' : ''}${s.cd > 0 ? ' cooling' : ''}${s.held ? ' held' : ''}${s.starved ? ` starved ${s.starved}` : ''}${ready ? ' ready' : ''}`}
+      className={`slot${s.tone ? ` ${s.tone}` : ''}${s.locked ? ' locked' : ''}${s.empty ? ' empty' : ''}${s.cd > 0 ? ' cooling' : ''}${s.held ? ' held' : ''}${s.starved ? ` starved ${s.starved}` : ''}${ready ? ' ready' : ''}${off ? ' off' : ''}`}
       title={s.title}
       onClick={() => fire(s.id)}
     >

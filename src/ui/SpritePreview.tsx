@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { ANIM, ROW, getCharacterSheet, type Look } from '../game/art/characters';
+import { ANIM, CH_FEET, CH_H, CH_W, ROW, getCharacterSheet, type Look } from '../game/art/characters';
 
 interface Props {
   look: Look;
@@ -9,7 +9,11 @@ interface Props {
   className?: string;
 }
 
-/** Small animated character portrait used in creation, HUD and dialogue. `scale` is a whole number of UI pixels. */
+/**
+ * Small animated character portrait used in creation, HUD and dialogue. `scale` is a whole number of UI pixels.
+ * Always shows the body's 36x44 box: an armed sheet is wider so the blade is
+ * not cut in the world, but the panels here are laid out around the body.
+ */
 export default function SpritePreview({ look, scale = 4, dir = 'down', anim = 'idle', className }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   // `look` is rebuilt on every render, so key the effect on its contents instead
@@ -21,10 +25,12 @@ export default function SpritePreview({ look, scale = 4, dir = 'down', anim = 'i
     if (!canvas) return;
     const sheet = getCharacterSheet(JSON.parse(lookKey) as Look);
     // drawn at 1:1 and blown up by the stylesheet, a whole number of times
-    canvas.width = sheet.fw;
-    canvas.height = sheet.fh;
-    canvas.style.width = `${sheet.fw * scale}px`;
-    canvas.style.height = `${sheet.fh * scale}px`;
+    const sx = (sheet.fw - CH_W) / 2;
+    const sy = sheet.feet - CH_FEET;
+    canvas.width = CH_W;
+    canvas.height = CH_H;
+    canvas.style.width = `${CH_W * scale}px`;
+    canvas.style.height = `${CH_H * scale}px`;
     const g = canvas.getContext('2d')!;
     g.imageSmoothingEnabled = false;
     let raf = 0;
@@ -40,7 +46,7 @@ export default function SpritePreview({ look, scale = 4, dir = 'down', anim = 'i
         g.translate(canvas.width, 0);
         g.scale(-1, 1);
       }
-      g.drawImage(sheet.canvas, frame * sheet.fw, row * sheet.fh, sheet.fw, sheet.fh, 0, 0, canvas.width, canvas.height);
+      g.drawImage(sheet.canvas, frame * sheet.fw + sx, row * sheet.fh + sy, CH_W, CH_H, 0, 0, CH_W, CH_H);
       g.restore();
       raf = requestAnimationFrame(draw);
     };
