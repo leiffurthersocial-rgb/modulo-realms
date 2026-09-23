@@ -3,6 +3,7 @@ import { CLASSES, SKILL_BRANCHES } from '../data/classes';
 import { getIconUrl } from '../game/art/icons';
 import { useState } from 'react';
 import { MASTERIES } from '../game/aegean/mastery';
+import { Modal } from './kit';
 
 export default function SkillPanel({ game }: { game: Game }) {
   const p = game.player;
@@ -27,16 +28,8 @@ export default function SkillPanel({ game }: { game: Game }) {
   };
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(960px, 95vw)', height: 'min(660px, 92vh)' }}>
-        <div className="panel-title">
-          <span>Skills — {c.name}</span>
-          <span className="sub">
-            {p.skillPoints} point{p.skillPoints === 1 ? '' : 's'} available
-            {spent > 0 ? ` · ${spent} spent` : ''} · {p.gold} gold
-          </span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title={<>Skills — {c.name}</>} sub={<>{p.skillPoints} point{p.skillPoints === 1 ? '' : 's'} available
+            {spent > 0 ? ` · ${spent} spent` : ''} · {p.gold} gold</>} size="xl" tall onClose={() => game.closeAll()}>
 
         <div className="inv-col scroll" style={{ overflowY: 'auto', flex: 1 }}>
           <div className="retrain-bar">
@@ -82,26 +75,26 @@ export default function SkillPanel({ game }: { game: Game }) {
           ) : null}
 
           <div className="section-h">Abilities</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 3 }}>
             {c.abilities.map((a, i) => {
               const locked = p.level < a.level;
               return (
                 <div
                   key={a.id}
                   className="panel"
-                  style={{ padding: 11, width: 218, opacity: locked ? 0.55 : 1, background: 'var(--panel-2)' }}
+                  style={{ padding: 6, width: 109, opacity: locked ? 0.55 : 1, background: 'var(--panel-2)' }}
                 >
-                  <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-                    <img src={getIconUrl(a.icon as 'sword')} alt="" style={{ width: 30, height: 30, imageRendering: 'pixelated' }} />
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <img src={getIconUrl(a.icon as 'sword')} alt="" style={{ width: 15, height: 15 }} />
                     <div>
-                      <div style={{ fontSize: 12.5, color: a.color }}>{a.name}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+                      <div style={{ color: a.color }}>{a.name}</div>
+                      <div style={{ color: 'var(--muted)' }}>
                         Key {i + 1} · {locked ? `Level ${a.level}` : `${a.cooldown}s cd`}
                       </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 7, lineHeight: 1.5 }}>{a.desc}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--gold-dim)', marginTop: 5 }}>
+                  <div style={{ color: 'var(--muted)', marginTop: 4 }}>{a.desc}</div>
+                  <div style={{ color: 'var(--gold-dim)', marginTop: 2 }}>
                     {a.mana > 0 ? `${a.mana} mana ` : ''}{a.stamina > 0 ? `${a.stamina} stamina` : ''}
                   </div>
                 </div>
@@ -112,14 +105,14 @@ export default function SkillPanel({ game }: { game: Game }) {
           {p.level >= 80 ? (
             <>
               <div className="section-h">Heroic talents</div>
-              <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }}>Choose one permanent talent every five levels, from level 80.</p>
+              <p style={{ color: 'var(--muted)' }}>Choose one permanent talent every five levels, from level 80.</p>
               {[80, 85, 90, 95, 100].filter((level) => level <= p.level).map((level) => {
                 const choices = MASTERIES.filter((m) => m.level === level);
                 const chosen = choices.find((m) => p.flags.has(`aegean:mastery:${m.id}`));
                 return (
                   <div key={level}>
-                    <div className="branch-title" style={{ textAlign: 'left', marginTop: 12 }}>Level {level}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                    <div className="branch-title" style={{ textAlign: 'left', marginTop: 6 }}>Level {level}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 5 }}>
                       {(chosen ? [chosen] : choices).map((m) => (
                         <div className={`skill-node ${chosen ? 'maxed' : 'available'}`} key={m.id}>
                           <div className="sn-head"><span className="sn-name">{m.name}</span>{chosen ? <span className="sn-pts">Mastered</span> : null}</div>
@@ -172,7 +165,6 @@ export default function SkillPanel({ game }: { game: Game }) {
             ))}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

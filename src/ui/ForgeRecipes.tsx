@@ -8,6 +8,7 @@ import { RNG } from '../game/core/rng';
 import { getIconUrl } from '../game/art/icons';
 import ItemCard from './ItemCard';
 import { aegeanName } from './aegeanNames';
+import { Icon } from './kit';
 
 export interface ForgeWork {
   id: string;
@@ -52,7 +53,7 @@ export default function ForgeRecipeDetails({ game, work, onMade }: { game: Game;
   return (
     <>
       <ItemCard item={preview} compare={template.slot ? game.player.equipment[template.slot] : null} />
-      <div className="divider" style={{ margin: '14px 0' }} />
+      <div className="divider" style={{ margin: '7px 0' }} />
       {recipe ? (
         <>
           <div className="section-h">Materials</div>
@@ -62,7 +63,7 @@ export default function ForgeRecipeDetails({ game, work, onMade }: { game: Game;
               const mat = TEMPLATE_BY_ID[m.id];
               return (
                 <div className={`obj-item ${have >= m.count ? 'done' : ''}`} key={m.id}>
-                  <span>{mat ? <img src={getIconUrl(mat.icon, { metal: mat.metal })} alt="" style={{ width: 20, height: 20, verticalAlign: 'middle', marginRight: 6 }} /> : null}{aegeanName(m.id)}</span>
+                  <span>{mat ? <img src={getIconUrl(mat.icon, { metal: mat.metal })} alt="" style={{ width: 10, height: 10, verticalAlign: 'middle', marginRight: 3 }} /> : null}{aegeanName(m.id)}</span>
                   <span>{have}/{m.count}</span>
                 </div>
               );
@@ -71,7 +72,7 @@ export default function ForgeRecipeDetails({ game, work, onMade }: { game: Game;
           <div className="forge-action">
             <div>
               <div className="fa-title">Forge {work.name}</div>
-              <div className="fa-cost"><img src={getIconUrl('gold')} alt="" />{recipe.gold.toLocaleString()}</div>
+              <div className="fa-cost"><Icon name="coin" />{recipe.gold.toLocaleString()}</div>
             </div>
             <button className="btn primary" disabled={!canMake} onClick={() => { if (game.campaign.craft(recipe.id)) onMade(); }}>Forge</button>
           </div>

@@ -3,6 +3,7 @@ import { FACTIONS, repTier } from '../data/races';
 import { xpToNext } from '../game/player/player';
 import { EFFECT_BY_ID } from '../game/items/effects';
 import SpritePreview from './SpritePreview';
+import { Modal } from './kit';
 
 export default function CharacterPanel({ game }: { game: Game }) {
   const p = game.player;
@@ -10,17 +11,11 @@ export default function CharacterPanel({ game }: { game: Game }) {
   const effects = [...new Set(p.effectIds())];
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(880px, 94vw)', height: 'min(640px, 92vh)' }}>
-        <div className="panel-title">
-          <span>{p.name}</span>
-          <span className="sub">{p.raceDef.name} {p.classDef.name} · Level {p.level}</span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title={<>{p.name}</>} sub={<>{p.raceDef.name} {p.classDef.name} · Level {p.level}</>} size="l" tall onClose={() => game.closeAll()}>
         <div className="char-layout">
           <div className="inv-col" style={{ alignItems: 'center', borderRight: '1px solid var(--edge)' }}>
-            <SpritePreview look={p.look()} scale={4} />
-            <div style={{ marginTop: 14, width: '100%' }}>
+            <SpritePreview look={p.look()} scale={2} />
+            <div style={{ marginTop: 7, width: '100%' }}>
               <div className="kv"><span className="k">Experience</span><span>{Math.floor(p.xp)} / {xpToNext(p.level)}</span></div>
               <div className="kv"><span className="k">Play time</span><span>{formatTime(p.playTime)}</span></div>
               <div className="kv"><span className="k">Deaths</span><span>{p.deaths}</span></div>
@@ -28,7 +23,7 @@ export default function CharacterPanel({ game }: { game: Game }) {
               <div className="kv"><span className="k">Places found</span><span>{p.discovered.size}</span></div>
               <div className="kv"><span className="k">Quests done</span><span>{game.quests.completed.length}</span></div>
             </div>
-            <div className="perk" style={{ marginTop: 14, textAlign: 'center' }}>{p.raceDef.perk}</div>
+            <div className="perk" style={{ marginTop: 7, textAlign: 'center' }}>{p.raceDef.perk}</div>
           </div>
 
           <div className="inv-col scroll" style={{ overflowY: 'auto' }}>
@@ -58,7 +53,7 @@ export default function CharacterPanel({ game }: { game: Game }) {
                   const e = EFFECT_BY_ID[id];
                   if (!e) return null;
                   return (
-                    <div className="ic-effect" key={id} style={{ borderLeftColor: e.color, marginBottom: 7 }}>
+                    <div className="ic-effect" key={id} style={{ borderLeftColor: e.color, marginBottom: 4 }}>
                       <strong style={{ color: e.color }}>{e.name}</strong> — {e.desc}
                     </div>
                   );
@@ -76,24 +71,19 @@ export default function CharacterPanel({ game }: { game: Game }) {
                   <span className="rep-bar">
                     <span
                       className="rfill"
-                      style={{
-                        background: tier.color,
-                        left: v >= 0 ? '50%' : `${50 + v / 2}%`,
-                        width: `${Math.abs(v) / 2}%`,
-                      }}
+                      style={{ background: tier.color, left: v >= 0 ? '50%' : `${50 + v / 2}%`, width: `${Math.abs(v) / 2}%` }}
                     />
                   </span>
                   <span className="rlabel" style={{ color: tier.color }}>{tier.label}</span>
                 </div>
               );
             })}
-            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
+            <div style={{ color: 'var(--muted)', marginTop: 4 }}>
               Reputation shifts shop prices, unlocks dialogue, and decides who will hand you work.
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

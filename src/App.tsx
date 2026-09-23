@@ -6,6 +6,7 @@ import { audio } from './game/audio/audio';
 import { TILES } from './game/world/tiles';
 import { ALL_TEMPLATES } from './data/items';
 import { LOCATIONS } from './data/locations';
+import { worldZoom } from './ui/kit/tokens';
 import { getLoadError, hasSave, loadGame, loadSettings, saveGame, saveSettings } from './game/save/save';
 import TitleScreen from './ui/TitleScreen';
 import CharacterCreation from './ui/CharacterCreation';
@@ -57,7 +58,8 @@ export default function App() {
       const dpr = 1;
       canvas.width = Math.max(640, Math.floor(canvas.clientWidth * dpr));
       canvas.height = Math.max(400, Math.floor(canvas.clientHeight * dpr));
-      g.camera.zoom = canvas.width > 1700 ? 2.5 : canvas.width > 1100 ? 2 : 1.75;
+      // a whole number, so every world pixel is the same size on screen
+      g.camera.zoom = worldZoom(canvas.width, canvas.height);
       g.g.imageSmoothingEnabled = false;
     };
     resize();

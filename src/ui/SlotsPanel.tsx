@@ -3,6 +3,7 @@ import type { Game } from '../game/core/game';
 import {
   CAB_H, CAB_W, LEVER_KNOB, drawCabinet, leverKnob, leverValueAt, slotAt,
 } from '../game/art/slotCabinet';
+import { useIntegerFit } from './kit';
 
 /**
  * Standing at the slot machine.
@@ -19,6 +20,7 @@ import {
  * animation frame only ever reads.
  */
 export default function SlotsPanel({ game }: { game: Game }) {
+  const fit = useIntegerFit(CAB_W, CAB_H);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragged = useRef(false);
 
@@ -121,6 +123,7 @@ export default function SlotsPanel({ game }: { game: Game }) {
       <canvas
         ref={canvasRef}
         className="slot-cab"
+        style={fit}
         width={CAB_W}
         height={CAB_H}
         onPointerDown={down}

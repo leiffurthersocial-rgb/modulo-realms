@@ -1,7 +1,7 @@
 import type { Game } from '../game/core/game';
-import { getIconUrl } from '../game/art/icons';
 import { RARITY_LABEL } from '../game/items/types';
 import { itemIcon, rarityColor } from './ItemCard';
+import { Icon, Modal } from './kit';
 
 /**
  * What is inside a chest, listed rather than thrown on the floor. Nothing here
@@ -15,30 +15,19 @@ export default function LootPanel({ game }: { game: Game }) {
   const full = game.bagFull;
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeLoot(); }}>
-      <div className="modal panel" style={{ width: 'min(620px, 94vw)', maxHeight: 'min(600px, 90vh)' }}>
-        <div className="panel-title">
-          <span>{loot.title}</span>
-          <span className="sub">
-            {loot.sub}
-            {full ? ' · your pack is full' : ''}
-          </span>
-          <span className="title-actions">
-            <button
+    <Modal title={<>{loot.title}</>} sub={<>{loot.sub}
+            {full ? ' · your pack is full' : ''}</>} actions={<><button
               className="btn small primary"
               disabled={empty}
               onClick={() => game.takeAllLoot()}
             >
               Take all
-            </button>
-            <button className="close-x" onClick={() => game.closeLoot()}>&times;</button>
-          </span>
-        </div>
+            </button></>} size="m" onClose={() => game.closeLoot()}>
 
-        <div className="scroll" style={{ padding: 14, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="scroll" style={{ padding: 7, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {loot.gold > 0 ? (
             <button className="loot-gold" onClick={() => game.takeLootGold()}>
-              <img src={getIconUrl('gold')} alt="" />
+              <Icon name="coin" />
               {loot.gold.toLocaleString()} gold
               <span className="lr-take" style={{ marginLeft: 'auto' }}>TAKE</span>
             </button>
@@ -69,7 +58,6 @@ export default function LootPanel({ game }: { game: Game }) {
             </div>
           ) : null}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

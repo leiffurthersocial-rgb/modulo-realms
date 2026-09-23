@@ -4,6 +4,7 @@ import {
   CLEAR_BOX, FELT_H, FELT_W, drawFelt, fieldAt, onWheel, rackAt,
 } from '../game/art/rouletteFelt';
 import { STAKES } from '../game/casino/games';
+import { useIntegerFit } from './kit';
 
 /**
  * Standing at the roulette table.
@@ -14,6 +15,7 @@ import { STAKES } from '../game/casino/games';
  * on `game.casino.roulette` and ticks in game time.
  */
 export default function RoulettePanel({ game }: { game: Game }) {
+  const fit = useIntegerFit(FELT_W, FELT_H);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -108,6 +110,7 @@ export default function RoulettePanel({ game }: { game: Game }) {
       <canvas
         ref={canvasRef}
         className="felt-table"
+        style={fit}
         width={FELT_W}
         height={FELT_H}
         onPointerDown={down}

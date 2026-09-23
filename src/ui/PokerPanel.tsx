@@ -6,6 +6,7 @@ import {
 } from '../game/art/pokerFelt';
 import { HOLDEM_LABEL, STAKES } from '../game/casino/games';
 import type { HoldemTable, Seat } from '../game/casino/holdem';
+import { useIntegerFit } from './kit';
 
 /**
  * Sitting at the hold'em table.
@@ -48,6 +49,7 @@ function lineLabel(t: HoldemTable | null, pending: number): string {
 }
 
 export default function PokerPanel({ game }: { game: Game }) {
+  const fit = useIntegerFit(TABLE_W, TABLE_H);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -162,6 +164,7 @@ export default function PokerPanel({ game }: { game: Game }) {
       <canvas
         ref={canvasRef}
         className="poker-table"
+        style={fit}
         width={TABLE_W}
         height={TABLE_H}
         onPointerDown={down}

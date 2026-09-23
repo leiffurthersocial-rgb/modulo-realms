@@ -9,6 +9,7 @@ import { xpToNext } from '../game/player/player';
 import SpritePreview from './SpritePreview';
 import { MASTERIES } from '../game/aegean/mastery';
 import { AEGEAN_POWERS } from '../game/items/effects';
+import { Icon } from './kit';
 
 /** Cheap ticker so the HUD refreshes without re-rendering the whole tree every frame. */
 function useTicker(hz = 15): number {
@@ -54,7 +55,7 @@ export default function Hud({ game }: { game: Game }) {
       <div className="hud-left">
         <div className="vitals">
           <div className="portrait">
-            <SpritePreview look={p.look()} scale={1.5} />
+            <SpritePreview look={p.look()} scale={1} />
             <span className="lvl">{p.level}</span>
           </div>
           <div className="vitals-body">
@@ -76,7 +77,7 @@ export default function Hud({ game }: { game: Game }) {
         </div>
         <div className="chip-row">
           <div className="chip gold">
-            <img src={getIconUrl('gold')} alt="" />
+            <Icon name="coin" />
             {p.gold.toLocaleString()}
           </div>
           {heroicChoices > 0 ? (
@@ -199,7 +200,7 @@ export default function Hud({ game }: { game: Game }) {
           <span className="key">SPC</span>
           {p.equipment.mainHand ? (
             <img src={getIconUrl(p.equipment.mainHand.icon, { metal: p.equipment.mainHand.iconMetal, glow: p.equipment.mainHand.glow })} alt="" />
-          ) : <span style={{ fontSize: 10, color: 'var(--muted)' }}>fists</span>}
+          ) : <span className="muted">fists</span>}
         </button>
         {abilities.map((a, i) => {
           const locked = p.level < a.level;
@@ -212,9 +213,9 @@ export default function Hud({ game }: { game: Game }) {
               onClick={() => !locked && game.useAbility(i)}
             >
               <span className="key">{i + 1}</span>
-              <img src={getIconUrl(a.icon as 'sword')} alt="" style={{ filter: locked ? 'grayscale(1)' : `drop-shadow(0 0 4px ${a.color}66)` }} />
+              <img src={getIconUrl(a.icon as 'sword')} alt=""  />
               {cd > 0 ? <span className="cd">{cd.toFixed(cd < 1 ? 1 : 0)}</span> : null}
-              {locked ? <span className="cd" style={{ fontSize: 10 }}>Lv {a.level}</span> : null}
+              {locked ? <span className="cd">Lv {a.level}</span> : null}
             </button>
           );
         })}
@@ -233,9 +234,9 @@ export default function Hud({ game }: { game: Game }) {
               <span className="key">F</span>
               {p.equipment.offHand ? (
                 <img src={getIconUrl(p.equipment.offHand.icon, { metal: p.equipment.offHand.iconMetal, glow: p.equipment.offHand.glow })} alt="" />
-              ) : <span style={{ fontSize: 10, color: 'var(--muted)' }}>off</span>}
+              ) : <span className="muted">off</span>}
               {p.blocking
-                ? <span className="cd" style={{ fontSize: 10 }}>BLOCK</span>
+                ? <span className="cd">BLOCK</span>
                 : cd > 0
                 ? <span className="cd">{cd.toFixed(cd < 1 ? 1 : 0)}</span>
                 : null}
@@ -252,7 +253,6 @@ export default function Hud({ game }: { game: Game }) {
             <img
               src={getIconUrl(weapon.icon, { metal: weapon.iconMetal, glow: weapon.glow })}
               alt=""
-              style={{ filter: `drop-shadow(0 0 5px ${weapon.glow ?? '#fff'}aa)` }}
             />
             {p.weaponPowerCooldown > 0
               ? <span className="cd">{p.weaponPowerCooldown.toFixed(p.weaponPowerCooldown < 1 ? 1 : 0)}</span>
@@ -267,7 +267,7 @@ export default function Hud({ game }: { game: Game }) {
           <span className="key">R</span>
           {p.equipment.accessory ? (
             <img src={getIconUrl(p.equipment.accessory.icon, { metal: p.equipment.accessory.iconMetal, glow: p.equipment.accessory.glow })} alt="" />
-          ) : <span style={{ fontSize: 10, color: 'var(--muted)' }}>art</span>}
+          ) : <span className="muted">art</span>}
           {p.artifactCooldown > 0 ? <span className="cd">{p.artifactCooldown.toFixed(p.artifactCooldown < 1 ? 1 : 0)}</span> : null}
         </button>
         <button className={`slot ${recovery > 0 ? '' : 'ready'}`} title={recovery > 0 ? `Recovery: ${Math.ceil(recovery)}s (Q)` : 'Quick potion (Q)'} onClick={() => game.useQuickItem()}>
@@ -278,7 +278,7 @@ export default function Hud({ game }: { game: Game }) {
               <span className="qty">{quick.qty}</span>
             </>
           ) : (
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>empty</span>
+            <span className="muted">empty</span>
           )}
           {recovery > 0 ? <span className="cd">{Math.ceil(recovery)}</span> : null}
         </button>

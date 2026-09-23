@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Game } from '../game/core/game';
 import ItemCard from './ItemCard';
 import { ItemCell } from './InventoryPanel';
+import { Modal } from './kit';
 
 export default function StoragePanel({ game }: { game: Game }) {
   const p = game.player;
@@ -11,17 +12,11 @@ export default function StoragePanel({ game }: { game: Game }) {
     : null;
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(960px, 95vw)', height: 'min(620px, 92vh)' }}>
-        <div className="panel-title">
-          <span>Home Storage</span>
-          <span className="sub">Anything stored here is safe between adventures.</span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title="Home Storage" sub="Anything stored here is safe between adventures." size="xl" tall onClose={() => game.closeAll()}>
         <div className="shop-layout">
           <div className="shop-col">
             <div className="shop-head"><span>Your pack ({p.inventory.length}/40)</span></div>
-            <div className="item-grid scroll" style={{ padding: 12, overflowY: 'auto' }}>
+            <div className="item-grid scroll" style={{ padding: 6, overflowY: 'auto' }}>
               {p.inventory.map((it) => (
                 <ItemCell
                   key={it.uid}
@@ -34,8 +29,8 @@ export default function StoragePanel({ game }: { game: Game }) {
           </div>
           <div className="shop-col">
             <div className="shop-head"><span>Storage chest ({p.storage.length})</span></div>
-            <div className="item-grid scroll" style={{ padding: 12, overflowY: 'auto' }}>
-              {p.storage.length === 0 ? <div style={{ color: 'var(--muted)', fontSize: 12, gridColumn: '1 / -1' }}>Empty.</div> : null}
+            <div className="item-grid scroll" style={{ padding: 6, overflowY: 'auto' }}>
+              {p.storage.length === 0 ? <div style={{ color: 'var(--muted)', gridColumn: '1 / -1' }}>Empty.</div> : null}
               {p.storage.map((it) => (
                 <ItemCell
                   key={it.uid}
@@ -48,7 +43,7 @@ export default function StoragePanel({ game }: { game: Game }) {
           </div>
         </div>
         {selItem ? (
-          <div className="panel" style={{ position: 'absolute', right: 14, bottom: 14, width: 280, padding: 12, background: 'var(--panel-2)' }}>
+          <div className="panel" style={{ position: 'absolute', right: 7, bottom: 7, width: 140, padding: 6, background: 'var(--panel-2)' }}>
             <ItemCard
               item={selItem}
               actions={
@@ -61,7 +56,6 @@ export default function StoragePanel({ game }: { game: Game }) {
             />
           </div>
         ) : null}
-      </div>
-    </div>
+    </Modal>
   );
 }

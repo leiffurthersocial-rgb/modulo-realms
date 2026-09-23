@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react';
 import type { Game } from '../game/core/game';
 import { audio } from '../game/audio/audio';
 import { DEFAULT_BINDINGS } from '../game/core/input';
+import { KeyCap, Modal, Slider, Toggle, keyLabel } from './kit';
 
 export default function SettingsPanel({ game, onClose }: { game: Game; onClose: () => void }) {
   const s = game.settings;
@@ -11,100 +13,68 @@ export default function SettingsPanel({ game, onClose }: { game: Game; onClose: 
   };
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal panel" style={{ width: 520 }}>
-        <div className="panel-title">
-          <span>Settings</span>
-          <button className="close-x" onClick={onClose}>×</button>
-        </div>
-        <div style={{ padding: 20 }}>
-          <div className="section-h">Audio</div>
-          <Slider label="Master volume" value={s.master} onChange={(v) => set({ master: v })} />
-          <Slider label="Music volume" value={s.music} onChange={(v) => set({ music: v })} />
-          <Slider label="Effects volume" value={s.sfx} onChange={(v) => set({ sfx: v })} />
+    <Modal title="Settings" size="m" tall onClose={onClose}>
+      <div className="scroll" style={{ flex: 1, paddingRight: 2 }}>
+        <div className="section-h">Audio</div>
+        <Volume label="Master" value={s.master} onChange={(v) => set({ master: v })} />
+        <Volume label="Music" value={s.music} onChange={(v) => set({ music: v })} />
+        <Volume label="Effects" value={s.sfx} onChange={(v) => set({ sfx: v })} />
 
-          <div className="section-h">Display</div>
-          <div className="setting-row">
-            <label htmlFor="dmg">Damage numbers</label>
-            <input
-              id="dmg"
-              type="checkbox"
-              checked={s.showDamage}
-              onChange={(e) => set({ showDamage: e.target.checked })}
-              style={{ accentColor: 'var(--gold)', width: 18, height: 18 }}
-            />
-          </div>
-          <div className="setting-row">
-            <label htmlFor="mini">Minimap</label>
-            <input
-              id="mini"
-              type="checkbox"
-              checked={game.showMinimap}
-              onChange={(e) => { game.showMinimap = e.target.checked; game.touch(); }}
-              style={{ accentColor: 'var(--gold)', width: 18, height: 18 }}
-            />
-          </div>
+        <div className="section-h">Display</div>
+        <Switch label="Damage numbers" checked={s.showDamage} onChange={(v) => set({ showDamage: v })} />
+        <Switch
+          label="Minimap"
+          checked={game.showMinimap}
+          onChange={(v) => { game.showMinimap = v; game.touch(); }}
+        />
 
-          <div className="section-h">Power</div>
-          <div className="setting-row">
-            <label htmlFor="battery">Battery saver</label>
-            <input
-              id="battery"
-              type="checkbox"
-              checked={s.batterySaver}
-              onChange={(e) => set({ batterySaver: e.target.checked })}
-              style={{ accentColor: 'var(--gold)', width: 18, height: 18 }}
-            />
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6, marginTop: -4 }}>
-            Runs at 30 frames a second instead of 60 and spends less on lighting, sparks and weather.
-            Nothing about the game changes — it just costs a tablet far less to play. Worth leaving on
-            away from a charger.
-          </div>
+        <div className="section-h">Power</div>
+        <Switch label="Battery saver" checked={s.batterySaver} onChange={(v) => set({ batterySaver: v })}>
+          Runs at 30 frames a second instead of 60 and spends less on lighting, sparks and weather.
+          Nothing about the game changes — it just costs a tablet far less to play.
+        </Switch>
 
-          <div className="section-h">Controls</div>
-          <div className="setting-row">
-            <label htmlFor="touch">On-screen controls</label>
-            <input
-              id="touch"
-              type="checkbox"
-              checked={s.touchControls}
-              onChange={(e) => set({ touchControls: e.target.checked })}
-              style={{ accentColor: 'var(--gold)', width: 18, height: 18 }}
-            />
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6, margin: '-4px 0 12px' }}>
-            A thumbstick and buttons for playing by touch. On by default on a phone or tablet.
-            The stick is analog — a light push walks, a full push runs — and it recentres wherever
-            your thumb lands, so you never have to look for it. Keyboard and mouse keep working
-            either way.
-          </div>
+        <div className="section-h">Controls</div>
+        <Switch label="On-screen controls" checked={s.touchControls} onChange={(v) => set({ touchControls: v })}>
+          A thumbstick and buttons for playing by touch. The stick is analog — a light push walks, a full
+          push runs — and it recentres wherever your thumb lands. Keyboard and mouse keep working either way.
+        </Switch>
 
-          <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.85, columns: 2 }}>
-            {(Object.keys(DEFAULT_BINDINGS) as Array<keyof typeof DEFAULT_BINDINGS>).map((k) => (
-              <div key={k}>
-                <span style={{ textTransform: 'capitalize' }}>{k}</span>
-                {': '}
-                <kbd style={{ color: 'var(--parchment)' }}>
-                  {DEFAULT_BINDINGS[k].map((c) => c.replace('Key', '').replace('Digit', '').replace('Arrow', '')).join(' / ')}
-                </kbd>
-              </div>
-            ))}
-            <div>Attack: <kbd style={{ color: 'var(--parchment)' }}>Left click</kbd></div>
-            <div>Heavy/Block: <kbd style={{ color: 'var(--parchment)' }}>Right click</kbd></div>
-          </div>
+        <div className="settings-keys" style={{ marginTop: 4 }}>
+          {(Object.keys(DEFAULT_BINDINGS) as Array<keyof typeof DEFAULT_BINDINGS>).map((k) => (
+            <div key={k}>
+              <span style={{ textTransform: 'capitalize' }}>{k}</span>
+              <span style={{ display: 'inline-flex', gap: 1 }}>
+                {DEFAULT_BINDINGS[k].map((c) => <KeyCap key={c}>{keyLabel(c)}</KeyCap>)}
+              </span>
+            </div>
+          ))}
+          <div><span>Attack</span><KeyCap>L-click</KeyCap></div>
+          <div><span>Heavy / block</span><KeyCap>R-click</KeyCap></div>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+function Volume({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="setting-row">
+      <span className="sr-k">{label}</span>
+      <Slider label={`${label} volume`} value={value} onChange={onChange} width={140} />
+      <span className="val">{Math.round(value * 100)}%</span>
     </div>
   );
 }
 
-function Slider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function Switch({ label, checked, onChange, children }: { label: string; checked: boolean; onChange: (v: boolean) => void; children?: ReactNode }) {
   return (
-    <div className="setting-row">
-      <label>{label}</label>
-      <input type="range" min={0} max={1} step={0.01} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className="val">{Math.round(value * 100)}%</span>
-    </div>
+    <>
+      <div className="setting-row">
+        <span className="sr-k">{label}</span>
+        <Toggle label={label} checked={checked} onChange={onChange} />
+      </div>
+      {children ? <p className="note" style={{ margin: '0 0 4px 104px' }}>{children}</p> : null}
+    </>
   );
 }

@@ -3,6 +3,7 @@ import type { Game } from '../game/core/game';
 import { LOCATIONS, REGIONS } from '../data/locations';
 import { getMinimap } from '../game/core/renderer';
 import { TILE } from '../game/world/tiles';
+import { Modal } from './kit';
 
 const KIND_COLOR: Record<string, string> = {
   town: '#f6bf5d', village: '#f6bf5d', dungeon: '#f45b5b', cave: '#e8763a',
@@ -59,15 +60,7 @@ function DungeonMap({ game }: { game: Game }) {
   const objectives=map.props.filter(p=>p.interact==='aegean'&&p.data?.action==='objective');
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(860px, calc(100vw - 48px))' }}>
-        <div className="panel-title">
-          <span>{map.name}</span>
-          <span className="sub">
-            {map.w}×{map.h} · {st.cleared ? 'cleared' : boss ? (bossDown ? 'boss down' : 'boss alive') : 'no boss here'}
-          </span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title={<>{map.name}</>} sub={<>{map.w}×{map.h} · {st.cleared ? 'cleared' : boss ? (bossDown ? 'boss down' : 'boss alive') : 'no boss here'}</>} size="l" onClose={() => game.closeAll()}>
         <div className="map-panel">
           <div className="map-canvas-wrap" style={{ padding: 16 }}>
             <div style={{ position: 'relative', width: size.w, height: size.h }}>
@@ -92,7 +85,7 @@ function DungeonMap({ game }: { game: Game }) {
                   <span className="dm-boss" style={bossDown ? { opacity: 0.35 } : undefined} />
                 </div>
               ) : null}
-              {objectives.map((o,i)=><span key={`objective-${i}`} title={o.label} style={{position:'absolute',...pos(o.x,o.y),transform:'translate(-50%,-50%)',background:o.data?.complete?'#408464':'#b5944e',color:'#fff',border:'1px solid #ffedb2',fontSize:10,width:16,height:16,textAlign:'center',borderRadius:3}}>{i+1}</span>)}
+              {objectives.map((o,i)=><span key={`objective-${i}`} title={o.label} style={{position:'absolute',...pos(o.x,o.y),transform:'translate(-50%,-50%)',background:o.data?.complete?'#408464':'#b5944e',color:'#fff',border:'1px solid #ffedb2',width:16,height:16,textAlign:'center'}}>{i+1}</span>)}
               {map.chests.filter((c) => !st.opened.has(c.id)).map((c) => (
                 <div key={c.id} style={{ position: 'absolute', ...pos(c.x, c.y), transform: 'translate(-50%,-50%)' }}>
                   <span className="dm-chest" />
@@ -102,7 +95,7 @@ function DungeonMap({ game }: { game: Game }) {
                 style={{
                   position: 'absolute', ...pos(game.player.x, game.player.y),
                   transform: 'translate(-50%,-50%)',
-                  width: 10, height: 10, borderRadius: '50%',
+                  width: 10, height: 10,
                   background: '#fdf8ef', boxShadow: '0 0 10px rgba(255,255,255,0.85)',
                   border: '2px solid #1a1422',
                 }}
@@ -114,11 +107,10 @@ function DungeonMap({ game }: { game: Game }) {
             <span><i className="dm-boss" />Boss room</span>
             <span><i className="dm-chest" />Unopened chest</span>
             {objectives.length?<span>Numbered markers: encounter mechanisms</span>:null}
-            <span><i style={{ background: '#fdf8ef', borderRadius: '50%' }} />You</span>
+            <span><i style={{ background: '#fdf8ef' }} />You</span>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -177,16 +169,8 @@ function WorldMap({ game }: { game: Game }) {
   const trackedMarker = game.trackedQuest ? game.quests.markers().find((m) => m.quest.id === game.trackedQuest)?.location : undefined;
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(1000px, calc(100vw - 48px))' }}>
-        <div className="panel-title">
-          <span>Ashvale &amp; the Aegean</span>
-          <span className="sub">
-            {game.player.discovered.size} / {LOCATIONS.length} places found · {game.timeLabel} ·{' '}
-            {mapCoords.isDoor ? 'Door ' : ''}{mapCoords.x}, {mapCoords.y}
-          </span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title={<>Ashvale &amp; the Aegean</>} sub={<>{game.player.discovered.size} / {LOCATIONS.length} places found · {game.timeLabel} ·{' '}
+            {mapCoords.isDoor ? 'Door ' : ''}{mapCoords.x}, {mapCoords.y}</>} size="xl" tall onClose={() => game.closeAll()}>
         <div className="map-panel">
           <div style={{display:'flex',gap:10,padding:10,flexWrap:'wrap'}}><label>Atlas zoom <input aria-label="Atlas zoom" type="range" min="1" max="4" step=".5" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/></label><button className="btn" onClick={()=>{if(scroll.current){scroll.current.scrollLeft=game.player.x/(world.w*TILE)*size.w-scroll.current.clientWidth/2;scroll.current.scrollTop=game.player.y/(world.h*TILE)*size.h-scroll.current.clientHeight/2;}}}>Find me</button><span>Scroll to explore the atlas</span></div>
           <div ref={scroll} className="map-canvas-wrap" style={{ padding:16,overflow:'auto',maxHeight:'55vh',display:'block' }}>
@@ -225,7 +209,7 @@ function WorldMap({ game }: { game: Game }) {
                     position: 'absolute',
                     ...toPct(game.player.x / TILE, game.player.y / TILE),
                     transform: 'translate(-50%,-50%)',
-                    width: 10, height: 10, borderRadius: '50%',
+                    width: 10, height: 10,
                     background: '#fdf8ef', boxShadow: '0 0 10px rgba(255,255,255,0.8)',
                     border: '2px solid #1a1422',
                   }}
@@ -243,11 +227,10 @@ function WorldMap({ game }: { game: Game }) {
             <span><i style={{ background: KIND_COLOR.dungeon, transform: 'rotate(45deg)' }} />Dungeon</span>
             <span><i style={{ background: KIND_COLOR.camp, transform: 'rotate(45deg)' }} />Enemy camp</span>
             <span><i style={{ background: KIND_COLOR.landmark, transform: 'rotate(45deg)' }} />Landmark</span>
-            <span><i style={{ background: '#4f9ce8', borderRadius: '50%' }} />Waystone (click to travel)</span>
+            <span><i style={{ background: '#4f9ce8' }} />Waystone (click to travel)</span>
             {trackedMarker ? <span style={{ color: '#f0c93c' }}>Tracking: {game.quests.markers().find((m) => m.quest.id === game.trackedQuest)?.quest.name}</span> : null}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

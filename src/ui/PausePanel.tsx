@@ -1,17 +1,13 @@
 import type { Game } from '../game/core/game';
 import { deleteSave, saveGame } from '../game/save/save';
+import { ConfirmButton, Modal } from './kit';
 
 export default function PausePanel({ game, onSettings }: { game: Game; onSettings: () => void }) {
   const coords = game.worldCoords();
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 380 }}>
-        <div className="panel-title">
-          <span>Paused</span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
-        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.6 }}>
+    <Modal title="Paused" size="s" onClose={() => game.closeAll()}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div className="note">
             {game.player.name} · Level {game.player.level} {game.player.classDef.name}<br />
             {game.map.name} · {game.timeLabel} · {coords.isDoor ? 'Door ' : ''}{coords.x}, {coords.y}
           </div>
@@ -19,7 +15,6 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
           {game.isDebug ? (
             <button
               className="btn"
-              style={{ borderColor: '#9578e8', color: '#c9b6ff' }}
               onClick={() => game.setPanel('debug')}
             >
               Open debug menu
@@ -40,19 +35,17 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
           >
             Save &amp; quit to title
           </button>
-          <button
-            className="btn danger"
-            onClick={() => {
-              if (!window.confirm('Delete your save and return to the title screen? This cannot be undone.')) return;
+          <ConfirmButton
+            confirm="Delete save for good?"
+            onConfirm={() => {
               deleteSave();
               game.screen = 'title';
               game.closeAll();
             }}
           >
             Abandon run (delete save)
-          </button>
+          </ConfirmButton>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

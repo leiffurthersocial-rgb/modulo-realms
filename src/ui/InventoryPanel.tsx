@@ -6,6 +6,7 @@ import {
   type EquipSlot, type Item, type ItemType,
 } from '../game/items/types';
 import ItemCard, { itemIcon, rarityColor } from './ItemCard';
+import { Modal } from './kit';
 
 type FilterId = ItemType | 'all' | 'important';
 
@@ -84,13 +85,7 @@ export default function InventoryPanel({ game }: { game: Game }) {
   ) : null;
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(1060px, 96vw)', height: 'min(690px, 92vh)' }}>
-        <div className="panel-title">
-          <span>Pack</span>
-          <span className="sub">{p.inventory.length}/40 slots &middot; {p.gold} gold</span>
-          <span className="title-actions">
-            <button
+    <Modal title="Pack" sub={<>{p.inventory.length}/40 slots &middot; {p.gold} gold</>} actions={<><button
               className="btn small"
               disabled={!junk.length}
               title="Sell only the common and rare gear. Anything SuperRare or better, and anything marked, is kept."
@@ -117,10 +112,7 @@ export default function InventoryPanel({ game }: { game: Game }) {
                 : armed
                   ? <>Sell {sellable.length}? Click again</>
                   : <>Sell all &middot; {sellable.length} for {sellGold}g</>}
-            </button>
-            <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
-          </span>
-        </div>
+            </button></>} size="xl" tall onClose={() => game.closeAll()}>
 
         <div className="inv-layout">
           <div className="inv-col scroll">
@@ -160,7 +152,7 @@ export default function InventoryPanel({ game }: { game: Game }) {
                 Sort
               </button>
             </div>
-            <div className="item-grid scroll" style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
+            <div className="item-grid scroll" style={{ flex: 1, overflowY: 'auto', paddingRight: 2 }}>
               {items.map((it) => (
                 <ItemCell key={it.uid} item={it} selected={selected === it.uid} onClick={() => setSelected(it.uid)} />
               ))}
@@ -170,7 +162,7 @@ export default function InventoryPanel({ game }: { game: Game }) {
                 ))
                 : null}
               {filter === 'important' && !items.length ? (
-                <div style={{ gridColumn: '1 / -1', color: 'var(--muted)', fontSize: 12, lineHeight: 1.7, padding: '8px 2px' }}>
+                <div style={{ gridColumn: '1 / -1', color: 'var(--muted)', padding: '4px 1px' }}>
                   Nothing marked yet. Select an item and press <b>☆ Mark</b> to keep it safe from
                   <b> Sell all</b>.
                 </div>
@@ -185,18 +177,18 @@ export default function InventoryPanel({ game }: { game: Game }) {
               {sel ? (
                 <ItemCard item={sel} compare={compare} showValue />
               ) : (
-                <div style={{ color: 'var(--muted)', fontSize: 12.5, lineHeight: 1.7 }}>
+                <div style={{ color: 'var(--muted)' }}>
                   <div className="section-h">Details</div>
                   Select an item to inspect it. Equipped gear is compared automatically, so a drop&apos;s upgrades and
                   downgrades are visible at a glance.
-                  <div className="section-h" style={{ marginTop: 18 }}>Rarity</div>
+                  <div className="section-h" style={{ marginTop: 9 }}>Rarity</div>
                   {RARITY_ORDER.map((r) => (
-                    <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0' }}>
-                      <span style={{ width: 10, height: 10, borderRadius: 2, background: rarityColor(r), display: 'inline-block' }} />
-                      <span style={{ color: rarityColor(r), fontSize: 12 }}>{RARITY_LABEL[r]}</span>
+                    <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0' }}>
+                      <span style={{ width: 5, height: 5, background: rarityColor(r), display: 'inline-block' }} />
+                      <span style={{ color: rarityColor(r) }}>{RARITY_LABEL[r]}</span>
                     </div>
                   ))}
-                  <div style={{ marginTop: 14, fontSize: 11.5 }}>
+                  <div style={{ marginTop: 7 }}>
                     Mythic gear holds three enchantments, Olympian four, and Primordial six.
                   </div>
                 </div>
@@ -205,8 +197,7 @@ export default function InventoryPanel({ game }: { game: Game }) {
             {actions ? <div className="inv-detail-actions">{actions}</div> : null}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -221,7 +212,7 @@ export function ItemCell({ item, selected, onClick, equipped }: { item: Item; se
       className={`item-cell ${selected ? 'selected' : ''} ${equipped ? 'equipped' : ''} ${item.rarity === 'mythic' || item.rarity === 'primordial' ? item.rarity : ''}`}
       onClick={onClick}
       title={item.name}
-      style={item.rarity === 'common' || item.rarity === 'mythic' || item.rarity === 'primordial' ? undefined : { borderColor: color, boxShadow: `inset 0 0 12px ${color}22` }}
+      style={item.rarity === 'common' || item.rarity === 'mythic' || item.rarity === 'primordial' ? undefined : { ['--rar' as string]: color }}
     >
       <img src={itemIcon(item)} alt="" />
       {item.qty > 1 ? <span className="qty">{item.qty}</span> : null}
@@ -238,7 +229,7 @@ function EquipCell({ slot, item, onClick }: { slot: EquipSlot; item: Item | null
       className={`equip-slot${item?.rarity === 'primordial' ? ' primordial' : ''}`}
       onClick={onClick}
       title={item ? `${item.name} — click to unequip` : SLOT_LABEL[slot]}
-      style={item && item.rarity !== 'common' && item.rarity !== 'primordial' ? { borderColor: color, boxShadow: `inset 0 0 14px ${color}22` } : undefined}
+      style={item && item.rarity !== 'common' && item.rarity !== 'primordial' ? { ['--rar' as string]: color } : undefined}
     >
       <span className="slot-name">{SLOT_LABEL[slot]}</span>
       {item ? <img src={itemIcon(item)} alt="" /> : null}

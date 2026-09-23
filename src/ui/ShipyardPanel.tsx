@@ -6,6 +6,7 @@ import { AEGEAN_SHIPBUILDING_SOURCES } from '../data/aegean/shipbuilding';
 import { FITTINGS } from '../game/aegean/naval';
 import { countItem } from '../game/items/inventory';
 import { aegeanName } from './aegeanNames';
+import { Modal } from './kit';
 
 /** The harbour counter uses the same list-and-detail layout as the anvil. */
 export default function ShipyardPanel({ game }: { game: Game }) {
@@ -22,13 +23,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
   const selectShip = () => n.buy(ship.id);
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" role="dialog" aria-modal="true" aria-label="Shipwright" style={{ width: 'min(1000px, 96vw)', height: 'min(760px, 94vh)' }}>
-        <div className="panel-title">
-          <span>Shipwright</span>
-          <span className="sub">{port?.name ?? 'Harbour'} · {game.player.gold.toLocaleString()} gold</span>
-          <button className="close-x" aria-label="Close shipwright" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title="Shipwright" sub={<>{port?.name ?? 'Harbour'} · {game.player.gold.toLocaleString()} gold</>} size="l" tall label="Shipwright" onClose={() => game.closeAll()}>
         <div className="quest-layout shipyard-layout">
           <div className="scroll" style={{ borderRight: '1px solid var(--edge)', overflowY: 'auto' }}>
             {AEGEAN_SHIPS.map((s) => {
@@ -47,7 +42,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
             })}
           </div>
           <div className="inv-col scroll" style={{ overflowY: 'auto', minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, color: 'var(--gold)' }}>{ship.name}</div>
+            <div style={{ color: 'var(--gold)' }}>{ship.name}</div>
             <p className="help-p">{ship.description}</p>
             {!owned && ship.requirements.length ? <ShipComponentChart game={game} requirements={ship.requirements} /> : null}
             <div className="obj-list">
@@ -63,17 +58,17 @@ export default function ShipyardPanel({ game }: { game: Game }) {
                   const obtained = game.campaign.has(id);
                   const source = AEGEAN_SHIPBUILDING_SOURCES[id];
                   return (
-                    <div key={id} style={{ marginBottom: 12 }}>
+                    <div key={id} style={{ marginBottom: 6 }}>
                       <div className={`obj-item ${obtained ? 'done' : ''}`}>
                         <span>{aegeanName(id)}</span><span>{obtained ? 'Obtained' : 'Missing'}</span>
                       </div>
                       {!obtained ? source?.steps.map((step, i) => (
-                        <p className="help-p" key={i} style={{ margin: '5px 0', color: step.proof && game.campaign.has(step.proof) ? 'var(--muted)' : undefined }}>
+                        <p className="help-p" key={i} style={{ margin: '2px 0', color: step.proof && game.campaign.has(step.proof) ? 'var(--muted)' : undefined }}>
                           {step.proof && game.campaign.has(step.proof) ? 'Done — ' : ''}{step.text}
                         </p>
                       )) : null}
                       {!obtained && source?.recipe ? (
-                        <p className="help-p" style={{ margin: '5px 0' }}>
+                        <p className="help-p" style={{ margin: '2px 0' }}>
                           Forging cost: {source.recipe.gold.toLocaleString()} gold and {source.recipe.materials.map((m) => `${m.count} ${aegeanName(m.id)} (${countItem(game.player.inventory, m.id)}/${m.count} held)`).join(', ')}.
                         </p>
                       ) : null}
@@ -86,7 +81,7 @@ export default function ShipyardPanel({ game }: { game: Game }) {
             {!owned && missing.length ? <div className="ship-blocker">{missing.length} part{missing.length > 1 ? 's' : ''} missing — choose a gold marker above.</div> : null}
             {!owned && game.player.gold < ship.cost ? <div className="ship-blocker">Need {(ship.cost - game.player.gold).toLocaleString()} more gold.</div> : null}
             {owned ? <p className="help-p">{ready ? `Your ${ship.name} is waiting beside the wooden pier.` : 'Bring this ship to the pier to see it beside the landing.'} Choose <b>Board ship</b> to step aboard and start sailing. You can also walk to the end of the pier and press <b>E</b>.</p> : null}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
               {!ready || !owned ? (
                 <button className="btn primary" disabled={!atDock || (!owned && (missing.length > 0 || game.player.gold < ship.cost))} onClick={selectShip}>
                   {owned ? 'Bring to dock' : `Buy (${ship.cost.toLocaleString()}g)`}
@@ -124,10 +119,9 @@ export default function ShipyardPanel({ game }: { game: Game }) {
                 {!FITTINGS.some((f) => game.campaign.has(f.requires)) ? <p className="help-p">Bring back trophies from Achaea&apos;s beasts and the shipwright can make fittings from them.</p> : null}
               </>
             ) : null}
-            <p className="help-p" style={{ marginTop: 16 }}>Steer with WASD / movement stick. Follow the harbour arrow; <b>E / USE</b> lands at the pier.</p>
+            <p className="help-p" style={{ marginTop: 8 }}>Steer with WASD / movement stick. Follow the harbour arrow; <b>E / USE</b> lands at the pier.</p>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

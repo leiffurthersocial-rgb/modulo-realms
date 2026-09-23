@@ -3,6 +3,7 @@ import { PAL, withAlpha } from '../game/art/palette';
 import { getProp, type PropArt } from '../game/art/props';
 import { ANIM, ROW, getCharacterSheet, weaponStyle, type Look } from '../game/art/characters';
 import { RNG } from '../game/core/rng';
+import { useUiMetrics } from './kit';
 
 /**
  * The title vista: a pixel diorama of the valley, drawn from the game's own
@@ -76,6 +77,12 @@ const WANDERER: Look = {
 export default function TitleArt() {
   const ref = useRef<HTMLCanvasElement>(null);
   const mouse = useRef({ x: 0, y: 0 });
+  // Cover the window by a whole number of device pixels per scene pixel and
+  // crop the overflow from the middle; a fractional stretch would make some
+  // pixels one screen pixel fatter than their neighbours.
+  const ui = useUiMetrics();
+  const k = Math.max(1, Math.ceil(Math.max((ui.w * ui.device) / VW, (ui.h * ui.device) / VH)));
+  const size = { width: (VW * k) / ui.device, height: (VH * k) / ui.device };
 
   useEffect(() => {
     const canvas = ref.current!;
@@ -460,5 +467,5 @@ export default function TitleArt() {
     };
   }, []);
 
-  return <canvas ref={ref} className="title-art" />;
+  return <canvas ref={ref} className="title-art" style={size} />;
 }
