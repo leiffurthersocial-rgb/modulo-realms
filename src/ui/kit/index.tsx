@@ -313,20 +313,47 @@ export function Badge({ children, tone = 'brass', className, title }: { children
  * The ghost is pure CSS (a delayed width transition on a second fill), so
  * the bar only re-renders when its value does.
  */
+/** Percent of a bar that has to vanish in one step before it leaves a white ghost. */
+const GHOST_MIN_LOSS = 8;
+/** How long the ghost lives: it holds, then drains (see `.sb-ghost` in the stylesheet). */
+const GHOST_MS = 800;
+
 export function SegBar({
   kind, value, max, label, shield, critical, className, title,
 }: { kind: string; value: number; max: number; label?: ReactNode; shield?: number; critical?: boolean; className?: string; title?: string }) {
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   const shieldPct = shield ? Math.min(100 - pct, (shield / Math.max(1, max)) * 100) : 0;
+  // The damage ghost only follows a real blow: a chunk of the bar gone in one
+  // step stays pale for a moment, then drains. Regeneration and the small
+  // steady costs (sprinting, a swing's stamina) never show it — a ghost that
+  // tracked every tick blinked white along the edge the whole time.
   const prev = useRef(pct);
-  const [healing, setHealing] = useState(false);
+  const [ghost, setGhost] = useState<{ from: number; id: number } | null>(null);
   useEffect(() => {
-    setHealing(pct > prev.current);
+    const lost = prev.current - pct;
+    if (lost >= GHOST_MIN_LOSS) {
+      const from = prev.current;
+      setGhost((g) => ({ from: Math.max(from, g?.from ?? 0), id: (g?.id ?? 0) + 1 }));
+    } else if (lost < 0) {
+      // healed past (or back into) the ghost: nothing left to show
+      setGhost((g) => (g && pct >= g.from ? null : g));
+    }
     prev.current = pct;
   }, [pct]);
+  useEffect(() => {
+    if (!ghost) return;
+    const t = window.setTimeout(() => setGhost(null), GHOST_MS);
+    return () => window.clearTimeout(t);
+  }, [ghost]);
   return (
-    <div className={`segbar ${kind}${critical ? ' critical' : ''}${healing ? ' healing' : ''}${className ? ` ${className}` : ''}`} title={title}>
-      <span className="sb-ghost" style={{ width: `${pct}%` }} />
+    <div className={`segbar ${kind}${critical ? ' critical' : ''}${className ? ` ${className}` : ''}`} title={title}>
+      {ghost ? (
+        <span
+          key={ghost.id}
+          className="sb-ghost"
+          style={{ ['--from' as string]: `${ghost.from}%`, ['--to' as string]: `${pct}%` } as CSSProperties}
+        />
+      ) : null}
       <span className="sb-fill" style={{ width: `${pct}%` }} />
       {shieldPct > 0 ? <span className="sb-shield" style={{ left: `${pct}%`, width: `${shieldPct}%` }} /> : null}
       {label != null ? <span className="sb-label"><span>{label}</span></span> : null}

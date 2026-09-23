@@ -774,10 +774,17 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
   background: var(--img-bar-seg) repeat-x 0 0;
 }
 .segbar .sb-fill { background-color: var(--bar, var(--c-ember)); transition: width 80ms steps(2, end); }
-/* The damage ghost: when the bar drops, the old value stays pale for a
-   moment and then drains after it. */
-.segbar .sb-ghost { background-color: var(--c-cloth); transition: width 360ms steps(6, end) 420ms; }
-.segbar.healing .sb-ghost { transition: none; }
+/* The damage ghost: only after a big loss, the lost part stays pale for a
+   moment and then drains down to the new value. */
+.segbar .sb-ghost { background-color: var(--c-cloth); width: var(--to); animation: ghost-drain 0.8s steps(1, end) forwards; }
+@keyframes ghost-drain {
+  0%, 52% { width: var(--from); }
+  60% { width: calc(var(--to) + (var(--from) - var(--to)) * 0.8); }
+  68% { width: calc(var(--to) + (var(--from) - var(--to)) * 0.6); }
+  76% { width: calc(var(--to) + (var(--from) - var(--to)) * 0.4); }
+  84% { width: calc(var(--to) + (var(--from) - var(--to)) * 0.2); }
+  92%, 100% { width: var(--to); }
+}
 .segbar .sb-shield { position: absolute; top: 0; bottom: 0; background: var(--img-bar-seg) repeat-x; background-color: var(--c-frost); }
 /* The number sits on its own void strip: the small glyphs are 5px tall, so
    every bar that carries one has an inner height of at least 5 (hp and boss
