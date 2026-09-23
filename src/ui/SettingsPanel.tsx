@@ -22,6 +22,9 @@ export default function SettingsPanel({ game, onClose }: { game: Game; onClose: 
 
         <div className="section-h">Display</div>
         <Switch label="Damage numbers" checked={s.showDamage} onChange={(v) => set({ showDamage: v })} />
+        <Switch label="Vital numbers" checked={s.showNumbers} onChange={(v) => set({ showNumbers: v })}>
+          Always show the numbers on the health, mana and stamina bars, not only when you point at them.
+        </Switch>
         <Switch
           label="Minimap"
           checked={game.showMinimap}

@@ -212,6 +212,9 @@ canvas.world {
   background: var(--img-scrim) repeat;
   background-size: 2px 2px;
   display: grid;
+  /* fixed tracks, so a wide child (the atlas) cannot widen the panel */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   padding: 8px;
   animation: scrim-in 90ms steps(2, end);
@@ -230,7 +233,7 @@ canvas.world {
 .modal.size-l { width: min(520px, 100%); }
 .modal.size-xl { width: min(720px, 100%); }
 .modal.tall { height: min(480px, 100%); }
-.modal > :not(.panel-title) { min-height: 0; }
+.modal > :not(.panel-title) { min-height: 0; min-width: 0; }
 
 @keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes panel-pop {
@@ -1404,14 +1407,69 @@ details[open] > summary::before { content: '↓ '; }
 /* Maps                                                               */
 /* ================================================================== */
 
-.map-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 4px; }
-.map-canvas-wrap { position: relative; flex: 1; min-height: 0; overflow: hidden; display: grid; place-items: center; }
+.map-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; gap: 4px; }
+.map-canvas-wrap { position: relative; flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; }
 .map-legend { display: flex; gap: 8px; flex-wrap: wrap; color: var(--muted); align-items: center; flex: none; }
 .map-legend > span { display: inline-flex; align-items: center; gap: 3px; }
+.map-legend .tracking { color: var(--title); }
+
+.map-marker {
+  position: absolute; translate: -50% -50%; z-index: 2;
+  display: grid; place-items: center; line-height: 0;
+}
+.map-marker.clickable { cursor: pointer; }
+.map-marker.clickable:hover { filter: brightness(1.3); z-index: 4; }
+.map-marker.spent { opacity: 0.4; filter: grayscale(1); }
+.map-marker.blink { animation: marker-blink 0.8s steps(1, end) infinite; }
+@keyframes marker-blink { 50% { translate: -50% calc(-50% - 1px); } }
+.map-marker.you { z-index: 5; animation: marker-blink 0.6s steps(1, end) infinite; }
 .map-marker-label {
   position: absolute; left: 50%; bottom: 100%; translate: -50% -1px;
-  color: var(--c-wood-dark); white-space: nowrap; pointer-events: none;
+  padding: 0 1px;
+  color: var(--c-wood-dark); background: var(--c-parch-lit);
+  font-family: var(--font-small); text-transform: uppercase; line-height: 8px;
+  white-space: nowrap; pointer-events: none;
+  visibility: hidden;
 }
+.map-marker:hover .map-marker-label, .map-marker.named .map-marker-label,
+.map-marker.tracked .map-marker-label, .map-marker.exit .map-marker-label { visibility: visible; }
+.map-marker.exit .map-marker-label { color: var(--c-cloth); background: var(--c-water); }
+/* an attuned waystone glows: a frost halo that flickers in two frames */
+.map-marker.waystone::before {
+  content: ''; position: absolute; inset: -2px; z-index: -1;
+  background: var(--c-frost); opacity: 0.45;
+  animation: waystone-glow 1.2s steps(1, end) infinite;
+}
+@keyframes waystone-glow { 50% { opacity: 0.15; inset: -1px; } }
+.map-marker.quest::after, .map-marker.tracked::after {
+  content: ''; position: absolute; right: -3px; top: -3px; width: 3px; height: 3px;
+  background: var(--c-gold-lit); box-shadow: 1px 1px 0 var(--c-void);
+}
+.map-marker.tracked::after { background: var(--c-flame-lit); }
+
+/* the atlas */
+.atlas-zoom { display: inline-flex; align-items: center; gap: 2px; margin-right: 4px; }
+.atlas-zoom .btn.small { min-width: 18px; }
+.az-pips { display: inline-flex; gap: 1px; margin: 0 2px; }
+.az-pips i { width: 3px; height: 6px; background: var(--c-slate); box-shadow: 1px 1px 0 var(--c-void); }
+.az-pips i.on { background: var(--c-gold-lit); }
+.atlas-scroll { flex: 1; min-height: 0; min-width: 0; overflow: auto; cursor: grab; background: var(--c-parch-lit); }
+.atlas-scroll:active { cursor: grabbing; }
+.atlas-sheet { position: relative; }
+.atlas-sheet canvas { position: absolute; left: 0; top: 0; }
+.atlas-region {
+  position: absolute; translate: -50% -50%; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  color: var(--c-wood-dark); text-transform: uppercase; letter-spacing: 1px;
+  text-shadow: 1px 0 0 var(--c-parch-lit), -1px 0 0 var(--c-parch-lit), 0 1px 0 var(--c-parch-lit), 0 -1px 0 var(--c-parch-lit);
+  pointer-events: none; white-space: nowrap;
+}
+.atlas-region .ar-name { font-weight: 700; }
+.atlas-region .ar-level { font-family: var(--font-small); letter-spacing: 0; color: var(--c-copper); }
+
+/* the dungeon plan */
+.dm-sheet { line-height: 0; }
+.dm-sheet canvas { display: block; }
 
 /* ================================================================== */
 /* Death                                                              */
@@ -1536,3 +1594,42 @@ details[open] > summary::before { content: '↓ '; }
 [data-motion='reduced'] *, [data-motion='reduced'] *::before, [data-motion='reduced'] *::after {
   animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; transition-delay: 0ms !important;
 }
+
+/* ================================================================== */
+/* Pause board                                                        */
+/* ================================================================== */
+
+.pause-layout { display: grid; grid-template-columns: 120px 1fr; gap: 8px; }
+.pause-crest { display: flex; flex-direction: column; align-items: center; gap: 1px; padding-top: 2px; text-align: center; }
+.pause-crest img { margin-bottom: 4px; }
+.pause-crest .pc-name { color: var(--title); font-weight: 700; text-shadow: var(--hard-shadow); }
+.pause-menu { display: flex; flex-direction: column; gap: 2px; }
+.pause-leave { margin-top: 6px; }
+.pause-leave .section-h { color: var(--c-ember); }
+.pause-leave .section-h::after { background: var(--c-ember-dark); }
+.pl-row { display: flex; gap: 4px; }
+.pl-row > * { flex: 1; }
+
+/* ================================================================== */
+/* Parchment pages (journal, charts): the same pieces in ink          */
+/* ================================================================== */
+
+.frame-parchment {
+  --text: var(--c-wood-dark);
+  --text-hi: var(--c-ink);
+  --muted: var(--c-wood);
+  --title: var(--c-ember-dark);
+  --good: var(--c-rot);
+  --line: var(--c-parch-dark);
+  --hard-shadow: none;
+}
+.frame-parchment .section-h { color: var(--c-copper); }
+.frame-parchment .section-h::after { background: var(--c-parch-dark); }
+.frame-parchment .obj-item { background: var(--c-parch); }
+.frame-parchment .obj-item.done { color: var(--c-wood); text-decoration: line-through; }
+.frame-parchment .obj-dot { border-color: var(--c-wood-dark); }
+.frame-parchment .obj-dot.on { background: var(--c-wood-dark); border-color: var(--c-wood-dark); }
+.frame-parchment .q-title { color: var(--c-ember-dark); text-shadow: 1px 1px 0 var(--c-parch-dark); }
+.frame-parchment details > summary { color: var(--c-ember-dark); }
+.frame-parchment .reward-pill { color: var(--c-cloth); }
+.journal-page { padding: 2px 4px; overflow-y: auto; }

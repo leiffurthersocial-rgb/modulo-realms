@@ -3,7 +3,7 @@ import { CLASSES, SKILL_BRANCHES } from '../data/classes';
 import { getIconUrl } from '../game/art/icons';
 import { useState } from 'react';
 import { MASTERIES } from '../game/aegean/mastery';
-import { Modal } from './kit';
+import { KeyCap, Modal } from './kit';
 
 export default function SkillPanel({ game }: { game: Game }) {
   const p = game.player;
@@ -75,26 +75,23 @@ export default function SkillPanel({ game }: { game: Game }) {
           ) : null}
 
           <div className="section-h">Abilities</div>
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 3 }}>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 3 }}>
             {c.abilities.map((a, i) => {
               const locked = p.level < a.level;
               return (
                 <div
                   key={a.id}
-                  className="panel"
-                  style={{ padding: 6, width: 109, opacity: locked ? 0.55 : 1, background: 'var(--panel-2)' }}
+                  className={`ability-card${locked ? ' locked' : ''}`}
                 >
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                    <img src={getIconUrl(a.icon as 'sword')} alt="" style={{ width: 15, height: 15 }} />
+                    <img src={getIconUrl(a.icon as 'sword')} alt="" />
                     <div>
                       <div style={{ color: a.color }}>{a.name}</div>
-                      <div style={{ color: 'var(--muted)' }}>
-                        Key {i + 1} · {locked ? `Level ${a.level}` : `${a.cooldown}s cd`}
-                      </div>
+                      <div className="muted"><KeyCap>{i + 1}</KeyCap> {locked ? `Level ${a.level}` : `${a.cooldown}s cooldown`}</div>
                     </div>
                   </div>
-                  <div style={{ color: 'var(--muted)', marginTop: 4 }}>{a.desc}</div>
-                  <div style={{ color: 'var(--gold-dim)', marginTop: 2 }}>
+                  <div className="note" style={{ marginTop: 2 }}>{a.desc}</div>
+                  <div style={{ color: 'var(--gold-dim)' }}>
                     {a.mana > 0 ? `${a.mana} mana ` : ''}{a.stamina > 0 ? `${a.stamina} stamina` : ''}
                   </div>
                 </div>

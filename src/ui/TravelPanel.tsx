@@ -1,7 +1,7 @@
 import type { Game } from '../game/core/game';
 import { REGION_BY_ID, WAYSTONE_SITES } from '../data/locations';
 import { useTicker } from './hooks';
-import { Modal } from './kit';
+import { Icon, Modal } from './kit';
 
 /** The waystone network: stone gates keyed to every place you have attuned. */
 export default function TravelPanel({ game }: { game: Game }) {
@@ -13,7 +13,7 @@ export default function TravelPanel({ game }: { game: Game }) {
 
   return (
     <Modal title="Waystone" sub={<>{known.length} of {WAYSTONE_SITES.length} gates attuned
-            {lockout > 0 ? ` · wounded, ${lockout.toFixed(1)}s until the gate will answer` : ''}</>} size="m" tall label="Waystone travel" onClose={() => game.closeAll()}>
+            {lockout > 0 ? ` · wounded, ${lockout.toFixed(1)}s until the gate will answer` : ''}</>} size="m" label="Waystone travel" onClose={() => game.closeAll()}>
         <div className="scroll" style={{ padding: 7, overflowY: 'auto' }}>
           {known.map((l) => {
             const destination = game.waystoneDestination(l.id)!;
@@ -29,7 +29,7 @@ export default function TravelPanel({ game }: { game: Game }) {
                 title={reason ?? undefined}
                 onClick={() => game.travelToWaystone(l.id)}
               >
-                <span className="tr-glyph" style={{ borderColor: region.color }} />
+                <Icon name="waystone" scale={2} className="tr-glyph" />
                 <span className="tr-body">
                   <span className="tr-name">{l.name}</span>
                   <span className="tr-meta">{region.name}{l.level ? ` · level ${l.level}` : ''}</span>
@@ -47,7 +47,7 @@ export default function TravelPanel({ game }: { game: Game }) {
               <div className="section-h" style={{ marginTop: 8 }}>Not yet attuned</div>
               {undiscovered.map((l) => (
                 <div key={l.id} className="travel-row locked">
-                  <span className="tr-glyph" />
+                  <Icon name="waystone" scale={2} className="tr-glyph" />
                   <span className="tr-body">
                     <span className="tr-name">{l.name}</span>
                     <span className="tr-meta">{game.waystoneAccessReason(l.id) ?? 'Explore the entrance and approach its waystone.'}</span>

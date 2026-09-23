@@ -30,7 +30,7 @@ export default function QuestPanel({ game }: { game: Game }) {
         </div>
 
         <div className="quest-layout">
-          <div className="scroll" style={{ borderRight: '1px solid var(--edge)', overflowY: 'auto' }}>
+          <div className="quest-list scroll">
             {list.length === 0 ? (
               <div style={{ padding: 9, color: 'var(--muted)' }}>
                 {tab === 'active' ? 'No active quests. Ask around Ashvale.' : tab === 'done' ? 'Nothing finished yet.' : 'No new work available at your level.'}
@@ -43,7 +43,6 @@ export default function QuestPanel({ game }: { game: Game }) {
                 <button
                   key={q.id}
                   className={`quest-item ${sel?.id === q.id ? 'active' : ''} ${tab === 'done' ? 'done' : ''}`}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid rgba(74,59,82,0.5)', cursor: 'pointer' }}
                   onClick={() => setSel(q.id)}
                 >
                   <div className="qi-name">
@@ -60,10 +59,10 @@ export default function QuestPanel({ game }: { game: Game }) {
             })}
           </div>
 
-          <div className="inv-col scroll" style={{ overflowY: 'auto' }}>
+          <div className="journal-page frame-parchment scroll">
             {sel ? (
               <>
-                <div style={{ color: 'var(--gold)' }}>{sel.name}</div>
+                <div className="q-title">{sel.name}</div>
                 <div style={{ color: 'var(--muted)', marginTop: 2 }}>
                   Level {sel.level} · {sel.fieldAdventure ? 'Found in the world' : `Given by ${NPC_BY_ID[sel.giver]?.name ?? '—'}`}
                   {sel.marker && LOCATION_BY_ID[sel.marker] ? ` · ${LOCATION_BY_ID[sel.marker].name}` : ''}
@@ -77,7 +76,7 @@ export default function QuestPanel({ game }: { game: Game }) {
                     {game.trackedQuest === sel.id ? 'Tracking — click to stop' : 'Track this quest'}
                   </button>
                 ) : null}
-                <p style={{ color: 'var(--text-hi)', marginTop: 6 }}>{sel.summary}</p>
+                <p className="help-p" style={{ marginTop: 6 }}>{sel.summary}</p>
                 {sel.detail !== sel.summary ? <details><summary>Story &amp; hints</summary><div style={{ color: 'var(--muted)' }}>{sel.detail}</div></details> : null}
 
                 <div className="section-h">Objectives</div>

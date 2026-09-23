@@ -59,6 +59,7 @@ export const UI = {
   xp: PAL.holy,
   frost: PAL.frost,
   good: PAL.toxic,
+  rot: PAL.rot,
 } as const;
 
 export type UiColor = keyof typeof UI;
