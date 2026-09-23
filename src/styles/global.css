@@ -1684,6 +1684,9 @@ details[open] > summary::before { content: '↓ '; }
 .banner .rule { width: 160px; }
 .banner .bn-sub { color: var(--c-bone); text-shadow: var(--hard-shadow); }
 .banner.level { animation-duration: 2.6s; }
+/* a place you have been before: just its name, small, no plate */
+.banner.quiet { padding: 0; animation-duration: 2.2s; }
+.banner.quiet .bn-title { color: var(--c-bone); font-size: 10px; line-height: 12px; letter-spacing: 1px; text-shadow: var(--hard-shadow); }
 .banner.level .bn-title { color: var(--c-flame-lit); font-size: 40px; line-height: 48px; letter-spacing: 4px; text-shadow: 4px 4px 0 var(--c-ember-dark), -2px 0 0 var(--c-void), 0 -2px 0 var(--c-void), 2px 0 0 var(--c-void); }
 /* drop in over three frames, hold, then leave in two */
 @keyframes banner {

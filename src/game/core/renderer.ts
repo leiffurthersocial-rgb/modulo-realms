@@ -929,10 +929,13 @@ export function drawMinimapInto(game: Game, canvas: HTMLCanvasElement): void {
   const step = overworld ? 2 : 1;
   const mini = getMinimap(map, step);
   // how much map the square shows, in minimap pixels
-  const span = overworld ? 420 : 166;
+  // indoors the square fits the map (a cave filled a quarter of it before)
+  const span = overworld ? 420 : Math.max(48, Math.min(166, Math.max(map.w, map.h) + 6));
   const scale = size / span;
-  const px = (game.player.x / TILE / step) - span / 2;
-  const py = (game.player.y / TILE / step) - span / 2;
+  // a map that fits the square is shown whole and still; a bigger one follows the player
+  const whole = !overworld && Math.max(map.w, map.h) + 6 <= span;
+  const px = (whole ? map.w / 2 : game.player.x / TILE / step) - span / 2;
+  const py = (whole ? map.h / 2 : game.player.y / TILE / step) - span / 2;
 
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.imageSmoothingEnabled = false;
@@ -978,6 +981,32 @@ export function drawMinimapInto(game: Game, canvas: HTMLCanvasElement): void {
     const [mx, my] = toMini(c.x, c.y);
     g.fillStyle = PAL.gold;
     g.fillRect(mx - m, my - m, m * 2, m * 2);
+  }
+  if (!overworld) {
+    // the way out: every portal back outside, as a white doorway
+    // with a void edge; one off the square sits on the rim, so the exit is
+    // always on the map. Stairs deeper in and doors elsewhere are smaller.
+    const blink = Math.sin(game.now * 4) > -0.85;
+    // Greek halls lead up to a surface map instead, and put that door first
+    const out = (map.portals.find((pt) => pt.to === 'overworld') ?? map.portals[0])?.to;
+    for (const pt of map.portals) {
+      const exit = pt.to === out;
+      let [mx, my] = toMini(pt.x + pt.w / 2, pt.y + pt.h / 2);
+      const edge = 4 * m;
+      const off = mx < edge || mx > size - edge || my < edge || my > size - edge;
+      if (off && !exit) continue;
+      mx = Math.max(edge, Math.min(size - edge, mx));
+      my = Math.max(edge, Math.min(size - edge, my));
+      if (!exit) { dot(mx, my, 1, PAL.frost); continue; }
+      if (!blink) continue;
+      // an arch: 5x6 minimap pixels, open at the bottom
+      g.fillStyle = PAL.void;
+      g.fillRect(mx - 3 * m, my - 4 * m, 7 * m, 8 * m);
+      g.fillStyle = PAL.white;
+      g.fillRect(mx - 2 * m, my - 3 * m, 5 * m, 6 * m);
+      g.fillStyle = PAL.void;
+      g.fillRect(mx - m, my - m, 3 * m, 4 * m);
+    }
   }
   const tracked = game.trackedTarget();
   if (tracked && overworld) {
