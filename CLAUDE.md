@@ -309,7 +309,7 @@ Tag = 16 Spielminuten (`DAY_SECONDS`).
 `V` Waffenkraft. Menüs: `I`/`Tab` `C` `K` `J` `M` `N` `P`/`Esc` `F3`.
 Zur See: `WASD` steuern · `Space` Salve · `G` Rammen · `Shift` Burst-Row · `E` Anlegen · `R` Deck.
 
-**Debug-Menü: Charakter „debug" nennen — seit dem UI-Overhaul nur im Dev-Build (`npm run dev`)** (`src/ui/DebugPanel.tsx` — Build, Spawning,
+**Debug-Menü: Charakter „debug" nennen** (auch in Production, Button im Pause-Menü) (`src/ui/DebugPanel.tsx` — Build, Spawning,
 Weltkontrolle, Godmode, Timescale, Free Casting, One-Shot).
 
 ## Doku im Repo — Autoritätsreihenfolge
