@@ -59,7 +59,7 @@ the Epic rarity and faction colours.
 
 | Screen | Where | What changed |
 | --- | --- | --- |
-| Pause | `src/ui/PausePanel.tsx` | A wooden board with the game's crest (generated in `uiArt.ts`) and who/where you are on the left, the menu on the right, and **"Leave the valley"** set apart underneath in ember. Abandoning the run is a two-press `ConfirmButton` instead of a browser dialog. The debug-menu button only exists in dev builds (`import.meta.env.DEV`), and there only for a character named "debug". Coordinates are gone from the pause screen. |
+| Pause | `src/ui/PausePanel.tsx` | A wooden board with the game's crest (generated in `uiArt.ts`) and who/where you are on the left, the menu on the right, and **"Leave the valley"** set apart underneath in ember. Abandoning the run is a two-press `ConfirmButton` instead of a browser dialog. The debug-menu button appears for a character named "debug", as before. Coordinates are gone from the pause screen. |
 | Atlas | `src/ui/MapPanel.tsx`, `src/game/art/mapArt.ts` | The world re-inked onto parchment. Unknown land is paper with a hatch and an ink edge, revealed in 8-tile blocks around discovered places. Region names (and level bands) are lettered on the map where the region lies, only once you have found a place in it — no more 26-line legend. Places are pixel icons by kind; attuned waystones glow and are clickable. Four whole-number zoom steps with iron −/+ buttons and pips, drag to pan, "Find me". |
 | Dungeon map | same | A plan instead of flat rectangles: pale floor with a dot grid, walls inked on the floor edge, hatched rock, at the largest whole number of pixels per tile that fits. Exit, doors, unopened chests, the boss and the player are icons; the exit is labelled. |
 | Journal | `src/ui/QuestPanel.tsx` | The selected quest is a parchment page (all colours swap to inks inside `.frame-parchment`); tags are badges. |
@@ -96,4 +96,3 @@ Known limits:
   browser.
 - The world camera's zoom animates between whole numbers when boarding a
   ship or entering an arena, and is only pixel-exact once it lands.
-- The debug menu is now only reachable in a development build.

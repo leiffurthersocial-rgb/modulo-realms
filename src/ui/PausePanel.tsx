@@ -9,12 +9,11 @@ import { ConfirmButton, Modal } from './kit';
  * right, and the two ways out of the game set apart underneath — the
  * destructive one needs a second press.
  *
- * The debug menu is a development tool: its button only exists in a dev build
- * (and still only for a character called "debug").
+ * The debug menu button appears for a character called "debug", in any build.
  */
 export default function PausePanel({ game, onSettings }: { game: Game; onSettings: () => void }) {
   const p = game.player;
-  const showDebug = import.meta.env.DEV && game.isDebug;
+  const showDebug = game.isDebug;
   return (
     <Modal title="Paused" size="m" onClose={() => game.closeAll()} className="pause-board">
       <div className="pause-layout">
