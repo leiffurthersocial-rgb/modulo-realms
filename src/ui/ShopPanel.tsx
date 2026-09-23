@@ -4,8 +4,8 @@ import { NPC_BY_ID } from '../data/npcs';
 import { buyValue, sellValue } from '../game/items/loot';
 import { LOOT_LEVEL_REACH } from '../data/balance';
 import type { Item } from '../game/items/types';
-import { getIconUrl } from '../game/art/icons';
 import ItemCard, { itemIcon, rarityColor } from './ItemCard';
+import { Icon, Modal } from './kit';
 
 export default function ShopPanel({ game }: { game: Game }) {
   const shop = game.shop!;
@@ -20,16 +20,8 @@ export default function ShopPanel({ game }: { game: Game }) {
   const restock = game.daysUntilRestock(shop.shopId);
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(1020px, 96vw)', height: 'min(660px, 92vh)' }}>
-        <div className="panel-title">
-          <span>{shop.name}</span>
-          <span className="sub">
-            {npc.name} · prices {shop.priceMod < 0.98 ? 'favourable' : shop.priceMod > 1.06 ? 'steep' : 'fair'}
-            {' '}({Math.round(shop.priceMod * 100)}%) · new stock in {restock} day{restock === 1 ? '' : 's'}
-          </span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title={<>{shop.name}</>} sub={<>{npc.name} · prices {shop.priceMod < 0.98 ? 'favourable' : shop.priceMod > 1.06 ? 'steep' : 'fair'}
+            {' '}({Math.round(shop.priceMod * 100)}%) · new stock in {restock} day{restock === 1 ? '' : 's'}</>} size="xl" tall onClose={() => game.closeAll()}>
 
         <div className="shop-layout">
           <div className="shop-col">
@@ -38,7 +30,7 @@ export default function ShopPanel({ game }: { game: Game }) {
               <span style={{ color: 'var(--gold)' }}>{p.gold} gold</span>
             </div>
             <div className="shop-list scroll">
-              {sellable.length === 0 ? <div style={{ padding: 14, color: 'var(--muted)', fontSize: 12 }}>Nothing to sell.</div> : null}
+              {sellable.length === 0 ? <div style={{ padding: 7, color: 'var(--muted)' }}>Nothing to sell.</div> : null}
               {sellable.map((it) => (
                 <div
                   className="shop-row"
@@ -98,18 +90,18 @@ export default function ShopPanel({ game }: { game: Game }) {
             </div>
             <div className="shop-foot">
               <span style={{ color: 'var(--muted)' }}>Click to buy.</span>
-              <span className="chip gold"><img src={getIconUrl('gold')} alt="" />{p.gold}</span>
+              <span className="chip gold"><Icon name="coin" />{p.gold}</span>
             </div>
           </div>
         </div>
 
         {hover ? (
-          <div className="panel" style={{ position: 'absolute', right: 14, bottom: 14, width: 280, padding: 12, background: 'var(--panel-2)' }}>
+          <div className="panel" style={{ position: 'absolute', right: 7, bottom: 7, width: 140, padding: 6, background: 'var(--panel-2)' }}>
             <ItemCard
               item={hover}
               compare={hover.slot ? p.equipment[hover.slot] : null}
             />
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--gold)' }}>
+            <div style={{ marginTop: 4, color: 'var(--gold)' }}>
               {side === 'buy' && game.shopLocked(hover)
                 ? `Not for sale yet — come back at level ${hover.level - LOOT_LEVEL_REACH}.`
                 : side === 'buy'
@@ -118,7 +110,6 @@ export default function ShopPanel({ game }: { game: Game }) {
             </div>
           </div>
         ) : null}
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { Game } from '../game/core/game';
 import { NPC_BY_ID } from '../data/npcs';
 import SpritePreview from './SpritePreview';
+import { KeyCap } from './kit';
 
 export default function DialoguePanel({ game }: { game: Game }) {
   const d = game.dialogue!;
@@ -24,10 +25,10 @@ export default function DialoguePanel({ game }: { game: Game }) {
 
   return (
     <div className="dialogue-wrap">
-      <div className={`dialogue${d.frame === 'gold' ? ' framed' : ''}`}>
+      <div className={`dialogue frame-wood${d.frame === 'gold' ? ' framed' : ''}`}>
         <div className="d-head">
           <div className="d-portrait">
-            <SpritePreview look={npc.look} scale={1.35} />
+            <SpritePreview look={npc.look} scale={1} />
           </div>
           <div>
             <div className="d-name">{d.name}</div>
@@ -38,7 +39,7 @@ export default function DialoguePanel({ game }: { game: Game }) {
 
         <div className="d-text" onClick={() => moreLines && game.advanceDialogue()}>
           {d.lines[d.lineIndex]}
-          {moreLines ? <span className="d-more">click or press space</span> : null}
+          {moreLines ? <span className="d-more"><KeyCap>SPC</KeyCap> more</span> : null}
         </div>
 
         {!moreLines ? (
@@ -53,7 +54,7 @@ export default function DialoguePanel({ game }: { game: Game }) {
                     : inlineTag ? 'race' : '';
               return (
                 <button className={`d-choice${c.accent === 'gold' ? ' accent' : ''}`} key={i} onClick={() => game.chooseDialogue(i)}>
-                  <span className="num">{i + 1}</span>
+                  <KeyCap className="num">{i + 1}</KeyCap>
                   {inlineTag ? <span className={`tag ${kind}`}>{inlineTag}</span> : null}
                   <span>{body}</span>
                 </button>

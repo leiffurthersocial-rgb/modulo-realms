@@ -6,6 +6,7 @@ import { audio } from './game/audio/audio';
 import { TILES } from './game/world/tiles';
 import { ALL_TEMPLATES } from './data/items';
 import { LOCATIONS } from './data/locations';
+import { worldZoom } from './ui/kit/tokens';
 import { getLoadError, hasSave, loadGame, loadSettings, saveGame, saveSettings } from './game/save/save';
 import TitleScreen from './ui/TitleScreen';
 import CharacterCreation from './ui/CharacterCreation';
@@ -32,6 +33,7 @@ import LootPanel from './ui/LootPanel';
 import TouchControls from './ui/TouchControls';
 import SettingsPanel from './ui/SettingsPanel';
 import DeathScreen from './ui/DeathScreen';
+import { uiSound } from './ui/kit/sfx';
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -57,7 +59,8 @@ export default function App() {
       const dpr = 1;
       canvas.width = Math.max(640, Math.floor(canvas.clientWidth * dpr));
       canvas.height = Math.max(400, Math.floor(canvas.clientHeight * dpr));
-      g.camera.zoom = canvas.width > 1700 ? 2.5 : canvas.width > 1100 ? 2 : 1.75;
+      // a whole number, so every world pixel is the same size on screen
+      g.camera.zoom = worldZoom(canvas.width, canvas.height);
       g.g.imageSmoothingEnabled = false;
     };
     resize();
@@ -128,6 +131,29 @@ export default function App() {
   );
 }
 
+/**
+ * UI sound hooks for every button, in one place: a press is a click and
+ * entering a button is a hover (silent until a sound is assigned in
+ * `ui/kit/sfx.ts`). Pieces that make their own noise — tabs and toggles,
+ * the hotbar, the touch pad, the casino machines — are left alone.
+ */
+const QUIET = '.tab, .px-toggle, .slot, .touch-btn, canvas, .clickable';
+const uiSounds = {
+  onPointerDownCapture: (e: React.PointerEvent) => {
+    const t = e.target as HTMLElement;
+    const b = t.closest('button');
+    if (!b || t.closest(QUIET)) return;
+    uiSound((b as HTMLButtonElement).disabled ? 'deny' : 'click');
+  },
+  onPointerOverCapture: (e: React.PointerEvent) => {
+    const t = e.target as HTMLElement;
+    const b = t.closest('button');
+    if (!b || t.closest(QUIET)) return;
+    const from = (e.relatedTarget as HTMLElement | null)?.closest?.('button');
+    if (from !== b) uiSound('hover');
+  },
+};
+
 function UiLayer({ game }: { game: Game }) {
   useSyncExternalStore(game.subscribe, game.getSnapshot);
   const [showSettings, setShowSettings] = useState(false);
@@ -137,9 +163,14 @@ function UiLayer({ game }: { game: Game }) {
     audio.setVolumes(game.settings.master, game.settings.music, game.settings.sfx);
   }, [game, game.settings.master, game.settings.music, game.settings.sfx]);
 
+  // the in-game reduced-motion switch, on top of the OS preference
+  useEffect(() => {
+    document.documentElement.dataset.motion = game.settings.reduceMotion ? 'reduced' : '';
+  }, [game.settings.reduceMotion]);
+
   if (game.screen === 'title') {
     return (
-      <div className="overlay">
+      <div className="overlay" {...uiSounds}>
         <TitleScreen
           game={game}
           hasSave={hasSave()}
@@ -163,7 +194,7 @@ function UiLayer({ game }: { game: Game }) {
 
   if (game.screen === 'creation') {
     return (
-      <div className="overlay">
+      <div className="overlay" {...uiSounds}>
         <CharacterCreation
           onBack={() => { game.screen = 'title'; game.touch(); }}
           onStart={(init) => { audio.resume(); game.newGame(init); }}
@@ -174,7 +205,7 @@ function UiLayer({ game }: { game: Game }) {
 
   if (game.screen === 'dead') {
     return (
-      <div className="overlay">
+      <div className="overlay" {...uiSounds}>
         <DeathScreen game={game} />
       </div>
     );
@@ -185,7 +216,7 @@ function UiLayer({ game }: { game: Game }) {
   game.input.touchMode = game.settings.touchControls;
 
   return (
-    <div className={`overlay${game.settings.touchControls ? ' touch-on' : ''}`}>
+    <div className={`overlay${game.settings.touchControls ? ' touch-on' : ''}`} {...uiSounds}>
       <Hud game={game} />
       {game.settings.touchControls ? <TouchControls game={game} /> : null}
       {game.dialogue ? <DialoguePanel game={game} /> : null}

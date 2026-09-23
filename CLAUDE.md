@@ -9,9 +9,12 @@ Sprache mit dem User: **Deutsch**, kurz, stichwortartig, Probleme direkt benenne
 Browser-RPG (2D Open World, Pixel Art). React 18 + TypeScript 5.6 + Vite 5, Canvas 2D +
 Web Audio. Deploy auf Vercel (`vercel.json` fertig). Node 18+. `~47.900` Zeilen in `src/`.
 
-**Es gibt keine Binär-Assets.** Jede Tile, jeder Sprite, jedes Icon, jeder Ton wird zur
-Laufzeit aus Code generiert (`src/game/art/`, `src/game/audio/audio.ts`). Niemals ein
-Bild- oder Audiofile einchecken — das ist die zentrale Projektregel.
+**Das Spiel hat keine Binär-Assets.** Jede Tile, jeder Sprite, jedes Icon, jeder Ton und
+seit dem UI-Overhaul auch jede **Schrift** und jeder **UI-Rahmen** wird zur Laufzeit aus Code
+generiert (`src/game/art/`, `src/game/audio/audio.ts`, `src/ui/kit/`). Kein Bild-, Audio- oder
+Fontfile unter `src/` oder `public/` einchecken — das ist die zentrale Projektregel.
+Ausnahme (seit 23.09.): **Doku-Screenshots** (PNG/WebM) unter `docs/` sind erlaubt,
+sie werden nie ausgeliefert.
 
 ## Git
 
@@ -27,14 +30,14 @@ npm install
 npm run dev            # http://localhost:5173
 npm run typecheck      # tsc --noEmit
 npm run build          # typecheck + vite build
-npm run check:aegean   # 25 serielle Regressionsgruppen — DER große Lauf
+npm run check:aegean   # 26 serielle Regressionsgruppen — DER große Lauf
 ```
 
 **Vor jedem Push:** `npm run typecheck && npm run build && npm run check:aegean`.
 
 Letzter verifizierter Stand (selbst ausgeführt): typecheck 0 Fehler, Build OK
 (1,297 MB / 415 KB gzip, Single-Chunk-Warnung ist bekannt und akzeptiert),
-check:aegean alle 25 Gruppen grün. Keine TODO/FIXME/HACK im Code.
+check:aegean alle 26 Gruppen grün. Keine TODO/FIXME/HACK im Code.
 
 ⚠️ `esbuild` und `tsx` sind **nicht in `package.json` deklariert**. `esbuild` kommt nur
 transitiv über Vite, `tsx` gar nicht. `check:aegean` kann bei einem Vite-Major brechen.
@@ -119,7 +122,14 @@ src/
   data/                  races, classes, items, enemies, npcs, quests, locations,
                          balance.ts, aegean/*
   ui/                    28 React-Panels + hooks.ts, aegeanNames.ts
-  styles/global.css      UI-Designsystem (1531 Z.)
+  ui/kit/                UI-Designsystem in Code: tokens.ts (Palette aus PAL, UI-Zoom),
+                         glyphs.ts + font.ts (Pixel-Fonts als TTF zur Laufzeit gebaut),
+                         index.tsx (Modal, Button, ConfirmButton, Slider, Toggle, Tabs,
+                         KeyCap, Badge, SegBar, Ticker, Icon), sfx.ts (UI-Sound-Hooks),
+                         install.ts (Boot vor dem ersten React-Render)
+  game/art/uiArt.ts      9-Slice-Rahmen, Buttons, Slots, Icons, Wappen, Logo als Pixel-Art
+  game/core/zoom.ts      ganzzahliger Welt-Zoom (Basis/See/Arena)
+  styles/global.css      UI-Stylesheet, nur UI-Pixel + --c-*/--img-* Variablen
 ```
 
 Größte Dateien: `game/core/game.ts` 4798 · `game/aegean/encounters.ts` 2325 ·
@@ -128,6 +138,24 @@ Größte Dateien: `game/core/game.ts` 4798 · `game/aegean/encounters.ts` 2325 �
 
 `game.ts` ist der Refactoring-Kandidat *und* das größte Risiko — dort hängt alles dran.
 Nicht ungefragt aufteilen.
+
+## UI-Designsystem — die Regeln (seit 23.09.)
+
+Doku: `docs/ui-overhaul/README.md`. Geprüft von `scripts/check-ui-style.ts` (Teil von
+`check:aegean`).
+
+- **Ganzzahliger Zoom überall.** Das Overlay (`.overlay`) hat `zoom: var(--ui-zoom)` =
+  ganze Device-Pixel pro UI-Pixel (`uiScale()` in `ui/kit/tokens.ts`: 2 bei 720p/1080p,
+  3 bei 1440p, 1 auf Phones). CSS-Längen sind **UI-Pixel**, nie `vw`/`vh`. Die Welt-Kamera
+  zoomt ebenfalls nur ganzzahlig (`game/core/zoom.ts`).
+- **Eine Schrift:** `Modulo` (5×7, Bitmap in `ui/kit/glyphs.ts`) in 10px oder 20px, dazu
+  `Modulo Small` (das 3×5-Alphabet des Slot-Automaten) für Labels/Tasten/Badges. Neue
+  Sonderzeichen brauchen eine Glyphe — der Check findet fehlende.
+- **Farben nur als `--c-*`-Token** (Teilmenge von `PAL`), Flächen nur als generierte
+  `--img-*`-Sprites per `border-image`. Kein border-radius, kein Blur, keine Gradients,
+  keine weichen Schatten (Schatten = 1 harter Pixel).
+- Destruktive Aktionen über `ConfirmButton` (zweimal klicken), nie `window.confirm`.
+- Panels über `<Modal>`; neue UI-Sounds nur über `uiSound(cue)` (`ui/kit/sfx.ts`).
 
 ## Welt
 
@@ -281,7 +309,7 @@ Tag = 16 Spielminuten (`DAY_SECONDS`).
 `V` Waffenkraft. Menüs: `I`/`Tab` `C` `K` `J` `M` `N` `P`/`Esc` `F3`.
 Zur See: `WASD` steuern · `Space` Salve · `G` Rammen · `Shift` Burst-Row · `E` Anlegen · `R` Deck.
 
-**Debug-Menü: Charakter „debug" nennen** (`src/ui/DebugPanel.tsx` — Build, Spawning,
+**Debug-Menü: Charakter „debug" nennen — seit dem UI-Overhaul nur im Dev-Build (`npm run dev`)** (`src/ui/DebugPanel.tsx` — Build, Spawning,
 Weltkontrolle, Godmode, Timescale, Free Casting, One-Shot).
 
 ## Doku im Repo — Autoritätsreihenfolge

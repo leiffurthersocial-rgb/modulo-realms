@@ -16,6 +16,8 @@ import { drawMarineDepth } from './marineDepth';
 import { propsInRect, type GameMap } from '../world/map';
 import type { Game } from './game';
 import { LOCATIONS } from '../../data/locations';
+import { drawPrompt, pixelText, setFont } from '../art/uiCanvas';
+import { canvasUiScale } from './zoom';
 
 const identities = new WeakMap<GameMap,number>();
 let nextIdentity=1;
@@ -303,6 +305,12 @@ export function render(game: Game): void {
   g.fillRect(0, 0, canvas.width, canvas.height);
 
   g.setTransform(zoom, 0, 0, zoom, Math.round(-left * zoom), Math.round(-top * zoom));
+  // UI drawn over the world (prompts, nameplates, markers) is drawn in screen
+  // space at the UI's own whole-pixel scale, not at the camera's zoom
+  const ui = canvasUiScale();
+  const ox = Math.round(-left * zoom);
+  const oy = Math.round(-top * zoom);
+  const toScreen = (wx: number, wy: number): [number, number] => [Math.round(wx * zoom + ox), Math.round(wy * zoom + oy)];
 
   // terrain
   const c0x = Math.floor(left / CHUNK_PX);
@@ -475,15 +483,15 @@ export function render(game: Game): void {
             return game.quests.isComplete(qd, player) && (game.questGiverFor(qd) === n.def.id);
           });
           if (hasOffer || ready) {
-            const bob = Math.sin(game.now * 3) * 2;
+            // a two-step bob: pixel art does not float, it hops
+            const bob = Math.sin(game.now * 3) > 0 ? 0 : 1;
+            const [sx, sy] = toScreen(n.x, n.y - 44);
             g.save();
-            g.font = 'bold 16px "Trebuchet MS", sans-serif';
-            g.textAlign = 'center';
-            g.lineWidth = 3;
-            g.strokeStyle = 'rgba(8,6,12,0.9)';
-            g.strokeText(ready ? '?' : '!', n.x, n.y - 52 + bob);
-            g.fillStyle = ready ? '#6fbf5a' : '#f6bf5d';
-            g.fillText(ready ? '?' : '!', n.x, n.y - 52 + bob);
+            g.setTransform(1, 0, 0, 1, 0, 0);
+            setFont(g, ui, 20, false, true);
+            pixelText(g, ready ? '?' : '!', sx, sy - bob * ui, ui, {
+              color: ready ? PAL.toxic : PAL.flameLit, outline: PAL.void, align: 'center',
+            });
             g.restore();
           }
         }
@@ -601,29 +609,19 @@ export function render(game: Game): void {
   drawLighting(game, g, left, top, viewW, viewH);
 
   // interaction prompt and world-space text
-  game.fx.drawText(g);
+  game.fx.drawText(g, toScreen, ui);
   if (game.interact) {
     // No key to name when there is no keyboard — the USE button says it.
-    const label = game.input.touchMode
-      ? `[USE] ${game.interact.label}`
-      : `[${game.input.keyLabel('interact')}] ${game.interact.label}`;
+    const key = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
+    const [sx, sy] = toScreen(game.interact.x, game.interact.y - 6);
     g.save();
-    g.font = 'bold 11px "Trebuchet MS", system-ui, sans-serif';
-    const w = g.measureText(label).width + 14;
-    const x = Math.round(game.interact.x - w / 2);
-    const y = Math.round(game.interact.y - 14);
-    g.fillStyle = 'rgba(12,10,18,0.86)';
-    g.fillRect(x, y, w, 18);
-    g.strokeStyle = 'rgba(232,194,122,0.7)';
-    g.lineWidth = 1;
-    g.strokeRect(x + 0.5, y + 0.5, w - 1, 17);
-    g.fillStyle = PAL.cloth;
-    g.fillText(label, x + 7, y + 13);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    drawPrompt(g, key, game.interact.label, sx, sy, ui);
     g.restore();
   }
 
-  drawNameplates(game, g, propIdx);
-  drawTrackedCompass(game, g, left, top, viewW, viewH);
+  drawNameplates(game, g, propIdx, toScreen, ui);
+  drawTrackedCompass(game, g, left, top, viewW, viewH, toScreen, ui);
 
   if (game.debug) drawDebug(game, g, left, top, viewW, viewH);
 
@@ -642,20 +640,18 @@ export function render(game: Game): void {
   }
 
   drawStreak(game, g);
-  if (game.showMinimap && game.screen === 'playing' && game.fade.alpha < 0.5) drawMinimap(game, g);
+  if (game.minimapCanvas && game.showMinimap && game.screen === 'playing' && game.fade.alpha < 0.5) drawMinimapInto(game, game.minimapCanvas);
 
   if (game.fade.alpha > 0.001) {
     g.save();
     g.globalAlpha = Math.min(1, game.fade.alpha);
-    g.fillStyle = '#05040a';
+    g.fillStyle = PAL.void;
     g.fillRect(0, 0, canvas.width, canvas.height);
     if (game.fade.label && game.fade.alpha > 0.6) {
-      g.globalAlpha = Math.min(1, (game.fade.alpha - 0.6) / 0.4);
-      g.fillStyle = '#e8c27a';
-      g.font = '600 20px "Cinzel", Georgia, serif';
-      g.textAlign = 'center';
-      g.fillText(game.fade.label, canvas.width / 2, canvas.height / 2);
-      g.textAlign = 'left';
+      // the destination, lettered in the UI font while the screen is dark
+      g.globalAlpha = Math.ceil(Math.min(1, (game.fade.alpha - 0.6) / 0.4) * 3) / 3;
+      setFont(g, ui, 20, false, true);
+      pixelText(g, game.fade.label.toUpperCase(), canvas.width / 2, canvas.height / 2, ui, { color: PAL.goldLit, shadow: PAL.emberDark, align: 'center' });
     }
     g.restore();
   }
@@ -666,44 +662,50 @@ export function render(game: Game): void {
  * the anvil. They fade in as you approach and never need interacting with, so
  * a settlement tells you what it holds from the middle of the square.
  */
-function drawNameplates(game: Game, g: CanvasRenderingContext2D, propIdx: number[]): void {
+function drawNameplates(
+  game: Game, g: CanvasRenderingContext2D, propIdx: number[],
+  toScreen: (x: number, y: number) => [number, number], k: number,
+): void {
   const p = game.player;
   const props = game.map.props;
   g.save();
-  g.font = '700 9px "Trebuchet MS", system-ui, sans-serif';
-  g.textAlign = 'center';
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  setFont(g, k, 10, true);
   for (const i of propIdx) {
     const pr = props[i];
     if (!pr.nameplate) continue;
     const d = Math.hypot(pr.x - p.x, pr.y - p.y);
     if (d > 460) continue;
-    const alpha = Math.min(1, (460 - d) / 110);
+    // fade in three hard steps rather than a smooth ramp
+    const alpha = Math.ceil(Math.min(1, (460 - d) / 110) * 3) / 3;
     const color = pr.nameplateColor ?? PAL.cloth;
-    const text = pr.nameplate;
-    const w = g.measureText(text).width + 12;
-    const x = Math.round(pr.x);
-    const y = Math.round(pr.y - 52);
-    g.globalAlpha = alpha * 0.92;
-    g.fillStyle = 'rgba(10,8,16,0.82)';
-    g.fillRect(x - w / 2, y, w, 13);
-    g.fillStyle = color;
-    g.fillRect(x - w / 2, y + 12, w, 1);
+    const text = pr.nameplate.toUpperCase();
+    const tw = Math.round(g.measureText(text).width / k);
+    const w = tw + 6;
+    const [sx, sy] = toScreen(pr.x, pr.y - 44);
+    const x = Math.round(sx - (w * k) / 2);
+    const y = sy - 12 * k;
     g.globalAlpha = alpha;
-    g.fillText(text, x, y + 10);
+    g.fillStyle = PAL.void;
+    g.fillRect(x - k, y - k, (w + 2) * k, 12 * k);
+    g.fillStyle = PAL.charcoal;
+    g.fillRect(x, y, w * k, 10 * k);
+    g.fillStyle = color;
+    g.fillRect(x, y + 9 * k, w * k, k);
     // a small tick pointing down at the door
-    g.globalAlpha = alpha * 0.82;
-    g.fillStyle = 'rgba(10,8,16,0.82)';
-    g.fillRect(x - 2, y + 13, 4, 3);
+    g.fillStyle = PAL.void;
+    g.fillRect(Math.round(sx - k), y + 11 * k, 3 * k, k);
+    g.fillRect(Math.round(sx), y + 12 * k, k, k);
+    pixelText(g, text, sx, y + 8 * k, k, { color, align: 'center' });
   }
   g.restore();
-  g.textAlign = 'left';
 }
 
 const STREAK_TIERS = [
-  { at: 20, color: '#f0c93c', word: 'UNSTOPPABLE' },
-  { at: 12, color: '#9578e8', word: 'RAMPAGE' },
-  { at: 7, color: '#6fbf5a', word: 'ON A TEAR' },
-  { at: 4, color: '#6fd0e8', word: 'STREAK' },
+  { at: 20, color: PAL.goldLit, word: 'UNSTOPPABLE' },
+  { at: 12, color: PAL.flame, word: 'RAMPAGE' },
+  { at: 7, color: PAL.toxic, word: 'ON A TEAR' },
+  { at: 4, color: PAL.frost, word: 'STREAK' },
 ];
 
 /**
@@ -715,42 +717,31 @@ function drawStreak(game: Game, g: CanvasRenderingContext2D): void {
   if (game.streak < 3 || game.screen !== 'playing') return;
   const left = game.streakUntil - game.now;
   if (left <= 0) return;
+  const k = canvasUiScale();
   const tier = STREAK_TIERS.find((t) => game.streak >= t.at);
-  const color = tier?.color ?? '#cfc7e0';
+  const color = tier?.color ?? PAL.bone;
   const word = tier?.word ?? 'STREAK';
-  const cx = game.canvas.width / 2;
-  const y = game.canvas.height - 128;
-  const pop = Math.max(0, 1 - (game.now - (game.streakUntil - 4)) * 5);
-  const scale = 1 + pop * 0.35;
+  const cx = Math.round(game.canvas.width / 2);
+  const y = game.canvas.height - 64 * k;
+  // the number hops up two pixels on each new kill instead of scaling
+  const pop = game.now - (game.streakUntil - 4) < 0.12 ? 2 : 0;
 
   g.save();
-  g.translate(cx, y);
-  g.scale(scale, scale);
-  g.textAlign = 'center';
-  g.font = '700 30px "Cinzel", Georgia, serif';
-  g.fillStyle = 'rgba(8,6,14,0.75)';
-  g.fillText(`${game.streak}`, 2, 2);
+  setFont(g, k, 20, false, true);
+  pixelText(g, `${game.streak}`, cx, y - pop * k, k, { color, outline: PAL.void, align: 'center' });
+  setFont(g, k, 10, true);
+  pixelText(g, word, cx, y + 8 * k, k, { color, shadow: PAL.void, align: 'center' });
+  // drain bar, in whole pixels
+  const bw = 40;
+  const fill = Math.round(bw * Math.max(0, Math.min(1, left / 4)));
+  const bx = cx - (bw / 2) * k;
+  g.fillStyle = PAL.void;
+  g.fillRect(bx - k, y + 11 * k, (bw + 2) * k, 4 * k);
+  g.fillStyle = PAL.charcoal;
+  g.fillRect(bx, y + 12 * k, bw * k, 2 * k);
   g.fillStyle = color;
-  g.shadowColor = color;
-  g.shadowBlur = 16;
-  g.fillText(`${game.streak}`, 0, 0);
-  g.shadowBlur = 0;
-  g.font = '600 11px "Trebuchet MS", system-ui, sans-serif';
-  g.fillStyle = color;
-  g.globalAlpha = 0.85;
-  g.fillText(word, 0, 14);
+  g.fillRect(bx, y + 12 * k, fill * k, 2 * k);
   g.restore();
-
-  // drain bar
-  const bw = 78;
-  g.save();
-  g.globalAlpha = 0.9;
-  g.fillStyle = 'rgba(8,6,14,0.7)';
-  g.fillRect(cx - bw / 2, y + 20, bw, 3);
-  g.fillStyle = color;
-  g.fillRect(cx - bw / 2, y + 20, bw * (left / 4), 3);
-  g.restore();
-  g.textAlign = 'left';
 }
 
 function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {
@@ -839,7 +830,10 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
 }
 
 /** The original compass points to a harbour while sailing, or the tracked quest on foot. */
-function drawTrackedCompass(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {
+function drawTrackedCompass(
+  game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number,
+  toScreen: (x: number, y: number) => [number, number], k: number,
+): void {
   const landing = game.naval.landingGuide();
   const guided = shipGuidanceTarget(game);
   const target = guided ?? (landing ? { ...landing.approach, name: `Harbour: ${landing.port.name}` } : game.trackedTarget());
@@ -859,9 +853,9 @@ function drawTrackedCompass(game: Game, g: CanvasRenderingContext2D, left: numbe
 
   g.save();
   g.translate(clampedX, clampedY);
-  g.globalAlpha = 0.55 + 0.25 * Math.sin(game.now * 3);
+  g.globalAlpha = Math.sin(game.now * 3) > 0 ? 0.85 : 0.6;
   g.rotate(angle);
-  g.fillStyle = '#f0c93c';
+  g.fillStyle = PAL.goldLit;
   g.beginPath();
   g.moveTo(11, 0);
   g.lineTo(-6, -7);
@@ -871,114 +865,105 @@ function drawTrackedCompass(game: Game, g: CanvasRenderingContext2D, left: numbe
   g.fill();
   g.restore();
 
+  const [sx, sy] = toScreen(clampedX, clampedY);
   g.save();
-  g.globalAlpha = 0.8;
-  g.font = 'bold 9px "Trebuchet MS", sans-serif';
-  g.textAlign = 'center';
-  g.fillStyle = '#e8dfd2';
-  g.fillText(`${target.name}  ${Math.round(distPx / 32)}m`, clampedX, clampedY + 20);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  setFont(g, k, 10);
+  pixelText(g, `${target.name} ${Math.round(distPx / 32)}m`, sx, sy + 20 * k, k, { color: PAL.bone, outline: PAL.void, align: 'center' });
   if (landing) {
     // Landscape touch layouts hide the journal tracker and toast subtitles.
     const useKey = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
-    g.fillText(`Harbours only · ${useKey} to land nearby`, clampedX, clampedY + 33);
+    pixelText(g, `Harbours only · ${useKey} to land nearby`, sx, sy + 32 * k, k, { color: PAL.fog, outline: PAL.void, align: 'center' });
   }
-  g.textAlign = 'left';
   g.restore();
 }
 
-function drawMinimap(game: Game, g: CanvasRenderingContext2D): void {
-  const size = 148;
-  const pad = 14;
-  const x = game.canvas.width - size - pad;
-  const y = pad;
+/**
+ * The minimap, drawn into the HUD's own canvas (see `ui/hud/Minimap.tsx`)
+ * rather than onto the world, so its frame and plaque are ordinary UI. The
+ * canvas is sized in device pixels; `m` is device pixels per UI pixel.
+ */
+export function drawMinimapInto(game: Game, canvas: HTMLCanvasElement): void {
+  const g = canvas.getContext('2d');
+  if (!g) return;
+  const size = canvas.width;
+  const m = Math.max(1, Math.round(size / 72));
   const map = game.map;
-  const step = map.id === 'overworld' ? 2 : 1;
+  const overworld = map.id === 'overworld';
+  const step = overworld ? 2 : 1;
   const mini = getMinimap(map, step);
-  const scale = map.id === 'overworld' ? 0.42 : 1.1;
-  const srcW = size / scale;
-  const srcH = size / scale;
-  const px = (game.player.x / TILE / step) - srcW / 2;
-  const py = (game.player.y / TILE / step) - srcH / 2;
+  // how much map the square shows, in minimap pixels
+  const span = overworld ? 344 : 136;
+  const scale = size / span;
+  const px = (game.player.x / TILE / step) - span / 2;
+  const py = (game.player.y / TILE / step) - span / 2;
 
-  g.save();
-  g.fillStyle = 'rgba(12,10,18,0.9)';
-  g.fillRect(x - 3, y - 3, size + 6, size + 6);
-  g.beginPath();
-  g.rect(x, y, size, size);
-  g.clip();
+  g.setTransform(1, 0, 0, 1, 0, 0);
   g.imageSmoothingEnabled = false;
-  g.drawImage(mini, px, py, srcW, srcH, x, y, size, size);
+  g.fillStyle = PAL.ink;
+  g.fillRect(0, 0, size, size);
+  g.drawImage(mini, px, py, span, span, 0, 0, size, size);
 
   const toMini = (wx: number, wy: number): [number, number] => [
-    x + ((wx / TILE / step) - px) * scale,
-    y + ((wy / TILE / step) - py) * scale,
+    Math.round(((wx / TILE / step) - px) * scale),
+    Math.round(((wy / TILE / step) - py) * scale),
   ];
+  const dot = (x: number, y: number, r: number, color: string) => {
+    g.fillStyle = PAL.void;
+    g.fillRect(x - r * m - m, y - r * m - m, (r * 2 + 2) * m, (r * 2 + 2) * m);
+    g.fillStyle = color;
+    g.fillRect(x - r * m, y - r * m, r * 2 * m, r * 2 * m);
+  };
 
-  if (map.id === 'overworld') {
+  if (overworld) {
     for (const loc of LOCATIONS) {
       if (!game.player.discovered.has(loc.id)) continue;
       const [mx, my] = toMini(loc.tx * TILE, loc.ty * TILE);
-      if (mx < x || mx > x + size || my < y || my > y + size) continue;
-      g.fillStyle = loc.kind === 'town' || loc.kind === 'village' ? '#f6bf5d' : loc.kind === 'dungeon' || loc.kind === 'cave' ? '#f45b5b' : '#8fd0f0';
-      g.fillRect(mx - 2, my - 2, 4, 4);
+      if (mx < 0 || mx > size || my < 0 || my > size) continue;
+      dot(mx, my, 1, loc.kind === 'town' || loc.kind === 'village' ? PAL.flameLit : loc.kind === 'dungeon' || loc.kind === 'cave' ? PAL.ember : PAL.frost);
     }
   }
   for (const n of game.npcs) {
     const [mx, my] = toMini(n.x, n.y);
-    g.fillStyle = '#6fbf5a';
-    g.fillRect(mx - 1, my - 1, 2, 2);
+    g.fillStyle = PAL.toxic;
+    g.fillRect(mx - m, my - m, m * 2, m * 2);
   }
   for (const e of game.enemies) {
     if (e.friendly) continue;
     const [mx, my] = toMini(e.x, e.y);
-    g.fillStyle = e.isBoss ? '#f45b5b' : e.elite ? '#f0a93c' : '#c9605a';
-    g.fillRect(mx - 1.5, my - 1.5, 3, 3);
+    if (e.isBoss) dot(mx, my, 2, PAL.ember);
+    else {
+      g.fillStyle = e.elite ? PAL.flame : PAL.blood;
+      g.fillRect(mx - m, my - m, m * 2, m * 2);
+    }
   }
   for (const c of game.chests) {
     if (c.opened) continue;
     const [mx, my] = toMini(c.x, c.y);
-    g.fillStyle = '#d9a441';
-    g.fillRect(mx - 1, my - 1, 2, 2);
+    g.fillStyle = PAL.gold;
+    g.fillRect(mx - m, my - m, m * 2, m * 2);
   }
   const tracked = game.trackedTarget();
-  if (tracked && map.id === 'overworld') {
+  if (tracked && overworld) {
     const [mx, my] = toMini(tracked.x, tracked.y);
-    const pulse = 3 + Math.sin(game.now * 5) * 1.4;
-    g.strokeStyle = '#f0c93c';
-    g.lineWidth = 1.5;
-    g.beginPath();
-    g.arc(mx, my, pulse + 2, 0, Math.PI * 2);
-    g.stroke();
-    g.fillStyle = '#f0c93c';
-    g.fillRect(mx - 1.5, my - 1.5, 3, 3);
+    // a hollow square that blinks, not a soft pulsing ring
+    if (Math.sin(game.now * 6) > -0.3) {
+      g.fillStyle = PAL.goldLit;
+      const r = 3 * m;
+      g.fillRect(mx - r, my - r, r * 2, m);
+      g.fillRect(mx - r, my + r - m, r * 2, m);
+      g.fillRect(mx - r, my - r, m, r * 2);
+      g.fillRect(mx + r - m, my - r, m, r * 2);
+    }
   }
-
-  const [pxs, pys] = toMini(game.player.x, game.player.y);
-  g.fillStyle = '#fdf8ef';
-  g.beginPath();
-  g.arc(pxs, pys, 3, 0, Math.PI * 2);
-  g.fill();
-  g.restore();
-
-  g.save();
-  g.strokeStyle = 'rgba(232,194,122,0.55)';
-  g.lineWidth = 2;
-  g.strokeRect(x - 2.5, y - 2.5, size + 5, size + 5);
-  g.font = 'bold 10px "Trebuchet MS", sans-serif';
-  const coords = game.worldCoords();
-  const coordLabel = `${coords.isDoor ? 'Door ' : ''}${coords.x}, ${coords.y}`;
-  const infoText = `${map.name}  ·  ${game.timeLabel}  ·  ${coordLabel}`;
-  // size the info bar to its text (coordinates can run longer than "Day N"
-  // did) and right-align it to the minimap's own right edge so it never
-  // clips off the side of a narrow canvas.
-  const textW = g.measureText(infoText).width;
-  const boxW = Math.max(size + 6, textW + 14);
-  const boxX = x + size + 3 - boxW;
-  g.fillStyle = 'rgba(12,10,18,0.9)';
-  g.fillRect(boxX, y + size + 3, boxW, 16);
-  g.fillStyle = PAL.cloth;
-  g.fillText(infoText, boxX + 7, y + size + 15);
-  g.restore();
+  // the player: a white cross with a void edge
+  const [cx, cy] = toMini(game.player.x, game.player.y);
+  g.fillStyle = PAL.void;
+  g.fillRect(cx - 2 * m, cy - m, 4 * m + m, 3 * m);
+  g.fillRect(cx - m, cy - 2 * m, 3 * m, 4 * m + m);
+  g.fillStyle = PAL.white;
+  g.fillRect(cx - m, cy, 3 * m, m);
+  g.fillRect(cx, cy - m, m, 3 * m);
 }
 
 function drawDebug(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {

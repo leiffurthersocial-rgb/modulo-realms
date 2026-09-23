@@ -74,22 +74,22 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
   return (
     <div className="creation">
       <div className="creation-preview">
-        <div style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.18em', color: 'var(--gold)', fontSize: 13, textTransform: 'uppercase', marginBottom: 18 }}>
+        <div style={{ color: 'var(--gold)', textTransform: 'uppercase', marginBottom: 9 }}>
           Your Character
         </div>
-        <SpritePreview look={look} scale={5} />
-        <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 21 }}>{finalName}</div>
-          <div style={{ color: 'var(--muted)', fontSize: 12.5, marginTop: 3 }}>
+        <SpritePreview look={look} scale={3} />
+        <div style={{ textAlign: 'center', marginTop: 8 }}>
+          <div>{finalName}</div>
+          <div style={{ color: 'var(--muted)', marginTop: 2 }}>
             {raceDef.name} · {classDef.name}
           </div>
         </div>
-        <div style={{ width: '100%', marginTop: 20 }}>
+        <div style={{ width: '100%', marginTop: 10 }}>
           {totals.map(([k, v]) => (
             <div className="kv" key={k}><span className="k">{k}</span><span>{v}</span></div>
           ))}
         </div>
-        <div className="perk" style={{ marginTop: 16, textAlign: 'center' }}>{raceDef.perk}</div>
+        <div className="perk" style={{ marginTop: 8, textAlign: 'center' }}>{raceDef.perk}</div>
       </div>
 
       <div className="creation-body">
@@ -135,9 +135,9 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
           </p>
 
           <div className="field-label">Appearance</div>
-          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 7 }}>Skin</div>
+              <div style={{ color: 'var(--muted)', marginBottom: 4 }}>Skin</div>
               <div className="swatch-row">
                 {raceDef.look.skins.map((c, i) => (
                   <button key={c} className={`swatch ${i === skinIndex ? 'active' : ''}`} style={{ background: c }} onClick={() => setSkin(i)} />
@@ -145,7 +145,7 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 7 }}>Hair colour</div>
+              <div style={{ color: 'var(--muted)', marginBottom: 4 }}>Hair colour</div>
               <div className="swatch-row">
                 {raceDef.look.hairs.map((c, i) => (
                   <button key={c} className={`swatch ${i === hairIndex ? 'active' : ''}`} style={{ background: c }} onClick={() => setHair(i)} />
@@ -153,16 +153,16 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
               </div>
             </div>
           </div>
-          <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 7 }}>Hair style</div>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ color: 'var(--muted)', marginBottom: 4 }}>Hair style</div>
             <div className="chip-row">
               {HAIR_STYLES.map((h) => (
                 <button key={h} className={`chip ${h === hairStyle ? 'active' : ''}`} onClick={() => setHairStyle(h)}>{h}</button>
               ))}
             </div>
           </div>
-          <div style={{ marginTop: 14, marginBottom: 8 }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 7 }}>Facial hair</div>
+          <div style={{ marginTop: 7, marginBottom: 4 }}>
+            <div style={{ color: 'var(--muted)', marginBottom: 4 }}>Facial hair</div>
             <div className="chip-row">
               {BEARDS.map((b) => (
                 <button key={b} className={`chip ${b === beard ? 'active' : ''}`} onClick={() => setBeard(b)}>{b}</button>
@@ -173,7 +173,7 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
 
         <div className="creation-foot">
           <button className="btn" onClick={onBack}>Back</button>
-          <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+          <div style={{ color: 'var(--muted)' }}>
             Your race and class change dialogue, prices and which quests open to you.
           </div>
           <button

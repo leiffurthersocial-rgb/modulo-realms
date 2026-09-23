@@ -13,6 +13,7 @@ import type { Look } from '../game/art/characters';
 import { rarityColor } from './ItemCard';
 import { getIconUrl } from '../game/art/icons';
 import SpritePreview from './SpritePreview';
+import { Modal } from './kit';
 
 /**
  * The debug menu, reachable only by a character named "debug".
@@ -44,18 +45,10 @@ export default function DebugPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState<Tab>('Items');
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(1040px, 97vw)', height: 'min(720px, 94vh)' }}>
-        <div className="panel-title">
-          <span>Debug</span>
-          <span className="sub">
-            {p.name} &middot; level {p.level} {p.classDef.name} &middot; {p.gold.toLocaleString()} gold
-            {game.godMode ? ' · GOD MODE' : ''}
-          </span>
-          <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
-        </div>
+    <Modal title="Debug" sub={<>{p.name} &middot; level {p.level} {p.classDef.name} &middot; {p.gold.toLocaleString()} gold
+            {game.godMode ? ' · GOD MODE' : ''}</>} size="xl" tall onClose={() => game.closeAll()}>
 
-        <div style={{ display: 'flex', gap: 6, padding: '10px 14px 0' }}>
+        <div style={{ display: 'flex', gap: 3, padding: '5px 7px 0' }}>
           {TABS.map((t) => (
             <button key={t} className={`filter-chip ${t === tab ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>
           ))}
@@ -66,8 +59,7 @@ export default function DebugPanel({ game }: { game: Game }) {
         {tab === 'Build' ? <BuildTab game={game} /> : null}
         {tab === 'Spawn' ? <SpawnTab game={game} /> : null}
         {tab === 'World' ? <WorldTab game={game} /> : null}
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -97,11 +89,11 @@ function ItemsTab({ game }: { game: Game }) {
   const give = (t: ItemTemplate) => game.debugGive(t.id, { level, rarity: rolled, qty });
 
   return (
-    <div className="inv-col" style={{ flex: 1, minHeight: 0, gap: 10 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="inv-col" style={{ flex: 1, minHeight: 0, gap: 5 }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           className="name-input"
-          style={{ flex: 1, minWidth: 180, margin: 0 }}
+          style={{ flex: 1, minWidth: 90, margin: 0 }}
           placeholder="Search every item by name or id..."
           value={q}
           autoFocus
@@ -113,14 +105,14 @@ function ItemsTab({ game }: { game: Game }) {
         <Num label="Qty" value={qty} min={1} max={99} onChange={setQty} />
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         {TYPES.map((t) => (
           <button key={t.id} className={`filter-chip ${t.id === type ? 'active' : ''}`} onClick={() => setType(t.id)}>{t.label}</button>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, color: 'var(--muted)', marginRight: 2 }}>Rarity</span>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ color: 'var(--muted)', marginRight: 1 }}>Rarity</span>
         {RARITIES.map((r) => (
           <button
             key={r}
@@ -134,8 +126,8 @@ function ItemsTab({ game }: { game: Game }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{shown.length} shown</span>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ color: 'var(--muted)' }}>{shown.length} shown</span>
         <button
           className="btn small"
           onClick={() => game.debugGiveAll((t) => shown.some((s) => s.id === t.id), level, rolled)}
@@ -163,7 +155,7 @@ function ItemsTab({ game }: { game: Game }) {
                 {t.id} &middot; {t.type}{t.slot ? ` · ${t.slot}` : ''} &middot; written at level {t.level}
               </div>
             </div>
-            <span style={{ display: 'flex', gap: 6 }}>
+            <span style={{ display: 'flex', gap: 3 }}>
               {t.slot ? (
                 <button className="btn small" onClick={() => game.debugEquip(t.id, { level, rarity: rolled })}>Equip</button>
               ) : null}
@@ -172,7 +164,7 @@ function ItemsTab({ game }: { game: Game }) {
           </div>
         ))}
         {shown.length === 0 ? (
-          <div style={{ padding: 16, color: 'var(--muted)', fontSize: 12.5 }}>Nothing matches that.</div>
+          <div style={{ padding: 8, color: 'var(--muted)' }}>Nothing matches that.</div>
         ) : null}
       </div>
     </div>
@@ -194,34 +186,34 @@ function CharacterTab({ game }: { game: Game }) {
   const jump = (n: number) => { setLevel(n); game.debugSetLevel(n); };
 
   return (
-    <div className="inv-col scroll" style={{ flex: 1, overflowY: 'auto', gap: 4 }}>
+    <div className="inv-col scroll" style={{ flex: 1, overflowY: 'auto', gap: 2 }}>
       <div className="section-h">Level &mdash; currently {p.level}</div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           type="range"
           min={1}
           max={MAX_LEVEL}
           value={level}
-          style={{ flex: 1, minWidth: 220 }}
+          style={{ flex: 1, minWidth: 110 }}
           onChange={(e) => setLevel(Number(e.target.value))}
         />
         <Num label="" value={level} min={1} max={MAX_LEVEL} onChange={setLevel} />
         <button className="btn small primary" onClick={() => game.debugSetLevel(level)}>Set level</button>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 3 }}>
         {[1, 5, 10, 20, 30, 40, 50, 60, 75].map((n) => (
           <button key={n} className="filter-chip" onClick={() => jump(n)}>{n}</button>
         ))}
         <button className="filter-chip" onClick={() => jump(Math.min(MAX_LEVEL, p.level + 1))}>+1</button>
         <button className="filter-chip" onClick={() => jump(Math.min(MAX_LEVEL, p.level + 10))}>+10</button>
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.7 }}>
+      <div style={{ color: 'var(--muted)', marginTop: 4 }}>
         Skill points are re-derived from the level, so going down and back up does not leave spares behind.
         Points already spent stay spent &mdash; {spent} so far.
       </div>
 
       <div className="section-h">Purse and points</div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <Num
           label="Gold"
           value={p.gold}
@@ -234,7 +226,7 @@ function CharacterTab({ game }: { game: Game }) {
           <button key={n} className="filter-chip" onClick={() => { p.gold += n; game.touch(); }}>+{n.toLocaleString()}</button>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
         <Num
           label="Skill points"
           value={p.skillPoints}
@@ -252,7 +244,7 @@ function CharacterTab({ game }: { game: Game }) {
       </div>
 
       <div className="section-h">In the fight</div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         <button
           className={`btn small ${game.godMode ? 'primary' : ''}`}
           onClick={() => { game.godMode = !game.godMode; game.toast('Debug', `God mode ${game.godMode ? 'on' : 'off'}.`, '#9578e8'); game.touch(); }}
@@ -282,20 +274,20 @@ function CharacterTab({ game }: { game: Game }) {
           Overlay: {game.debug ? 'on' : 'off'}
         </button>
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, lineHeight: 1.7 }}>
+      <div style={{ color: 'var(--muted)', marginTop: 4 }}>
         Full restore also clears every cooldown and stands you back up if you are dead. One-shot deliberately
         does not pierce a boss&apos;s immune phase, so it cannot hide the bug it was meant to find.
       </div>
 
       <div className="section-h">Name</div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           className="name-input"
-          style={{ margin: 0, maxWidth: 260 }}
+          style={{ margin: 0, maxWidth: 130 }}
           value={p.name}
           onChange={(e) => { p.name = e.target.value; game.touch(); }}
         />
-        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+        <span style={{ color: 'var(--muted)' }}>
           {game.isDebug ? 'Still named "debug", so this menu stays.' : 'Not "debug" any more — this menu goes when you close it.'}
         </span>
       </div>
@@ -317,11 +309,11 @@ function BuildTab({ game }: { game: Game }) {
   const totalNodes = p.classDef.skills.reduce((n, s) => n + s.max, 0);
 
   return (
-    <div className="inv-col scroll" style={{ flex: 1, overflowY: 'auto', gap: 4 }}>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+    <div className="inv-col scroll" style={{ flex: 1, overflowY: 'auto', gap: 2 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="section-h">Class &mdash; {p.classDef.name}</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
             {CLASSES.map((c) => (
               <button
                 key={c.id}
@@ -336,7 +328,7 @@ function BuildTab({ game }: { game: Game }) {
           </div>
 
           <div className="section-h">Race &mdash; {p.raceDef.name}</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
             {RACES.map((r) => (
               <button
                 key={r.id}
@@ -348,7 +340,7 @@ function BuildTab({ game }: { game: Game }) {
               </button>
             ))}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.7 }}>
+          <div style={{ color: 'var(--muted)', marginTop: 3 }}>
             {p.raceDef.perk}
           </div>
 
@@ -385,18 +377,18 @@ function BuildTab({ game }: { game: Game }) {
           </Row>
         </div>
 
-        <div style={{ paddingTop: 22 }}>
-          <SpritePreview look={p.look()} scale={4} />
+        <div style={{ paddingTop: 11 }}>
+          <SpritePreview look={p.look()} scale={2} />
         </div>
       </div>
 
       <div className="section-h">Talents &mdash; {spent} of {totalNodes} points in, {p.skillPoints} spare</div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         <button className="btn small primary" onClick={() => game.debugMaxSkills()}>Max the whole tree</button>
         <button className="btn small" onClick={() => game.debugClearSkills()}>Clear and refund</button>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-        <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>Max one branch</span>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
+        <span style={{ color: 'var(--muted)', alignSelf: 'center' }}>Max one branch</span>
         {branches.map((b) => (
           <button key={b} className="filter-chip" onClick={() => game.debugMaxBranch(b)}>{b}</button>
         ))}
@@ -404,7 +396,7 @@ function BuildTab({ game }: { game: Game }) {
       </div>
 
       <div className="section-h">Standing</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 4 }}>
         {[100, 50, 0, -50, -100].map((v) => (
           <button key={v} className="filter-chip" onClick={() => game.debugSetRep('all', v)}>All to {v}</button>
         ))}
@@ -412,17 +404,17 @@ function BuildTab({ game }: { game: Game }) {
       {FACTIONS.map((f) => {
         const v = p.rep(f.id);
         return (
-          <div key={f.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 5 }}>
-            <span style={{ fontSize: 11.5, width: 130, color: 'var(--muted)' }}>{f.name}</span>
+          <div key={f.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 2 }}>
+            <span style={{ width: 65, color: 'var(--muted)' }}>{f.name}</span>
             <input
               type="range"
               min={-100}
               max={100}
               value={v}
-              style={{ flex: 1, maxWidth: 320 }}
+              style={{ flex: 1, maxWidth: 160 }}
               onChange={(e) => game.debugSetRep(f.id, Number(e.target.value))}
             />
-            <span style={{ fontSize: 11.5, width: 120 }}>{v} &middot; {repTier(v).label}</span>
+            <span style={{ width: 60 }}>{v} &middot; {repTier(v).label}</span>
           </div>
         );
       })}
@@ -447,18 +439,18 @@ function SpawnTab({ game }: { game: Game }) {
   const held = p.equipment[slot];
 
   return (
-    <div className="inv-col" style={{ flex: 1, minHeight: 0, gap: 8 }}>
+    <div className="inv-col" style={{ flex: 1, minHeight: 0, gap: 4 }}>
       <div className="section-h">Enchant what you are wearing</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
         {EQUIP_SLOT_ORDER.map((s) => (
           <button key={s} className={`filter-chip ${s === slot ? 'active' : ''}`} onClick={() => setSlot(s)}>{SLOT_LABEL[s]}</button>
         ))}
-        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+        <span style={{ color: 'var(--muted)' }}>
           {held ? `${held.name} · ${held.enchants.length}/${held.enchantSlots}` : 'nothing in that slot'}
         </span>
       </div>
       {held ? (
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           {ENCHANTS.map((en) => {
             const at = held.enchants.find((e) => e.id === en.id)?.level ?? 0;
             return (
@@ -476,10 +468,10 @@ function SpawnTab({ game }: { game: Game }) {
       ) : null}
 
       <div className="section-h">Put something on the ground</div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           className="name-input"
-          style={{ flex: 1, minWidth: 160, margin: 0 }}
+          style={{ flex: 1, minWidth: 80, margin: 0 }}
           placeholder="Search the bestiary..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -489,7 +481,7 @@ function SpawnTab({ game }: { game: Game }) {
         <Num label="Count" value={count} min={1} max={20} onChange={setCount} />
         <button className={`filter-chip ${elite ? 'active' : ''}`} onClick={() => setElite(!elite)}>Elite</button>
       </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         <button className="btn small" onClick={() => game.debugKillNearby()}>Kill everything nearby</button>
         <button
           className={`btn small ${game.oneShot ? 'primary' : ''}`}
@@ -497,7 +489,7 @@ function SpawnTab({ game }: { game: Game }) {
         >
           One-shot: {game.oneShot ? 'on' : 'off'}
         </button>
-        <span style={{ fontSize: 11.5, color: 'var(--muted)', alignSelf: 'center' }}>
+        <span style={{ color: 'var(--muted)', alignSelf: 'center' }}>
           {game.enemies.filter((e) => !e.dead && !e.friendly).length} alive on this map
         </span>
       </div>
@@ -536,10 +528,10 @@ function WorldTab({ game }: { game: Game }) {
   const places = LOCATIONS.filter((l) => !needle || l.name.toLowerCase().includes(needle));
 
   return (
-    <div className="inv-col" style={{ flex: 1, minHeight: 0, gap: 4 }}>
+    <div className="inv-col" style={{ flex: 1, minHeight: 0, gap: 2 }}>
       <div className="section-h">Time</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Day {game.day} &middot; {game.timeLabel}</span>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ color: 'var(--muted)' }}>Day {game.day} &middot; {game.timeLabel}</span>
         <button className="filter-chip" onClick={() => game.debugSetHour(6)}>Dawn</button>
         <button className="filter-chip" onClick={() => game.debugSetHour(12)}>Noon</button>
         <button className="filter-chip" onClick={() => game.debugSetHour(19)}>Dusk</button>
@@ -548,7 +540,7 @@ function WorldTab({ game }: { game: Game }) {
       </div>
 
       <div className="section-h">Speed</div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
         {[0.25, 0.5, 1, 2, 4].map((s) => (
           <button
             key={s}
@@ -568,16 +560,16 @@ function WorldTab({ game }: { game: Game }) {
       </div>
 
       <div className="section-h">The map</div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         <button className="btn small" onClick={() => game.debugRevealWorld()}>Attune every waystone</button>
         <button className="btn small" onClick={() => game.setPanel('travel')}>Open travel</button>
-        <span style={{ fontSize: 11.5, color: 'var(--muted)', alignSelf: 'center' }}>
+        <span style={{ color: 'var(--muted)', alignSelf: 'center' }}>
           {p.waystones.size} attuned &middot; {p.discovered.size} found &middot; {p.bossesKilled.size} bosses down
         </span>
       </div>
 
       <div className="section-h">Progress</div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         <button className="btn small" onClick={() => game.debugCompleteQuests()}>
           Complete every quest ({game.quests.completed.length}/{QUESTS.length})
         </button>
@@ -587,7 +579,7 @@ function WorldTab({ game }: { game: Game }) {
           Open the crown&apos;s ledger
         </button>
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.7 }}>
+      <div style={{ color: 'var(--muted)', marginTop: 3 }}>
         The crown pays one warrant per boss felled, so marking them all also gives you {ALL_ENEMIES.filter((e) => e.boss).length} warrants
         to spend at the anvil.
       </div>
@@ -600,7 +592,7 @@ function WorldTab({ game }: { game: Game }) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
-      <div className="shop-list scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginTop: 8 }}>
+      <div className="shop-list scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginTop: 4 }}>
         {places.map((l) => (
           <div className="shop-row" key={l.id}>
             <div className="sr-name">
@@ -641,7 +633,7 @@ function Num({ label, value, min, max, step = 1, onChange }: {
   label: string; value: number; min: number; max: number; step?: number; onChange: (n: number) => void;
 }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--muted)' }}>
+    <label style={{ display: 'flex', alignItems: 'center', gap: 2, color: 'var(--muted)' }}>
       {label}
       <input
         type="number"
@@ -650,11 +642,7 @@ function Num({ label, value, min, max, step = 1, onChange }: {
         max={max}
         step={step}
         onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || 0)))}
-        style={{
-          width: 84, padding: '5px 7px', fontSize: 12, fontFamily: 'inherit',
-          background: 'var(--panel-3)', color: 'var(--parchment)',
-          border: '1px solid var(--edge)', borderRadius: 2,
-        }}
+        style={{ width: 42, padding: '2px 4px', background: 'var(--panel-3)', color: 'var(--parchment)', border: '1px solid var(--edge)' }}
       />
     </label>
   );

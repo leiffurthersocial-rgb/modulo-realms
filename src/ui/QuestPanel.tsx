@@ -6,6 +6,7 @@ import { LOCATION_BY_ID } from '../data/locations';
 import { FACTION_BY_ID } from '../data/races';
 import { getIconUrl } from '../game/art/icons';
 import { TEMPLATE_BY_ID } from '../data/items';
+import { Badge, Icon, Modal } from './kit';
 
 export default function QuestPanel({ game }: { game: Game }) {
   const p = game.player;
@@ -18,13 +19,7 @@ export default function QuestPanel({ game }: { game: Game }) {
   const sel = QUEST_BY_ID[selId ?? ''] ?? list[0];
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(920px, 95vw)', height: 'min(640px, 92vh)' }}>
-        <div className="panel-title">
-          <span>Adventures &amp; rewards</span>
-          <span className="sub">{active.length} active · {done.length} completed</span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
-        </div>
+    <Modal title={<>Adventures &amp; rewards</>} sub={<>{active.length} active · {done.length} completed</>} size="l" tall onClose={() => game.closeAll()}>
         {game.inAegean && game.campaign.state.receipts?.length ? <details className="reward-history"><summary>Recent rewards · see exactly what you earned</summary>
           {game.campaign.state.receipts.map((receipt, i) => <div key={i}><strong>{receipt.title}</strong>{receipt.lines.map((line, n) => <div key={n}>{line}</div>)}</div>)}
         </details> : null}
@@ -35,9 +30,9 @@ export default function QuestPanel({ game }: { game: Game }) {
         </div>
 
         <div className="quest-layout">
-          <div className="scroll" style={{ borderRight: '1px solid var(--edge)', overflowY: 'auto' }}>
+          <div className="quest-list scroll">
             {list.length === 0 ? (
-              <div style={{ padding: 18, color: 'var(--muted)', fontSize: 12.5 }}>
+              <div style={{ padding: 9, color: 'var(--muted)' }}>
                 {tab === 'active' ? 'No active quests. Ask around Ashvale.' : tab === 'done' ? 'Nothing finished yet.' : 'No new work available at your level.'}
               </div>
             ) : null}
@@ -48,42 +43,41 @@ export default function QuestPanel({ game }: { game: Game }) {
                 <button
                   key={q.id}
                   className={`quest-item ${sel?.id === q.id ? 'active' : ''} ${tab === 'done' ? 'done' : ''}`}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid rgba(74,59,82,0.5)', cursor: 'pointer' }}
                   onClick={() => setSel(q.id)}
                 >
                   <div className="qi-name">
                     {q.name}
-                    {q.main ? <span className="main-tag">MAIN</span> : null}
-                    {complete ? <span className="main-tag" style={{ background: 'var(--uncommon)' }}>READY</span> : null}
+                    {q.main ? <Badge className="main-tag">Main</Badge> : null}
+                    {complete ? <Badge className="main-tag" tone="ember">Ready</Badge> : null}
                   </div>
                   <div className="qi-meta">
                     Level {q.level} · {q.fieldAdventure ? 'Found in the world' : NPC_BY_ID[q.giver]?.name ?? 'Unknown'}
-                    {game.trackedQuest === q.id ? <span className="tracking-tag">TRACKED</span> : null}
+                    {game.trackedQuest === q.id ? <Badge className="tracking-tag" tone="iron">Tracked</Badge> : null}
                   </div>
                 </button>
               );
             })}
           </div>
 
-          <div className="inv-col scroll" style={{ overflowY: 'auto' }}>
+          <div className="journal-page frame-parchment scroll">
             {sel ? (
               <>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, color: 'var(--gold)' }}>{sel.name}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
+                <div className="q-title">{sel.name}</div>
+                <div style={{ color: 'var(--muted)', marginTop: 2 }}>
                   Level {sel.level} · {sel.fieldAdventure ? 'Found in the world' : `Given by ${NPC_BY_ID[sel.giver]?.name ?? '—'}`}
                   {sel.marker && LOCATION_BY_ID[sel.marker] ? ` · ${LOCATION_BY_ID[sel.marker].name}` : ''}
                 </div>
                 {game.quests.isActive(sel.id) ? (
                   <button
                     className={`btn small ${game.trackedQuest === sel.id ? 'primary' : ''}`}
-                    style={{ marginTop: 10 }}
+                    style={{ marginTop: 5 }}
                     onClick={() => game.trackQuest(sel.id)}
                   >
                     {game.trackedQuest === sel.id ? 'Tracking — click to stop' : 'Track this quest'}
                   </button>
                 ) : null}
-                <p style={{ fontSize: 13, lineHeight: 1.65, color: '#ded5ca', marginTop: 12 }}>{sel.summary}</p>
-                {sel.detail !== sel.summary ? <details><summary>Story &amp; hints</summary><div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--muted)' }}>{sel.detail}</div></details> : null}
+                <p className="help-p" style={{ marginTop: 6 }}>{sel.summary}</p>
+                {sel.detail !== sel.summary ? <details><summary>Story &amp; hints</summary><div style={{ color: 'var(--muted)' }}>{sel.detail}</div></details> : null}
 
                 <div className="section-h">Objectives</div>
                 <div className="obj-list">
@@ -104,7 +98,7 @@ export default function QuestPanel({ game }: { game: Game }) {
                 <div className="section-h">Rewards</div>
                 <div className="reward-row">
                   <span className="reward-pill">{sel.rewards.xp} XP</span>
-                  <span className="reward-pill"><img src={getIconUrl('gold')} alt="" />{sel.rewards.gold}</span>
+                  <span className="reward-pill"><Icon name="coin" />{sel.rewards.gold}</span>
                   {/* A quest can list the same item twice — two health draughts is a
                       perfectly ordinary reward — so the index is the key, not the id. */}
                   {(sel.rewards.items ?? []).map((id, i) => {
@@ -128,17 +122,16 @@ export default function QuestPanel({ game }: { game: Game }) {
                 </div>
 
                 {tab === 'rumours' ? (
-                  <div style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)' }}>
+                  <div style={{ marginTop: 8, color: 'var(--muted)' }}>
                     {sel.fieldAdventure ? 'Explore this place to begin. Rewards are paid when the work is done.' : <>Speak to {NPC_BY_ID[sel.giver]?.name ?? 'the giver'} to take this on.</>}
                   </div>
                 ) : null}
               </>
             ) : (
-              <div style={{ color: 'var(--muted)', fontSize: 12.5 }}>Select a quest.</div>
+              <div style={{ color: 'var(--muted)' }}>Select a quest.</div>
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

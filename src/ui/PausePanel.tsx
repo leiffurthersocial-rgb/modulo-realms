@@ -1,58 +1,65 @@
 import type { Game } from '../game/core/game';
 import { deleteSave, saveGame } from '../game/save/save';
+import { PAL } from '../game/art/palette';
+import { uiSpriteUrl } from '../game/art/uiArt';
+import { ConfirmButton, Modal } from './kit';
 
+/**
+ * The pause board: the crest and who you are on the left, where to go on the
+ * right, and the two ways out of the game set apart underneath — the
+ * destructive one needs a second press.
+ *
+ * The debug menu is a development tool: its button only exists in a dev build
+ * (and still only for a character called "debug").
+ */
 export default function PausePanel({ game, onSettings }: { game: Game; onSettings: () => void }) {
-  const coords = game.worldCoords();
+  const p = game.player;
+  const showDebug = import.meta.env.DEV && game.isDebug;
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 380 }}>
-        <div className="panel-title">
-          <span>Paused</span>
-          <button className="close-x" onClick={() => game.closeAll()}>×</button>
+    <Modal title="Paused" size="m" onClose={() => game.closeAll()} className="pause-board">
+      <div className="pause-layout">
+        <div className="pause-crest">
+          <img src={uiSpriteUrl('crest')} alt="" draggable={false} />
+          <div className="pc-name">{p.name}</div>
+          <div className="pc-line">Level {p.level} {p.classDef.name}</div>
+          <div className="pc-line muted">{game.map.name}</div>
+          <div className="pc-line muted">{game.timeLabel} · day {game.day}</div>
         </div>
-        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 9 }}>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.6 }}>
-            {game.player.name} · Level {game.player.level} {game.player.classDef.name}<br />
-            {game.map.name} · {game.timeLabel} · {coords.isDoor ? 'Door ' : ''}{coords.x}, {coords.y}
-          </div>
-          <button className="btn primary" onClick={() => game.closeAll()}>Resume</button>
-          {game.isDebug ? (
-            <button
-              className="btn"
-              style={{ borderColor: '#9578e8', color: '#c9b6ff' }}
-              onClick={() => game.setPanel('debug')}
-            >
-              Open debug menu
-            </button>
-          ) : null}
-          <button className="btn" onClick={() => { if(saveGame(game)) game.toast('Game saved', undefined, '#6fbf5a'); }}>Save game</button>
-          <button className="btn" onClick={() => game.setPanel('character')}>Character</button>
-          <button className="btn" onClick={() => game.setPanel('quests')}>Journal</button>
-          <button className="btn" onClick={() => game.setPanel('help')}>How to play</button>
-          <button className="btn" onClick={onSettings}>Settings</button>
+        <div className="pause-menu">
+          <button className="btn primary block" onClick={() => game.closeAll()}>Resume</button>
+          <button className="btn block" onClick={() => { if (saveGame(game)) game.toast('Game saved', undefined, PAL.toxic); }}>Save game</button>
+          <button className="btn block" onClick={() => game.setPanel('character')}>Character</button>
+          <button className="btn block" onClick={() => game.setPanel('quests')}>Journal</button>
+          <button className="btn block" onClick={() => game.setPanel('help')}>How to play</button>
+          <button className="btn block" onClick={onSettings}>Settings</button>
+          {showDebug ? <button className="btn iron block" onClick={() => game.setPanel('debug')}>Debug menu</button> : null}
+        </div>
+      </div>
+      <div className="pause-leave">
+        <div className="section-h">Leave the valley</div>
+        <div className="pl-row">
           <button
-            className="btn danger"
+            className="btn"
             onClick={() => {
-              if(!saveGame(game)) return;
+              if (!saveGame(game)) return;
               game.screen = 'title';
               game.closeAll();
             }}
           >
             Save &amp; quit to title
           </button>
-          <button
-            className="btn danger"
-            onClick={() => {
-              if (!window.confirm('Delete your save and return to the title screen? This cannot be undone.')) return;
+          <ConfirmButton
+            confirm="Delete for good? Press again"
+            onConfirm={() => {
               deleteSave();
               game.screen = 'title';
               game.closeAll();
             }}
           >
-            Abandon run (delete save)
-          </button>
+            Abandon run
+          </ConfirmButton>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -46,20 +46,20 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
   return (
     <div className={`item-card${item.rarity === 'primordial' ? ' primordial' : ''}`}>
       <div className="ic-head">
-        <span className="ic-icon" style={{ borderColor: color, boxShadow: `0 0 12px ${color}33, inset 0 0 10px #0009` }}>
+        <span className={`ic-icon${item.rarity === 'common' ? '' : ' rar'}`} style={{ ['--rar' as string]: color }}>
           <img src={itemIcon(item)} alt="" />
         </span>
         <div>
           <div
             className={`ic-name${radiant ? ` ${item.rarity}` : ''}`}
-            style={radiant ? undefined : { color, textShadow: item.rarity === 'common' ? 'none' : `0 0 14px ${color}55` }}
+            style={radiant ? undefined : { color }}
           >
             {item.name}
           </div>
           <div className="ic-meta">
             <span
               className={`rarity-pill${radiant ? ` ${item.rarity}` : ''}`}
-              style={{ color, borderColor: `${color}66`, background: `${color}14` }}
+              style={{ color }}
             >
               {RARITY_LABEL[item.rarity]}
             </span>
@@ -76,7 +76,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
 
       {GREEK_WEAPON_STYLES[item.defId] ? <div className="greek-weapon-style"><strong>{GREEK_WEAPON_STYLES[item.defId].label}</strong><span>{GREEK_WEAPON_STYLES[item.defId].rhythm}</span></div> : null}
       {signature ? (
-        <div className="ic-signature" style={{ borderColor: `${color}66` }}>
+        <div className="ic-signature" style={{ borderColor: color }}>
           <strong style={{ color }}>{signature.name}</strong>
           <span>{powerTrigger} · {signature.cooldown}s cooldown</span>
           {item.desc ? <p>{item.desc}</p> : null}
@@ -97,7 +97,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
                   <span className={`v ${cls}`}>
                     {formatStat(k, v)}
                     {compare && Math.abs(diff) >= 0.05 ? (
-                      <span style={{ marginLeft: 6, fontSize: 11 }}>
+                      <span style={{ marginLeft: 3 }}>
                         ({diff > 0 ? '+' : '-'}{formatStat(k, Math.abs(diff)).replace('+', '')})
                       </span>
                     ) : null}
@@ -142,7 +142,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
       {item.artifact && !signature ? (
         <>
           <div className="divider" />
-          <div className="ic-effect" style={{ borderLeftColor: 'var(--gold)' }}>
+          <div className="ic-effect" style={{ ['--eff' as string]: 'var(--gold)' }}>
             <strong style={{ color: 'var(--gold)' }}>{item.artifact.name}</strong>
             {' '}({item.slot === 'offHand' ? 'F' : 'R'}, {item.artifact.cooldown}s) — {item.artifact.desc}
           </div>
@@ -156,7 +156,7 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
             const e = EFFECT_BY_ID[id];
             if (!e) return null;
             return (
-              <div className="ic-effect" key={id} style={{ borderLeftColor: e.color }}>
+              <div className="ic-effect" key={id} style={{ ['--eff' as string]: e.color }}>
                 <strong style={{ color: e.color }}>{e.name}</strong> — {e.desc}
               </div>
             );
@@ -165,11 +165,11 @@ export default function ItemCard({ item, compare, actions, showValue }: Props) {
       ) : null}
 
       {item.consume ? (
-        <div className="ic-effect" style={{ borderLeftColor: '#5dbf5a' }}>{item.desc ?? 'Restorative.'}</div>
+        <div className="ic-effect" style={{ ['--eff' as string]: 'var(--good)' }}>{item.desc ?? 'Restorative.'}</div>
       ) : null}
 
       {item.classes ? (
-        <div style={{ fontSize: 11.5, color: 'var(--danger)' }}>
+        <div style={{ color: 'var(--danger)' }}>
           Requires: {item.classes.map((c) => c[0].toUpperCase() + c.slice(1)).join(' / ')}
         </div>
       ) : null}

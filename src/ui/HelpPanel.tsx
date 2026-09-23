@@ -3,6 +3,7 @@ import type { Game } from '../game/core/game';
 import { DEFAULT_BINDINGS } from '../game/core/input';
 import { RARITY_LABEL, RARITY_ORDER } from '../game/items/types';
 import { rarityColor } from './ItemCard';
+import { Modal } from './kit';
 
 type SectionId = 'basics' | 'combat' | 'gear' | 'world' | 'progress';
 
@@ -25,13 +26,7 @@ export default function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState<SectionId>('basics');
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(820px, 95vw)', height: 'min(640px, 92vh)' }}>
-        <div className="panel-title">
-          <span>How to Play</span>
-          <span className="sub">Everything the game will not stop to explain</span>
-          <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
-        </div>
+    <Modal title="How to Play" sub="Everything the game will not stop to explain" size="l" tall onClose={() => game.closeAll()}>
 
         <div className="help-layout">
           <div className="help-nav">
@@ -173,10 +168,10 @@ export default function HelpPanel({ game }: { game: Game }) {
               <>
                 <H>Rarity, at a glance</H>
                 <P>You never need to read a tooltip to know if something is good. The name colour tells you:</P>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, margin: '4px 0 14px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, margin: '2px 0 7px' }}>
                   {RARITY_ORDER.map((r) => (
-                    <span key={r} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5 }}>
-                      <i style={{ width: 10, height: 10, borderRadius: 2, background: rarityColor(r) }} />
+                    <span key={r} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <i style={{ width: 5, height: 5, background: rarityColor(r) }} />
                       <span style={{ color: rarityColor(r) }}>{RARITY_LABEL[r]}</span>
                     </span>
                   ))}
@@ -188,7 +183,7 @@ export default function HelpPanel({ game }: { game: Game }) {
                   more enchantment slots: none, one, one, two, three.
                 </P>
                 <P>
-                  <b style={{ color: '#ff4f6e' }}>Mythic</b> is not a tier loot can roll into, and not something the
+                  <b style={{ color: 'var(--r-mythic)' }}>Mythic</b> is not a tier loot can roll into, and not something the
                   crown&apos;s warrant can raise a thing to. A handful of weapons in the whole world wear it. You will
                   know. Above Mythic, Olympian relics come from the monsters and ruins of Achaea and hold four enchantments. Primordial is the strongest equipment tier, earned and forged only on Asterion, beyond the Three Hundred and the storm. It brings six enchantment slots, exceptional stats and signature arts that work on demand; skilled counters and interrupts empower them further. Neither tier appears in random loot. On Asterion, healing potions, elixirs and food share an 18-second recovery timer.
                 </P>
@@ -409,8 +404,7 @@ export default function HelpPanel({ game }: { game: Game }) {
             ) : null}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

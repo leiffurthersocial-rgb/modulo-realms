@@ -4,6 +4,7 @@ import { RACES, type RaceId } from '../data/races';
 import type { Look } from '../game/art/characters';
 import { repTier } from '../data/races';
 import SpritePreview from './SpritePreview';
+import { Modal } from './kit';
 
 const HAIR_STYLES: Array<Look['hairStyle']> = ['short', 'long', 'ponytail', 'braid', 'mohawk', 'wild', 'bald'];
 const BEARDS: Array<NonNullable<Look['beard']>> = ['none', 'stubble', 'full', 'long'];
@@ -59,27 +60,21 @@ export default function RemakePanel({ game }: { game: Game }) {
   };
 
   return (
-    <div className="modal-scrim" onClick={(e) => { if (e.target === e.currentTarget) game.closeAll(); }}>
-      <div className="modal panel" style={{ width: 'min(1000px, 96vw)', height: 'min(700px, 93vh)' }}>
-        <div className="panel-title">
-          <span>The Standing Water</span>
-          <span className="sub">{game.remakeCost.toLocaleString()} gold · you have {p.gold.toLocaleString()}</span>
-          <button className="close-x" onClick={() => game.closeAll()}>&times;</button>
-        </div>
+    <Modal title="The Standing Water" sub={<>{game.remakeCost.toLocaleString()} gold · you have {p.gold.toLocaleString()}</>} size="l" tall onClose={() => game.closeAll()}>
 
         <div className="remake-layout">
           <div className="remake-mirror">
             <div className="remake-side">
               <div className="rm-label">Now</div>
-              <SpritePreview look={p.look()} scale={4} />
+              <SpritePreview look={p.look()} scale={2} />
               <div className="rm-race">{current.name}</div>
               <div className="rm-stats">{statLine(current)}</div>
             </div>
             <div className="rm-arrow">&rarr;</div>
             <div className="remake-side">
-              <div className="rm-label" style={{ color: '#6fd0e8' }}>After</div>
-              <SpritePreview look={preview} scale={4} />
-              <div className="rm-race" style={{ color: '#6fd0e8' }}>{raceDef.name}</div>
+              <div className="rm-label" style={{ color: 'var(--c-frost)' }}>After</div>
+              <SpritePreview look={preview} scale={2} />
+              <div className="rm-race" style={{ color: 'var(--c-frost)' }}>{raceDef.name}</div>
               <div className="rm-stats">{statLine(raceDef)}</div>
             </div>
           </div>
@@ -142,7 +137,7 @@ export default function RemakePanel({ game }: { game: Game }) {
               {RACES.find((r) => r.id === race)!.name} bonuses replace the {current.name} ones, and your standing with
               the six factions is unchanged — though the people in them may look at you differently.
               {p.reputation ? (
-                <div style={{ marginTop: 8, color: 'var(--muted)' }}>
+                <div style={{ marginTop: 4, color: 'var(--muted)' }}>
                   Your reputation stays where it is: {repTier(p.rep('alliance')).label} with the Valley Alliance,
                   {' '}{repTier(p.rep('arcane')).label} with the Concord.
                 </div>
@@ -151,7 +146,7 @@ export default function RemakePanel({ game }: { game: Game }) {
           </div>
         </div>
 
-        <div className="inv-detail-actions" style={{ justifyContent: 'flex-end', gap: 10 }}>
+        <div className="inv-detail-actions" style={{ justifyContent: 'flex-end', gap: 5 }}>
           <button className="btn" onClick={() => game.closeAll()}>Not today</button>
           <button
             className="btn primary"
@@ -162,8 +157,7 @@ export default function RemakePanel({ game }: { game: Game }) {
             {unchanged ? 'Nothing would change' : `Go under · ${game.remakeCost.toLocaleString()}g`}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

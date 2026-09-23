@@ -1,5 +1,6 @@
 import { drawPhysicalAttack, type PhysicalAttackCue, type LivePhysicalCue } from './physical';
-import { withAlpha } from '../art/palette';
+import { PAL, withAlpha } from '../art/palette';
+import { pixelText, setFont } from '../art/uiCanvas';
 
 export interface Particle {
   x: number;
@@ -199,19 +200,24 @@ export class FxSystem {
     g.globalAlpha = 1;
   }
 
-  drawText(g: CanvasRenderingContext2D): void {
-    g.textAlign = 'center';
+  /**
+   * Floating numbers and words, in the UI's pixel font, drawn in screen space
+   * at the UI scale `k` so a damage number is the same crisp size at every
+   * camera zoom. Big numbers (crits, heals, level-ups) use the double size.
+   * They fade in three hard steps and rise on whole pixels.
+   */
+  drawText(g: CanvasRenderingContext2D, toScreen: (x: number, y: number) => [number, number], k: number): void {
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
     for (const t of this.texts) {
-      const a = Math.max(0, Math.min(1, t.life / 0.6));
+      const a = Math.ceil(Math.max(0, Math.min(1, t.life / 0.6)) * 3) / 3;
+      if (a <= 0) continue;
       g.globalAlpha = a;
-      g.font = `bold ${t.size}px "Trebuchet MS", system-ui, sans-serif`;
-      g.lineWidth = 3;
-      g.strokeStyle = 'rgba(8,6,12,0.9)';
-      g.strokeText(t.text, t.x, t.y);
-      g.fillStyle = t.color;
-      g.fillText(t.text, t.x, t.y);
+      const big = t.size >= 16;
+      setFont(g, k, big ? 20 : 10, false, true);
+      const [sx, sy] = toScreen(t.x, t.y);
+      pixelText(g, t.text, sx, sy, k, { color: t.color, outline: PAL.void, align: 'center' });
     }
-    g.globalAlpha = 1;
-    g.textAlign = 'left';
+    g.restore();
   }
 }

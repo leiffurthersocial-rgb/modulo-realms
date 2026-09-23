@@ -316,6 +316,8 @@ export interface StoredSettings {
   sfx: number;
   uiScale: number;
   showDamage: boolean;
+  showNumbers?: boolean;
+  reduceMotion?: boolean;
   batterySaver?: boolean;
   touchControls?: boolean;
 }

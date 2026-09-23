@@ -12,6 +12,7 @@ const checks = [
   "check-content",
   "check-npc-schedules",
   "check-casino",
+  "check-ui-style",
   "check-aegean-content",
   "check-island-integration",
   "check-endgame-reforge",

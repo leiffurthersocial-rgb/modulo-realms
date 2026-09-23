@@ -1,3 +1,4 @@
+import { arenaZoom, navalZoom, worldZoom } from './zoom';
 import { AegeanHazards } from '../aegean/hazards';
 import { AegeanWeaponCombat } from '../aegean/weapons';
 import { AegeanServices } from '../aegean/services';
@@ -217,6 +218,8 @@ export class Game implements WorldCtx {
   day = 1;
   paused = false;
   showMinimap = true;
+  /** The HUD's minimap canvas; the renderer draws into it while it is mounted. */
+  minimapCanvas: HTMLCanvasElement | null = null;
   debug = false;
   godMode = false;
   /** Debug: how fast the world runs. 1 is normal. */
@@ -282,6 +285,10 @@ export class Game implements WorldCtx {
     sfx: 0.65,
     uiScale: 1,
     showDamage: true,
+    /** Numbers on the vitals bars all the time, not only on hover. */
+    showNumbers: false,
+    /** Cut UI animation to the minimum, on top of the OS setting. */
+    reduceMotion: false,
     batterySaver: false,
     touchControls: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
   };
@@ -4888,12 +4895,15 @@ export class Game implements WorldCtx {
 
   private updateCamera(dt: number): void {
     const p = this.player;
-    const baseZoom=this.canvas.width>1700?2.5:this.canvas.width>1100?2:1.75;
+    const baseZoom=worldZoom(this.canvas.width,this.canvas.height);
     const royal=this.map.id==='aegean_leonidas'&&this.bossTarget&&!this.bossTarget.dead?this.bossTarget:null;
     const wide=royal||this.map.id==='aegean_army';
     const focus=this.cameraFocus;
-    const wantZoom=focus?focus.zoom:wide?Math.min(baseZoom,1.25):this.naval.aboard?Math.min(baseZoom,1.55):baseZoom;
+    const wantZoom=focus?focus.zoom:wide?arenaZoom(baseZoom):this.naval.aboard?navalZoom(baseZoom):baseZoom;
     this.camera.zoom=damp(this.camera.zoom,wantZoom,focus?5.5:4,dt);
+    // the damped approach never quite arrives; land on the whole number so
+    // the resting view is pixel-exact
+    if(Math.abs(this.camera.zoom-wantZoom)<0.01)this.camera.zoom=wantZoom;
     const halfW = this.canvas.width / 2 / this.camera.zoom;
     const halfH = this.canvas.height / 2 / this.camera.zoom;
     let tx = focus ? focus.x : p.x;

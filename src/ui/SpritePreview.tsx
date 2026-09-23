@@ -9,7 +9,7 @@ interface Props {
   className?: string;
 }
 
-/** Small animated character portrait used in creation, HUD and dialogue. */
+/** Small animated character portrait used in creation, HUD and dialogue. `scale` is a whole number of UI pixels. */
 export default function SpritePreview({ look, scale = 4, dir = 'down', anim = 'idle', className }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   // `look` is rebuilt on every render, so key the effect on its contents instead
@@ -20,8 +20,11 @@ export default function SpritePreview({ look, scale = 4, dir = 'down', anim = 'i
     const canvas = ref.current;
     if (!canvas) return;
     const sheet = getCharacterSheet(JSON.parse(lookKey) as Look);
-    canvas.width = sheet.fw * scale;
-    canvas.height = sheet.fh * scale;
+    // drawn at 1:1 and blown up by the stylesheet, a whole number of times
+    canvas.width = sheet.fw;
+    canvas.height = sheet.fh;
+    canvas.style.width = `${sheet.fw * scale}px`;
+    canvas.style.height = `${sheet.fh * scale}px`;
     const g = canvas.getContext('2d')!;
     g.imageSmoothingEnabled = false;
     let raf = 0;

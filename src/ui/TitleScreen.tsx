@@ -1,6 +1,8 @@
 import type { Game } from '../game/core/game';
 import { savePreview } from '../game/save/save';
 import TitleArt from './TitleArt';
+import { KeyCap } from './kit';
+import { uiSpriteUrl } from '../game/art/uiArt';
 
 interface Props {
   game: Game;
@@ -21,13 +23,11 @@ export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onS
       <div className="title-body">
         <div className="title-main">
           <div className="title-kicker">The valley remembers</div>
-          <h1>Modulo</h1>
-          <div className="title-rule">
-            <span className="tr-line" />
-            <span className="tr-gem" />
-            <span className="tr-line" />
-          </div>
-          <h2>Realms of Ash</h2>
+          <h1 className="title-logo" aria-label="Modulo">
+            <img src={uiSpriteUrl('logo')} alt="" draggable={false} />
+          </h1>
+          <div className="rule" />
+          <h2 className="title-sub">Realms of Ash</h2>
           <div className="title-tag">
             An open-world fantasy RPG in the Ashvale valley.
           </div>
@@ -44,14 +44,19 @@ export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onS
               </div> : null}
             </>
           ) : null}
-          {loadError ? <div className="save-note" role="alert" style={{ color: '#ef9b83', maxWidth: 330 }}>{loadError}</div> : null}
+          {loadError ? <div className="save-note" role="alert" style={{ color: 'var(--c-flame-lit)', maxWidth: 165 }}>{loadError}</div> : null}
           <button className="btn" onClick={onNew}>New Game</button>
           <button className="btn" onClick={onSettings}>Settings</button>
         </div>
       </div>
 
       <div className="title-foot">
-        WASD move &middot; Mouse aim &middot; Click attack &middot; E interact &middot; I bag &middot; M map &middot; ESC menu
+        <span><KeyCap>W</KeyCap><KeyCap>A</KeyCap><KeyCap>S</KeyCap><KeyCap>D</KeyCap> move</span>
+        <span><KeyCap>SPC</KeyCap> attack</span>
+        <span><KeyCap>E</KeyCap> interact</span>
+        <span><KeyCap>I</KeyCap> bag</span>
+        <span><KeyCap>M</KeyCap> map</span>
+        <span><KeyCap>ESC</KeyCap> menu</span>
       </div>
     </div>
   );
