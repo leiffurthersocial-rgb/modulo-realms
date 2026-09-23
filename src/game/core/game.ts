@@ -508,7 +508,8 @@ export class Game implements WorldCtx {
     this.camera.y = this.player.y;
     this.player.invuln = Math.max(this.player.invuln, 0.8);
     if(mapId.startsWith('aegean_')&&!this.encounters.isPractice)this.campaign.setCheckpoint();
-    this.toast(this.map.name, undefined, PAL.cloth);
+    // The place name is the banner's job (`ui/hud/Banners.tsx`); a toast
+    // repeating it only stacked a second copy under the first.
     this.autosave();
     this.touch();
   }
@@ -4219,7 +4220,9 @@ export class Game implements WorldCtx {
     this.updateCamera(dt);
     this.updateMusic();
 
-    this.interact = this.findInteractable();
+    // No prompt while a cutscene owns the camera (lean-in, the wheel repair):
+    // it would sit on top of the very thing being shown.
+    this.interact = this.cameraFocus && this.cameraFocus.hold > 0 ? null : this.findInteractable();
     if (this.input.wasPressed('interact') && this.interact) this.interact.run();
 
     for (let i = this.toasts.length - 1; i >= 0; i--) {

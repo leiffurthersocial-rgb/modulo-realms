@@ -77,7 +77,7 @@ export default function Banners({ game }: { game: Game }) {
 
   if (!banner) return null;
   return (
-    <div className={`banner ${banner.kind}`} key={banner.id} role="status">
+    <div className={`banner frame-ash ${banner.kind}`} key={banner.id} role="status">
       <div className="bn-title">{banner.title}</div>
       <div className="rule" />
       {banner.sub ? <div className="bn-sub">{banner.sub}</div> : null}
