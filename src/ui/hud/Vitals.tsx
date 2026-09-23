@@ -6,6 +6,9 @@ import { useEffect, useRef } from 'react';
 import { Badge, Icon, SegBar, Ticker, uiSound } from '../kit';
 import { useGameValue } from '../hooks';
 
+/** Set the first time a skill point is spent; until then the point badge pulses. */
+export const FIRST_POINT_FLAG = 'ui:first-point-spent';
+
 /**
  * The vitals plate: portrait, name, the three bars and experience, forged as
  * one piece in the top-left corner.
@@ -66,6 +69,8 @@ export function Purse({ game }: { game: Game }) {
   const v = useGameValue(() => ({
     gold: p.gold,
     points: p.skillPoints,
+    // a brand-new character's first point: nothing spent yet, ever
+    firstPoint: p.skillPoints > 0 && !p.flags.has(FIRST_POINT_FLAG) && !Object.values(p.skills).some((n) => n > 0),
     heroic: [80, 85, 90, 95, 100].filter((level) => p.level >= level
       && !MASTERIES.some((m) => m.level === level && p.flags.has(`aegean:mastery:${m.id}`))).length,
     full: game.bagFull,
@@ -89,7 +94,7 @@ export function Purse({ game }: { game: Game }) {
         <Ticker value={v.gold} />
       </span>
       {v.points > 0 ? (
-        <button className="hud-cta" onClick={() => game.setPanel('skills')} title={`${v.points} unspent skill point${v.points > 1 ? 's' : ''} — open skills`}>
+        <button className={`hud-cta${v.firstPoint ? ' first' : ''}`} onClick={() => game.setPanel('skills')} title={`${v.points} unspent skill point${v.points > 1 ? 's' : ''} — open skills`}>
           <Icon name="point" />
           <span>{v.points}</span>
         </button>

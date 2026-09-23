@@ -508,18 +508,68 @@ function drawOffhand(p: Px, look: Look, x: number, y: number) {
   }
 }
 
-function buildFrame(look: Look, dir: 'down' | 'up' | 'right', pose: Pose): Px {
-  const p = new Px(CH_W, CH_H);
-  const cx = Math.round(CH_W / 2);
+/** Frame size for one look: the body's 36x44, grown to fit the weapon's reach. */
+interface FrameBox { w: number; h: number; feet: number }
+
+const DIRS = ['down', 'up', 'right'] as const;
+
+/** Where the weapon hand sits, relative to the frame's centre line and feet. */
+function handAt(look: Look, pose: Pose): [number, number] {
+  const scale = look.height ?? 1;
+  const bulk = look.bulk ?? 1;
+  const torsoTop = Math.round(-9 * scale) - Math.round(11 * scale);
+  return [Math.round(2 * bulk) + 3, torsoTop + 1 + pose.bob + Math.round(pose.armA) + 6];
+}
+
+function weaponAngle(dir: 'down' | 'up' | 'right', pose: Pose): number {
+  return pose.weaponAngle ?? (dir === 'up' ? -1.9 : -0.55);
+}
+
+/**
+ * A long blade swung from the hand reaches well past the body's 36px frame —
+ * a sword held out to the side lost a quarter of its blade, a greatsword
+ * half. Every pose's weapon rectangle is rotated here and the frame widened
+ * (symmetrically, so the sprite still centres and mirrors on its middle) and
+ * heightened until nothing is cut. Unarmed looks keep the plain frame.
+ */
+function frameBox(look: Look): FrameBox {
+  if (!look.weapon || look.weapon.kind === 'none') return { w: CH_W, h: CH_H, feet: CH_FEET };
+  const wp = drawWeapon(look.weapon);
+  const x0 = -3, x1 = wp.w - 3;
+  const y0 = -Math.round(wp.h / 2), y1 = y0 + wp.h;
+  let half = CH_W / 2, top = -CH_FEET, bottom = CH_H - CH_FEET;
+  for (const dir of DIRS) {
+    for (let c = 0; c < SHEET_COLS; c++) {
+      const pose = poseFor(c, dir);
+      const [hx, hy] = handAt(look, pose);
+      const a = weaponAngle(dir, pose);
+      const cos = Math.cos(a), sin = Math.sin(a);
+      for (const [x, y] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) {
+        const rx = hx + x * cos - y * sin;
+        const ry = hy + x * sin + y * cos;
+        // 2px for the outline and the enchant glow around it
+        half = Math.max(half, Math.ceil(Math.abs(rx)) + 2);
+        top = Math.min(top, Math.floor(ry) - 2);
+        bottom = Math.max(bottom, Math.ceil(ry) + 2);
+      }
+    }
+  }
+  return { w: half * 2, h: bottom - top, feet: -top };
+}
+
+function buildFrame(look: Look, dir: 'down' | 'up' | 'right', pose: Pose, box: FrameBox): Px {
+  const p = new Px(box.w, box.h);
+  const cx = box.w / 2;
+  const feet = box.feet;
   const scale = look.height ?? 1;
   const bulk = look.bulk ?? 1;
   const bodyH = Math.round(11 * scale);
-  const legTop = Math.round(CH_FEET - 9 * scale);
+  const legTop = Math.round(feet - 9 * scale);
   const torsoTop = legTop - bodyH;
   const headTop = torsoTop - Math.round(11 * scale) + 1 + pose.bob;
 
   // soft ground shadow
-  p.ellipse(cx, CH_FEET + 1, 8 * bulk, 3, 'rgba(10,8,16,0.3)');
+  p.ellipse(cx, feet + 1, 8 * bulk, 3, 'rgba(10,8,16,0.3)');
 
   drawCape(p, look, cx, torsoTop + pose.bob, bodyH, dir, pose);
 
@@ -545,8 +595,7 @@ function buildFrame(look: Look, dir: 'down' | 'up' | 'right', pose: Pose): Px {
     const wp = drawWeapon(look.weapon);
     const handX = fx + 3;
     const handY = fy + 6;
-    let angle = pose.weaponAngle;
-    if (angle === null) angle = dir === 'up' ? -1.9 : -0.55;
+    const angle = weaponAngle(dir, pose);
     p.g.save();
     p.g.translate(handX, handY);
     if (dir === 'up') p.g.globalAlpha = 0.95;
@@ -568,7 +617,7 @@ function buildFrame(look: Look, dir: 'down' | 'up' | 'right', pose: Pose): Px {
 
   p.outline('rgba(12,9,18,0.85)');
   if (look.glow) {
-    const g = new Px(CH_W, CH_H);
+    const g = new Px(box.w, box.h);
     g.blit(p, 0, 0);
     g.tint(look.glow, 0.5);
     p.g.save();
@@ -645,12 +694,13 @@ export function getCharacterSheet(look: Look): CharacterSheet {
   const key = lookKey(look);
   const hit = cache.get(key);
   if (hit) return hit;
-  const rows: Px[][] = (['down', 'up', 'right'] as const).map((dir) => {
+  const box = frameBox(look);
+  const rows: Px[][] = DIRS.map((dir) => {
     const cols: Px[] = [];
-    for (let c = 0; c < SHEET_COLS; c++) cols.push(buildFrame(look, dir, poseFor(c, dir)));
+    for (let c = 0; c < SHEET_COLS; c++) cols.push(buildFrame(look, dir, poseFor(c, dir), box));
     return cols;
   });
-  const sheet: CharacterSheet = { canvas: sheetGrid(rows), fw: CH_W, fh: CH_H, feet: CH_FEET };
+  const sheet: CharacterSheet = { canvas: sheetGrid(rows), fw: box.w, fh: box.h, feet: box.feet };
   if (cache.size > 120) cache.clear();
   cache.set(key, sheet);
   return sheet;

@@ -834,6 +834,18 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
 .hud-cta:hover { filter: brightness(1.2); }
 .hud-cta.warn { animation: none; }
 @keyframes cta { 0% { translate: 0 0; } 80% { translate: 0 -1px; } }
+/* The very first skill point: nobody knows yet that the badge is a button,
+   so it throbs — brightens, a hard gold ring steps out two pixels, and back. */
+.hud-cta.first {
+  outline: 1px solid var(--c-gold-lit); outline-offset: 0;
+  animation: cta-first 0.9s steps(1, end) infinite;
+}
+@keyframes cta-first {
+  0% { filter: brightness(1); outline-offset: 0; outline-color: var(--c-gold); translate: 0 0; }
+  25% { filter: brightness(1.35); outline-offset: 1px; outline-color: var(--c-gold-lit); }
+  50% { filter: brightness(1.7); outline-offset: 2px; outline-color: var(--c-white); translate: 0 -1px; }
+  75% { filter: brightness(1.35); outline-offset: 1px; outline-color: var(--c-gold-lit); translate: 0 0; }
+}
 .hud-effect {
   display: inline-flex; gap: 2px; align-items: center;
   font-family: var(--font-small); text-transform: uppercase; line-height: 8px;
@@ -886,8 +898,13 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
   color: var(--c-cloth); font-weight: 700;
   text-shadow: 1px 1px 0 var(--c-void), -1px 0 0 var(--c-void), 0 -1px 0 var(--c-void), 1px 0 0 var(--c-void);
 }
-.slot.cooling > img { filter: saturate(0.4); }
-.slot.locked > img { opacity: 0.18; filter: grayscale(1); }
+/* anything that cannot be used right now — cooling, not learned, no mana or
+   stamina, nothing equipped — drains to grey, so a usable slot is the one
+   with colour in it */
+.slot.off > img { filter: grayscale(1) brightness(0.7); }
+.slot.off { filter: saturate(0.3); }
+.slot.off:hover { filter: saturate(0.3) brightness(1.15); }
+.slot.locked > img { opacity: 0.18; }
 /* not learned yet: the level it comes at, spelled out on the socket */
 .slot .lock {
   position: absolute; inset: 0; z-index: 1;
@@ -903,7 +920,7 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
   background: var(--c-mp);
 }
 .slot.starved.stamina::after { background: var(--c-sp); }
-.slot.starved > img { opacity: 0.6; }
+.slot.starved > img { opacity: 0.75; }
 /* ready again: one bright frame as the cooldown ends */
 .slot.ready { animation: slot-ready 0.2s steps(1, end); }
 @keyframes slot-ready { 0% { border-image-source: var(--img-frame-brass); filter: brightness(1.4); } }
@@ -920,7 +937,7 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
 .mm-frame canvas { display: block; }
 .mm-plaque {
   display: flex; justify-content: space-between; gap: 4px;
-  min-width: 80px; max-width: 132px; margin-top: -1px; padding: 0 1px;
+  min-width: 112px; max-width: 132px; margin-top: -1px; padding: 0 1px;
   border: 3px solid transparent;
   border-image: var(--img-badge) 3 fill / 3px repeat;
   color: var(--c-ink);
@@ -928,8 +945,6 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
   white-space: nowrap;
 }
 .mm-place { overflow: hidden; text-overflow: clip; min-width: 0; }
-.mm-time { flex: none; }
-.mm-time.night { color: var(--c-frost); }
 .mm-coords { margin-top: 1px; padding: 0 2px; background: var(--c-void); color: var(--c-fog); font-family: var(--font-small); line-height: 8px; }
 
 .quest-tracker { width: 132px; padding: 0 1px; pointer-events: auto; }
