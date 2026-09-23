@@ -92,19 +92,24 @@ export function drawWeapon(w: WeaponStyle, scale = 1): Px {
       break;
     }
     case 'greatsword': {
-      p = new Px(36, 14);
-      wrap(p, 1, 6, 8, 3, grip);
-      pommel(p, 1, 7.5, 2, brass);
-      p.fill(8, 2, 3, 11, brass);
-      p.fill(8, 2, 3, 1, brassLit);
-      p.fill(7, 5, 1, 5, shade(brass, 0.7));
-      p.fill(11, 4, 20, 6, metal);
-      p.fill(11, 4, 20, 1, edge);
-      p.fill(11, 5, 20, 1, light);
-      p.fill(12, 6, 18, 2, shade(metal, 0.88));   // fuller
-      p.fill(11, 9, 20, 1, dark);
-      p.poly([[31, 3], [36, 7], [31, 11]], metal);
-      p.poly([[31, 4], [35, 7], [31, 7]], light);
+      // Two hands of grip and a long blade, but only a finger thicker than the
+      // arming sword: at 6px the old one was as broad as the torso holding it
+      // and read as a plank once the frame stopped cutting it in half.
+      p = new Px(34, 11);
+      wrap(p, 1, 4, 7, 3, grip);
+      pommel(p, 1, 5.5, 1.5, brass);
+      // crossguard, wider than the sword's
+      p.fill(8, 1, 2, 9, brass);
+      p.fill(8, 1, 2, 1, brassLit);
+      p.fill(7, 4, 1, 3, shade(brass, 0.7));
+      // ricasso, then the blade: lit edge, fuller, shaded lower bevel
+      p.fill(10, 4, 2, 4, shade(metal, 0.8));
+      p.fill(12, 4, 17, 4, metal);
+      p.fill(12, 4, 17, 1, edge);
+      p.fill(13, 5, 14, 1, shade(metal, 0.86));   // fuller
+      p.fill(12, 7, 17, 1, dark);
+      p.poly([[29, 4], [34, 6], [29, 8]], metal);
+      p.poly([[29, 4], [33, 6], [29, 5]], edge);
       break;
     }
     case 'dagger': {
