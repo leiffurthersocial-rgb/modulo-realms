@@ -434,6 +434,8 @@ export interface SlotView {
   stake: number;
   credit: number;
   win: number;
+  /** Pay multiple of the result on the reels, 0 for a loss or mid-spin. */
+  paid: number;
   /** Which reels are part of a winning line. */
   hit: [boolean, boolean, boolean];
   /** Counts down after a win; drives lights, rays and the bell. */
@@ -707,8 +709,8 @@ function drawPayTable(ctx: CanvasRenderingContext2D, v: SlotView): void {
     const x = 28 + col * 52;
     const y = 206 + row * 13;
     // a rung lights up when it is the one that just paid
-    const lit = v.celebrate > 0 && v.win > 0 && v.hit.some(Boolean)
-      && mult === Math.round(v.win / Math.max(1, v.stake)) - 1;
+    const lit = v.celebrate > 0 && v.win > 0 && v.hit.some(Boolean) && mult === v.paid
+      && (n === 3) === v.hit.every(Boolean);
     if (lit) {
       ctx.fillStyle = withAlpha(PAL.goldLit, 0.2 + Math.abs(Math.sin(v.celebrate * 8)) * 0.2);
       ctx.fillRect(x - 3, y - 1, 50, 12);

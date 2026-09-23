@@ -86,7 +86,9 @@ type Phase = 'betting' | 'spinning' | 'dropping' | 'resting';
 
 /** Seconds the ball runs the rim before it starts coming down. */
 const RIM_TIME = 2.8;
-/** Seconds the drop takes, from leaving the rim to sitting in a pocket. */
+/** Seconds the ball takes to hop from its old pocket up onto the rim. */
+const LAUNCH_TIME = 0.35;
+/** Seconds the drop aims for, from leaving the rim to sitting in a pocket. */
 const DROP_TIME = 1.7;
 
 export class RouletteTable {
@@ -207,7 +209,7 @@ export class RouletteTable {
     this.celebrate = 0;
     this.wheelVel = 2.5;
     this.ballVel = -8.5;
-    this.ballOut = 1;
+    this.launchFrom = this.ballOut;
     this.message = 'NO MORE BETS';
     audio.play('wheel_spin', 0.8);
     this.game.touch();
@@ -240,40 +242,32 @@ export class RouletteTable {
     if (this.phase === 'spinning') {
       this.ballVel += (-2.6 - this.ballVel) * Math.min(1, dt * 0.55);
       this.ball += this.ballVel * dt;
+      // thrown out of the last pocket: one small hop up onto the rim track
+      const lift = Math.min(1, this.t / LAUNCH_TIME);
+      this.ballOut = this.launchFrom + (1 - this.launchFrom) * (1 - Math.pow(1 - lift, 2));
+      this.ballHop = lift < 1 ? Math.sin(lift * Math.PI) * 0.35 * (1 - this.launchFrom) : 0;
       // one tick per pocket the ball passes, while it is still going fast
       this.tickAt += Math.abs(this.ballVel) * dt;
       if (this.tickAt > 0.4) {
         this.tickAt = 0;
         audio.play('wheel_ball', 0.2);
       }
-      if (this.t >= RIM_TIME) {
-        this.phase = 'dropping';
-        this.t = 0;
-        // aim the drop: after DROP_TIME the head will have turned this far,
-        // and the ball has to be sitting on the winning pocket when it does
-        const wheelThen = this.wheel + this.wheelVel * DROP_TIME;
-        this.lockOffset = this.pocketAngle(this.result!);
-        const target = wheelThen + this.lockOffset;
-        // land on whichever revolution is just ahead of where the ball is
-        let t = target;
-        while (t > this.ball) t -= Math.PI * 2;
-        this.dropFrom = this.ball;
-        this.dropTo = t - Math.PI * 2 * 2;
-        audio.play('wheel_dust', 0.35);
-      }
+      if (this.t >= RIM_TIME) this.beginDrop();
       g.touch();
       return;
     }
 
-    // dropping: the ball comes off the rim, bounces across the frets and
-    // settles into the pocket the wheel already knows about
-    const k = Math.min(1, this.t / DROP_TIME);
-    const ease = 1 - Math.pow(1 - k, 2.4);
-    this.ball = this.dropFrom + (this.dropTo - this.dropFrom) * ease;
-    this.ballOut = 1 - ease;
-    // three hops, dying away
-    const hop = Math.max(0, Math.sin(k * Math.PI * 3.2)) * (1 - k) * (1 - k);
-    if (hop > 0.5 && this.ballHop <= 0.5) audio.play('wheel_clack', 0.4);
+    // dropping: the ball comes off the rim, skips across the frets and
+    // settles into the pocket the wheel already knows about. It is placed
+    // relative to the head, so it lands in the pocket however the head turns.
+    this.dropK = Math.min(1, this.dropK + dt / this.dropTime);
+    const k = this.dropK;
+    const ease = 1 - Math.pow(1 - k, this.dropEase);
+    this.ball = this.wheel + this.dropFrom + (this.dropTo - this.dropFrom) * ease;
+    this.ballOut = Math.max(0, 1 - ease * 1.15);
+    // small skips over the frets, each lower than the last
+    const hop = Math.abs(Math.sin(k * Math.PI * 5)) * Math.pow(1 - k, 1.6) * 0.55;
+    if (hop > 0.12 && this.ballHop <= 0.12 && k > 0.08) audio.play('wheel_clack', 0.18 + hop * 0.4);
     this.ballHop = hop;
 
     if (k >= 1) {
@@ -285,8 +279,49 @@ export class RouletteTable {
     g.touch();
   }
 
+  /**
+   * Aim the drop. The ball leaves the rim at the speed it is actually doing —
+   * the old version eased it across two whole extra turns in 1.7 s, which
+   * read as the ball being kicked five times faster the moment it fell.
+   *
+   * Everything is measured against the head: the ball's angle relative to
+   * the wheel eases from where it is to the winning pocket, with the ease's
+   * starting slope matched to the current relative speed. The distance is
+   * fixed by where the pocket is (plus whole turns), so the time and the
+   * curve's shape are chosen to fit it.
+   */
+  private beginDrop(): void {
+    this.phase = 'dropping';
+    this.t = 0;
+    this.dropK = 0;
+    this.lockOffset = this.pocketAngle(this.result!);
+    const TAU = Math.PI * 2;
+    const rel = this.ball - this.wheel;
+    const speed = Math.max(0.8, this.wheelVel - this.ballVel); // the ball runs backwards
+    let target = this.lockOffset;
+    while (target > rel) target -= TAU;
+    let best = { dist: rel - target, time: DROP_TIME, ease: 2.4, cost: Infinity };
+    for (let turn = 0; turn < 3; turn++) {
+      const dist = rel - target + turn * TAU;
+      if (dist < 0.4) continue;
+      const time = Math.max(1.3, Math.min(3, 2.4 * dist / speed));
+      const ease = speed * time / dist;
+      const cost = Math.abs(Math.log(ease / 2.4)) + Math.abs(time - DROP_TIME) * 0.3;
+      if (cost < best.cost) best = { dist, time, ease, cost };
+    }
+    this.dropFrom = rel;
+    this.dropTo = rel - best.dist;
+    this.dropTime = best.time;
+    this.dropEase = Math.max(1.3, Math.min(4, best.ease));
+    audio.play('wheel_dust', 0.35);
+  }
+
   private dropFrom = 0;
   private dropTo = 0;
+  private dropK = 0;
+  private launchFrom = 1;
+  private dropTime = DROP_TIME;
+  private dropEase = 2.4;
 
   /* ---------------- paying out ---------------- */
 

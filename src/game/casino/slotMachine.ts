@@ -321,7 +321,7 @@ export class SlotMachine {
     this.spinning = false;
     this.anticipation = 0;
     const res = this.result!;
-    const back = res.payout > 0 ? this.stake * (res.payout + 1) : 0;
+    const back = res.payout > 0 ? Math.floor(this.stake * res.payout) : 0;
     this.win = back;
     this.session += back;
 
@@ -338,7 +338,7 @@ export class SlotMachine {
     this.idle = 0;
     // coins out of the chute, one per multiple won, capped so a jackpot does
     // not bury the tray in three hundred sprites
-    const n = Math.min(16, Math.max(3, Math.round(res.payout)));
+    const n = Math.min(16, Math.max(3, Math.round(res.payout * 2)));
     for (let k = 0; k < n; k++) {
       this.coins.push({
         x: 76 + (Math.random() - 0.5) * 6,
@@ -386,6 +386,12 @@ export class SlotMachine {
     if (this.spinning || !res || res.payout <= 0) return [false, false, false];
     if (res.reels[0] === res.reels[1] && res.reels[1] === res.reels[2]) return [true, true, true];
     return [res.reels[0] === 'cherry', res.reels[1] === 'cherry', res.reels[2] === 'cherry'];
+  }
+
+  /** The rung that just paid, as printed on the glass; 0 while none is lit. */
+  get paid(): number {
+    const res = this.result;
+    return this.spinning || !res ? 0 : res.payout;
   }
 
   get jackpot(): boolean {
