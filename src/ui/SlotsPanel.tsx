@@ -42,6 +42,7 @@ export default function SlotsPanel({ game }: { game: Game }) {
           stake: m.stake,
           credit: Math.round(m.credit),
           win: m.win,
+          paid: m.paid,
           hit: m.hits(),
           celebrate: m.celebrate,
           bell: m.bell,

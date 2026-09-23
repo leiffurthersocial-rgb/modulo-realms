@@ -200,6 +200,16 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
   3×5-Pixelalphabet und die Siebensegment-Lampen mit, die beiden anderen borgen sie.
   **Nicht wieder in React-Panels zurückbauen.** Mechanik läuft in Spielzeit aus
   `Casino.update`, die Panels nur zeichnen und lesen.
+- **Kasino-Quoten sind festgelegt (23.09.):** Slot = Virtual Reel — `spinSlots` würfelt
+  den Rang zuerst aus `SLOT_ODDS` (Summe exakt 50 % Treffer, RTP 94,5 %), die Walzen
+  bremsen danach auf passende Symbole; `SLOT_REEL` ist nur noch Optik. Paytable-Werte
+  sind **Gesamtrückzahlung** pro Einsatz (`*1.5` = Einsatz + halber Einsatz), nicht
+  Nettogewinn. Roulette: echte Single-Zero-Quoten. Der Ballfall wird **relativ zum
+  Kessel** gerechnet und startet mit der aktuellen Ballgeschwindigkeit (früher: 5×
+  Beschleunigung beim Fallen + Snap ins Fach). Poker-Gegner: Monte-Carlo-Equity
+  (`estimateEquity`) gegen gelesene Ranges vs. Pot-Odds, Persönlichkeit je Sitz;
+  bewusste Lecks (Bet-Size = Handstärke, kein Slowplay, callen gegen aggressiven
+  Hero leichter). Nicht "perfektionieren".
 - **Sprites werden gecacht, nicht pro Frame gebaut** (`art/casino.ts` `keep()`,
   `patronBust`). Der Pokertisch zeichnet bis zu 15 Karten und ein Dutzend Chips pro
   Frame; frisch gebaut wären das ~30 Offscreen-Canvases je Frame für Bilder, die sich

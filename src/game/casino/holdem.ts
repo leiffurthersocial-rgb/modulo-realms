@@ -1,5 +1,5 @@
 import {
-  bestHand, compareHands, freshDeck, handStrength, shuffle,
+  bestHand, compareHands, estimateEquity, freshDeck, shuffle,
   type Card, type ScoredHand,
 } from './games';
 
@@ -49,6 +49,31 @@ const NAMES = [
   'Corvin', 'Prue', 'Ghent', 'Alda', 'Roke', 'Nessa',
 ];
 
+/**
+ * How one opponent plays. Everyone at the table runs the same sound strategy
+ * — equity against a read range, priced against the pot — and the profile
+ * only leans it: a little tighter or looser, more or less willing to put
+ * chips in without the goods. That keeps them competent without making them
+ * identical.
+ */
+interface Style {
+  /** Added to their equity before every decision; negative plays tighter. */
+  looseness: number;
+  /** Multiplies how often they bet and raise rather than check and call. */
+  aggression: number;
+  /** Chance per spot to bet or raise with nothing when heads-up. */
+  bluff: number;
+  /** Spread of the error on their read of their own hand. */
+  misread: number;
+}
+
+/**
+ * Hands evaluated per decision, split across the runs: enough to be sound,
+ * few enough that a four-way pot does not cost the game loop a frame. The
+ * sampling error on a crowded table is part of why they are not perfect.
+ */
+const EQUITY_BUDGET = 320;
+
 export interface HoldemOptions {
   /** The big blind; every other amount is derived from it. */
   stake: number;
@@ -78,6 +103,16 @@ export class HoldemTable {
   winners: number[] = [];
   handOver = false;
 
+  private styles: Style[] = [];
+  /** Bets and raises each seat has made this hand, for reading their range. */
+  private aggr: number[] = [];
+  /** Whether each seat has put chips in voluntarily this hand. */
+  private vpip: boolean[] = [];
+  /** Who made the last bet or raise this hand, -1 for nobody. */
+  private aggressor = -1;
+  /** How the hero has played across the sitting, so the table can adjust. */
+  private heroActions = 0;
+  private heroRaises = 0;
   private queue: Step[] = [];
   private timer = 0;
   private deck: Card[] = [];
@@ -99,6 +134,12 @@ export class HoldemTable {
       this.seats.push(this.makeSeat(i + 1, name, chips, false));
     }
     this.dealer = Math.floor(this.random() * this.seats.length);
+    this.styles = this.seats.map(() => ({
+      looseness: (this.random() - 0.5) * 0.07,
+      aggression: 0.8 + this.random() * 0.45,
+      bluff: 0.05 + this.random() * 0.07,
+      misread: 0.02 + this.random() * 0.03,
+    }));
   }
 
   private makeSeat(id: number, name: string, chips: number, hero: boolean): Seat {
@@ -164,6 +205,9 @@ export class HoldemTable {
       s.bubble = 0;
     }
     this.dealer = this.nextOccupied(this.dealer);
+    this.aggr = this.seats.map(() => 0);
+    this.vpip = this.seats.map(() => false);
+    this.aggressor = -1;
 
     const small = this.nextOccupied(this.dealer);
     const big = this.nextOccupied(small);
@@ -244,6 +288,15 @@ export class HoldemTable {
 
   private act(idx: number, kind: ActionKind, amount: number): void {
     const s = this.seats[idx];
+    if (kind === 'bet' || kind === 'raise' || kind === 'call') this.vpip[idx] = true;
+    if (kind === 'bet' || kind === 'raise') {
+      this.aggr[idx]++;
+      this.aggressor = idx;
+    }
+    if (s.hero && kind !== 'blind') {
+      this.heroActions++;
+      if (kind === 'bet' || kind === 'raise') this.heroRaises++;
+    }
     if (kind === 'fold') {
       s.folded = true;
       s.lastAction = 'fold';
@@ -295,30 +348,94 @@ export class HoldemTable {
   }
 
   /**
-   * Opponent policy. Deliberately simple and a little loose: they call more
-   * than they should, raise their good hands, and bluff just often enough that
-   * a big bet is not automatically the truth.
+   * Opponent policy: a solid, readable player, not a solver.
+   *
+   * Each seat works out its showdown equity against everyone still in, with
+   * each opponent's range narrowed by how they have bet this hand, and prices
+   * that against the pot. Strong hands bet and raise for value, draws and
+   * middling hands call when the price is right, weak hands give up, and a
+   * heads-up pot gets the occasional bluff.
+   *
+   * The imperfections are deliberate and exploitable: they misjudge their own
+   * hand by a few percent, their bet size tracks their hand strength (a big
+   * bet is usually the truth), they never slowplay, and they read an
+   * aggressive hero as loose and call down lighter — which a patient player
+   * with a real hand can punish.
    */
   private decide(s: Seat): { kind: ActionKind; amount: number } {
-    const owed = this.toCall - s.committed;
-    const strength = handStrength(s.hole, this.board.slice(0, this.boardShown));
-    const potOdds = owed > 0 ? owed / (this.pot + this.sumCommitted() + owed) : 0;
-    const bluff = this.random() < 0.08;
-    const loose = strength + (this.random() - 0.5) * 0.14;
+    const style = this.styles[s.id];
+    const board = this.board.slice(0, this.boardShown);
+    const owed = Math.min(this.toCall - s.committed, s.chips);
+    const pot = this.pot + this.sumCommitted();
+    const rivals = this.live().filter((o) => o.id !== s.id);
+    const heroLoose = this.heroActions >= 6 && this.heroRaises / this.heroActions > 0.4;
+
+    // what each rival can plausibly hold, from what they have done this hand
+    const floors = rivals.map((o) => {
+      const a = this.aggr[o.id];
+      let floor = a >= 3 ? 0.55 : a === 2 ? 0.47 : a === 1 ? 0.36 : this.vpip[o.id] ? 0.22 : 0;
+      if (o.hero && heroLoose) floor *= 0.6;
+      return floor;
+    });
+    const raw = estimateEquity(s.hole, board, floors, Math.round(EQUITY_BUDGET / (rivals.length + 1)), this.random);
+    const noise = (this.random() + this.random() - 1) * style.misread * 2;
+    const eq = Math.max(0, Math.min(1, raw + noise + style.looseness));
+
+    // equity an average hand would have here — the bar everything is measured from
+    const fair = 1 / (rivals.length + 1);
+    const headsUp = rivals.length === 1;
+    const river = this.street === 'river';
+    const preflop = board.length === 0;
+    const edge = eq - fair;
+
+    const sized = (fraction: number): number => Math.max(this.stake, Math.round(pot * fraction));
 
     if (owed <= 0) {
-      if (loose > 0.62 || bluff) {
-        const bet = Math.min(s.chips, Math.max(this.stake, Math.round((this.pot + this.sumCommitted()) * (0.4 + this.random() * 0.4))));
-        return { kind: 'bet', amount: bet };
+      // nobody has bet: lead for value, bluff now and then, otherwise check
+      if (preflop) {
+        // the big blind's option after limps
+        if (edge > 0.14 && this.random() < 0.8 * style.aggression) {
+          return { kind: 'bet', amount: Math.min(s.chips, Math.max(this.minRaise, sized(0.8))) };
+        }
+        return { kind: 'check', amount: 0 };
+      }
+      if (edge > 0.2 && this.random() < 0.85 * style.aggression) {
+        // the tell: the better the hand, the bigger the bet
+        return { kind: 'bet', amount: Math.min(s.chips, sized(0.45 + Math.min(0.45, edge))) };
+      }
+      const barrel = this.aggressor === s.id ? 1.8 : 1; // follow up on their own raise
+      if (headsUp && this.random() < style.bluff * barrel * style.aggression) {
+        return { kind: 'bet', amount: Math.min(s.chips, sized(0.55)) };
+      }
+      // draws with plenty to come sometimes bet themselves
+      if (!river && edge > 0.02 && this.random() < 0.25 * style.aggression) {
+        return { kind: 'bet', amount: Math.min(s.chips, sized(0.5)) };
       }
       return { kind: 'check', amount: 0 };
     }
-    if (loose < potOdds * 0.85 && !bluff) return { kind: 'fold', amount: 0 };
-    if (loose > 0.76 && s.chips > owed + this.stake && this.random() < 0.5) {
-      const raise = owed + Math.max(this.stake, Math.round((this.pot + this.sumCommitted()) * 0.5));
-      return { kind: 'raise', amount: Math.min(s.chips, raise) };
+
+    // facing a bet: price it
+    const potOdds = owed / (pot + owed);
+    // cards still to come are worth something beyond the raw price
+    const implied = river ? 0 : preflop ? 0.05 : 0.03;
+    let margin = 0.01 - implied;
+    if (heroLoose && this.aggressor === 0) margin -= 0.04;
+    // a short stack committed past halfway does not fold for the rest
+    if (s.committed > (s.chips + s.committed) * 0.5) margin -= 0.08;
+
+    const canRaise = s.chips > owed + this.minRaise;
+    if (canRaise && edge > (preflop ? 0.16 : 0.24) && this.random() < 0.7 * style.aggression) {
+      const extra = Math.max(this.minRaise, preflop
+        ? Math.round((this.toCall + this.stake) * (1.4 + this.random() * 0.6))
+        : sized(0.55 + Math.min(0.4, edge)));
+      return { kind: 'raise', amount: Math.min(s.chips, owed + extra) };
     }
-    return { kind: 'call', amount: Math.min(owed, s.chips) };
+    if (eq > potOdds + margin) return { kind: 'call', amount: owed };
+    // a rare heads-up bluff-raise when the price to try it is small
+    if (canRaise && headsUp && !preflop && potOdds < 0.3 && this.random() < style.bluff * 0.5) {
+      return { kind: 'raise', amount: Math.min(s.chips, owed + Math.max(this.minRaise, sized(0.7))) };
+    }
+    return { kind: 'fold', amount: 0 };
   }
 
   private sumCommitted(): number {

@@ -146,9 +146,11 @@ export function scoreHand(hand: Card[]): HandRank {
 export type SlotSymbol = 'cherry' | 'bell' | 'crown' | 'spade' | 'seven';
 
 /**
- * The reel strip. Weighting lives in how often a symbol appears rather than in
- * a separate table, so the odds can be read straight off the array: cherries
- * are common and pay little, sevens are rare and pay the jackpot.
+ * The reel strip the cabinet draws. It sets the look of the reels — cherries
+ * common, one lone seven — and nothing else: the outcome is not read off the
+ * strip, it is drawn from `SLOT_ODDS` first and the reels are then braked onto
+ * matching symbols. That is how a real machine's virtual reel works, and it is
+ * what lets the hit rate be an exact, readable number.
  */
 export const SLOT_REEL: SlotSymbol[] = [
   'cherry', 'cherry', 'cherry', 'cherry', 'cherry', 'cherry',
@@ -166,36 +168,68 @@ export const SLOT_COLOR: Record<SlotSymbol, string> = {
   cherry: '#8e2131', bell: '#d9a441', crown: '#f2cb60', spade: '#efe6d6', seven: '#6fd0e8',
 };
 
-/** Payout for three of a kind, as a multiple of the stake. */
+/**
+ * Three of a kind, as the total paid back per coin staked (the stake is part
+ * of it: x3 on a 10-gold pull puts 30 in the tray).
+ */
 export const SLOT_TRIPLE: Record<SlotSymbol, number> = {
-  cherry: 4, bell: 8, spade: 14, crown: 30, seven: 120,
+  cherry: 2, bell: 3, spade: 5, crown: 10, seven: 60,
 };
 
-/** Payout for exactly two cherries anywhere — the consolation rung. */
-export const SLOT_TWO_CHERRY = 1;
+/** Exactly two cherries anywhere — the consolation rung, half the stake on top. */
+export const SLOT_TWO_CHERRY = 1.5;
+
+/**
+ * Chance of each paying rung per pull. They add up to exactly one half: every
+ * second pull pays something. Return to player is sum(chance x pay) = 94.5 %,
+ * so the house still keeps a little over five coins in a hundred.
+ */
+export const SLOT_ODDS: { twoCherry: number; triple: Record<SlotSymbol, number> } = {
+  twoCherry: 0.4,
+  triple: { cherry: 0.06, bell: 0.025, spade: 0.01, crown: 0.004, seven: 0.001 },
+};
 
 export interface SlotResult {
   reels: [SlotSymbol, SlotSymbol, SlotSymbol];
-  /** Multiple of the stake won; 0 is a loss. */
+  /** Total paid back per coin staked; 0 is a loss. */
   payout: number;
   label: string;
 }
 
-export function spinSlots(random: () => number = Math.random): SlotResult {
-  const pick = (): SlotSymbol => SLOT_REEL[Math.floor(random() * SLOT_REEL.length)];
-  const reels: [SlotSymbol, SlotSymbol, SlotSymbol] = [pick(), pick(), pick()];
-
+/** What a set of reels pays, by the table on the glass. */
+export function slotPayout(reels: SlotSymbol[]): { payout: number; label: string } {
   if (reels[0] === reels[1] && reels[1] === reels[2]) {
     const sym = reels[0];
-    return {
-      reels,
-      payout: SLOT_TRIPLE[sym],
-      label: sym === 'seven' ? 'JACKPOT' : `Three ${sym}s`,
-    };
+    return { payout: SLOT_TRIPLE[sym], label: sym === 'seven' ? 'JACKPOT' : `Three ${sym}s` };
   }
-  const cherries = reels.filter((r) => r === 'cherry').length;
-  if (cherries === 2) return { reels, payout: SLOT_TWO_CHERRY, label: 'Two cherries' };
-  return { reels, payout: 0, label: 'No pay' };
+  if (reels.filter((r) => r === 'cherry').length === 2) return { payout: SLOT_TWO_CHERRY, label: 'Two cherries' };
+  return { payout: 0, label: 'No pay' };
+}
+
+export function spinSlots(random: () => number = Math.random): SlotResult {
+  const pick = (): SlotSymbol => SLOT_REEL[Math.floor(random() * SLOT_REEL.length)];
+  const other = (not: SlotSymbol): SlotSymbol => {
+    let s = pick();
+    while (s === not) s = pick();
+    return s;
+  };
+
+  let roll = random();
+  let reels: [SlotSymbol, SlotSymbol, SlotSymbol] | null = null;
+  for (const sym of Object.keys(SLOT_ODDS.triple) as SlotSymbol[]) {
+    roll -= SLOT_ODDS.triple[sym];
+    if (roll < 0) { reels = [sym, sym, sym]; break; }
+  }
+  if (!reels && roll - SLOT_ODDS.twoCherry < 0) {
+    reels = ['cherry', 'cherry', 'cherry'];
+    reels[Math.floor(random() * 3)] = other('cherry');
+  }
+  if (!reels) {
+    // a losing pull: any line the table does not pay, near misses included
+    do reels = [pick(), pick(), pick()];
+    while (slotPayout(reels).payout > 0);
+  }
+  return { reels, ...slotPayout(reels) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -330,4 +364,53 @@ export function handStrength(hole: Card[], board: Card[]): number {
   const base = scored.tier / 9;
   const kicker = ((scored.kickers[0] ?? 2) - 2) / 12;
   return Math.max(0, Math.min(1, base * 0.82 + kicker * 0.18));
+}
+
+/**
+ * Showdown equity by Monte Carlo: how often `hole` wins (ties split) against
+ * `floors.length` unknown hands once the board is run out. Opponents' cards
+ * are drawn from what is left in the deck — nobody at the table ever looks at
+ * anyone else's hole cards.
+ *
+ * `floors` narrows each opponent's range: a sampled hand whose preflop
+ * strength sits below its floor is redrawn a few times, so a seat that has
+ * been raising is played as holding something. It is a soft filter on
+ * purpose; a player who only ever represents the nuts is easy to bluff.
+ */
+export function estimateEquity(
+  hole: Card[],
+  board: Card[],
+  floors: number[],
+  samples: number,
+  random: () => number = Math.random,
+): number {
+  const key = (c: Card): string => `${c.rank}${c.suit}`;
+  const known = new Set([...hole, ...board].map(key));
+  const rest = freshDeck().filter((c) => !known.has(key(c)));
+  let score = 0;
+  for (let n = 0; n < samples; n++) {
+    const deck = rest.slice();
+    const draw = (): Card => deck.splice(Math.floor(random() * deck.length), 1)[0];
+    const opps: Card[][] = [];
+    for (const floor of floors) {
+      let h = [draw(), draw()];
+      for (let tries = 0; tries < 6 && floor > 0 && handStrength(h, []) < floor; tries++) {
+        deck.push(h[0], h[1]);
+        h = [draw(), draw()];
+      }
+      opps.push(h);
+    }
+    const full = board.slice();
+    while (full.length < 5) full.push(draw());
+    const mine = bestHand(hole, full);
+    let beaten = false;
+    let tied = 1;
+    for (const o of opps) {
+      const c = compareHands(bestHand(o, full), mine);
+      if (c > 0) { beaten = true; break; }
+      if (c === 0) tied++;
+    }
+    if (!beaten) score += 1 / tied;
+  }
+  return score / samples;
 }
