@@ -146,7 +146,14 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
       const x = bx - 3 + i * 2.2;
       p.poly([[x - 1, by + 1.5], [x - 1.8, by + 0.4 - 2 - hk - (i === 2 ? 1 : 0)], [x + 1.4, by + 1.5]], dark);
     }
-    if (tier >= 2) for (let i = 0; i < 4; i++) boneSpike(p, bx - 6 + i * 3.2, by + 1, 3 + [0, 2, 3, 1][i], -1.2, deep, bone);
+    if (tier >= 2) for (let i = 0; i < 4; i++) {
+      // separate solid horns along the spine: dark root, pale shaft, light tip
+      const sx = Math.round(bx - 6 + i * 3.4);
+      const h = 3 + [0, 1, 2, 0][i];
+      p.fill(sx, by, 2, 1, deep);
+      p.poly([[sx - 0.5, by + 0.5], [sx - 1, by - h], [sx + 2, by + 0.5]], bone);
+      p.set(sx - 1, by - h, shade(bone, 1.15));
+    }
     if (tier >= 1) p.line(bx - 4, by + 3, bx - 2, by + 6, mix(fur, light, 0.6));
     if (tier >= 3) {
       p.line(bx - 9, by + 4, bx - 6, by + 6, vein); p.line(bx - 6, by + 6, bx - 3, by + 4, vein);
@@ -510,12 +517,12 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
     for (const side of [-1, 1]) { p.fill(tx + side * 14, top + 29, 1, 2 + (Math.floor(pose.t * 4) % 2), core); }
     for (let i = 0; i < 3; i++) {
       const a = ph + i * 2.1;
-      const ox = Math.round(tx + Math.cos(a) * 11);
-      const oy = Math.round(hdY - 4 + Math.sin(a) * 3);
+      const ox = Math.round(tx + Math.cos(a) * 14);
+      const oy = Math.round(top + 9 + Math.sin(a) * 3);
       // a diamond shard with two dim pixels trailing it round its orbit
       p.set(ox, oy - 1, crystalLit); p.fill(ox - 1, oy, 3, 1, crystal); p.set(ox, oy + 1, shade(crystal, 0.8));
-      const tx1 = Math.round(tx + Math.cos(a - 0.35) * 11), ty1 = Math.round(hdY - 4 + Math.sin(a - 0.35) * 3);
-      const tx2 = Math.round(tx + Math.cos(a - 0.7) * 11), ty2 = Math.round(hdY - 4 + Math.sin(a - 0.7) * 3);
+      const tx1 = Math.round(tx + Math.cos(a - 0.35) * 14), ty1 = Math.round(top + 9 + Math.sin(a - 0.35) * 3);
+      const tx2 = Math.round(tx + Math.cos(a - 0.7) * 14), ty2 = Math.round(top + 9 + Math.sin(a - 0.7) * 3);
       p.set(tx1, ty1, shade(crystal, 0.6)); p.set(tx2, ty2, shade(crystal, 0.4));
     }
   }

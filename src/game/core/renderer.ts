@@ -229,11 +229,16 @@ function applyGroundDetail(g: CanvasRenderingContext2D, map: GameMap, cx: number
           const c = 'rgba(90,60,30,0.45)';
           px(ox - 4, oy, c, 5, 1); px(ox, oy - 3, c, 1, 4); px(ox + 1, oy + 1, c, 4, 1); px(ox - 3, oy + 1, c, 1, 3);
         } else if (id === T.DESERT_SAND && r < 0.058) {
-          // a bleached skull, half sunk, with a shadow
-          px(ox - 2, oy + 3, 'rgba(90,60,30,0.4)', 7, 1);
-          px(ox - 2, oy - 1, PAL.bone, 6, 4); px(ox - 1, oy - 2, PAL.cloth, 4, 1);
-          px(ox - 1, oy, PAL.ink, 1, 1); px(ox + 2, oy, PAL.ink, 1, 1);
-          px(ox, oy + 2, PAL.fog, 2, 1);
+          // a bleached cow skull half under a drift: wide cranium, dark
+          // sockets, a nasal notch, a jaw with a tooth line and a crack
+          px(ox - 4, oy + 5, 'rgba(90,60,30,0.45)', 11, 1);
+          px(ox - 3, oy - 2, PAL.bone, 8, 5); px(ox - 2, oy - 3, PAL.cloth, 6, 1);
+          px(ox - 5, oy - 3, PAL.bone, 2, 1); px(ox + 5, oy - 3, PAL.bone, 2, 1);
+          px(ox - 2, oy - 1, PAL.ink, 2, 2); px(ox + 2, oy - 1, PAL.ink, 2, 2);
+          px(ox, oy + 1, PAL.stone, 1, 2);
+          px(ox - 2, oy + 3, PAL.bone, 6, 2); px(ox - 1, oy + 3, PAL.fog, 4, 1);
+          px(ox + 3, oy - 2, PAL.fog, 1, 2);
+          px(ox + 2, oy + 4, PAL.sand, 4, 2);
         } else if (id === T.DESERT_SAND && r < 0.068) {
           // one long bone with knobbed ends
           px(ox - 4, oy + 1, 'rgba(90,60,30,0.4)', 10, 1);
@@ -268,14 +273,24 @@ function applyGroundDetail(g: CanvasRenderingContext2D, map: GameMap, cx: number
         const rr = map.tiles[ty * map.w + tx + 1];
         const u = map.tiles[(ty - 1) * map.w + tx];
         const d = map.tiles[(ty + 1) * map.w + tx];
-        const foam = 'rgba(190,230,236,0.55)';
-        for (let i = 0; i < TILE; i += 3) {
-          const wob = (i + tx * 5 + ty * 3) % 7 === 0 ? 1 : 0;
-          if (land(u)) px(dx + i, dy + 1 + wob, foam, 2, 1);
-          if (land(d)) px(dx + i, dy + TILE - 2 - wob, foam, 2, 1);
-          if (land(l)) px(dx + 1 + wob, dy + i, foam, 1, 2);
-          if (land(rr)) px(dx + TILE - 2 - wob, dy + i, foam, 1, 2);
-        }
+        // foam sits right on the edge as a broken line of irregular runs,
+        // with a paler shallow band just inside it
+        const foam = 'rgba(200,236,240,0.8)';
+        const shallow = 'rgba(120,180,200,0.22)';
+        const runs = (salt: number, draw: (at: number, len: number, wob: number) => void) => {
+          let i = Math.floor(detailHash(tx, ty, salt) * 3);
+          let n = 0;
+          while (i < TILE) {
+            const len = 2 + Math.floor(detailHash(tx + i, ty, salt + n) * 5);
+            draw(i, Math.min(len, TILE - i), detailHash(tx, ty + i, salt) < 0.3 ? 1 : 0);
+            i += len + 1 + Math.floor(detailHash(tx - i, ty, salt + n) * 3);
+            n++;
+          }
+        };
+        if (land(u)) { px(dx, dy, shallow, TILE, 4); runs(11, (a, len, wob) => px(dx + a, dy + wob, foam, len, 1)); }
+        if (land(d)) { px(dx, dy + TILE - 4, shallow, TILE, 4); runs(12, (a, len, wob) => px(dx + a, dy + TILE - 1 - wob, foam, len, 1)); }
+        if (land(l)) { px(dx, dy, shallow, 4, TILE); runs(13, (a, len, wob) => px(dx + wob, dy + a, foam, 1, len)); }
+        if (land(rr)) { px(dx + TILE - 4, dy, shallow, 4, TILE); runs(14, (a, len, wob) => px(dx + TILE - 1 - wob, dy + a, foam, 1, len)); }
         const grassy = [l, rr, u, d].some((n) => n === T.GRASS || n === T.GRASS_DARK || n === T.TALL_GRASS);
         if (grassy && r < 0.3) {
           px(ox - 3, oy, PAL.leaf, 6, 3); px(ox - 2, oy - 1, PAL.leaf, 4, 1); px(ox - 2, oy + 3, PAL.leaf, 4, 1);
@@ -500,6 +515,7 @@ export function render(game: Game): void {
   ambience.update(game, view, propIdx);
   ambience.drawGround(g, game, view);
   litWindows.length = 0;
+  let playerHidden = false;
   const walking = Math.hypot(player.vx, player.vy) > 5;
 
   for (const i of propIdx) {
@@ -539,11 +555,10 @@ export function render(game: Game): void {
     // a canopy you are standing behind goes see-through, so a tree never hides you
     const behind = !!art.swayRow && art.fh > 40 && player.y < prop.y - 4 && player.y > prop.y - art.anchorY + 8
       && Math.abs(player.x - prop.x) < art.fw * 0.45;
-    const drawFn = () => {
-      if (behind) { g.save(); g.globalAlpha = 0.5; }
-      if (flip) { g.save(); g.translate(dx * 2 + art.fw, 0); g.scale(-1, 1); blit(); g.restore(); } else blit();
-      if (behind) g.restore();
-    };
+    if (behind) playerHidden = true;
+    const drawFn = flip
+      ? () => { g.save(); g.translate(dx * 2 + art.fw, 0); g.scale(-1, 1); blit(); g.restore(); }
+      : blit;
     if (prop.flat) drawFn();
     else drawables.push({ y: prop.y, draw: drawFn });
   }
@@ -669,7 +684,7 @@ export function render(game: Game): void {
           // bands that breathe by one pixel — too small to read as a telegraph
           const glow = e.def.creature?.glow ?? PAL.ember;
           const step = Math.floor(game.now * 3 + e.id) % 2;
-          const rx = Math.round(e.radius * 0.95) + 2 + step;
+          const rx = Math.round(Math.min(e.radius * 0.7, 26)) + 2 + step;
           const ry = Math.max(2, Math.round(rx * 0.35));
           const cx0 = Math.round(e.x);
           const cy0 = Math.round(e.y + 6);
@@ -756,6 +771,10 @@ export function render(game: Game): void {
   ambience.pushDrawables(drawables, g);
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.draw();
+  if (playerHidden && !game.naval.aboard) {
+    // behind a canopy: the player shows through it as a ghost in true colours
+    drawActor(g, getCharacterSheet(player.look()), player.anim, player.animTime, player.dir, player.x, player.y + 6, 1, 0, 0.45);
+  }
   ambience.drawAir(g, game.now);
 
   // auto-aim reticle, so it is always obvious what the next swing will hit
@@ -1112,6 +1131,22 @@ function drawNightGlow(game: Game, g: CanvasRenderingContext2D): void {
     g.globalAlpha = 0.55 * night * flick;
     g.fillStyle = PAL.flameLit;
     g.fillRect(wx, wy, ww, wh);
+  }
+  // fire on the ground: torches, braziers and forges throw a warm dithered pool
+  for (const i of propIdx) {
+    const pr = game.map.props[i];
+    if (pr.art !== 'torch' && pr.art !== 'brazier' && pr.art !== 'forge' && pr.art !== 'campfire') continue;
+    const rx = pr.art === 'torch' ? 20 : 30;
+    const ry = Math.round(rx * 0.45);
+    for (let yy = -ry; yy <= ry; yy++) {
+      const half = Math.round(rx * Math.sqrt(1 - (yy / (ry + 0.5)) ** 2));
+      for (let band = 0; band < 2; band++) {
+        const hw = band === 0 ? half : Math.round(half * 0.6);
+        g.globalAlpha = (band === 0 ? 0.08 : 0.1) * night;
+        g.fillStyle = PAL.flame;
+        g.fillRect(Math.round(pr.x - hw), Math.round(pr.y + 2 + yy), hw * 2, 1);
+      }
+    }
   }
   // and a warm trapezoid on the ground below each window, in two bands
   for (const [wx, wy, ww, wh, base] of litWindows) {

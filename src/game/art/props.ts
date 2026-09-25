@@ -98,6 +98,7 @@ function canopy(
   clusters.sort((q, r) => q[1] - r[1]);
   for (const [bx, by, crx, cry] of clusters) {
     p.ellipse(bx + 1, by + 1.5, crx, cry, deep);
+    p.ellipse(bx, by + 1, crx, cry, shade(dark, 0.85));
     p.ellipse(bx, by, crx, cry, base);
     // the lit crown hugs the upper-left edge of the cluster, with ragged
     // leaf notches cut into it, rather than a bright spot in the middle
@@ -146,8 +147,9 @@ function leafyTree(w: number, h: number, dark: string, base: string, light: stri
     canopy(p, cx, h * 0.34, w * 0.46, h * 0.3, dark, base, light, rng, 8);
     // branch stubs where the trunk goes up into the leaves, and the canopy's shade on it
     const ty = Math.round(h * 0.6);
-    p.line(cx - 1, ty, cx - 5, ty - 5, trunkDark); p.line(cx, ty, cx - 4, ty - 5, mix(trunkDark, trunkLight, 0.5));
-    p.line(cx + 1, ty - 1, cx + 5, ty - 6, trunkDark);
+    const bark = mix(trunkDark, trunkLight, 0.45);
+    p.line(cx - 1, ty, cx - 5, ty - 5, bark); p.line(cx, ty, cx - 4, ty - 5, mix(trunkDark, trunkLight, 0.7));
+    p.line(cx + 1, ty - 1, cx + 5, ty - 6, bark);
     p.fill(cx - Math.floor(tw / 2), ty, tw, 2, shade(trunkDark, 0.6));
     return { ...art([p], h - 3), swayRow: Math.round(h * 0.6), swayAmp: 1 };
   };
@@ -390,7 +392,8 @@ function rockGen(w: number, h: number, dark: string, base: string, light: string
     p.g.save();
     p.g.globalCompositeOperation = 'source-atop';
     // the highlight lives on the stone too; unclipped it floated over the top
-    p.ellipse(w * 0.4, h * 0.42, w * 0.2, h * 0.16, light);
+    p.fill(0, 0, w, Math.round(h * 0.55), mix(base, light, 0.35));
+    p.ellipse(w * 0.4, h * 0.45, w * 0.22, h * 0.16, light);
     p.speckle(2, 2, w - 4, h - 4, [dark, light], 0.05, rng);
     p.g.restore();
     p.outline(dark);
@@ -409,12 +412,15 @@ GEN.rock_snow = (rng) => {
   // follows the contour exactly, with a blue lip and a few drips below it.
   p.g.save();
   p.g.globalCompositeOperation = 'source-atop';
-  p.fill(0, 0, b.fw, 19, PAL.snow);
-  p.fill(0, 0, b.fw, 16, PAL.white);
-  p.fill(0, 19, b.fw, 1, PAL.snowDark);
-  for (const [x, len] of [[9, 3], [15, 2], [22, 4], [27, 2]]) p.fill(x, 20, 1, len, PAL.snowDark);
-  for (const [x, len] of [[10, 2], [23, 3]]) p.fill(x, 20, 1, len, PAL.snow);
+  p.fill(0, 0, b.fw, 22, PAL.snow);
+  p.fill(0, 0, b.fw, 18, PAL.white);
+  p.fill(0, 22, b.fw, 1, PAL.snowDark);
+  for (const [x, len] of [[9, 3], [15, 2], [22, 4], [27, 2]]) p.fill(x, 23, 1, len, PAL.snowDark);
+  for (const [x, len] of [[10, 2], [23, 3]]) p.fill(x, 23, 1, len, PAL.snow);
   p.g.restore();
+  // and a drift banked against its foot
+  p.ellipse(10, b.anchorY - 1, 7, 2, PAL.snow);
+  p.ellipse(26, b.anchorY, 6, 1.5, PAL.snow);
   return art([p], b.anchorY);
 };
 

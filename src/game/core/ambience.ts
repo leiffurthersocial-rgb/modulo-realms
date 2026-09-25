@@ -488,7 +488,7 @@ export class Ambience {
           // rise straight at first, then lean over with the wind
           m.vx += ((m.life < 0.8 ? 0 : wind * 0.5) - m.vx) * dt * 0.8;
           m.vy = -8 - Math.min(1, m.life) * 4;
-          m.size = 1 + m.life * 1.1;
+          m.size = 1 + m.life * 1.5;
           break;
         case 'leaf':
           m.vx = wind * 0.9 + Math.sin(now * 2 + m.seed) * 10;
@@ -723,24 +723,22 @@ export class Ambience {
     const cx = Math.round(t.x);
     const cy = Math.round(t.y - t.r - t.z);
     // a ball of dead twigs: rings of pixels rotated with the roll
-    // an open ball of dead twigs: crossing curves with the ground showing
-    // through, turned as it rolls
-    for (let c = 0; c < 5; c++) {
-      const a0 = t.rot + c * 1.26;
-      for (let i = 0; i < 14; i++) {
-        const u = i / 13;
-        const ang = a0 + u * 2.6;
-        const rr = t.r * (0.45 + 0.55 * Math.sin(u * Math.PI));
-        const x = Math.round(cx + Math.cos(ang) * rr);
-        const y = Math.round(cy + Math.sin(ang) * rr * 0.9);
-        g.fillStyle = c === 0 ? PAL.sandLit : c % 2 ? PAL.woodDark : PAL.soil;
-        g.fillRect(x, y, 1, 1);
-      }
+    // a dense, irregular ball of dead twigs: dark rim, a tangle inside,
+    // lit twigs on its upper left, all of it turning as it rolls
+    const lump = (a: number) => t.r * (0.85 + 0.15 * Math.sin(a * 3 + t.r));
+    for (let i = 0; i < 90; i++) {
+      const a = t.rot + i * 2.39996;
+      const rr = lump(a) * Math.sqrt(((i * 37) % 97) / 97);
+      const x = Math.round(cx + Math.cos(a) * rr);
+      const y = Math.round(cy + Math.sin(a) * rr * 0.9);
+      const lit = Math.cos(a - t.rot) < -0.3 && Math.sin(a - t.rot) < 0;
+      g.fillStyle = lit ? PAL.sandLit : i % 3 === 0 ? PAL.woodDark : i % 3 === 1 ? PAL.soil : PAL.clay;
+      g.fillRect(x, y, (i % 5 === 0) ? 2 : 1, 1);
     }
-    g.fillStyle = PAL.woodDark;
-    for (let i = 0; i < 6; i++) {
-      const a = t.rot * 1.3 + i * 1.05;
-      g.fillRect(Math.round(cx + Math.cos(a) * t.r), Math.round(cy + Math.sin(a) * t.r * 0.9), 1, 1);
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2 + t.rot * 0.2;
+      g.fillStyle = PAL.soilDark;
+      g.fillRect(Math.round(cx + Math.cos(a) * lump(a)), Math.round(cy + Math.sin(a) * lump(a) * 0.9), 1, 1);
     }
     g.restore();
   }
@@ -754,9 +752,9 @@ export class Ambience {
     const x = Math.round(f.x0 + f.dir * reach * k);
     const y = Math.round(f.y0 - Math.sin(k * Math.PI) * f.h);
     // the body arcs with the jump: nose up on the way out, down on the way in
-    const len = f.big ? 10 : 7;
+    const len = f.big ? 12 : 9;
     const tilt = k < 0.3 ? -1 : k > 0.7 ? 1 : 0;
-    const back = f.big ? '#2a3a48' : '#34506a';
+    const back = f.big ? '#7a94aa' : '#8aa6bc';
     const belly = f.big ? '#c8d8dc' : '#dfeef2';
     g.save();
     g.globalAlpha = 0.3;
@@ -800,7 +798,7 @@ export class Ambience {
           const a = k < 0.12 ? 0.25 : k < 0.5 ? 0.45 : k < 0.8 ? 0.3 : 0.15;
           g.globalAlpha = a;
           g.fillStyle = m.color;
-          const r = Math.min(5, 1 + Math.floor(m.size));
+          const r = Math.min(7, 1 + Math.floor(m.size));
           for (let yy = -r; yy <= r; yy++) {
             const half = Math.round(Math.sqrt(Math.max(0, r * r - yy * yy + r * 0.5)));
             g.fillRect(x - half, y + yy, half * 2 + 1, 1);
@@ -833,16 +831,25 @@ export class Ambience {
         case 'pigeon': {
           g.globalAlpha = 1;
           const peck = Math.sin(now * 5 + m.seed) > 0.6 && m.vx === 0;
-          g.fillStyle = m.color;
-          g.fillRect(x - 2, y - 2, 4, 2);
-          g.fillStyle = shade(m.color, 0.7);
-          g.fillRect(x - 3, y - 2, 1, 1);
-          g.fillStyle = '#5a6a7a';
-          g.fillRect(peck ? x + 2 : x + 1, peck ? y - 1 : y - 4, 2, 2);
+          const bob = Math.floor(now * 4 + m.seed) % 2;
           g.fillStyle = PAL.ink;
-          g.fillRect(peck ? x + 3 : x + 2, peck ? y - 1 : y - 4, 1, 1);
+          g.fillRect(x - 4, y - 3, 7, 4);
+          g.fillStyle = m.color;
+          g.fillRect(x - 3, y - 3, 5, 3);
+          g.fillStyle = PAL.cloth;
+          g.fillRect(x - 2, y - 2, 3, 1);
+          g.fillStyle = shade(m.color, 0.7);
+          g.fillRect(x - 4, y - 2, 1, 1);
+          const hx = peck ? x + 2 : x + 1 + bob;
+          const hy = peck ? y - 2 : y - 6;
+          g.fillStyle = PAL.ink;
+          g.fillRect(hx - 1, hy - 1, 4, 4);
+          g.fillStyle = '#5a6a7a';
+          g.fillRect(hx, hy, 2, 2);
+          g.fillStyle = '#6fbf8a';
+          g.fillRect(hx, hy + 2, 1, 1);
           g.fillStyle = PAL.clay;
-          g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1);
+          g.fillRect(x - 1, y + 1, 1, 1); g.fillRect(x + 1, y + 1, 1, 1);
           break;
         }
         case 'butterfly': {
@@ -850,10 +857,10 @@ export class Ambience {
           g.fillStyle = m.color;
           const open = Math.floor(now * 10 + m.seed) % 2 === 0;
           const yy = y - 8;
-          if (open) { g.fillRect(x - 2, yy, 2, 2); g.fillRect(x + 1, yy, 2, 2); }
-          else { g.fillRect(x - 1, yy - 1, 1, 2); g.fillRect(x + 1, yy - 1, 1, 2); }
+          if (open) { g.fillRect(x - 3, yy - 1, 3, 3); g.fillRect(x + 1, yy - 1, 3, 3); g.fillStyle = shade(m.color, 0.7); g.fillRect(x - 3, yy + 1, 1, 1); g.fillRect(x + 3, yy + 1, 1, 1); }
+          else { g.fillRect(x - 1, yy - 2, 1, 3); g.fillRect(x + 1, yy - 2, 1, 3); }
           g.fillStyle = PAL.ink;
-          g.fillRect(x, yy, 1, 2);
+          g.fillRect(x, yy - 1, 1, 3);
           break;
         }
         case 'snowclump':
@@ -969,7 +976,8 @@ export class Ambience {
         for (let i = 0; i < 60; i++) {
           const [a, b, cc] = this.flakeSeed[i + 400];
           const x = ((a * w + now * (300 + cc * 200) * k) % (w + 60 * k)) - 30 * k;
-          g.fillRect(Math.round(x), Math.round(b * h), Math.round((10 + cc * 20) * k), k);
+          const len = Math.round(8 + cc * 12);
+          for (let j = 0; j < len; j++) g.fillRect(Math.round(x + j * k), Math.round(b * h + j * 0.35 * k), k, k);
         }
         this.drawFrost(g, w, h, k, s);
       }
