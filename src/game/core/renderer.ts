@@ -18,6 +18,8 @@ import type { Game } from './game';
 import { LOCATIONS } from '../../data/locations';
 import { drawPrompt, pixelText, promptBox, rectsOverlap, setFont, type ScreenRect } from '../art/uiCanvas';
 import { canvasUiScale } from './zoom';
+import { Ambience } from './ambience';
+import { menaceTier } from '../art/beasts';
 
 const identities = new WeakMap<GameMap,number>();
 let nextIdentity=1;
@@ -108,6 +110,7 @@ function renderChunk(map: GameMap, cx: number, cy: number): HTMLCanvasElement {
   }
 
   applyMacroVariation(g, map, cx, cy);
+  if (map.id === 'overworld') applyGroundDetail(g, map, cx, cy);
 
   chunkCache.set(key, canvas);
   chunkOrder.push(key);
@@ -160,6 +163,145 @@ function applyMacroVariation(g: CanvasRenderingContext2D, map: GameMap, cx: numb
   g.fillStyle = 'rgba(20,16,32,0.14)';
   g.fillRect(0, 0, CHUNK_PX, CHUNK_PX);
   g.restore();
+}
+
+function detailHash(tx: number, ty: number, salt: number): number {
+  const h = (Math.imul(tx + salt * 131, 2654435761) ^ Math.imul(ty - salt * 71, 1597334677)) >>> 0;
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+}
+
+/**
+ * Small things on the ground, painted into the cached chunk so they cost
+ * nothing per frame and never touch the tileset: clover and wild flowers and
+ * pebbles in the grass, wind ripples and cracked pans and the odd bleached
+ * bone in the sand, drifts and blue hollows in the snow, weeds in the joints
+ * of a road. Keyed on world tiles, so the same spot always has the same
+ * pebble, and on the original tile ids only, so the Greek east is untouched.
+ */
+function applyGroundDetail(g: CanvasRenderingContext2D, map: GameMap, cx: number, cy: number): void {
+  const px = (x: number, y: number, c: string, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  for (let y = 0; y < CHUNK; y++) {
+    for (let x = 0; x < CHUNK; x++) {
+      const tx = cx * CHUNK + x;
+      const ty = cy * CHUNK + y;
+      if (tx < 0 || ty < 0 || tx >= map.w || ty >= map.h) continue;
+      const id = map.tiles[ty * map.w + tx];
+      const dx = x * TILE;
+      const dy = y * TILE;
+      const r = detailHash(tx, ty, 1);
+      const ox = dx + 4 + Math.floor(detailHash(tx, ty, 2) * 22);
+      const oy = dy + 4 + Math.floor(detailHash(tx, ty, 3) * 22);
+      if (id === T.GRASS || id === T.GRASS_DARK || id === T.GRASS_PALE || id === T.TALL_GRASS) {
+        if (r < 0.07) {
+          // a clump of wild flowers on stems
+          const col = [PAL.cloth, PAL.goldLit, '#b98fe0', '#e87aa0', '#8fc0f0'][Math.floor(detailHash(tx, ty, 4) * 5)];
+          for (let k = 0; k < 3; k++) {
+            const fx = ox + k * 3 - 3;
+            const fy = oy + (k % 2) * 2;
+            px(fx, fy + 1, PAL.grassDark, 1, 2);
+            px(fx, fy, col);
+          }
+        } else if (r < 0.14) {
+          // clover
+          px(ox, oy, PAL.leafDark, 2, 1); px(ox + 1, oy - 1, PAL.leaf, 1, 1); px(ox - 1, oy + 1, PAL.leaf, 3, 1);
+          px(ox + 2, oy + 2, PAL.leafDark, 2, 1);
+        } else if (r < 0.19) {
+          // pebbles
+          px(ox, oy, PAL.rock, 2, 2); px(ox, oy, PAL.rockPale, 1, 1);
+          px(ox + 4, oy + 2, PAL.rock, 1, 1);
+        } else if (r < 0.22) {
+          // a bare patch of earth
+          px(ox - 2, oy, PAL.soil, 5, 2); px(ox - 1, oy + 2, PAL.soil, 3, 1); px(ox, oy, PAL.dirt, 1, 1);
+        }
+      } else if (id === T.SAND || id === T.DESERT_SAND) {
+        // wind ripples that run on across tiles
+        for (let k = 0; k < 3; k++) {
+          const base = dy + 6 + k * 10;
+          for (let i = 0; i < TILE; i += 2) {
+            const wx = tx * TILE + i;
+            const yy = base + Math.round(Math.sin(wx * 0.07 + ty * 1.3 + k) * 2);
+            if (((wx >> 3) + k + ty) % 5 === 0) continue;
+            px(dx + i, yy, 'rgba(120,88,40,0.28)', 2, 1);
+          }
+        }
+        if (id === T.DESERT_SAND && r < 0.05) {
+          // a cracked pan
+          const c = 'rgba(90,60,30,0.45)';
+          px(ox - 4, oy, c, 5, 1); px(ox, oy - 3, c, 1, 4); px(ox + 1, oy + 1, c, 4, 1); px(ox - 3, oy + 1, c, 1, 3);
+        } else if (id === T.DESERT_SAND && r < 0.058) {
+          // a bleached cow skull half under a drift: wide cranium, dark
+          // sockets, a nasal notch, a jaw with a tooth line and a crack
+          px(ox - 4, oy + 5, 'rgba(90,60,30,0.45)', 11, 1);
+          px(ox - 3, oy - 2, PAL.bone, 8, 5); px(ox - 2, oy - 3, PAL.cloth, 6, 1);
+          px(ox - 5, oy - 3, PAL.bone, 2, 1); px(ox + 5, oy - 3, PAL.bone, 2, 1);
+          px(ox - 2, oy - 1, PAL.ink, 2, 2); px(ox + 2, oy - 1, PAL.ink, 2, 2);
+          px(ox, oy + 1, PAL.stone, 1, 2);
+          px(ox - 2, oy + 3, PAL.bone, 6, 2); px(ox - 1, oy + 3, PAL.fog, 4, 1);
+          px(ox + 3, oy - 2, PAL.fog, 1, 2);
+          px(ox + 2, oy + 4, PAL.sand, 4, 2);
+        } else if (id === T.DESERT_SAND && r < 0.068) {
+          // one long bone with knobbed ends
+          px(ox - 4, oy + 1, 'rgba(90,60,30,0.4)', 10, 1);
+          px(ox - 3, oy, PAL.bone, 8, 1);
+          px(ox - 4, oy - 1, PAL.cloth, 2, 2); px(ox + 4, oy - 1, PAL.cloth, 2, 2);
+        } else if (r < 0.1) {
+          px(ox, oy, PAL.sandDark, 2, 1); px(ox + 3, oy + 1, PAL.sandDark, 1, 1);
+        }
+      } else if (id === T.SNOW) {
+        if (r < 0.12) {
+          // a blue hollow in the drift
+          px(ox - 4, oy, 'rgba(100,122,160,0.35)', 9, 2); px(ox - 2, oy + 2, 'rgba(100,122,160,0.25)', 6, 1);
+          px(ox - 4, oy - 1, PAL.white, 5, 1);
+        } else if (r < 0.16) {
+          // a stick poking out of the snow
+          px(ox, oy, PAL.woodDark, 1, 3); px(ox + 1, oy - 1, PAL.woodDark, 1, 1);
+        } else if (r < 0.3) {
+          px(ox, oy, PAL.white, 2, 1);
+        }
+      } else if (id === T.ROAD || id === T.ROAD_DIRT) {
+        // weeds in the joints where the road meets grass
+        const nb = [map.tiles[ty * map.w + tx - 1], map.tiles[ty * map.w + tx + 1], map.tiles[(ty - 1) * map.w + tx], map.tiles[(ty + 1) * map.w + tx]];
+        if (nb.some((n) => n === T.GRASS || n === T.GRASS_DARK) && r < 0.45) {
+          px(ox, oy, PAL.grassLit, 1, 2); px(ox + 1, oy + 1, PAL.grass, 1, 1); px(ox - 1, oy + 1, PAL.grass, 1, 1);
+        } else if (id === T.ROAD_DIRT && r < 0.2) {
+          px(ox, oy, PAL.rock, 2, 1);
+        }
+      } else if (id === T.WATER) {
+        // a pale line of foam where the water meets land, and lily pads off grass banks
+        const land = (n: number) => n !== T.WATER && n !== T.DEEP_WATER && !isMarine(n);
+        const l = map.tiles[ty * map.w + tx - 1];
+        const rr = map.tiles[ty * map.w + tx + 1];
+        const u = map.tiles[(ty - 1) * map.w + tx];
+        const d = map.tiles[(ty + 1) * map.w + tx];
+        // foam sits right on the edge as a broken line of irregular runs,
+        // with a paler shallow band just inside it
+        const foam = 'rgba(200,236,240,0.8)';
+        const shallow = 'rgba(120,180,200,0.22)';
+        const runs = (salt: number, draw: (at: number, len: number, wob: number) => void) => {
+          let i = Math.floor(detailHash(tx, ty, salt) * 3);
+          let n = 0;
+          while (i < TILE) {
+            const len = 2 + Math.floor(detailHash(tx + i, ty, salt + n) * 5);
+            draw(i, Math.min(len, TILE - i), detailHash(tx, ty + i, salt) < 0.3 ? 1 : 0);
+            i += len + 1 + Math.floor(detailHash(tx - i, ty, salt + n) * 3);
+            n++;
+          }
+        };
+        if (land(u)) { px(dx, dy, shallow, TILE, 4); runs(11, (a, len, wob) => px(dx + a, dy + wob, foam, len, 1)); }
+        if (land(d)) { px(dx, dy + TILE - 4, shallow, TILE, 4); runs(12, (a, len, wob) => px(dx + a, dy + TILE - 1 - wob, foam, len, 1)); }
+        if (land(l)) { px(dx, dy, shallow, 4, TILE); runs(13, (a, len, wob) => px(dx + wob, dy + a, foam, 1, len)); }
+        if (land(rr)) { px(dx + TILE - 4, dy, shallow, 4, TILE); runs(14, (a, len, wob) => px(dx + TILE - 1 - wob, dy + a, foam, 1, len)); }
+        const grassy = [l, rr, u, d].some((n) => n === T.GRASS || n === T.GRASS_DARK || n === T.TALL_GRASS);
+        if (grassy && r < 0.3) {
+          px(ox - 3, oy, PAL.leaf, 6, 3); px(ox - 2, oy - 1, PAL.leaf, 4, 1); px(ox - 2, oy + 3, PAL.leaf, 4, 1);
+          px(ox - 2, oy, PAL.leafLit, 3, 1); px(ox + 1, oy + 1, PAL.leafDark, 2, 1);
+          if (r < 0.1) { px(ox - 1, oy - 2, PAL.cloth, 2, 2); px(ox - 1, oy - 2, '#e87aa0', 1, 1); }
+        }
+      } else if (id === T.DIRT || id === T.FARM_SOIL) {
+        if (r < 0.15) { px(ox, oy, PAL.rock, 2, 1); px(ox, oy, PAL.rockPale, 1, 1); }
+      }
+    }
+  }
 }
 
 export function invalidateChunks(mapId?: string): void {
@@ -233,7 +375,7 @@ function drawActor(
 
 function enemySheet(e: Enemy): CharacterSheet {
   if (e.def.kind === 'creature' && e.def.creature) {
-    return getCreatureSheet(creatureStyle(e.def.creature.kind, e.def.creature.palette, 1, e.def.creature.glow));
+    return getCreatureSheet(creatureStyle(e.def.creature.kind, e.def.creature.palette, 1, e.def.creature.glow, e.def.level));
   }
   return getCharacterSheet(e.def.look!);
 }
@@ -284,6 +426,10 @@ interface Drawable {
 
 const lightBuffer = document.createElement('canvas');
 const propIdx: number[] = [];
+/** Decorative life: smoke, fish, leaves, weather. See ambience.ts. */
+export const ambience = new Ambience();
+/** Lit windows of the buildings in view this frame, for the night glow. */
+const litWindows: Array<[number, number, number, number, number]> = [];
 
 /** Seconds the death shake takes to die away; the world then fades to black over `DEATH_DARKEN`. */
 export const DEATH_SETTLE = 2;
@@ -365,6 +511,12 @@ export function render(game: Game): void {
   const drawables: Drawable[] = [];
   // Include the full 372×266 royal temple while retaining spatial buckets.
   propsInRect(map, left - 200, top - 200, left + viewW + 200, top + viewH + 300, propIdx);
+  const view = { left, top, w: viewW, h: viewH };
+  ambience.update(game, view, propIdx);
+  ambience.drawGround(g, game, view);
+  litWindows.length = 0;
+  let playerHidden = false;
+  const walking = Math.hypot(player.vx, player.vy) > 5;
 
   for (const i of propIdx) {
     const prop = map.props[i];
@@ -372,7 +524,8 @@ export function render(game: Game): void {
     if (prop.art.startsWith('bld:')) {
       const art = getBuilding(prop.art.slice(4));
       const dx = Math.round(prop.x - art.w / 2);
-      const dy = Math.round(prop.y - art.h + 4);
+      const dy = Math.round(prop.y - art.h + 4 - (art.padTop ?? 0));
+      for (const [wx, wy, ww, wh] of art.windows ?? []) litWindows.push([dx + wx, dy + wy, ww, wh, Math.round(prop.y + 4)]);
       drawables.push({ y: prop.y, draw: () => g.drawImage(art.canvas, dx, dy) });
       continue;
     }
@@ -380,19 +533,32 @@ export function render(game: Game): void {
     const frame = art.frames > 1 ? Math.floor((game.now + (prop.phase ?? 0)) * art.fps) % art.frames : 0;
     const dx = Math.round(prop.x - art.fw / 2);
     const dy = Math.round(prop.y - art.anchorY);
-    const sway = !prop.flat && art.fh > 40 ? Math.sin(game.now * 0.8 + prop.x * 0.01) * 0.6 : 0;
-    const drawFn = () => {
-      if (sway !== 0) {
-        g.save();
-        g.translate(prop.x, prop.y);
-        g.transform(1, 0, sway * 0.02, 1, 0, 0);
-        g.translate(-prop.x, -prop.y);
-        g.drawImage(art.canvas, frame * art.fw, 0, art.fw, art.fh, dx, dy, art.fw, art.fh);
-        g.restore();
-      } else {
-        g.drawImage(art.canvas, frame * art.fw, 0, art.fw, art.fh, dx, dy, art.fw, art.fh);
+    // Wind moves the canopy by whole pixels and leaves the trunk planted;
+    // small foliage also shivers when something walks through it.
+    let sway = 0;
+    if (art.swayRow && !prop.flat) {
+      sway = ambience.treeSway(prop.x, prop.y, game.now, art.swayAmp ?? 1);
+      if (art.rustle && walking && Math.abs(player.x - prop.x) < 16 && Math.abs(player.y - prop.y) < 12) {
+        sway += Math.floor(game.now * 18) % 2 ? 1 : -1;
       }
+    }
+    const row = art.swayRow ?? 0;
+    // half the trees and bushes are drawn mirrored, chosen by where they
+    // stand, so a row of the same species is not a row of copies
+    const flip = !!art.swayRow && (((Math.imul(prop.x | 0, 73856093) ^ Math.imul(prop.y | 0, 19349663)) >>> 7) & 1) === 1;
+    const blit = () => {
+      if (sway !== 0) {
+        g.drawImage(art.canvas, frame * art.fw, 0, art.fw, row, dx + (flip ? -sway : sway), dy, art.fw, row);
+        g.drawImage(art.canvas, frame * art.fw, row, art.fw, art.fh - row, dx, dy + row, art.fw, art.fh - row);
+      } else g.drawImage(art.canvas, frame * art.fw, 0, art.fw, art.fh, dx, dy, art.fw, art.fh);
     };
+    // a canopy you are standing behind goes see-through, so a tree never hides you
+    const behind = !!art.swayRow && art.fh > 40 && player.y < prop.y - 4 && player.y > prop.y - art.anchorY + 8
+      && Math.abs(player.x - prop.x) < art.fw * 0.45;
+    if (behind) playerHidden = true;
+    const drawFn = flip
+      ? () => { g.save(); g.translate(dx * 2 + art.fw, 0); g.scale(-1, 1); blit(); g.restore(); }
+      : blit;
     if (prop.flat) drawFn();
     else drawables.push({ y: prop.y, draw: drawFn });
   }
@@ -511,6 +677,35 @@ export function render(game: Game): void {
     drawables.push({
       y: e.y,
       draw: () => {
+        const tier = e.def.creature ? menaceTier(e.def.level) : 0;
+        if (tier >= 2 && !e.friendly) {
+          // the ground under the worst of them goes dark, in a slow pulse
+          // a tight, solid ring of its own colour hugging the feet, two hard
+          // bands that breathe by one pixel — too small to read as a telegraph
+          const glow = e.def.creature?.glow ?? PAL.ember;
+          const step = Math.floor(game.now * 3 + e.id) % 2;
+          const rx = Math.round(Math.min(e.radius * 0.7, 26)) + 2 + step;
+          const ry = Math.max(2, Math.round(rx * 0.35));
+          const cx0 = Math.round(e.x);
+          const cy0 = Math.round(e.y + 6);
+          g.save();
+          g.globalAlpha = 0.35;
+          g.fillStyle = '#0a0810';
+          for (let yy = -ry; yy <= ry; yy++) {
+            const half = Math.round(rx * Math.sqrt(1 - (yy / (ry + 0.5)) ** 2));
+            g.fillRect(cx0 - half, cy0 + yy, half * 2, 1);
+          }
+          g.globalAlpha = tier >= 3 ? 0.75 : 0.5;
+          g.fillStyle = glow;
+          for (let yy = -ry; yy <= ry; yy++) {
+            const half = Math.round(rx * Math.sqrt(1 - (yy / (ry + 0.5)) ** 2));
+            g.fillRect(cx0 - half, cy0 + yy, 1, 1);
+            g.fillRect(cx0 + half - 1, cy0 + yy, 1, 1);
+          }
+          g.fillRect(cx0 - Math.round(rx * 0.5), cy0 + ry, Math.round(rx), 1);
+          g.restore();
+        }
+        ambience.enemyFx(e, frameFor(e.hurtTime > 0 ? 'hurt' : e.anim, e.animTime), game.now);
         drawActor(g, sheet, e.hurtTime > 0 ? 'hurt' : e.anim, e.animTime, e.dir, e.x, e.y + 6, scale, e.flash, e.friendly ? 0.75 : 1);
         // health bar for damaged or notable enemies
         if ((e.hp < e.maxHp || e.elite) && !e.isBoss) {
@@ -573,8 +768,14 @@ export function render(game: Game): void {
     });
   }
 
+  ambience.pushDrawables(drawables, g);
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.draw();
+  if (playerHidden && !game.naval.aboard) {
+    // behind a canopy: the player shows through it as a ghost in true colours
+    drawActor(g, getCharacterSheet(player.look()), player.anim, player.animTime, player.dir, player.x, player.y + 6, 1, 0, 0.45);
+  }
+  ambience.drawAir(g, game.now);
 
   // auto-aim reticle, so it is always obvious what the next swing will hit
   const lock = game.lockTarget;
@@ -611,6 +812,16 @@ export function render(game: Game): void {
 
   // lighting
   drawLighting(game, g, left, top, viewW, viewH);
+  if (map.outdoor) {
+    // weather sits under the labels, prompts and title cards, and under
+    // anything that gives off its own light
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    ambience.drawWeather(g, canvas.width, canvas.height, zoom, game.now, game.settings.reduceMotion, game.nightFactor);
+    g.restore();
+  }
+  drawNightGlow(game, g);
+  ambience.drawEmissive(g, game.now, game.nightFactor);
 
   // Interaction prompt, nameplates and floating words share one layout: the
   // prompt claims its box first, a nameplate under it steps aside (the
@@ -644,6 +855,7 @@ export function render(game: Game): void {
   g.setTransform(1, 0, 0, 1, 0, 0);
 
   game.aegeanHazards.drawWeather(g, canvas.width, canvas.height);
+
 
   // payoff flash — level ups, big drops, streak milestones
   if (game.screenFlash.alpha > 0.005) {
@@ -774,6 +986,47 @@ function drawStreak(game: Game, g: CanvasRenderingContext2D): void {
   g.restore();
 }
 
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+/** Radius fraction where each band ends, and how much darkness it lifts. */
+const LIGHT_BANDS: Array<[number, number]> = [[0.34, 0.95], [0.52, 0.84], [0.68, 0.7], [0.84, 0.54], [1, 0.36]];
+const stampCache = new Map<number, HTMLCanvasElement>();
+
+/**
+ * A pool of light in hard bands with an ordered-dither seam between them,
+ * the way lamplight is drawn in pixel art. Built once per radius and cached;
+ * the caller sets the strength with globalAlpha.
+ */
+function lightStamp(r: number): HTMLCanvasElement {
+  const hit = stampCache.get(r);
+  if (hit) return hit;
+  const size = r * 2;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const g = c.getContext('2d')!;
+  const img = g.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x + 0.5 - r, y + 0.5 - r) / r;
+      if (d >= 1) continue;
+      let b = 0;
+      while (b < LIGHT_BANDS.length - 1 && d > LIGHT_BANDS[b][0]) b++;
+      // dither the last 6% of each band into the next one out
+      const edge = LIGHT_BANDS[b][0];
+      const into = (d - (edge - 0.06)) / 0.06;
+      let level = LIGHT_BANDS[b][1];
+      if (into > 0 && into * 16 > BAYER[(y & 3) * 4 + (x & 3)]) level = b + 1 < LIGHT_BANDS.length ? LIGHT_BANDS[b + 1][1] : 0;
+      const i = (y * size + x) * 4;
+      img.data[i] = 255; img.data[i + 1] = 255; img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(level * 255);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  if (stampCache.size > 96) stampCache.delete(stampCache.keys().next().value!);
+  stampCache.set(r, c);
+  return c;
+}
+
 function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {
   const map = game.map;
   const night = game.nightFactor;
@@ -817,23 +1070,23 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
     const sy = (worldY - top) * scale;
     const radius = worldR * scale;
     if (sx < -radius || sy < -radius || sx > w + radius || sy > h + radius) return;
-    const grad = lg.createRadialGradient(sx, sy, 0, sx, sy, radius);
-    grad.addColorStop(0, `rgba(255,255,255,${0.95 * strength})`);
-    grad.addColorStop(0.55, `rgba(255,255,255,${0.5 * strength})`);
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    lg.fillStyle = grad;
-    lg.beginPath();
-    lg.arc(sx, sy, radius, 0, Math.PI * 2);
-    lg.fill();
+    const stamp = lightStamp(Math.max(2, Math.round(radius / 2) * 2));
+    lg.globalAlpha = Math.min(1, strength);
+    lg.drawImage(stamp, Math.round(sx - stamp.width / 2), Math.round(sy - stamp.height / 2));
+    lg.globalAlpha = 1;
   };
 
   const flicker = 1 + Math.sin(game.now * 9) * 0.04 + Math.sin(game.now * 21) * 0.02;
-  addLight(game.player.x, game.player.y - 10, (map.outdoor ? 190 : 130) * flicker, 0.92);
+  addLight(game.player.x, game.player.y - 10, (map.outdoor ? 112 : 130) * flicker, 0.92);
   for (const i of propIdx) {
     const prop = game.map.props[i];
+    if (prop.art === 'mushroom_cluster' && map.outdoor) { addLight(prop.x, prop.y - 6, 26, 0.35 * night); continue; }
     if (!prop.light) continue;
     addLight(prop.x, prop.y - 16, prop.light * flicker * (map.outdoor ? 1 : 0.78), 0.95);
   }
+  // windows spill a little warm light onto the ground in front of them
+  for (const [wx, wy, ww, wh] of litWindows) addLight(wx + ww / 2, wy + wh + 14, 34, 0.55);
+  ambience.lights(addLight, map.outdoor ? night : 0.6);
   if (!saver) {
     // incidental lights: every shot in flight, every burning patch of ground,
     // every glowing creature. Atmosphere, and the cheapest thing to drop.
@@ -841,6 +1094,7 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
     for (const z of game.groundZones) addLight(z.x, z.y, z.r * 1.2, 0.5);
     for (const e of game.enemies) {
       if (e.def.creature?.glow || e.isBoss) addLight(e.x, e.y - 10, 90, 0.5);
+      else if (e.def.creature && menaceTier(e.def.level) >= 2) addLight(e.x, e.y - 14, 36, 0.4);
     }
   }
 
@@ -857,6 +1111,54 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
   }
   g.restore();
   g.setTransform(game.camera.zoom, 0, 0, game.camera.zoom, Math.round(-left * game.camera.zoom), Math.round(-top * game.camera.zoom));
+}
+
+/**
+ * After dark every lived-in window is a warm square that burns through the
+ * darkness buffer, with a soft halo around its frame. Shuttered houses have
+ * no lit windows and stay black, which is the point of shuttering them.
+ */
+function drawNightGlow(game: Game, g: CanvasRenderingContext2D): void {
+  const night = game.map.outdoor ? game.nightFactor : 0;
+  if (night < 0.05 || !litWindows.length) return;
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  for (const [wx, wy, ww, wh] of litWindows) {
+    const flick = 0.85 + 0.15 * Math.sin(game.now * 1.3 + wx * 0.7);
+    g.globalAlpha = 0.16 * night * flick;
+    g.fillStyle = PAL.flame;
+    g.fillRect(wx - 3, wy - 3, ww + 6, wh + 6);
+    g.globalAlpha = 0.55 * night * flick;
+    g.fillStyle = PAL.flameLit;
+    g.fillRect(wx, wy, ww, wh);
+  }
+  // fire on the ground: torches, braziers and forges throw a warm dithered pool
+  for (const i of propIdx) {
+    const pr = game.map.props[i];
+    if (pr.art !== 'torch' && pr.art !== 'brazier' && pr.art !== 'forge' && pr.art !== 'campfire') continue;
+    const rx = pr.art === 'torch' ? 20 : 30;
+    const ry = Math.round(rx * 0.45);
+    for (let yy = -ry; yy <= ry; yy++) {
+      const half = Math.round(rx * Math.sqrt(1 - (yy / (ry + 0.5)) ** 2));
+      for (let band = 0; band < 2; band++) {
+        const hw = band === 0 ? half : Math.round(half * 0.6);
+        g.globalAlpha = (band === 0 ? 0.08 : 0.1) * night;
+        g.fillStyle = PAL.flame;
+        g.fillRect(Math.round(pr.x - hw), Math.round(pr.y + 2 + yy), hw * 2, 1);
+      }
+    }
+  }
+  // and a warm trapezoid on the ground below each window, in two bands
+  for (const [wx, wy, ww, wh, base] of litWindows) {
+    if (base - (wy + wh) > 60) continue;
+    for (let i = 0; i < 12; i++) {
+      const spread = Math.round(i * 0.6);
+      g.globalAlpha = (i < 6 ? 0.14 : 0.07) * night * ((i + wx) % 2 === 0 || i < 6 ? 1 : 0);
+      g.fillStyle = PAL.flameLit;
+      g.fillRect(wx - spread, base + i, ww + spread * 2, 1);
+    }
+  }
+  g.restore();
 }
 
 /** The original compass points to a harbour while sailing, or the tracked quest on foot. */

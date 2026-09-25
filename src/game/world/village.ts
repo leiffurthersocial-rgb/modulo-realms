@@ -202,7 +202,7 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
     placeBuilding(map, { id: `ashvale_house_${i}`, art: 'townhouse', tx: CX + dx, ty: CY + dy, label: 'A shuttered house' });
   });
 
-  // A lit name plate and a matching lamp outside every door worth opening.
+  // A lit name plate outside every door worth opening.
   // The sign hangs two tiles to the side: a door drops you directly in front
   // of itself when you step out, and anything standing on that tile wedges you
   // against the wall.
@@ -213,6 +213,9 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
       cw: 12, ch: 8, light: 96, lightColor: sv.color,
       nameplate: sv.plate, nameplateColor: sv.color,
     });
+    // Placeholders where the iron lamp posts stood. They keep the scatter
+    // below from planting a tree on the doorstep and are lifted out at the
+    // end — see the bottom of this function.
     prop(map, sx - 4, sy, 'lamp_post', { cw: 8, ch: 6, light: 150, lightColor: sv.color });
     prop(map, sx + 5, sy, 'lamp_post', { cw: 8, ch: 6, light: 150, lightColor: sv.color });
   }
@@ -297,7 +300,7 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
 
   // gates and banners
   for (const [bx, by] of [[-4, 38], [4, 38], [-4, -32], [4, -32]] as Array<[number, number]>) {
-    prop(map, CX + bx, CY + by, 'banner', { cw: 10, ch: 6 });
+    prop(map, CX + bx, CY + by, 'banner_standard', { cw: 10, ch: 6, phase: bx * 0.21 + by * 0.05 });
   }
   prop(map, CX + 6, CY + 38, 'signpost', {
     cw: 12, ch: 8, interact: 'sign', label: 'Read the signpost',
@@ -333,8 +336,10 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
     else if (r < 0.9) prop(map, tx, ty, 'fern');
     else prop(map, tx, ty, 'mushroom_cluster');
   }
+  // Fire baskets at the four corners of the square. Iron lamp posts stood
+  // here once and looked electric; open flame is what the valley burns.
   for (const [lx, ly] of [[-10, -8], [10, -8], [-10, 9], [10, 9]] as Array<[number, number]>) {
-    prop(map, CX + lx, CY + ly, 'lamp_post', { cw: 8, ch: 6, light: 165, lightColor: '#f6bf5d' });
+    prop(map, CX + lx, CY + ly, 'brazier', { cw: 12, ch: 8, light: 165, lightColor: '#f6bf5d', phase: (lx + ly) * 0.37 });
   }
   for (const [bx, by] of [[-6, 6], [6, 6], [-6, -6], [6, -6]] as Array<[number, number]>) {
     prop(map, CX + bx, CY + by, 'bench', { cw: 36, ch: 10 });
@@ -342,6 +347,9 @@ export function buildAshvale(map: GameMap, rng: RNG): void {
   for (const [px, py] of [[-3, 7], [3, 7], [-3, -7], [3, -7]] as Array<[number, number]>) {
     prop(map, CX + px, CY + py, 'planter', { cw: 22, ch: 12 });
   }
+
+  // No iron lamp posts in the valley: they read as electric light.
+  map.props = map.props.filter((pr) => pr.art !== 'lamp_post' && pr.art !== 'casino_lamp');
 
   // a starter chest tucked behind the player's home
   map.chests.push({ id: 'chest_home_yard', x: (CX - 9) * TILE, y: (CY + 15) * TILE, level: 1, tier: 'small', gold: 30 });

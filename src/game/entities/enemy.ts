@@ -7,7 +7,7 @@ import { aegeanBossHealthCap, aegeanMinimumHit } from '../../data/aegean/damage'
 import { angleTo, dirFromVector, dist, type Dir4, angleBetween } from '../core/math';
 import type { WorldCtx } from '../core/world';
 import { physicalOrigin, physicalPose, type PhysicalAttackCue } from '../combat/physical';
-import { boxHitsTerrain, type MovementProfile } from '../world/map';
+import { boxHitsTerrain, findOpenNear, type MovementProfile } from '../world/map';
 import { applyStatus, newEntityId, statusSpeedMul, type Entity, type StatusEffect } from './entity';
 
 type PhysicalMotion = { attack: BossAttack; cue: PhysicalAttackCue; travel: boolean; elapsed: number; duration: number; distance: number; travelled: number; startX: number; startY: number; hitPasses: Set<number>; anyHit: boolean };
@@ -86,6 +86,19 @@ export class Enemy implements Entity {
   immuneLabel = '';
   hurtTime = 0;
   stuckTimer = 0;
+  /**
+   * Local avoidance. A creature that meets water or a wall picks a side to go
+   * round and keeps it for a moment instead of re-deciding every frame, which
+   * is what used to leave wolves shivering against a riverbank.
+   */
+  private detourSide = 0;
+  private detourUntil = 0;
+  /** Progress watchdog: where it was when the window opened, and how many windows it has wasted. */
+  private progressX = NaN;
+  private progressY = NaN;
+  private progressTime = 0;
+  private stalls = 0;
+  private unstuckChecked = false;
 
   constructor(defId: string, x: number, y: number, level: number, opts: { elite?: boolean; boss?: boolean; spawnId?: string; friendly?: boolean; region?: string } = {}) {
     const def = ENEMY_BY_ID[defId] ?? ENEMY_BY_ID.wolf;
@@ -205,11 +218,41 @@ export class Enemy implements Entity {
     dx += sx * 0.55;
     dy += sy * 0.55;
 
-    if (this.stuckTimer > 0.25) {
-      // sidestep when we have been scraping a wall
-      const perp = this.stuckTimer > 0.8 ? -1 : 1;
-      dx += -Math.sin(a) * perp * 1.4;
-      dy += Math.cos(a) * perp * 1.4;
+    // Feel ahead. If the way is shut, swing the heading round in widening
+    // steps to the side already chosen (or the freer side, the first time),
+    // and hold that side for a while so it walks round the obstacle rather
+    // than twitching against it.
+    const hw = this.radius * 0.7;
+    const hh = this.radius * 0.5;
+    const look = this.radius + 12;
+    const heading = Math.atan2(dy, dx);
+    const blocked = (ang: number) => boxHitsTerrain(ctx.map, this.x + Math.cos(ang) * look, this.y + Math.sin(ang) * look, hw, hh, this.movementProfile);
+    if (blocked(heading)) {
+      if (ctx.now > this.detourUntil || this.detourSide === 0) {
+        const left = [0.5, 1, 1.5].filter((o) => !blocked(heading - o)).length;
+        const right = [0.5, 1, 1.5].filter((o) => !blocked(heading + o)).length;
+        this.detourSide = right > left ? 1 : right < left ? -1 : (this.id % 2 ? 1 : -1);
+      }
+      this.detourUntil = ctx.now + 0.9;
+      let chosen = heading;
+      for (const o of [0.45, 0.9, 1.35, 1.8, 2.3, 2.8]) {
+        const cand = heading + o * this.detourSide;
+        if (!blocked(cand)) { chosen = cand; break; }
+        const other = heading - o * this.detourSide;
+        if (o >= 1.8 && !blocked(other)) { chosen = other; this.detourSide = -this.detourSide; break; }
+      }
+      dx = Math.cos(chosen);
+      dy = Math.sin(chosen);
+    } else if (ctx.now < this.detourUntil && this.detourSide !== 0) {
+      // still rounding the corner: bias a little to the chosen side
+      const bias = heading + 0.35 * this.detourSide;
+      if (!blocked(bias)) { dx = Math.cos(bias); dy = Math.sin(bias); }
+    }
+
+    if (this.stuckTimer > 0.6) {
+      // scraping a wall regardless: slide along it
+      dx += -Math.sin(a) * (this.detourSide || 1) * 1.2;
+      dy += Math.cos(a) * (this.detourSide || 1) * 1.2;
       if (this.stuckTimer > 1.6) this.stuckTimer = 0;
     }
 
@@ -218,6 +261,29 @@ export class Enemy implements Entity {
     this.moveBy(ctx, (dx / len) * sp, (dy / len) * sp);
     this.dir = dirFromVector(dx, dy, this.dir);
     this.anim = 'walk';
+  }
+
+  /**
+   * Every 1.2 s of trying to walk, check it actually went somewhere. Two
+   * wasted windows flip the detour side; a creature that cannot get home
+   * makes wherever it is its home instead of walking into the bank forever.
+   */
+  private watchProgress(ctx: WorldCtx): void {
+    const moving = this.anim === 'walk' && (this.state === 'chase' || this.state === 'return' || this.state === 'patrol' || this.state === 'flee');
+    if (!moving) { this.progressX = NaN; this.stalls = 0; return; }
+    if (Number.isNaN(this.progressX)) { this.progressX = this.x; this.progressY = this.y; this.progressTime = ctx.now; return; }
+    if (ctx.now - this.progressTime < 1.2) return;
+    const moved = dist(this.x, this.y, this.progressX, this.progressY);
+    this.progressX = this.x; this.progressY = this.y; this.progressTime = ctx.now;
+    if (moved > this.speed * 0.25) { this.stalls = 0; return; }
+    this.stalls++;
+    this.detourSide = this.detourSide ? -this.detourSide : 1;
+    this.detourUntil = ctx.now + 1.4;
+    if (this.state === 'patrol') { this.wanderAngle += Math.PI; this.state = 'idle'; this.stateTime = 0; }
+    if (this.state === 'return' && this.stalls >= 2) {
+      this.homeX = this.x; this.homeY = this.y;
+      this.state = 'idle'; this.stateTime = 0; this.anim = 'idle';
+    }
   }
 
   driveTo(ctx: WorldCtx, x: number, y: number, speed = 1): void {
@@ -803,6 +869,15 @@ export class Enemy implements Entity {
     // The enrage clock only runs once the fight has actually started.
     if (this.isBoss && this.state !== 'idle' && this.state !== 'patrol') this.fightTime += dt;
     this.stuckTimer = Math.max(0, this.stuckTimer - dt * 0.35);
+    if (!this.unstuckChecked) {
+      // Spawned half inside a bank or a wall: step out once, onto open ground.
+      this.unstuckChecked = true;
+      if (boxHitsTerrain(ctx.map, this.x, this.y, this.radius * 0.7, this.radius * 0.5, this.movementProfile)) {
+        const open = findOpenNear(ctx.map, this.x, this.y, this.radius * 0.7, this.radius * 0.5, 12, this.movementProfile);
+        this.x = open.x; this.y = open.y;
+        if (dist(this.homeX, this.homeY, this.x, this.y) < 200) { this.homeX = this.x; this.homeY = this.y; }
+      }
+    }
     if (this.lifetime !== Infinity) {
       this.lifetime -= dt;
       if (this.lifetime <= 0) {
@@ -925,6 +1000,7 @@ export class Enemy implements Entity {
         }
         if (dist(this.homeX, this.homeY, this.x, this.y) > 800 && !this.isBoss) {
           this.state = 'return';
+          this.stateTime = 0;
           break;
         }
         const wantRange = this.def.ranged ? this.def.attackRange * 0.72 : this.def.attackRange * 0.8;
@@ -956,7 +1032,8 @@ export class Enemy implements Entity {
       }
       case 'return': {
         if (sees && this.hp / this.maxHp > (this.def.flee ?? 0)) { this.state = 'chase'; break; }
-        if (dist(this.x, this.y, this.homeX, this.homeY) < 24) {
+        if (dist(this.x, this.y, this.homeX, this.homeY) < 24 || this.stateTime > 30) {
+          if (this.stateTime > 30) { this.homeX = this.x; this.homeY = this.y; }
           this.state = 'idle';
           this.stateTime = 0;
           this.anim = 'idle';
@@ -966,6 +1043,7 @@ export class Enemy implements Entity {
       default:
         break;
     }
+    this.watchProgress(ctx);
   }
 
   /** Summoned allies hunt the nearest enemy instead of the player. */

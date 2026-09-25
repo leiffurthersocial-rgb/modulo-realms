@@ -14,6 +14,15 @@ export interface PropArt {
   fps: number;
   /** Where the sprite's "feet" sit, measured from the top of the frame. */
   anchorY: number;
+  /**
+   * Wind: rows above this one belong to the canopy and are drawn shifted by
+   * whole pixels as the breeze moves them; the trunk below stays planted.
+   */
+  swayRow?: number;
+  /** How far the canopy travels in a gust, in pixels. */
+  swayAmp?: number;
+  /** Small foliage that shivers when something walks through it. */
+  rustle?: boolean;
 }
 
 const cache = new Map<string, PropArt>();
@@ -38,15 +47,28 @@ function groundShadow(p: Px, cx: number, y: number, rx: number, ry = Math.max(2,
 }
 
 function trunk(p: Px, cx: number, baseY: number, h: number, w: number, dark: string, light: string) {
-  p.fill(cx - Math.floor(w / 2), baseY - h, w, h, dark);
-  p.fill(cx - Math.floor(w / 2) + 1, baseY - h, Math.max(1, w - 2), h, mix(dark, light, 0.5));
+  const x0 = cx - Math.floor(w / 2);
+  p.fill(x0, baseY - h, w, h, dark);
+  p.fill(x0 + 1, baseY - h, Math.max(1, w - 2), h, mix(dark, light, 0.5));
+  p.fill(x0 + 1, baseY - h, 1, h, mix(dark, light, 0.8));
   p.fill(cx + Math.floor(w / 2) - 1, baseY - h, 1, h, shade(dark, 0.7));
-  // roots
-  p.fill(cx - Math.floor(w / 2) - 1, baseY - 2, 2, 2, dark);
-  p.fill(cx + Math.floor(w / 2) - 1, baseY - 2, 2, 2, dark);
+  // bark stripes
+  for (let y = baseY - h + 3; y < baseY - 3; y += 4) p.fill(x0 + 1 + ((y >> 2) % 2), y, 1, 2, shade(dark, 0.85));
+  // flared roots
+  p.fill(x0 - 2, baseY - 2, w + 4, 2, dark);
+  p.fill(x0 - 1, baseY - 3, w + 2, 1, dark);
+  p.set(x0 - 2, baseY - 2, mix(dark, light, 0.4));
+  // a fork up into the canopy
+  p.line(cx, baseY - h + 2, cx - w, baseY - h - 4, dark);
+  p.line(cx + 1, baseY - h + 2, cx + w, baseY - h - 5, dark);
 }
 
-/** Layered blobby canopy — the workhorse for every leafy tree. */
+/**
+ * A canopy built from leaf clusters rather than one blob: each cluster has
+ * its own shadowed underside, its own lit crown toward the upper-left sun and
+ * a rim of bright leaves, and the front clusters overlap the back ones. That
+ * is what makes a tree read as foliage instead of as a lollipop.
+ */
 function canopy(
   p: Px,
   cx: number,
@@ -59,30 +81,47 @@ function canopy(
   rng: RNG,
   blobs = 7,
 ) {
-  p.ellipse(cx, cy, rx, ry, dark);
+  const deep = shade(dark, 0.78);
+  p.ellipse(cx, cy + ry * 0.12, rx * 0.92, ry * 0.9, dark);
+  const clusters: Array<[number, number, number, number]> = [];
   for (let i = 0; i < blobs; i++) {
     const a = (i / blobs) * Math.PI * 2 + rng.range(-0.3, 0.3);
-    const bx = cx + Math.cos(a) * rx * 0.55;
-    const by = cy + Math.sin(a) * ry * 0.55;
-    p.ellipse(bx, by, rx * rng.range(0.34, 0.5), ry * rng.range(0.34, 0.5), base);
+    const big = i % 3 === 0 ? 1.25 : i % 3 === 1 ? 0.8 : 0.62;
+    clusters.push([cx + Math.cos(a) * rx * 0.55, cy + Math.sin(a) * ry * 0.52, rx * 0.4 * big, ry * 0.48 * big]);
   }
-  p.ellipse(cx, cy - ry * 0.15, rx * 0.66, ry * 0.6, base);
-  // highlight cluster toward the upper-left light source
-  for (let i = 0; i < 4; i++) {
-    p.ellipse(
-      cx - rx * rng.range(0.1, 0.5),
-      cy - ry * rng.range(0.25, 0.6),
-      rx * rng.range(0.16, 0.26),
-      ry * rng.range(0.16, 0.26),
-      light,
-    );
+  // two small clusters breaking the outline
+  for (let i = 0; i < 2; i++) {
+    const a = rng.range(-2.6, -0.5);
+    clusters.push([cx + Math.cos(a) * rx * 0.92, cy + Math.sin(a) * ry * 0.85, rx * 0.2, ry * 0.24]);
   }
-  // leaf speckle
-  for (let i = 0; i < 24; i++) {
+  clusters.push([cx - rx * 0.08, cy - ry * 0.18, rx * 0.5, ry * 0.52]);
+  clusters.sort((q, r) => q[1] - r[1]);
+  for (const [bx, by, crx, cry] of clusters) {
+    p.ellipse(bx + 1, by + 1.5, crx, cry, deep);
+    p.ellipse(bx, by + 1, crx, cry, shade(dark, 0.85));
+    p.ellipse(bx, by, crx, cry, base);
+    // the lit crown hugs the upper-left edge of the cluster, with ragged
+    // leaf notches cut into it, rather than a bright spot in the middle
+    p.ellipse(bx - crx * 0.18, by - cry * 0.2, crx * 0.8, cry * 0.72, mix(base, light, 0.5));
+    p.ellipse(bx + crx * 0.12, by + cry * 0.14, crx * 0.72, cry * 0.66, base);
+    for (let k = 0; k < 7; k++) {
+      const t = -Math.PI * 0.5 - 1.2 + (k / 6) * 1.6;
+      p.set(bx + Math.cos(t) * crx * 0.82, by + Math.sin(t) * cry * 0.8, light);
+      if (k % 2) p.set(bx + Math.cos(t) * crx * 0.92, by + Math.sin(t) * cry * 0.9, mix(light, PAL.white, 0.2));
+    }
+    for (let k = 0; k < 4; k++) p.set(bx + rng.range(-crx * 0.7, crx * 0.7), by + cry * rng.range(0.55, 0.9), dark);
+  }
+  // leaf speckle, only on the foliage
+  p.g.save();
+  p.g.globalCompositeOperation = 'source-atop';
+  for (let i = 0; i < 30; i++) {
     const a = rng.range(0, Math.PI * 2);
     const r = Math.sqrt(rng.next());
-    p.set(cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r, rng.bool(0.5) ? light : dark);
+    const x = cx + Math.cos(a) * rx * r;
+    const y = cy + Math.sin(a) * ry * r;
+    p.set(x, y, y < cy ? light : dark);
   }
+  p.g.restore();
 }
 
 /* ------------------------------------------------------------------ */
@@ -101,13 +140,23 @@ function leafyTree(w: number, h: number, dark: string, base: string, light: stri
     const cx = w / 2;
     groundShadow(p, cx, h - 4, w * 0.3);
     trunk(p, cx, h - 3, h * 0.42, Math.max(3, Math.round(w * 0.14)), trunkDark, trunkLight);
+    // bark: a knot and a couple of fissures, so the trunk is wood not a bar
+    const tw = Math.max(3, Math.round(w * 0.14));
+    for (let i = 0; i < 3; i++) p.fill(cx - Math.floor(tw / 2) + 1 + (i % 2), h - 6 - i * 6 - rng.int(0, 3), 1, 3, shade(trunkDark, 0.8));
+    p.fill(cx - 1, h - 3 - h * 0.25, 2, 2, shade(trunkDark, 0.7));
     canopy(p, cx, h * 0.34, w * 0.46, h * 0.3, dark, base, light, rng, 8);
-    return art([p], h - 3);
+    // branch stubs where the trunk goes up into the leaves, and the canopy's shade on it
+    const ty = Math.round(h * 0.6);
+    const bark = mix(trunkDark, trunkLight, 0.45);
+    p.line(cx - 1, ty, cx - 5, ty - 5, bark); p.line(cx, ty, cx - 4, ty - 5, mix(trunkDark, trunkLight, 0.7));
+    p.line(cx + 1, ty - 1, cx + 5, ty - 6, bark);
+    p.fill(cx - Math.floor(tw / 2), ty, tw, 2, shade(trunkDark, 0.6));
+    return { ...art([p], h - 3), swayRow: Math.round(h * 0.6), swayAmp: 1 };
   };
 }
 
 GEN.tree_oak = leafyTree(56, 72, PAL.leafDark, PAL.leaf, PAL.leafLit, PAL.woodDark, PAL.woodLit);
-GEN.tree_maple = leafyTree(52, 68, '#5a3320', PAL.clay, PAL.flame, PAL.woodDark, PAL.woodLit);
+GEN.tree_maple = leafyTree(52, 68, '#6d2a1a', '#b5462f', '#e8763a', PAL.woodDark, PAL.woodLit);
 GEN.tree_birch = (rng) => {
   const p = new Px(44, 64);
   const cx = 22;
@@ -116,7 +165,7 @@ GEN.tree_birch = (rng) => {
   p.fill(cx + 1, 26, 2, 34, PAL.bone);
   for (let i = 0; i < 7; i++) p.fill(cx - 2, 28 + i * 5, rng.int(2, 4), 1, PAL.charcoal);
   canopy(p, cx, 20, 19, 14, PAL.grassDark, PAL.grassLit, PAL.grassPale, rng, 7);
-  return art([p], 61);
+  return { ...art([p], 61), swayRow: 44, swayAmp: 1 };
 };
 GEN.tree_pine = (rng) => {
   const p = new Px(44, 76);
@@ -131,7 +180,7 @@ GEN.tree_pine = (rng) => {
     p.poly([[cx - wd + 5, y - 3], [cx - 1, y - 3], [cx - 2, y - 14]], PAL.leaf);
     for (let k = 0; k < 5; k++) p.set(cx + rng.int(-wd + 2, wd - 2), y - rng.int(1, 14), rng.bool() ? PAL.leafLit : PAL.mossDark);
   }
-  return art([p], 73);
+  return { ...art([p], 73), swayRow: 56, swayAmp: 1 };
 };
 GEN.tree_pine_snow = (rng) => {
   const base = GEN.tree_pine(rng);
@@ -143,7 +192,7 @@ GEN.tree_pine_snow = (rng) => {
     p.poly([[22 - wd, y], [22 + wd, y], [22, y - 6]], withAlpha(PAL.snow, 0.92));
     for (let k = 0; k < 4; k++) p.set(22 + rng.int(-wd, wd), y - rng.int(0, 5), PAL.white);
   }
-  return art([p], 73);
+  return { ...art([p], 73), swayRow: 56, swayAmp: 1 };
 };
 GEN.tree_dead = (rng) => {
   const p = new Px(48, 68);
@@ -165,7 +214,7 @@ GEN.tree_dead = (rng) => {
   branch(cx, 32, -0.7, -0.8, 9, 2);
   branch(cx, 36, 0.8, -0.7, 9, 2);
   branch(cx, 26, 0.1, -1, 8, 2);
-  return art([p], 65);
+  return { ...art([p], 65), swayRow: 40, swayAmp: 1 };
 };
 GEN.tree_willow = (rng) => {
   const p = new Px(60, 72);
@@ -179,7 +228,7 @@ GEN.tree_willow = (rng) => {
     const len = rng.int(6, 18);
     for (let k = 0; k < len; k++) p.set(x + Math.round(Math.sin(k * 0.4) * 1.2), y + k, rng.bool(0.6) ? PAL.swamp : PAL.rot);
   }
-  return art([p], 69);
+  return { ...art([p], 69), swayRow: 48, swayAmp: 2 };
 };
 GEN.tree_palm = (rng) => {
   const p = new Px(52, 72);
@@ -200,7 +249,7 @@ GEN.tree_palm = (rng) => {
     }
   }
   p.circle(tipX, 28, 3, PAL.clay);
-  return art([p], 68);
+  return { ...art([p], 68), swayRow: 34, swayAmp: 2 };
 };
 GEN.tree_ash = (rng) => {
   const p = new Px(52, 68);
@@ -209,7 +258,7 @@ GEN.tree_ash = (rng) => {
   trunk(p, cx, 65, 28, 6, PAL.ink, PAL.charcoal);
   canopy(p, cx, 24, 22, 14, PAL.charcoal, PAL.slate, PAL.ash, rng, 7);
   for (let i = 0; i < 6; i++) p.set(cx + rng.int(-18, 18), 18 + rng.int(-8, 8), PAL.ember);
-  return art([p], 65);
+  return { ...art([p], 65), swayRow: 42, swayAmp: 1 };
 };
 GEN.tree_magic = (rng) => {
   const frames: Px[] = [];
@@ -226,7 +275,7 @@ GEN.tree_magic = (rng) => {
     }
     frames.push(p);
   }
-  return art(frames, 73, 5);
+  return { ...art(frames, 73, 5), swayRow: 46, swayAmp: 1 };
 };
 
 /* --- foliage / small scatter --- */
@@ -235,7 +284,7 @@ GEN.bush = (rng) => {
   const p = new Px(32, 28);
   groundShadow(p, 16, 25, 9);
   canopy(p, 16, 16, 13, 9, PAL.leafDark, PAL.leaf, PAL.leafLit, rng, 5);
-  return art([p], 26);
+  return { ...art([p], 26), swayRow: 16, swayAmp: 1, rustle: true };
 };
 GEN.bush_berry = (rng) => {
   const p = new Px(32, 28);
@@ -246,7 +295,7 @@ GEN.bush_berry = (rng) => {
     const y = 14 + rng.int(-6, 7);
     p.set(x, y, PAL.blood); p.set(x + 1, y, PAL.ember);
   }
-  return art([p], 26);
+  return { ...art([p], 26), swayRow: 16, swayAmp: 1, rustle: true };
 };
 GEN.shrub_dead = (rng) => {
   const p = new Px(28, 24);
@@ -276,7 +325,7 @@ GEN.reeds = (rng) => {
     for (let k = 0; k < h; k++) p.set(x + Math.round(Math.sin(k * 0.25) * 1.5), 28 - k, k > h - 5 ? PAL.swamp : PAL.grassDark);
     if (rng.bool(0.5)) p.fill(x - 1, 28 - h - 3, 3, 4, PAL.clay);
   }
-  return art([p], 29);
+  return { ...art([p], 29), swayRow: 18, swayAmp: 1, rustle: true };
 };
 GEN.fern = (rng) => {
   const p = new Px(28, 24);
@@ -289,7 +338,7 @@ GEN.fern = (rng) => {
       if (k % 2 === 0) { p.set(x + 1, y, PAL.leafDark); p.set(x - 1, y, PAL.leafLit); }
     }
   }
-  return art([p], 23);
+  return { ...art([p], 23), swayRow: 14, swayAmp: 1, rustle: true };
 };
 GEN.mushroom_cluster = (rng) => {
   const p = new Px(26, 22);
@@ -319,7 +368,7 @@ GEN.grass_tuft = (rng) => {
     const h = rng.int(5, 11);
     for (let k = 0; k < h; k++) p.set(x + Math.round(Math.sin(k * 0.5) * 1.3), 14 - k, k > h - 3 ? PAL.grassPale : PAL.grassLit);
   }
-  return art([p], 15);
+  return { ...art([p], 15), swayRow: 10, swayAmp: 1, rustle: true };
 };
 
 /* --- rock / mineral --- */
@@ -338,8 +387,15 @@ function rockGen(w: number, h: number, dark: string, base: string, light: string
     p.poly(pts, base);
     p.poly(pts.map(([x, y]) => [x, y + 2] as [number, number]), shade(base, 0.7));
     p.poly(pts, base);
-    p.ellipse(w * 0.4, h * 0.42, w * 0.2, h * 0.16, light);
+    // speckle the stone, never the air round it: stray grains used to pick
+    // up the outline and float beside the rock as little crosses
+    p.g.save();
+    p.g.globalCompositeOperation = 'source-atop';
+    // the highlight lives on the stone too; unclipped it floated over the top
+    p.fill(0, 0, w, Math.round(h * 0.55), mix(base, light, 0.35));
+    p.ellipse(w * 0.4, h * 0.45, w * 0.22, h * 0.16, light);
     p.speckle(2, 2, w - 4, h - 4, [dark, light], 0.05, rng);
+    p.g.restore();
     p.outline(dark);
     return art([p], h - 3);
   };
@@ -352,9 +408,22 @@ GEN.rock_snow = (rng) => {
   const b = rockGen(36, 30, PAL.rock, PAL.rockPale, PAL.snow)(rng);
   const p = new Px(b.fw, b.fh);
   p.blit(b.canvas, 0, 0);
-  p.ellipse(18, 12, 12, 5, withAlpha(PAL.snow, 0.9));
+  // Snow lies on the rock: the cap is the rock's own top, repainted, so it
+  // follows the contour exactly, with a blue lip and a few drips below it.
+  p.g.save();
+  p.g.globalCompositeOperation = 'source-atop';
+  p.fill(0, 0, b.fw, 22, PAL.snow);
+  p.fill(0, 0, b.fw, 18, PAL.white);
+  p.fill(0, 22, b.fw, 1, PAL.snowDark);
+  for (const [x, len] of [[9, 3], [15, 2], [22, 4], [27, 2]]) p.fill(x, 23, 1, len, PAL.snowDark);
+  for (const [x, len] of [[10, 2], [23, 3]]) p.fill(x, 23, 1, len, PAL.snow);
+  p.g.restore();
+  // and a drift banked against its foot
+  p.ellipse(10, b.anchorY - 1, 7, 2, PAL.snow);
+  p.ellipse(26, b.anchorY, 6, 1.5, PAL.snow);
   return art([p], b.anchorY);
 };
+
 GEN.crystal = (rng) => {
   const frames: Px[] = [];
   for (let f = 0; f < 4; f++) {
@@ -468,34 +537,62 @@ GEN.sack = (rng) => {
   return art([p], 23);
 };
 GEN.hay = (rng) => {
-  const p = new Px(34, 26);
-  groundShadow(p, 17, 24, 13);
-  p.ellipse(17, 15, 15, 9, PAL.sandDark);
-  p.ellipse(17, 14, 14, 8, PAL.sand);
+  const p = new Px(36, 34);
+  groundShadow(p, 17, 32, 13);
+  p.ellipse(17, 23, 15, 9, PAL.sandDark);
+  p.ellipse(17, 22, 14, 8, PAL.sand);
+  p.ellipse(14, 19, 7, 3, PAL.sandLit);
   for (let i = 0; i < 26; i++) {
-    const x = rng.int(3, 31); const y = rng.int(7, 22);
+    const x = rng.int(3, 31); const y = rng.int(15, 30);
     p.fill(x, y, rng.int(2, 4), 1, rng.bool() ? PAL.sandLit : PAL.clay);
   }
-  return art([p], 25);
+  for (let i = 0; i < 6; i++) p.set(rng.int(4, 30), rng.int(29, 32), PAL.sandLit);
+  // a pitchfork left standing in it
+  p.line(27, 5, 23, 22, PAL.woodLit);
+  p.line(28, 5, 24, 22, PAL.wood);
+  p.fill(25, 3, 7, 1, PAL.iron);
+  for (let i = 0; i < 3; i++) p.fill(25 + i * 3, 0, 1, 3, PAL.ironLit);
+  return art([p], 33);
 };
+
 GEN.cart = (rng) => {
-  const p = new Px(52, 36);
-  groundShadow(p, 26, 33, 20);
-  p.fill(6, 12, 40, 14, PAL.wood);
-  p.fill(6, 12, 40, 3, PAL.plank);
-  p.box(6, 12, 40, 14, PAL.woodDark);
-  for (let i = 0; i < 5; i++) p.fill(10 + i * 8, 13, 1, 12, PAL.woodDark);
-  for (const wx of [14, 38]) {
-    p.circle(wx, 28, 6, PAL.woodDark);
-    p.circle(wx, 28, 4, PAL.wood);
-    p.circle(wx, 28, 1, PAL.iron);
-    p.line(wx - 4, 28, wx + 4, 28, PAL.woodDark);
-    p.line(wx, 24, wx, 32, PAL.woodDark);
+  const p = new Px(56, 40);
+  groundShadow(p, 26, 37, 22);
+  // shafts resting on the ground, then the bed
+  p.line(44, 22, 55, 34, PAL.woodDark);
+  p.line(44, 25, 54, 36, PAL.wood);
+  p.fill(6, 16, 40, 14, PAL.wood);
+  p.fill(6, 16, 40, 3, PAL.plank);
+  p.box(6, 16, 40, 14, PAL.woodDark);
+  for (let i = 0; i < 5; i++) p.fill(10 + i * 8, 17, 1, 12, PAL.woodDark);
+  p.fill(6, 22, 40, 1, PAL.ironDark);
+  // a load: sacks, a barrel and a crate of apples
+  for (const [x, y] of [[10, 12], [17, 11], [13, 8]] as Array<[number, number]>) {
+    p.ellipse(x, y, 5, 4, PAL.sand);
+    p.ellipse(x - 1, y - 1, 3, 2, PAL.sandLit);
+    p.fill(x - 1, y - 5, 2, 2, PAL.clay);
   }
-  p.fill(44, 16, 8, 2, PAL.wood);
-  for (let i = 0; i < 4; i++) p.fill(rng.int(10, 40), 8 + rng.int(0, 3), 6, 5, PAL.sand);
-  return art([p], 34);
+  p.fill(24, 5, 10, 12, PAL.wood);
+  p.ellipse(29, 5, 5, 2, PAL.plank);
+  p.fill(23, 8, 12, 1, PAL.iron); p.fill(23, 13, 12, 1, PAL.iron);
+  p.fill(35, 9, 9, 8, PAL.plank);
+  p.box(35, 9, 9, 8, PAL.woodDark);
+  for (let i = 0; i < 6; i++) p.set(36 + rng.int(0, 6), 9 + rng.int(-1, 1), rng.bool(0.7) ? PAL.blood : PAL.leafLit);
+  // spoked wheels
+  for (const wx of [14, 38]) {
+    p.circle(wx, 31, 7, PAL.woodDark);
+    p.circle(wx, 31, 5, PAL.wood);
+    p.circle(wx, 31, 3, withAlpha(PAL.ink, 0.5));
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI;
+      p.line(wx - Math.cos(a) * 5, 31 - Math.sin(a) * 5, wx + Math.cos(a) * 5, 31 + Math.sin(a) * 5, PAL.woodLit);
+    }
+    p.circle(wx, 31, 1.5, PAL.iron);
+    p.ellipse(wx, 31, 7, 7, 'rgba(0,0,0,0)');
+  }
+  return art([p], 38);
 };
+
 GEN.signpost = (rng) => {
   const p = new Px(28, 34);
   groundShadow(p, 14, 32, 7);
@@ -582,7 +679,6 @@ GEN.torch = () => {
     p.fill(8, 16, 4, 22, PAL.wood);
     p.fill(9, 16, 1, 22, PAL.woodLit);
     p.fill(7, 14, 6, 4, PAL.ironDark);
-    p.ellipse(10, 22, 9, 9, withAlpha(PAL.flame, 0.07));
     flame(p, 10, 14, 1.25, (f / 4) * Math.PI * 2, [PAL.flameLit, PAL.flame, PAL.ember]);
     frames.push(p);
   }
@@ -591,18 +687,30 @@ GEN.torch = () => {
 GEN.brazier = () => {
   const frames: Px[] = [];
   for (let f = 0; f < 4; f++) {
-    const p = new Px(28, 44);
-    p.fill(11, 30, 6, 12, PAL.ironDark);
-    p.fill(7, 40, 14, 3, PAL.ironDark);
-    p.fill(5, 22, 18, 9, PAL.iron);
-    p.fill(5, 22, 18, 2, PAL.ironLit);
-    p.fill(7, 31, 14, 2, PAL.ironDark);
-    p.ellipse(14, 24, 13, 13, withAlpha(PAL.flame, 0.07));
-    flame(p, 14, 24, 1.6, (f / 4) * Math.PI * 2, [PAL.flameLit, PAL.flame, PAL.ember]);
+    const p = new Px(30, 46);
+    groundShadow(p, 15, 44, 9, 3);
+    // a stone pedestal and a round, flared iron bowl on it
+    p.fill(11, 32, 8, 12, PAL.stone);
+    p.fill(11, 32, 2, 12, PAL.fog);
+    p.fill(17, 32, 2, 12, PAL.slate);
+    p.fill(9, 42, 12, 3, PAL.stone);
+    p.fill(9, 42, 12, 1, PAL.fog);
+    p.ellipse(15, 27, 8, 5, PAL.ironDark);
+    p.ellipse(15, 26, 7, 4, PAL.iron);
+    p.fill(8, 27, 14, 1, PAL.ironDark);
+    p.ellipse(15, 22, 11, 3, PAL.ironDark);
+    p.ellipse(15, 21.5, 10, 2, PAL.ironLit);
+    for (const x of [10, 20]) p.fill(x, 23, 1, 6, PAL.ironDark);
+    // a dome of coals above the rim
+    p.ellipse(15, 20, 8, 2.5, PAL.emberDark);
+    for (let i = 0; i < 9; i++) p.set(8 + i * 2 - (i % 2), 19 + (i % 3 === 0 ? 1 : 0), (i + f) % 3 === 0 ? PAL.flameLit : PAL.ember);
+    flame(p, 15, 19, 1.5, (f / 4) * Math.PI * 2, [PAL.holy, PAL.flameLit, PAL.flame]);
+    p.set(14 + (f % 3), 4 + (f % 2) * 2, PAL.flameLit);
     frames.push(p);
   }
-  return art(frames, 43, 10);
+  return art(frames, 44, 10);
 };
+
 GEN.campfire = (rng) => {
   const frames: Px[] = [];
   for (let f = 0; f < 4; f++) {
@@ -614,59 +722,109 @@ GEN.campfire = (rng) => {
     }
     p.line(9, 28, 25, 24, PAL.woodDark);
     p.line(9, 24, 25, 28, PAL.wood);
-    p.ellipse(17, 26, 12, 8, withAlpha(PAL.flame, 0.09));
     flame(p, 17, 27, 1.5, (f / 4) * Math.PI * 2, [PAL.flameLit, PAL.flame, PAL.ember]);
     frames.push(p);
   }
   return art(frames, 32, 9);
 };
+/**
+ * A bridge lantern: an oak post with an iron hook, and an oil lamp hanging
+ * from it that you can see burning. It stood on the ground on its own once,
+ * which is nowhere a lantern would ever be put.
+ */
 GEN.lantern = () => {
   const frames: Px[] = [];
-  for (let f = 0; f < 2; f++) {
-    const p = new Px(18, 26);
-    p.fill(8, 1, 2, 4, PAL.ironDark);
-    p.fill(4, 5, 10, 3, PAL.ironDark);
-    p.fill(5, 8, 8, 10, f === 0 ? PAL.flameLit : PAL.gold);
-    p.box(4, 7, 10, 12, PAL.ironDark);
-    p.fill(4, 19, 10, 3, PAL.ironDark);
-    p.ellipse(9, 13, 9, 9, withAlpha(PAL.flameLit, 0.08));
+  for (let f = 0; f < 4; f++) {
+    const p = new Px(22, 44);
+    groundShadow(p, 8, 42, 6);
+    p.fill(6, 6, 4, 36, PAL.wood);
+    p.fill(6, 6, 1, 36, PAL.woodLit);
+    p.fill(9, 6, 1, 36, PAL.woodDark);
+    p.fill(5, 4, 6, 3, PAL.woodDark);
+    p.fill(5, 30, 6, 2, PAL.ironDark);
+    // the hook arm and the hanging lamp, swinging a pixel
+    const sw = f === 1 ? 1 : f === 3 ? -1 : 0;
+    p.fill(10, 8, 8, 2, PAL.ironDark);
+    p.fill(17, 8, 1, 3, PAL.ironDark);
+    const lx = 14 + sw;
+    p.fill(lx + 2, 11, 1, 2, PAL.ironDark);
+    p.fill(lx, 13, 5, 2, PAL.ironDark);
+    p.fill(lx, 15, 5, 7, PAL.ironDark);
+    p.fill(lx + 1, 16, 3, 5, f % 2 ? PAL.flameLit : PAL.flame);
+    p.fill(lx + 2, 17, 1, 3, PAL.holy);
+    p.fill(lx, 22, 5, 1, PAL.ironDark);
     frames.push(p);
   }
-  return art(frames, 24, 3);
+  return art(frames, 42, 3);
 };
 
 /* --- village / interior furniture --- */
 
 GEN.well = (rng) => {
-  const p = new Px(44, 48);
-  groundShadow(p, 22, 45, 17);
-  p.ellipse(22, 34, 16, 9, PAL.stone);
-  p.ellipse(22, 33, 13, 7, PAL.ink);
-  p.ellipse(22, 34, 11, 5, PAL.water);
-  p.fill(6, 34, 32, 8, PAL.stone);
-  p.ellipse(22, 42, 16, 5, PAL.stone);
-  for (let i = 0; i < 14; i++) p.set(rng.int(7, 37), rng.int(34, 45), rng.bool() ? PAL.slate : PAL.fog);
-  p.fill(9, 8, 4, 28, PAL.wood);
-  p.fill(31, 8, 4, 28, PAL.wood);
-  p.poly([[4, 10], [22, 0], [40, 10], [40, 13], [22, 4], [4, 13]], PAL.clay);
-  p.poly([[4, 10], [22, 0], [22, 4], [4, 13]], mix(PAL.clay, PAL.flame, 0.3));
-  p.fill(21, 12, 2, 10, PAL.woodDark);
-  p.fill(18, 22, 8, 5, PAL.wood);
-  p.box(18, 22, 8, 5, PAL.ironDark);
-  return art([p], 46);
+  const frames: Px[] = [];
+  for (let f = 0; f < 4; f++) {
+    const r2 = new RNG('well-stones');
+    const p = new Px(44, 50);
+    groundShadow(p, 22, 47, 17);
+    p.ellipse(22, 36, 16, 9, PAL.stone);
+    p.ellipse(22, 35, 13, 7, PAL.ink);
+    p.ellipse(22, 36, 11, 5, PAL.water);
+    // light on the water, drifting
+    p.fill(15 + f * 2, 35, 3, 1, withAlpha(PAL.foam, 0.8));
+    p.set(27 - f, 37, withAlpha(PAL.foam, 0.6));
+    p.fill(6, 36, 32, 8, PAL.stone);
+    p.ellipse(22, 44, 16, 5, PAL.stone);
+    for (let i = 0; i < 5; i++) p.fill(7 + i * 6 + (i % 2), 37 + (i % 2) * 3, 5, 3, shade(PAL.stone, 1.15));
+    for (let i = 0; i < 14; i++) p.set(r2.int(7, 37), r2.int(36, 47), r2.bool() ? PAL.slate : PAL.fog);
+    for (let i = 0; i < 5; i++) p.set(r2.int(7, 37), r2.int(41, 47), PAL.moss);
+    // posts, roof, crank
+    p.fill(9, 10, 4, 28, PAL.wood);
+    p.fill(31, 10, 4, 28, PAL.wood);
+    p.fill(9, 10, 1, 28, PAL.woodLit);
+    p.poly([[4, 12], [22, 2], [40, 12], [40, 15], [22, 6], [4, 15]], PAL.clay);
+    p.poly([[4, 12], [22, 2], [22, 6], [4, 15]], mix(PAL.clay, PAL.flame, 0.3));
+    for (let i = 0; i < 4; i++) p.line(6 + i * 4, 12 - i * 2, 6 + i * 4, 14 - i * 2, shade(PAL.clay, 0.75));
+    p.fill(9, 17, 26, 3, PAL.woodDark);
+    p.fill(35, 16, 3, 2, PAL.ironDark);
+    const crank = [[38, 14], [40, 17], [38, 20], [36, 17]][f];
+    p.line(36, 18, crank[0], crank[1], PAL.iron);
+    // rope and a wooden bucket hanging over the shaft
+    p.fill(21, 20, 1, 6, PAL.sand);
+    p.fill(18, 26, 8, 6, PAL.wood);
+    p.fill(18, 26, 8, 1, PAL.plank);
+    p.fill(18, 28, 8, 1, PAL.ironDark);
+    p.box(18, 26, 8, 6, PAL.woodDark);
+    frames.push(p);
+  }
+  void rng;
+  return art(frames, 48, 1.5);
 };
+
 GEN.anvil = () => {
-  const p = new Px(32, 26);
-  groundShadow(p, 16, 24, 11);
-  p.fill(10, 18, 12, 6, PAL.ironDark);
-  p.fill(13, 12, 6, 7, PAL.iron);
-  p.fill(4, 6, 24, 6, PAL.iron);
-  p.fill(4, 6, 24, 2, PAL.ironLit);
-  p.poly([[28, 6], [32, 9], [28, 12]], PAL.iron);
-  p.fill(4, 10, 24, 2, PAL.ironDark);
+  const p = new Px(32, 30);
+  groundShadow(p, 16, 28, 11);
+  // a stump block under the iron
+  p.fill(9, 20, 14, 8, PAL.wood);
+  p.fill(9, 20, 14, 2, PAL.woodLit);
+  p.fill(9, 27, 14, 1, PAL.woodDark);
+  p.fill(12, 16, 8, 5, PAL.ironDark);
+  p.fill(13, 12, 6, 5, PAL.iron);
+  p.fill(4, 7, 24, 6, PAL.iron);
+  p.fill(4, 7, 24, 2, PAL.ironLit);
+  p.fill(6, 7, 6, 1, PAL.steel);
+  p.poly([[28, 7], [32, 10], [28, 13]], PAL.iron);
+  p.fill(4, 11, 24, 2, PAL.ironDark);
+  // a hammer resting on the face, tongs leaning on the block
+  p.fill(15, 4, 8, 3, PAL.ironDark);
+  p.fill(15, 4, 8, 1, PAL.iron);
+  p.fill(8, 5, 8, 2, PAL.woodLit);
+  p.line(23, 18, 28, 27, PAL.ironDark);
+  p.line(25, 18, 29, 27, PAL.iron);
+  p.set(23, 17, PAL.ironLit);
   p.outline(PAL.ink);
-  return art([p], 25);
+  return art([p], 29);
 };
+
 GEN.forge = () => {
   const frames: Px[] = [];
   for (let f = 0; f < 4; f++) {
@@ -698,22 +856,49 @@ GEN.grindstone = () => {
 };
 GEN.cauldron = () => {
   const frames: Px[] = [];
-  for (let f = 0; f < 4; f++) {
-    const p = new Px(32, 34);
-    groundShadow(p, 16, 32, 11);
-    p.ellipse(16, 22, 13, 11, PAL.ironDark);
-    p.ellipse(16, 14, 12, 4, PAL.ink);
-    p.ellipse(16, 14, 10, 3, mix(PAL.toxic, PAL.arcane, (f % 2) * 0.4));
-    for (let i = 0; i < 3; i++) {
-      p.circle(10 + ((i * 5 + f * 2) % 12), 13 - ((f + i) % 3), 1, PAL.toxic);
+  for (let f = 0; f < 6; f++) {
+    const p = new Px(34, 42);
+    const t = (f / 6) * Math.PI * 2;
+    groundShadow(p, 17, 40, 12);
+    // a small fire under it
+    for (const [x, y] of [[9, 38], [25, 38], [17, 39]]) p.fill(x - 3, y, 7, 2, PAL.woodDark);
+    p.fill(12, 35, 10, 3, PAL.emberDark);
+    for (let i = 0; i < 3; i++) p.fill(13 + i * 3, 33 - ((f + i) % 3), 2, 3, [PAL.flameLit, PAL.flame, PAL.ember][(f + i) % 3]);
+    // flames licking up the sides of the pot between the legs
+    for (const [x, h] of [[10, 5 + (f % 2)], [17, 4 + ((f + 1) % 3)], [23, 5 + ((f + 2) % 2)]]) {
+      p.fill(x, 36 - h, 2, h, PAL.flame);
+      p.fill(x, 36 - h + 1, 1, h - 2, PAL.flameLit);
+      p.set(x, 36 - h - 1, PAL.holy);
     }
-    p.fill(4, 26, 24, 3, PAL.ironDark);
-    p.fill(6, 29, 3, 4, PAL.ironDark);
-    p.fill(23, 29, 3, 4, PAL.ironDark);
+    for (const x of [6, 26]) { p.fill(x, 38, 4, 2, PAL.wood); p.set(x + (x < 10 ? 0 : 3), 38, PAL.plank); }
+    p.ellipse(17, 26, 13, 10, PAL.ironDark);
+    p.ellipse(13, 23, 4, 4, shade(PAL.iron, 0.9));
+    p.fill(5, 30, 3, 6, PAL.ironDark);
+    p.fill(26, 30, 3, 6, PAL.ironDark);
+    p.fill(4, 36, 4, 1, PAL.stone); p.fill(26, 36, 4, 1, PAL.stone);
+    p.ellipse(17, 18, 12, 4, PAL.ink);
+    p.ellipse(17, 18, 10, 3, mix('#7a4a28', '#9a6a38', 0.5 + 0.5 * Math.sin(t)));
+    // bubbles rise, swell and pop, each on its own clock
+    for (let i = 0; i < 4; i++) {
+      const k = ((f + i * 1.7) % 6) / 6;
+      const bx = 10 + ((i * 5) % 14);
+      if (k < 0.8) { p.set(bx, 18 - Math.round(k * 2), '#c89a5a'); if (k > 0.5) { p.set(bx + 1, 18 - Math.round(k * 2), '#c89a5a'); p.set(bx, 17 - Math.round(k * 2), PAL.sandLit); } }
+      else { p.set(bx - 1, 16, '#9a6a38'); p.set(bx + 1, 15, '#9a6a38'); }
+    }
+    // steam curling off the brew
+    for (let i = 0; i < 3; i++) {
+      const yy = 13 - ((f * 2 + i * 4) % 12);
+      p.fill(14 + i * 3 + Math.round(Math.sin(t + i) * 1.5), yy, 2, 2, withAlpha(PAL.cloth, yy > 6 ? 0.5 : 0.3));
+    }
+    p.fill(4, 16, 26, 2, PAL.ironDark);
+    p.fill(4, 16, 26, 1, PAL.iron);
+    // a ladle leaning on the rim
+    p.line(24, 17, 30, 6, PAL.woodLit);
     frames.push(p);
   }
-  return art(frames, 33, 5);
+  return art(frames, 40, 6);
 };
+
 GEN.alchemy_table = (rng) => {
   const p = new Px(44, 34);
   p.fill(2, 14, 40, 6, PAL.wood);
@@ -858,6 +1043,7 @@ GEN.rug = (rng) => {
 GEN.banner = () => {
   const p = new Px(22, 44);
   p.fill(2, 2, 18, 3, PAL.wood);
+  p.fill(1, 2, 1, 3, PAL.gold); p.fill(20, 2, 1, 3, PAL.gold);
   p.fill(3, 5, 16, 30, PAL.blood);
   p.fill(3, 5, 4, 30, shade(PAL.blood, 1.2));
   p.poly([[3, 35], [11, 42], [19, 35]], PAL.blood);
@@ -866,23 +1052,95 @@ GEN.banner = () => {
   p.fill(10, 11, 2, 11, PAL.gold);
   return art([p], 44);
 };
-GEN.market_stall = (rng) => {
-  const p = new Px(64, 56);
-  p.fill(4, 22, 3, 30, PAL.wood);
-  p.fill(57, 22, 3, 30, PAL.wood);
-  p.fill(6, 34, 52, 8, PAL.plank);
-  p.fill(6, 34, 52, 2, PAL.plankLit);
-  p.fill(6, 42, 52, 2, PAL.woodDark);
-  for (let i = 0; i < 6; i++) {
-    p.fill(2 + i * 10, 16, 10, 18, i % 2 ? PAL.blood : PAL.cloth);
+/**
+ * A town standard on a proper pole: a stone foot, an ash staff with a gilt
+ * finial, a crossbar, and a banner that moves in the wind. The gate banners
+ * used to be the wall banner stood on the grass with nothing holding it up.
+ */
+GEN.banner_standard = () => {
+  const frames: Px[] = [];
+  for (let f = 0; f < 6; f++) {
+    const p = new Px(30, 70);
+    const t = (f / 6) * Math.PI * 2;
+    groundShadow(p, 15, 67, 8, 3);
+    // stone foot and pole
+    p.fill(10, 62, 10, 5, PAL.stone);
+    p.fill(10, 62, 10, 1, PAL.fog);
+    p.fill(11, 66, 8, 1, PAL.charcoal);
+    p.fill(14, 6, 3, 57, PAL.wood);
+    p.fill(14, 6, 1, 57, PAL.woodLit);
+    p.fill(16, 6, 1, 57, PAL.woodDark);
+    // finial
+    p.fill(13, 4, 5, 2, PAL.gold);
+    p.poly([[15.5, -1], [18, 4], [13, 4]], PAL.goldLit);
+    // crossbar with little iron caps
+    p.fill(5, 9, 21, 2, PAL.woodDark);
+    p.fill(4, 9, 1, 2, PAL.gold); p.fill(26, 9, 1, 2, PAL.gold);
+    // the cloth: each column ripples on its own phase, pinned at the bar
+    for (let x = 0; x < 19; x++) {
+      const k = x / 18;
+      const wave = Math.round(Math.sin(t + x * 0.45) * 1.4 * (0.35 + k * 0.65));
+      const len = 34 + Math.round(Math.sin(t + x * 0.3) * 1);
+      const tip = x < 9 ? x : 18 - x;
+      const bottom = 11 + len + Math.round(tip * 0.7);
+      const c = x < 3 ? shade(PAL.blood, 1.2) : x > 15 ? shade(PAL.blood, 0.8) : PAL.blood;
+      const shadeK = Math.sin(t + x * 0.45) > 0.4 ? 1.12 : Math.sin(t + x * 0.45) < -0.4 ? 0.84 : 1;
+      p.fill(6 + x, 11 + wave * 0, 1, bottom - 11 + wave, shade(c, shadeK));
+    }
+    // a gilt border and the valley's device: a tower over a wave
+    p.fill(6, 12, 19, 1, PAL.gold);
+    p.fill(10, 20, 11, 11, shade(PAL.blood, 0.75));
+    p.fill(13, 21, 5, 8, PAL.goldLit);
+    p.fill(12, 21, 1, 2, PAL.goldLit); p.fill(18, 21, 1, 2, PAL.goldLit); p.fill(15, 20, 1, 2, PAL.goldLit);
+    p.fill(15, 25, 1, 3, shade(PAL.blood, 0.6));
+    for (let x = 0; x < 11; x++) p.set(10 + x, 32 + (x % 3 === 1 ? -1 : 0), PAL.gold);
+    frames.push(p);
   }
-  p.poly([[0, 18], [32, 8], [64, 18], [64, 22], [32, 12], [0, 22]], PAL.woodDark);
-  for (let i = 0; i < 7; i++) {
-    const x = 9 + i * 7;
-    p.fill(x, 30, 5, 4, rng.pick([PAL.clay, PAL.leaf, PAL.gold, PAL.blood, PAL.arcane]));
-  }
-  return art([p], 54);
+  return art(frames, 66, 5);
 };
+
+GEN.market_stall = (rng) => {
+  const frames: Px[] = [];
+  const goods = new RNG('stall-goods');
+  const wares: Array<[number, string, string]> = [];
+  const kinds = ['bread', 'apples', 'cloth', 'cheese'];
+  for (let i = 0; i < 4; i++) wares.push([9 + i * 12, kinds[(i + goods.int(0, 3)) % 4], goods.pick([PAL.arcane, '#3f6a5a', PAL.gold])]);
+  for (let f = 0; f < 4; f++) {
+    const p = new Px(64, 58);
+    groundShadow(p, 32, 56, 26, 4);
+    p.fill(4, 22, 3, 32, PAL.wood);
+    p.fill(57, 22, 3, 32, PAL.wood);
+    p.fill(6, 36, 52, 8, PAL.plank);
+    p.fill(6, 36, 52, 2, PAL.plankLit);
+    p.fill(6, 44, 52, 2, PAL.woodDark);
+    p.fill(8, 46, 48, 8, withAlpha(PAL.ink, 0.35));
+    // a baskets row under the counter
+    for (let i = 0; i < 3; i++) { p.fill(10 + i * 16, 47, 10, 6, PAL.sandDark); p.fill(10 + i * 16, 47, 10, 1, PAL.sand); p.fill(11 + i * 16, 46, 8, 1, [PAL.blood, PAL.leafLit, PAL.flameLit][i]); }
+    // the awning: striped, with a scalloped hem that lifts in the breeze
+    for (let i = 0; i < 6; i++) {
+      const lift = Math.round(Math.sin(f * 1.57 + i * 0.9) * 0.8);
+      const c = i % 2 ? PAL.blood : PAL.cloth;
+      p.fill(2 + i * 10, 16, 10, 18 - lift, c);
+      p.fill(2 + i * 10, 16, 10, 2, shade(c, 1.1));
+      p.ellipse(7 + i * 10, 34 - lift, 5, 2, c);
+    }
+    p.poly([[0, 18], [32, 8], [64, 18], [64, 22], [32, 12], [0, 22]], PAL.woodDark);
+    p.fill(31, 5, 2, 4, PAL.gold);
+    // a dark cloth on the counter so the wares read against it
+    p.fill(7, 34, 50, 2, '#2e2536');
+    // wares that are something: loaves, a pyramid of apples, rolled cloth, a cheese
+    for (const [x, kind, col] of wares) {
+      if (kind === 'bread') { p.ellipse(x + 4, 32, 4, 2.5, PAL.clay); p.fill(x + 1, 30, 6, 1, PAL.sandLit); p.set(x + 3, 31, PAL.sandDark); p.set(x + 5, 31, PAL.sandDark); }
+      else if (kind === 'apples') { for (const [ax, ay] of [[0, 32], [3, 32], [6, 32], [1.5, 29.5], [4.5, 29.5], [3, 27]]) { p.fill(x + ax, ay, 2, 2, PAL.blood); p.set(x + ax, ay, PAL.flame); } p.set(x + 4, 26, PAL.leafLit); }
+      else if (kind === 'cloth') { p.fill(x, 28, 8, 6, col); p.fill(x, 28, 8, 1, shade(col, 1.3)); p.fill(x + 7, 28, 1, 6, shade(col, 0.65)); p.fill(x, 31, 8, 1, shade(col, 0.8)); }
+      else { p.ellipse(x + 4, 32, 4, 2.5, PAL.goldLit); p.poly([[x + 4, 32], [x + 8, 30], [x + 8, 33]], PAL.sandLit); p.fill(x + 1, 30, 6, 1, PAL.gold); }
+    }
+    frames.push(p);
+  }
+  void rng;
+  return art(frames, 54, 1.2);
+};
+
 /**
  * A hanging trade sign on an iron bracket. One stands outside every building
  * in Ashvale you can actually use, under a name plate, so the town labels
@@ -929,27 +1187,69 @@ GEN.notice_board = (rng) => {
   return art([p], 43);
 };
 GEN.scarecrow = () => {
-  const p = new Px(28, 46);
-  groundShadow(p, 14, 43, 8);
-  p.fill(12, 16, 4, 28, PAL.wood);
-  p.fill(3, 20, 22, 3, PAL.wood);
-  p.fill(8, 6, 12, 12, PAL.sand);
-  p.fill(9, 10, 3, 2, PAL.ink);
-  p.fill(16, 10, 3, 2, PAL.ink);
-  p.fill(11, 14, 6, 1, PAL.ink);
-  p.poly([[4, 7], [24, 7], [14, 0]], PAL.clay);
-  p.fill(6, 22, 16, 14, PAL.blood);
-  p.fill(6, 22, 16, 3, shade(PAL.blood, 1.2));
-  for (let i = 0; i < 5; i++) p.fill(4 + i * 4, 36, 2, 5, PAL.sandDark);
-  return art([p], 44);
+  const frames: Px[] = [];
+  for (let f = 0; f < 8; f++) {
+    const p = new Px(32, 48);
+    groundShadow(p, 14, 45, 8);
+    p.fill(12, 18, 4, 28, PAL.wood);
+    p.fill(2, 22, 24, 3, PAL.wood);
+    p.fill(8, 8, 12, 12, PAL.sand);
+    p.fill(9, 12, 3, 2, PAL.ink);
+    p.fill(16, 12, 3, 2, PAL.ink);
+    for (let i = 0; i < 6; i++) p.set(10 + i, 16 + (i % 2), PAL.ink);
+    p.poly([[3, 9], [25, 9], [14, 1]], PAL.clay);
+    p.fill(3, 8, 22, 2, shade(PAL.clay, 0.8));
+    p.fill(17, 4, 3, 3, PAL.blood);
+    p.fill(6, 24, 16, 14, PAL.blood);
+    p.fill(6, 24, 16, 3, shade(PAL.blood, 1.2));
+    p.fill(9, 29, 4, 4, '#3f5a6a');
+    p.fill(15, 32, 3, 3, PAL.sandDark);
+    for (let i = 0; i < 5; i++) p.fill(4 + i * 4, 38, 2, 5, PAL.sandDark);
+    for (const x of [1, 24]) { p.fill(x, 21, 2, 1, PAL.sandLit); p.fill(x + 1, 25, 1, 2, PAL.sandLit); }
+    // a crow that uses the arm as a perch: pecks, looks round, flicks its tail
+    const bx = 23;
+    const by = 21;
+    const peck = f === 2 || f === 5;
+    const look = f >= 6;
+    p.ellipse(bx, by - 2, 3, 2, PAL.ink);
+    p.fill(bx - 4, by - 3, 2, 1, PAL.ink);
+    if (f === 4) p.fill(bx - 5, by - 4, 2, 1, PAL.ink);
+    const hx = bx + (look ? 1 : 2);
+    const hy = by - 4 + (peck ? 2 : 0);
+    p.fill(hx - 1, hy - 1, 3, 3, PAL.ink);
+    p.fill(look ? hx - 2 : hx + 2, hy, 2, 1, PAL.gold);
+    p.set(hx, hy - 1, PAL.fog);
+    p.fill(bx - 1, by, 1, 1, PAL.gold); p.fill(bx + 1, by, 1, 1, PAL.gold);
+    frames.push(p);
+  }
+  return art(frames, 46, 2);
 };
+
 GEN.beehive = () => {
-  const p = new Px(26, 30);
-  groundShadow(p, 13, 28, 9);
-  for (let i = 0; i < 4; i++) p.ellipse(13, 8 + i * 6, 11 - i, 4, i % 2 ? PAL.sandLit : PAL.sand);
-  p.ellipse(13, 26, 10, 3, PAL.sandDark);
-  p.fill(11, 20, 4, 4, PAL.ink);
-  return art([p], 29);
+  const frames: Px[] = [];
+  for (let f = 0; f < 6; f++) {
+    const p = new Px(32, 36);
+    const t = (f / 6) * Math.PI * 2;
+    groundShadow(p, 16, 34, 9);
+    p.fill(14, 28, 4, 6, PAL.woodDark);
+    p.fill(9, 27, 14, 2, PAL.wood);
+    for (let i = 0; i < 4; i++) p.ellipse(16, 11 + i * 5, 10 - i * 0.5, 3.5, i % 2 ? PAL.sandLit : PAL.sand);
+    p.ellipse(16, 8, 6, 3, PAL.sandLit);
+    for (let i = 0; i < 4; i++) p.fill(8 + i, 12 + i * 5, 16 - i * 2, 1, PAL.sandDark);
+    p.fill(14, 22, 4, 3, PAL.ink);
+    p.fill(15, 24, 2, 1, PAL.gold);
+    // bees: a loose figure-eight in front of the door
+    for (let i = 0; i < 4; i++) {
+      const a = t + i * 1.6;
+      const x = 16 + Math.sin(a) * (9 + i) ;
+      const y = 17 + Math.sin(a * 2) * 4 - i;
+      p.set(x, y, PAL.goldLit);
+      p.set(x + 1, y, PAL.ink);
+      p.set(x, y - 1, withAlpha(PAL.white, 0.6));
+    }
+    frames.push(p);
+  }
+  return art(frames, 34, 8);
 };
 
 /* --- ruins / graves --- */

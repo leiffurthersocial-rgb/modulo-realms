@@ -129,6 +129,14 @@ src/
                          install.ts (Boot vor dem ersten React-Render)
   game/art/uiArt.ts      9-Slice-Rahmen, Buttons, Slots, Icons, Wappen, Logo als Pixel-Art
   game/core/zoom.ts      ganzzahliger Welt-Zoom (Basis/See/Arena)
+  game/core/ambience.ts  reine Deko, nie gespeichert: Kaminrauch, springende Fische,
+                         Blätter/Vögel/Schmetterlinge/Glühwürmchen, Wolkenschatten,
+                         Fußspuren, Atemwolken, Wetter (Sandsturm+Steppenläufer+
+                         Staubteufel+Geier in `south`, Schnee+Blizzard in `north`/
+                         `deepnorth`, Asche in `farsouth`/`emberdeep`). Läuft auf
+                         `game.now`, Dev-Hook `window.moduloAmbience`.
+  game/art/beasts.ts     Wolf- und Golem-Anatomie + `menaceTier(level)` (0..3 aus
+                         dem Bestiarium-Level) und Menace-Trims für späte Kreaturen
   styles/global.css      UI-Stylesheet, nur UI-Pixel + --c-*/--img-* Variablen
 ```
 
@@ -242,6 +250,18 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
 - **Lifesteal ist volle Stärke** (der 2 %/s-Cap wurde am 21.09. nach Feedback entfernt).
   Nicht wieder cappen.
 - Händler skalieren mit der Region, auf der sie stehen — nicht mit fester Liste.
+- **Keine Laternenpfähle** (lasen sich elektrisch). Nur offenes Feuer: Fackeln,
+  Kohlebecken, Hängelaternen am Holzpfosten. `lamp_post`/`casino_lamp` werden in
+  `buildAshvale` noch *gesetzt* (sonst verschiebt sich der Scatter) und am Ende entfernt.
+- **Späte Monster sehen gefährlicher aus, weil ihr Level es sagt:** `menaceTier`
+  (≥16/30/55) → Narben/Nackenhaare, Knochenstacheln, glühende Adern + Boden-Ring.
+  Später = dunklerer Körper, hellere Akzente. Nicht per Spawn-Level, sonst Sheet-Explosion.
+- **Häuser:** Fenster sind tagsüber dunkles Glas; das Leuchten kommt nachts vom
+  Renderer (`BuildingArt.windows`). `BuildingArt.h` ist die Layout-Höhe, das Canvas
+  hat `padTop` Kopffreiheit für Firstspitzen — `h` nie auf Canvas-Höhe ändern, sonst
+  verschiebt `placeBuilding` Props der eingefrorenen Westwelt.
+- Wind: Bäume/Büsche mit `swayRow` verschieben die Krone um ganze Pixel, Stamm bleibt;
+  jede zweite Instanz wird per Positions-Hash gespiegelt.
 
 ## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen
 
