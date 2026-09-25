@@ -57,7 +57,7 @@ function bushyTail(p: Px, x0: number, y0: number, cxp: number, cyp: number, x1: 
     const x = (1 - k) * (1 - k) * x0 + 2 * (1 - k) * k * cxp + k * k * x1;
     const y = (1 - k) * (1 - k) * y0 + 2 * (1 - k) * k * cyp + k * k * y1;
     const r = 1.1 + Math.sin(Math.min(1, k * 1.25) * Math.PI) * 1.5;
-    p.ellipse(x, y, r, r, k > 0.8 ? deep : fur);
+    p.ellipse(x, y, r, r, k > 0.86 ? mix(fur, PAL.bone, 0.35) : k > 0.7 ? dark : fur);
     if (k > 0.15 && k < 0.8) p.set(x, y - r + 0.5, dark);
   }
 }
@@ -74,7 +74,7 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
   const fur = s.primary;
   const dark = s.secondary;
   const light = s.accent;
-  const belly = mix(fur, light, 0.5);
+  const belly = mix(fur, light, 0.62);
   const deep = shade(dark, 0.72);
   const glow = s.glow ?? s.eye;
   const vein = tier >= 3 ? mix(glow, s.eye, 0.5) : glow;
@@ -127,13 +127,16 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
 
     // haunch, barrel, deep chest, dark saddle, pale belly
     p.ellipse(bx - 7, by + 5, 4.5, 4.5, fur);
-    p.ellipse(bx - 1, by + 4, 8.5, 4.2, fur);
+    // barrel narrower than the chest, so the belly tucks up before the hind legs
+    p.ellipse(bx - 1, by + 3.6, 8.5, 3.7, fur);
     p.ellipse(bx + 5, by + 4.5, 5, 5, fur);
     p.ellipse(bx - 2, by + 1.8, 8, 2, dark);
+    p.fill(bx - 7, by + 0.5, 12, 1, deep);
     p.fill(bx - 9, by + 3, 3, 1, shade(fur, 1.14));
     p.fill(bx + 3, by + 2, 3, 1, shade(fur, 1.1));
-    p.fill(bx - 5, by + 8, 9, 1, belly);
-    p.fill(bx - 5, by + 9, 5, 1, shade(fur, 0.78));
+    p.fill(bx - 1, by + 7, 7, 1, belly);
+    p.fill(bx + 3, by + 8, 5, 1, belly);
+    p.fill(bx - 8, by + 9, 3, 1, shade(fur, 0.78));
     p.ellipse(bx + 7, by + 6.5, 2.5, 3, belly);
     for (const [fx, fy] of [[-6, 4], [-3, 5], [0, 4], [2, 6], [-8, 6]]) p.set(bx + fx, by + fy, shade(fur, 0.84));
 
@@ -209,26 +212,29 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
     const wag = pose.walk ? Math.round(Math.sin(ph)) : 0;
     p.fill(cx + 4 + wag, by - 1, 2, 3, fur);
     p.set(cx + 5 + wag, by - 2, deep);
-    if (crouch > 0 || strike > 0) p.ellipse(cx, hy - 4, 6, 2.5, dark);
-    p.ellipse(cx, by + 8, 6, 3.5, fur);
-    p.fill(cx - 2, by + 11, 4, F - by - 12, deep);
+    if (crouch > 0 || strike > 0) p.ellipse(cx, hy - 5, 6.5, 3, dark);
+    p.ellipse(cx, by + 8, 8, 3.8, fur);
+    p.ellipse(cx - 3, by + 6.5, 3, 1.3, shade(fur, 1.12));
+    p.fill(cx - 3, by + 11, 6, F - by - 12, deep);
     const spread = strike > 0 ? 1 : 0;
     for (const side of [-1, 1]) {
       const lift = pose.walk ? Math.max(0, Math.sin(ph + (side < 0 ? 0 : Math.PI))) * 2.2 : 0;
-      const x = side < 0 ? cx - 4 - spread : cx + 2 + spread;
+      const x = side < 0 ? cx - 5 - spread : cx + 3 + spread;
       p.fill(x, by + 9, 2, F - by - 9 - lift, fur);
       p.fill(side < 0 ? x : x + 1, by + 10, 1, F - by - 11 - lift, shade(fur, side < 0 ? 1.12 : 0.8));
       p.fill(x - (side < 0 ? 1 : 0), F - 1 - lift, 3, 1, dark);
       p.set(x - (side < 0 ? 1 : 0), F - 1 - lift, deep);
     }
-    p.poly([[cx - 3, by + 7], [cx, by + 13], [cx + 3, by + 7]], belly);
+    p.poly([[cx - 4, by + 7], [cx, by + 14], [cx + 4, by + 7]], belly);
     if (tier >= 2) for (const side of [-1, 1]) boneSpike(p, cx + side * 5 - (side > 0 ? 1 : 0), by + 7, 5, side * 1.2, deep, bone);
     if (tier >= 3) { p.line(cx - 5, by + 7, cx - 3, by + 10, vein); p.line(cx + 5, by + 7, cx + 3, by + 10, vein); }
     // ears
+    const flat = strike > 0 || crouch > 0;
     for (const side of [-1, 1]) {
-      if (pinned) {
-        p.poly([[hx + side * 4, hy - 2], [hx + side * 9, hy - 4], [hx + side * 4, hy]], fur);
-        p.line(hx + side * 5, hy - 2, hx + side * 8, hy - 3, deep);
+      if (flat) {
+        // pinned: lying back along the skull, up and out at forty-five degrees
+        p.poly([[hx + side * 2, hy - 2], [hx + side * 6, hy - 6], [hx + side * 5, hy - 1]], fur);
+        p.line(hx + side * 3, hy - 3, hx + side * 5, hy - 5, deep);
       } else {
         p.poly([[hx + side * 6, hy - 2], [hx + side * 5, hy - 9], [hx + side * 1.5, hy - 3]], fur);
         p.line(hx + side * 4.5, hy - 7, hx + side * 4, hy - 3, deep);
@@ -249,8 +255,11 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
     p.set(hx - 3, hy - 1, deep); p.set(hx + 2, hy - 1, deep);
     p.set(hx - 2, hy, deep); p.set(hx + 1, hy, deep);
     if (tier >= 1 && !hurt) { p.set(hx - 5, hy - 1, withAlpha(s.eye, 0.55)); p.set(hx + 4, hy - 1, withAlpha(s.eye, 0.55)); }
-    if (tier >= 3 && !hurt) { p.set(hx - 6, hy - 2, vein); p.set(hx + 5, hy - 2, vein); }
-    if (tier >= 2) p.line(hx + 2, hy - 3, hx + 4, hy + 1, mix(fur, light, 0.7));
+    if (tier >= 3 && !hurt) {
+      const hot = mix(s.eye, PAL.white, 0.45);
+      p.set(hx - 4, hy - 1, hot); p.set(hx + 3, hy - 1, hot);
+      p.set(hx - 6, hy - 2, withAlpha(vein, 0.7)); p.set(hx + 5, hy - 2, withAlpha(vein, 0.7));
+    }
     if (open) {
       p.fill(hx - 2, hy + 6, 4, open + 1, MAW);
       p.set(hx - 2, hy + 6, PAL.white); p.set(hx + 1, hy + 6, PAL.white);
@@ -330,10 +339,12 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
     p.ellipse(x, y, r, r * 0.9, color);
     p.ellipse(x - 1, y - 1.2, r * 0.55, r * 0.35, shade(color, 1.18));
     p.line(x - r + 1, y + 1, x + r - 1, y + 1, dk);
+    // the core lights the top of its fists
+    if (tier >= 2) p.line(x - r + 2, y - r * 0.9 + 1, x + r - 2, y - r * 0.9 + 1, shade(core, 0.85));
   };
 
   if (dir === 'right') {
-    const bx = cx - 2 + hx + Math.round(strike * 2);
+    const bx = cx - 5 + hx + Math.round(strike * 2);
     // far leg and far arm, darker
     const legAt = (x: number, lift: number, color: string) => {
       p.fill(x, F - 11 - lift, 6, 6, color);
@@ -343,9 +354,9 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
     };
     legAt(bx - 1, stepB * 2.5, sh);
     const shoulder: [number, number] = [bx + 3, top + 10];
-    const fistRest: [number, number] = [bx + 8, top + 24];
+    const fistRest: [number, number] = [bx + 12, top + 24];
     const fistUp: [number, number] = [bx + 4, top - 2];
-    const fistDown: [number, number] = [bx + 13, F - 3];
+    const fistDown: [number, number] = [bx + 12, F - 3];
     const at = (k: number, a: [number, number], b: [number, number]): [number, number] => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
     const armSwing = pose.walk ? Math.sin(ph) * 2 : 0;
     const f: [number, number] = strike > 0 ? at(strike, fistUp, fistDown) : crouch > 0 ? at(crouch, fistRest, fistUp) : [fistRest[0] + armSwing, fistRest[1]];
@@ -362,8 +373,9 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
     p.line(bx + 4, top + 12, bx + 6, top + 16, shade(core, 0.7));
     p.line(bx + 5, top + 12, bx + 7, top + 16, core);
     p.set(bx + 6, top + 14, mix(core, PAL.white, 0.55));
-    // a dark notch where the leg meets the torso
-    p.fill(bx - 6, top + 22, 12, 1, shade(dk, 0.6));
+    // a dark gap where the leg meets the torso, and a lit rim down the back
+    p.fill(bx - 6, top + 22, 12, 2, shade(dk, 0.5));
+    p.line(bx - 8, top + 10, bx - 7, top + 21, lt);
     legAt(bx - 4 + Math.round(stepA * 2), stepA * 2.5, st);
     // head: forward, low, all brow
     const hdX = bx + 7 + Math.round(strike * 2);
@@ -385,7 +397,8 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
       spike(p, bx + 2, top + 5, 4, 0.5, crystal);
     }
     if (tier >= 3) {
-      vein(bx - 6, top + 12, bx - 3, top + 16); vein(bx - 3, top + 16, bx - 5, top + 20);
+      vein(bx - 6, top + 12, bx - 4, top + 14); vein(bx - 4, top + 14, bx - 4, top + 17); vein(bx - 4, top + 17, bx - 6, top + 20);
+      p.set(bx - 3, top + 15, core);
       vein(bx - 1, F - 9, bx + 1, F - 5);
       for (let i = 0; i < 3; i++) {
         const a = ph + i * 2.1;
@@ -462,7 +475,7 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
     if (tier >= 1) { p.set(sX - 2, sY, withAlpha(core, 0.75)); p.set(sX + 1, sY + 1, withAlpha(core, 0.75)); p.set(sX, sY - 1, withAlpha(core, 0.5)); }
     if (tier >= 2) {
       spike(p, sX - side, sY - 3, 7, side * 1.5, shade(crystal, 0.75), crystalLit);
-      spike(p, sX + side * 3, sY - 2, 4, side * 2.2, crystal);
+      if (tier === 2) spike(p, sX + side * 3, sY - 2, 4, side * 2.2, crystal);
     }
   }
   if (strike > 0.9) {
@@ -485,11 +498,10 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
     p.fill(tx - 4, hdY + 2, 8, 1, lt);
     if (tier === 0) { p.set(tx - 1, hdY + 1, moss); p.set(tx + 1, hdY + 2, moss); }
   }
-  if (tier >= 2) {
+  if (tier === 2) {
     spike(p, tx - 3, hdY + 1, 4, -1, shade(crystal, 0.75), crystalLit);
     spike(p, tx + 3, hdY + 1, 4, 1, crystal);
-    spike(p, tx, hdY + 1, 5, 0, shade(crystal, 0.75), crystalLit);
-  }
+  } else if (tier >= 3) spike(p, tx, hdY, 5, 0, shade(crystal, 0.75), crystalLit);
   if (tier >= 3) {
     vein(tx - 8, top + 10, tx - 5, top + 15);
     vein(tx + 7, top + 9, tx + 5, top + 13);
@@ -500,10 +512,11 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
       const a = ph + i * 2.1;
       const ox = Math.round(tx + Math.cos(a) * 11);
       const oy = Math.round(hdY - 4 + Math.sin(a) * 3);
-      // angular shards with a one-pixel trail
-      p.fill(ox, oy, 2, 3, crystal);
-      p.set(ox, oy, crystalLit);
-      p.set(ox - Math.round(Math.sin(a) * 2), oy + Math.round(Math.cos(a)), shade(crystal, 0.6));
+      // a diamond shard with two dim pixels trailing it round its orbit
+      p.set(ox, oy - 1, crystalLit); p.fill(ox - 1, oy, 3, 1, crystal); p.set(ox, oy + 1, shade(crystal, 0.8));
+      const tx1 = Math.round(tx + Math.cos(a - 0.35) * 11), ty1 = Math.round(hdY - 4 + Math.sin(a - 0.35) * 3);
+      const tx2 = Math.round(tx + Math.cos(a - 0.7) * 11), ty2 = Math.round(hdY - 4 + Math.sin(a - 0.7) * 3);
+      p.set(tx1, ty1, shade(crystal, 0.6)); p.set(tx2, ty2, shade(crystal, 0.4));
     }
   }
   if (hurt) {
@@ -596,6 +609,12 @@ export function drawMenaceTrim(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'ri
         p.ellipse(cx, top + 19, 3, 3, PAL.ink);
         p.ellipse(cx, top + 19, 2, 2, withAlpha(glow, 0.8));
         p.fill(cx - 5, top + 12, 3, 3, glow); p.fill(cx + 2, top + 12, 3, 3, glow);
+      }
+      if (tier >= 2) {
+        // drowned and hollowed: moss hanging in ropes off the canopy
+        for (const [mx, len] of [[-12, 9], [-7, 13], [-2, 7], [4, 11], [9, 8], [13, 12]]) {
+          for (let k = 0; k < len; k++) p.set(cx + mx + Math.round(Math.sin(k * 0.6 + ph) * 0.8), top + 4 + k, k % 3 === 0 ? shade(s.accent, 0.6) : shade(s.accent, 0.8));
+        }
       }
       if (tier >= 3) {
         const v = withAlpha(glow, 0.85);

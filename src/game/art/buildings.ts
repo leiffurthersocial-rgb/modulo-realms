@@ -114,7 +114,8 @@ function roofShape(p: Px, o: BuildingOpts, rng: RNG, roofH: number) {
   const { w } = o;
   const overhang = 4;
   const style = o.roofStyle ?? 'shingle';
-  const peakW = Math.round(w * 0.16);
+  const gable = o.roofForm === 'gable';
+  const peakW = gable ? 0 : Math.round(w * 0.16);
   const left = -overhang;
   const right = w + overhang;
   const peakL = Math.round(w / 2 - peakW / 2);
@@ -175,25 +176,42 @@ function roofShape(p: Px, o: BuildingOpts, rng: RNG, roofH: number) {
   p.g.fillStyle = 'rgba(10,8,20,0.16)';
   p.g.fillRect(w / 2, 0, right - w / 2, roofH);
   p.g.restore();
-  if (o.roofForm === 'gable') {
-    // a timbered gable end facing the street, with a round attic window
-    const gw = Math.round(w * 0.34);
+  if (gable) {
+    // The gable end faces the street: a wall-coloured triangle right up to
+    // the ridge, framed in 2px timbers with a lit and a shaded side, a king
+    // post and a collar beam, and bargeboards standing proud of the roof.
     const gy = roofH - 3;
-    const top = Math.round(roofH * 0.2);
-    p.poly([[w / 2 - gw - 2, gy + 1], [w / 2, top - 2], [w / 2 + gw + 2, gy + 1]], shade(o.roofDark, 0.8));
-    p.poly([[w / 2 - gw, gy], [w / 2, top], [w / 2 + gw, gy]], o.wall);
-    p.poly([[w / 2, top], [w / 2 + gw, gy], [w / 2, gy]], withAlpha(PAL.ink, 0.12));
-    const beam = o.wallDark;
-    p.line(w / 2 - gw, gy, w / 2, top, beam); p.line(w / 2 + gw, gy, w / 2, top, beam);
-    p.fill(w / 2 - 1, top + 2, 2, gy - top - 2, beam);
-    p.line(w / 2 - gw * 0.6, gy, w / 2 - 2, top + (gy - top) * 0.45, beam);
-    p.line(w / 2 + gw * 0.6, gy, w / 2 + 2, top + (gy - top) * 0.45, beam);
-    const oy = Math.round(top + (gy - top) * 0.55);
-    p.circle(w / 2, oy, 4, PAL.woodDark);
-    p.circle(w / 2, oy, 3, '#2a3246');
-    p.set(w / 2 - 1, oy - 1, '#8fa8c8');
-    p.fill(w / 2 - gw - 3, gy, gw * 2 + 6, 2, o.trim ?? shade(o.roofDark, 0.9));
-    if (o.trim) p.fill(w / 2 - 1, top - 5, 2, 4, o.trim);
+    const top = 5;
+    const gl = 5;
+    const gr = w - 5;
+    const cx = w / 2;
+    p.poly([[gl, gy], [cx, top], [gr, gy]], o.wall);
+    p.poly([[cx, top], [gr, gy], [cx, gy]], withAlpha(PAL.ink, 0.1));
+    const tl = shade(o.wallDark, 1.25);
+    const td = shade(o.wallDark, 0.8);
+    const beam = (x0: number, y0: number, x1: number, y1: number) => { p.line(x0, y0, x1, y1, tl); p.line(x0 + 1, y0, x1 + 1, y1, td); };
+    p.fill(cx - 1, top + 3, 1, gy - top - 3, tl); p.fill(cx, top + 3, 1, gy - top - 3, td);
+    const collar = Math.round(top + (gy - top) * 0.55);
+    const span = (y: number) => (w / 2 - 5) * ((y - top) / (gy - top));
+    p.fill(cx - span(collar) + 2, collar, span(collar) * 2 - 4, 1, tl);
+    p.fill(cx - span(collar) + 2, collar + 1, span(collar) * 2 - 4, 1, td);
+    beam(cx - span(collar) * 0.8, gy, cx - 3, collar + 2);
+    beam(cx + span(collar) * 0.8 - 1, gy, cx + 2, collar + 2);
+    // a framed attic window above the collar
+    const oy = Math.round(top + (collar - top) * 0.62);
+    p.circle(cx, oy, 4, PAL.woodDark);
+    p.circle(cx, oy, 3, '#2a3246');
+    p.fill(cx - 3, oy, 6, 1, PAL.woodDark); p.fill(cx, oy - 3, 1, 6, PAL.woodDark);
+    p.set(cx - 2, oy - 2, '#8fa8c8');
+    // bargeboards: 2px, standing a pixel proud of the gable
+    const barge = o.trim ? shade(o.trim, 0.75) : shade(o.roofDark, 0.7);
+    for (let k = 0; k < 2; k++) {
+      p.line(gl - 2 - k, gy + 1, cx, top - 2 - k, barge);
+      p.line(cx, top - 2 - k, gr + 2 + k, gy + 1, barge);
+    }
+    p.line(gl - 1, gy, cx, top - 1, o.trim ?? shade(o.roof, 1.2));
+    p.fill(gl - 3, gy, gr - gl + 6, 3, shade(o.roofDark, 0.85));
+    p.fill(gl - 3, gy, gr - gl + 6, 1, o.trim ?? shade(o.roof, 1.1));
   }
   // lit left hip, shadowed right hip
   p.line(left, roofH - 1, peakL, 0, shade(o.roof, 1.3));
@@ -207,15 +225,19 @@ function roofShape(p: Px, o: BuildingOpts, rng: RNG, roofH: number) {
       p.set(x - 1, y - 1, PAL.leafDark);
     }
   }
-  // ridge cap, and finials at both ends of it
-  const ridge = o.trim ?? shade(o.roof, 1.25);
+  // ridge cap, and one finial at its centre: an iron spike through a gilt ball
   p.fill(peakL - 1, 0, peakW + 2, 2, shade(o.roofDark, 0.8));
   p.fill(peakL - 1, 0, peakW + 2, 1, o.trim ? shade(o.trim, 0.8) : shade(o.roof, 1.25));
-  for (const fx of [peakL - 1, peakR]) {
-    p.fill(fx, -4, 2, 5, ridge);
-    p.fill(fx, -5, 1, 1, o.trim ? shade(o.trim, 1.2) : ridge);
-    if (o.trim) p.set(fx + 1, -3, shade(o.trim, 1.25));
+  const fx = Math.round(w / 2) - 1;
+  const fy = gable ? 1 : 0;
+  p.fill(fx, fy - 6, 2, 6, PAL.ironDark);
+  p.fill(fx, fy - 6, 1, 6, PAL.iron);
+  if (o.trim) {
+    p.fill(fx - 1, fy - 4, 4, 3, o.trim);
+    p.fill(fx - 1, fy - 4, 2, 1, shade(o.trim, 1.3));
+    p.fill(fx - 1, fy - 2, 4, 1, shade(o.trim, 0.7));
   }
+  p.set(fx, fy - 7, PAL.iron);
   // barge board along the eave, with a dentil course under it
   const board = o.trim ? shade(o.trim, 0.7) : shade(o.roofDark, 0.85);
   p.fill(left, roofH - 3, right - left, 3, board);
@@ -276,6 +298,8 @@ function drawWindow(p: Px, o: BuildingOpts, wx: number, wy: number, rng: RNG, ta
   p.fill(wx, wy + Math.floor(h / 2) - 1, 12, 2, PAL.woodDark);
   // a curtain pulled to one side
   p.fill(wx + 7, wy + 1, 2, h - 2, withAlpha(o.shutterColor ?? PAL.blood, 0.55));
+  // rain streaks down from the sill
+  for (const sx of [wx + 1, wx + 6, wx + 10]) p.fill(sx, wy + h + 3, 1, 3 + ((sx * 7) % 4), withAlpha(PAL.ink, 0.12));
   // sill
   p.fill(wx - 2, wy + h + 1, 16, 2, mix(o.wall, PAL.bone, 0.3));
   p.fill(wx - 2, wy + h + 2, 16, 1, shade(o.wallDark, 0.8));
@@ -515,7 +539,6 @@ export function makeBuilding(o: BuildingOpts, seed: string): BuildingArt {
       p.fill(lx - 1, doorY + 11, 4, 5, PAL.flameLit);
       p.fill(lx, doorY + 12, 2, 3, PAL.holy);
       p.fill(lx - 1, doorY + 17, 4, 1, PAL.ironDark);
-      p.ellipse(lx + 1, doorY + 13, 9, 9, withAlpha(PAL.flameLit, 0.1));
     }
   }
   if (o.sign) {
@@ -693,7 +716,6 @@ const presets: Record<string, () => BuildingArt> = {
       p.fill(lx - 2, doorY + 10, 6, 7, PAL.ironDark);
       p.fill(lx - 1, doorY + 11, 4, 5, PAL.flameLit);
       p.fill(lx, doorY + 12, 2, 3, PAL.holy);
-      p.ellipse(lx + 1, doorY + 13, 9, 9, withAlpha(PAL.flameLit, 0.1));
     }
 
     // red carpet running down the steps

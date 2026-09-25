@@ -86,18 +86,29 @@ function canopy(
   const clusters: Array<[number, number, number, number]> = [];
   for (let i = 0; i < blobs; i++) {
     const a = (i / blobs) * Math.PI * 2 + rng.range(-0.3, 0.3);
-    clusters.push([cx + Math.cos(a) * rx * 0.52, cy + Math.sin(a) * ry * 0.5, rx * rng.range(0.36, 0.48), ry * rng.range(0.42, 0.55)]);
+    const big = i % 3 === 0 ? 1.25 : i % 3 === 1 ? 0.8 : 0.62;
+    clusters.push([cx + Math.cos(a) * rx * 0.55, cy + Math.sin(a) * ry * 0.52, rx * 0.4 * big, ry * 0.48 * big]);
+  }
+  // two small clusters breaking the outline
+  for (let i = 0; i < 2; i++) {
+    const a = rng.range(-2.6, -0.5);
+    clusters.push([cx + Math.cos(a) * rx * 0.92, cy + Math.sin(a) * ry * 0.85, rx * 0.2, ry * 0.24]);
   }
   clusters.push([cx - rx * 0.08, cy - ry * 0.18, rx * 0.5, ry * 0.52]);
   clusters.sort((q, r) => q[1] - r[1]);
   for (const [bx, by, crx, cry] of clusters) {
     p.ellipse(bx + 1, by + 1.5, crx, cry, deep);
     p.ellipse(bx, by, crx, cry, base);
-    p.ellipse(bx - crx * 0.22, by - cry * 0.28, crx * 0.62, cry * 0.5, mix(base, light, 0.55));
-    p.ellipse(bx - crx * 0.3, by - cry * 0.4, crx * 0.34, cry * 0.26, light);
-    // a few leaf notches along the cluster's lower edge
-    for (let k = 0; k < 3; k++) p.set(bx + rng.range(-crx * 0.6, crx * 0.6), by + cry * rng.range(0.55, 0.85), dark);
-    p.set(bx - crx * 0.45, by - cry * 0.55, mix(light, PAL.white, 0.2));
+    // the lit crown hugs the upper-left edge of the cluster, with ragged
+    // leaf notches cut into it, rather than a bright spot in the middle
+    p.ellipse(bx - crx * 0.18, by - cry * 0.2, crx * 0.8, cry * 0.72, mix(base, light, 0.5));
+    p.ellipse(bx + crx * 0.12, by + cry * 0.14, crx * 0.72, cry * 0.66, base);
+    for (let k = 0; k < 7; k++) {
+      const t = -Math.PI * 0.5 - 1.2 + (k / 6) * 1.6;
+      p.set(bx + Math.cos(t) * crx * 0.82, by + Math.sin(t) * cry * 0.8, light);
+      if (k % 2) p.set(bx + Math.cos(t) * crx * 0.92, by + Math.sin(t) * cry * 0.9, mix(light, PAL.white, 0.2));
+    }
+    for (let k = 0; k < 4; k++) p.set(bx + rng.range(-crx * 0.7, crx * 0.7), by + cry * rng.range(0.55, 0.9), dark);
   }
   // leaf speckle, only on the foliage
   p.g.save();
@@ -133,12 +144,17 @@ function leafyTree(w: number, h: number, dark: string, base: string, light: stri
     for (let i = 0; i < 3; i++) p.fill(cx - Math.floor(tw / 2) + 1 + (i % 2), h - 6 - i * 6 - rng.int(0, 3), 1, 3, shade(trunkDark, 0.8));
     p.fill(cx - 1, h - 3 - h * 0.25, 2, 2, shade(trunkDark, 0.7));
     canopy(p, cx, h * 0.34, w * 0.46, h * 0.3, dark, base, light, rng, 8);
+    // branch stubs where the trunk goes up into the leaves, and the canopy's shade on it
+    const ty = Math.round(h * 0.6);
+    p.line(cx - 1, ty, cx - 5, ty - 5, trunkDark); p.line(cx, ty, cx - 4, ty - 5, mix(trunkDark, trunkLight, 0.5));
+    p.line(cx + 1, ty - 1, cx + 5, ty - 6, trunkDark);
+    p.fill(cx - Math.floor(tw / 2), ty, tw, 2, shade(trunkDark, 0.6));
     return { ...art([p], h - 3), swayRow: Math.round(h * 0.6), swayAmp: 1 };
   };
 }
 
 GEN.tree_oak = leafyTree(56, 72, PAL.leafDark, PAL.leaf, PAL.leafLit, PAL.woodDark, PAL.woodLit);
-GEN.tree_maple = leafyTree(52, 68, '#5a3320', PAL.clay, PAL.flame, PAL.woodDark, PAL.woodLit);
+GEN.tree_maple = leafyTree(52, 68, '#6d2a1a', '#b5462f', '#e8763a', PAL.woodDark, PAL.woodLit);
 GEN.tree_birch = (rng) => {
   const p = new Px(44, 64);
   const cx = 22;
@@ -369,11 +385,12 @@ function rockGen(w: number, h: number, dark: string, base: string, light: string
     p.poly(pts, base);
     p.poly(pts.map(([x, y]) => [x, y + 2] as [number, number]), shade(base, 0.7));
     p.poly(pts, base);
-    p.ellipse(w * 0.4, h * 0.42, w * 0.2, h * 0.16, light);
     // speckle the stone, never the air round it: stray grains used to pick
     // up the outline and float beside the rock as little crosses
     p.g.save();
     p.g.globalCompositeOperation = 'source-atop';
+    // the highlight lives on the stone too; unclipped it floated over the top
+    p.ellipse(w * 0.4, h * 0.42, w * 0.2, h * 0.16, light);
     p.speckle(2, 2, w - 4, h - 4, [dark, light], 0.05, rng);
     p.g.restore();
     p.outline(dark);
@@ -388,11 +405,16 @@ GEN.rock_snow = (rng) => {
   const b = rockGen(36, 30, PAL.rock, PAL.rockPale, PAL.snow)(rng);
   const p = new Px(b.fw, b.fh);
   p.blit(b.canvas, 0, 0);
-  // a hard cap of snow with a blue shadow lip and drips over the edge
-  p.ellipse(18, 13, 12, 4.5, PAL.snowDark);
-  p.ellipse(18, 11.5, 11.5, 4.5, PAL.snow);
-  p.ellipse(15, 10, 6, 2, PAL.white);
-  for (const x of [9, 14, 21, 26]) p.fill(x, 15, 2, 1 + (x % 3), PAL.snowDark);
+  // Snow lies on the rock: the cap is the rock's own top, repainted, so it
+  // follows the contour exactly, with a blue lip and a few drips below it.
+  p.g.save();
+  p.g.globalCompositeOperation = 'source-atop';
+  p.fill(0, 0, b.fw, 19, PAL.snow);
+  p.fill(0, 0, b.fw, 16, PAL.white);
+  p.fill(0, 19, b.fw, 1, PAL.snowDark);
+  for (const [x, len] of [[9, 3], [15, 2], [22, 4], [27, 2]]) p.fill(x, 20, 1, len, PAL.snowDark);
+  for (const [x, len] of [[10, 2], [23, 3]]) p.fill(x, 20, 1, len, PAL.snow);
+  p.g.restore();
   return art([p], b.anchorY);
 };
 
@@ -659,26 +681,25 @@ GEN.torch = () => {
 GEN.brazier = () => {
   const frames: Px[] = [];
   for (let f = 0; f < 4; f++) {
-    const p = new Px(28, 46);
-    groundShadow(p, 14, 44, 8, 3);
-    // three splayed iron legs on a stone
-    p.fill(8, 42, 12, 3, PAL.stone);
-    p.fill(8, 42, 12, 1, PAL.fog);
-    p.line(9, 41, 12, 31, PAL.ironDark); p.line(19, 41, 16, 31, PAL.ironDark); p.fill(13, 31, 2, 11, PAL.ironDark);
-    // the bowl: banded iron, a lit rim, a bed of coals
-    p.fill(5, 23, 18, 9, PAL.ironDark);
-    p.fill(6, 24, 16, 7, PAL.iron);
-    p.fill(6, 24, 16, 1, PAL.ironLit);
-    p.fill(6, 27, 16, 1, PAL.ironDark);
-    for (const x of [8, 13, 18]) p.fill(x, 24, 1, 7, PAL.ironDark);
-    p.fill(7, 31, 14, 1, PAL.ironDark);
-    p.fill(4, 22, 20, 2, PAL.ironDark);
-    p.fill(5, 22, 18, 1, PAL.ironLit);
-    for (let i = 0; i < 7; i++) p.set(6 + i * 2 + (f % 2), 21, i % 2 ? PAL.ember : PAL.emberDark);
-    p.fill(7, 20, 14, 1, PAL.ember);
-    // a three-colour flame with a flickering tip
-    flame(p, 14, 21, 1.5, (f / 4) * Math.PI * 2, [PAL.holy, PAL.flameLit, PAL.flame]);
-    p.set(13 + (f % 3), 5 + (f % 2) * 2, PAL.flameLit);
+    const p = new Px(30, 46);
+    groundShadow(p, 15, 44, 9, 3);
+    // a stone pedestal and a round, flared iron bowl on it
+    p.fill(11, 32, 8, 12, PAL.stone);
+    p.fill(11, 32, 2, 12, PAL.fog);
+    p.fill(17, 32, 2, 12, PAL.slate);
+    p.fill(9, 42, 12, 3, PAL.stone);
+    p.fill(9, 42, 12, 1, PAL.fog);
+    p.ellipse(15, 27, 8, 5, PAL.ironDark);
+    p.ellipse(15, 26, 7, 4, PAL.iron);
+    p.fill(8, 27, 14, 1, PAL.ironDark);
+    p.ellipse(15, 22, 11, 3, PAL.ironDark);
+    p.ellipse(15, 21.5, 10, 2, PAL.ironLit);
+    for (const x of [10, 20]) p.fill(x, 23, 1, 6, PAL.ironDark);
+    // a dome of coals above the rim
+    p.ellipse(15, 20, 8, 2.5, PAL.emberDark);
+    for (let i = 0; i < 9; i++) p.set(8 + i * 2 - (i % 2), 19 + (i % 3 === 0 ? 1 : 0), (i + f) % 3 === 0 ? PAL.flameLit : PAL.ember);
+    flame(p, 15, 19, 1.5, (f / 4) * Math.PI * 2, [PAL.holy, PAL.flameLit, PAL.flame]);
+    p.set(14 + (f % 3), 4 + (f % 2) * 2, PAL.flameLit);
     frames.push(p);
   }
   return art(frames, 44, 10);
@@ -837,6 +858,13 @@ GEN.cauldron = () => {
     for (const [x, y] of [[9, 38], [25, 38], [17, 39]]) p.fill(x - 3, y, 7, 2, PAL.woodDark);
     p.fill(12, 35, 10, 3, PAL.emberDark);
     for (let i = 0; i < 3; i++) p.fill(13 + i * 3, 33 - ((f + i) % 3), 2, 3, [PAL.flameLit, PAL.flame, PAL.ember][(f + i) % 3]);
+    // flames licking up the sides of the pot between the legs
+    for (const [x, h] of [[10, 5 + (f % 2)], [17, 4 + ((f + 1) % 3)], [23, 5 + ((f + 2) % 2)]]) {
+      p.fill(x, 36 - h, 2, h, PAL.flame);
+      p.fill(x, 36 - h + 1, 1, h - 2, PAL.flameLit);
+      p.set(x, 36 - h - 1, PAL.holy);
+    }
+    for (const x of [6, 26]) { p.fill(x, 38, 4, 2, PAL.wood); p.set(x + (x < 10 ? 0 : 3), 38, PAL.plank); }
     p.ellipse(17, 26, 13, 10, PAL.ironDark);
     p.ellipse(13, 23, 4, 4, shade(PAL.iron, 0.9));
     p.fill(5, 30, 3, 6, PAL.ironDark);

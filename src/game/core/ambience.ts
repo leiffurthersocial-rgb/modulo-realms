@@ -1,4 +1,4 @@
-import { PAL, withAlpha } from '../art/palette';
+import { PAL, shade, withAlpha } from '../art/palette';
 import { getBuilding } from '../art/buildings';
 import { getProp } from '../art/props';
 import { menaceTier } from '../art/beasts';
@@ -21,7 +21,7 @@ import type { Game } from './game';
 
 type Kind =
   | 'smoke' | 'leaf' | 'spark' | 'ember' | 'bird' | 'butterfly' | 'firefly'
-  | 'drop' | 'dust' | 'breath' | 'snowclump' | 'mote' | 'ash' | 'bubble';
+  | 'drop' | 'dust' | 'breath' | 'snowclump' | 'mote' | 'ash' | 'bubble' | 'pigeon';
 
 interface Mote {
   kind: Kind;
@@ -77,23 +77,31 @@ let frostCache: HTMLCanvasElement | null = null;
 function frostPattern(): HTMLCanvasElement {
   if (frostCache) return frostCache;
   const c = document.createElement('canvas');
-  c.width = 120;
-  c.height = 120;
+  c.width = 100;
+  c.height = 100;
   const g = c.getContext('2d')!;
-  let seed = 7;
-  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  const branch = (x: number, y: number, a: number, len: number, depth: number) => {
+  // six ferns per corner: a straight spine with 45 degree barbs that
+  // shorten toward the tip, a white tip, a dark contrast pixel outside
+  const fern = (x0: number, y0: number, a: number, len: number) => {
     for (let i = 0; i < len; i++) {
-      x += Math.cos(a); y += Math.sin(a);
-      g.fillStyle = depth > 1 ? 'rgba(236,244,252,0.9)' : 'rgba(200,220,240,0.75)';
-      g.fillRect(Math.round(x), Math.round(y), 1, 1);
-      if (depth > 0 && i > 2 && i % 4 === 0) {
-        branch(x, y, a + 0.9, Math.floor(len * 0.35), depth - 1);
-        branch(x, y, a - 0.9, Math.floor(len * 0.35), depth - 1);
+      const x = Math.round(x0 + Math.cos(a) * i);
+      const y = Math.round(y0 + Math.sin(a) * i);
+      g.fillStyle = 'rgba(40,56,80,0.5)';
+      g.fillRect(x + 1, y + 1, 1, 1);
+      g.fillStyle = i > len - 3 ? '#ffffff' : 'rgba(210,236,248,0.95)';
+      g.fillRect(x, y, 1, 1);
+      if (i > 2 && i % 3 === 0) {
+        const barb = Math.round((len - i) * 0.35);
+        for (const side of [-1, 1]) {
+          for (let j = 1; j <= barb; j++) {
+            g.fillStyle = 'rgba(190,226,244,0.85)';
+            g.fillRect(Math.round(x + Math.cos(a + side * 0.8) * j), Math.round(y + Math.sin(a + side * 0.8) * j), 1, 1);
+          }
+        }
       }
     }
   };
-  for (let i = 0; i < 9; i++) branch(0, 0, 0.1 + (i / 8) * 1.35 + (rnd() - 0.5) * 0.2, 30 + Math.floor(rnd() * 50), 2);
+  [0.12, 0.38, 0.62, 0.85, 1.1, 1.36].forEach((a, i) => fern(0, 0, a, [70, 52, 86, 60, 78, 50][i]));
   frostCache = c;
   return c;
 }
@@ -116,7 +124,7 @@ export class Ambience {
   private lastPrint = { x: 0, y: 0, side: 1 };
   private nextBreath = 0;
   private enemyCols = new WeakMap<Enemy, number>();
-  private flakeSeed = Array.from({ length: 320 }, (_, i) => [hash(i, 1), hash(i, 2), hash(i, 3), hash(i, 4)]);
+  private flakeSeed = Array.from({ length: 900 }, (_, i) => [hash(i, 1), hash(i, 2), hash(i, 3), hash(i, 4)]);
   /** 0..1, ramps in and out: a sandstorm in the desert, a blizzard in the snow. */
   storm = 0;
   private stormTarget = 0;
@@ -192,6 +200,7 @@ export class Ambience {
         this.spawnPlayerTrail(game, map, dt, now);
       }
     }
+    this.player = game.player;
     this.step(dt, now, map);
   }
 
@@ -223,10 +232,10 @@ export class Ambience {
         // A chimney smokes in sessions: now and then, for a while, then not.
         const slot = Math.floor(now / 45 + hash(prop.x, prop.y) * 7);
         if (hash(prop.x + slot * 3.1, prop.y) > 0.3 + night * 0.25) continue;
-        if (Math.random() > dt * 1.8) continue;
+        if (Math.random() > dt * 3) continue;
         const cx = prop.x - b.w / 2 + b.chimney[0];
         const cy = prop.y - b.h + 4 - (b.padTop ?? 0) + b.chimney[1];
-        this.spawn({ kind: 'smoke', x: cx + (Math.random() - 0.5) * 3, y: cy, vx: 0, vy: -10 - Math.random() * 5, life: 0, max: 4 + Math.random() * 2, size: 2, color: Math.random() < 0.5 ? '#8f8a99' : '#6f6a7a' });
+        this.spawn({ kind: 'smoke', x: cx + (Math.random() - 0.5) * 2, y: cy, vx: 0, vy: -8, life: 0, max: 4.5 + Math.random() * 2, size: 1, color: Math.random() < 0.5 ? '#8f8a99' : '#6f6a7a' });
         continue;
       }
       switch (art) {
@@ -308,9 +317,14 @@ export class Ambience {
       if (!at) this.nextFish = now + 0.6;
       else {
         const big = Math.random() < 0.12;
-        this.fish.push({ x0: at.x, y0: at.y, dir: Math.random() < 0.5 ? -1 : 1, t: 0, dur: big ? 1.05 : 0.7, h: big ? 18 : 11, big, splashed: false });
+        this.fish.push({ x0: at.x, y0: at.y, dir: Math.random() < 0.5 ? -1 : 1, t: 0, dur: big ? 1.25 : 0.9, h: big ? 18 : 11, big, splashed: false });
         this.splash(at.x, at.y, big ? 1.4 : 1);
       }
+    }
+    // sun on the water: short bright glints that blink and drift
+    if (day && Math.random() < dt * 9 && this.glints.length < 40) {
+      const at = tryWater();
+      if (at) this.glints.push({ x: Math.round(at.x), y: Math.round(at.y), life: 0 });
     }
     // water striders and rising bubbles: small rings now and then
     if (Math.random() < dt * 1.2) {
@@ -327,6 +341,7 @@ export class Ambience {
   private splash(x: number, y: number, k: number): void {
     this.ripples.push({ x, y, life: 0, max: 1.1 * k, r: 9 * k });
     this.ripples.push({ x, y, life: -0.18, max: 1.3 * k, r: 14 * k });
+    this.ripples.push({ x, y, life: -0.45, max: 1.7 * k, r: 22 * k });
     for (let i = 0; i < 7 * k; i++) {
       const a = Math.PI + (i / (7 * k)) * Math.PI;
       this.spawn({ kind: 'drop', x: x + Math.cos(a) * 3, y: y - 1, vx: Math.cos(a) * 30, vy: -35 - Math.random() * 45 * k, life: 0, max: 0.6, size: 1, color: i % 2 ? PAL.white : PAL.foam, gravity: 170 });
@@ -336,7 +351,7 @@ export class Ambience {
   private spawnLife(game: Game, map: GameMap, view: View, dt: number, now: number, day: boolean, night: number): void {
     const green = this.climate === 'meadow' || this.climate === 'forest' || this.climate === 'mire';
     if (!green || now < this.nextVisitor) return;
-    this.nextVisitor = now + 0.4;
+    this.nextVisitor = now + 0.15;
     const pick = (): { x: number; y: number; id: number } => {
       const x = view.left + Math.random() * view.w;
       const y = view.top + Math.random() * view.h;
@@ -344,7 +359,7 @@ export class Ambience {
       return { x, y, id };
     };
     const count = (k: Kind) => { let n = 0; for (const m of this.motes) if (m.kind === k) n++; return n; };
-    if (day && this.storm < 0.2 && count('butterfly') < 5) {
+    if (day && this.storm < 0.2 && count('butterfly') < 8) {
       const at = pick();
       if (at.id === T.FLOWERS || at.id === T.GRASS || at.id === T.GRASS_PALE || at.id === T.TALL_GRASS) {
         this.spawn({ kind: 'butterfly', x: at.x, y: at.y, vx: 0, vy: 0, life: 0, max: 14 + Math.random() * 10, size: 1, color: BUTTERFLY[Math.floor(Math.random() * BUTTERFLY.length)] });
@@ -354,9 +369,18 @@ export class Ambience {
       const at = pick();
       if (at.id === T.GRASS || at.id === T.TALL_GRASS || at.id === T.GRASS_DARK || at.id === T.SWAMP_GROUND || at.id === T.FLOWERS) {
         this.spawn({ kind: 'firefly', x: at.x, y: at.y, vx: 0, vy: 0, life: 0, max: 8 + Math.random() * 8, size: 1, color: '#d8f07a' });
+        // they come in little swarms
+        for (let i = 0; i < 2; i++) this.spawn({ kind: 'firefly', x: at.x + (Math.random() - 0.5) * 40, y: at.y + (Math.random() - 0.5) * 30, vx: 0, vy: 0, life: 0, max: 8 + Math.random() * 8, size: 1, color: '#d8f07a' });
       }
     }
-    void game; void dt;
+    // pigeons pecking on the paving in the valley, until you walk into them
+    if (day && this.climate === 'meadow' && count('pigeon') < 7) {
+      const at = pick();
+      if (at.id === T.ROAD && Math.hypot(at.x - game.player.x, at.y - game.player.y) > 90) {
+        for (let i = 0; i < 3; i++) this.spawn({ kind: 'pigeon', x: at.x + (Math.random() - 0.5) * 24, y: at.y + (Math.random() - 0.5) * 12, vx: 0, vy: 0, life: 0, max: 40, size: 1, color: Math.random() < 0.3 ? PAL.ash : PAL.fog });
+      }
+    }
+    void dt;
   }
 
   private spawnClimate(game: Game, map: GameMap, view: View, dt: number, now: number): void {
@@ -450,6 +474,8 @@ export class Ambience {
 
   /* ---------------------------------------------------------------- */
 
+  private player: { x: number; y: number } | null = null;
+
   private step(dt: number, now: number, map: GameMap): void {
     const wind = this.wind;
     for (let i = this.motes.length - 1; i >= 0; i--) {
@@ -459,8 +485,10 @@ export class Ambience {
       if (m.life < 0) continue;
       switch (m.kind) {
         case 'smoke':
-          m.vx += (wind * 0.5 - m.vx) * dt * 0.8;
-          m.size = 1 + m.life * 1.2;
+          // rise straight at first, then lean over with the wind
+          m.vx += ((m.life < 0.8 ? 0 : wind * 0.5) - m.vx) * dt * 0.8;
+          m.vy = -8 - Math.min(1, m.life) * 4;
+          m.size = 1 + m.life * 1.1;
           break;
         case 'leaf':
           m.vx = wind * 0.9 + Math.sin(now * 2 + m.seed) * 10;
@@ -469,6 +497,19 @@ export class Ambience {
         case 'bird':
           m.vy -= 12 * dt;
           break;
+        case 'pigeon': {
+          const pl = this.player;
+          if (pl && Math.hypot(pl.x - m.x, pl.y - m.y) < 46) {
+            const a = Math.atan2(m.y - pl.y, m.x - pl.x) + (Math.random() - 0.5);
+            m.kind = 'bird'; m.vx = Math.cos(a) * 80; m.vy = Math.sin(a) * 40 - 40; m.life = 0; m.max = 3; m.color = PAL.ash;
+          } else {
+            // a few steps, a peck, a few steps
+            const walk = Math.sin(now * 1.3 + m.seed) > 0.4;
+            m.vx = walk ? Math.cos(m.seed + Math.floor(now / 2)) * 6 : 0;
+            m.vy = walk ? Math.sin(m.seed + Math.floor(now / 2)) * 3 : 0;
+          }
+          break;
+        }
         case 'butterfly': {
           const a = Math.sin(now * 0.7 + m.seed) * 3 + m.seed;
           m.vx = Math.cos(a) * 14 + wind * 0.2;
@@ -674,7 +715,7 @@ export class Ambience {
 
   private drawTumble(g: CanvasRenderingContext2D, t: Tumble): void {
     g.save();
-    g.globalAlpha = 0.3;
+    g.globalAlpha = 0.45;
     g.fillStyle = '#0a0810';
     const sw = Math.max(3, Math.round(t.r * 2 - t.z * 0.3));
     g.fillRect(Math.round(t.x - sw / 2), Math.round(t.y), sw, 2);
@@ -692,7 +733,7 @@ export class Ambience {
         const rr = t.r * (0.45 + 0.55 * Math.sin(u * Math.PI));
         const x = Math.round(cx + Math.cos(ang) * rr);
         const y = Math.round(cy + Math.sin(ang) * rr * 0.9);
-        g.fillStyle = c % 2 ? PAL.dirtLit : PAL.clay;
+        g.fillStyle = c === 0 ? PAL.sandLit : c % 2 ? PAL.woodDark : PAL.soil;
         g.fillRect(x, y, 1, 1);
       }
     }
@@ -706,14 +747,16 @@ export class Ambience {
 
   private drawFish(g: CanvasRenderingContext2D, f: Fish): void {
     if (f.t < 0 || f.t > f.dur) return;
-    const k = f.t / f.dur;
+    const u = f.t / f.dur;
+    // hang at the top of the leap a moment before falling back
+    const k = u < 0.5 ? 0.5 - 0.5 * Math.pow(1 - u * 2, 1.6) : 0.5 + 0.5 * Math.pow(u * 2 - 1, 1.6);
     const reach = f.big ? 20 : 14;
     const x = Math.round(f.x0 + f.dir * reach * k);
     const y = Math.round(f.y0 - Math.sin(k * Math.PI) * f.h);
     // the body arcs with the jump: nose up on the way out, down on the way in
     const len = f.big ? 10 : 7;
     const tilt = k < 0.3 ? -1 : k > 0.7 ? 1 : 0;
-    const back = f.big ? '#3f5a66' : '#4f7a8a';
+    const back = f.big ? '#2a3a48' : '#34506a';
     const belly = f.big ? '#c8d8dc' : '#dfeef2';
     g.save();
     g.globalAlpha = 0.3;
@@ -721,13 +764,13 @@ export class Ambience {
     g.fillRect(x - 3, f.y0 + 1, 6, 1);
     g.globalAlpha = 1;
     for (let i = 0; i < len; i++) {
-      const u = i / (len - 1);
-      const px = x + Math.round((u - 0.5) * len) * f.dir;
-      const py = y + Math.round(tilt * (u - 0.5) * 3);
-      const thick = u < 0.15 || u > 0.85 ? 1 : f.big ? 3 : 2;
+      const q = i / (len - 1);
+      const px = x + Math.round((q - 0.5) * len) * f.dir;
+      const py = y + Math.round(tilt * (q - 0.5) * 3);
+      const edge = q < 0.15 || q > 0.85;
       g.fillStyle = back;
-      g.fillRect(px, py, 1, 1);
-      if (thick > 1) { g.fillStyle = belly; g.fillRect(px, py + 1, 1, thick - 1); }
+      g.fillRect(px, py, 1, edge ? 1 : 2);
+      if (!edge) { g.fillStyle = belly; g.fillRect(px, py + 2, 1, f.big ? 2 : 1); }
     }
     // forked tail, a dark eye, one bright glint
     const tail = x - Math.round(len / 2 + 1) * f.dir;
@@ -739,7 +782,7 @@ export class Ambience {
     g.fillStyle = PAL.ink;
     g.fillRect(head, y + Math.round(tilt * 1.5), 1, 1);
     g.fillStyle = PAL.white;
-    g.fillRect(x, y + (f.big ? 1 : 0), 1, 1);
+    g.fillRect(x - f.dir, y, 1, 1);
     g.restore();
   }
 
@@ -762,9 +805,13 @@ export class Ambience {
             const half = Math.round(Math.sqrt(Math.max(0, r * r - yy * yy + r * 0.5)));
             g.fillRect(x - half, y + yy, half * 2 + 1, 1);
           }
-          g.globalAlpha = a * 0.8;
-          g.fillStyle = '#b8b2c2';
-          g.fillRect(x - Math.floor(r / 2), y - r + 1, Math.max(1, r - 1), 1);
+          // lit crescent on the upper left, shade underneath
+          g.globalAlpha = a;
+          g.fillStyle = '#c4bfcc';
+          g.fillRect(x - r + 1, y - r + 1, Math.max(1, r), 1);
+          g.fillRect(x - r, y - r + 2, 1, Math.max(1, r - 1));
+          g.fillStyle = '#4e4a58';
+          g.fillRect(x - Math.floor(r / 2), y + r, r + 1, 1);
           break;
         }
         case 'leaf': {
@@ -781,6 +828,21 @@ export class Ambience {
           g.fillRect(x, y, 1, 1);
           g.fillRect(x - 2, y + (up ? -1 : 1), 2, 1);
           g.fillRect(x + 1, y + (up ? -1 : 1), 2, 1);
+          break;
+        }
+        case 'pigeon': {
+          g.globalAlpha = 1;
+          const peck = Math.sin(now * 5 + m.seed) > 0.6 && m.vx === 0;
+          g.fillStyle = m.color;
+          g.fillRect(x - 2, y - 2, 4, 2);
+          g.fillStyle = shade(m.color, 0.7);
+          g.fillRect(x - 3, y - 2, 1, 1);
+          g.fillStyle = '#5a6a7a';
+          g.fillRect(peck ? x + 2 : x + 1, peck ? y - 1 : y - 4, 2, 2);
+          g.fillStyle = PAL.ink;
+          g.fillRect(peck ? x + 3 : x + 2, peck ? y - 1 : y - 4, 1, 1);
+          g.fillStyle = PAL.clay;
+          g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1);
           break;
         }
         case 'butterfly': {
@@ -877,15 +939,16 @@ export class Ambience {
     const s = this.storm;
     g.save();
     if (c === 'snow') {
-      const n = Math.round(80 + s * 220);
+      const n = Math.round(90 + s * 780);
       for (let i = 0; i < n; i++) {
         const [a, b, cc, d] = this.flakeSeed[i];
         const layer = cc < 0.5 ? 0 : cc < 0.85 ? 1 : 2;
-        const speed = [22, 36, 58][layer] * (1 + s * 1.6);
+        const speed = [22, 36, 58][layer] * (1 + s * 2.2);
         const side = (this.wind * (0.6 + layer * 0.4) * (1 + s * 2.5) + Math.sin(now * 0.8 + d * 20) * 10 * (1 - s)) * (reducedMotion ? 0.3 : 1);
         const x = ((a * w + now * side * k) % w + w) % w;
         const y = ((b * h + now * speed * k) % h + h) % h;
         const size = (layer === 2 ? 2 + (s > 0.5 ? 1 : 0) : layer === 1 ? (s > 0.5 ? 2 : 1) : 1) * k;
+        if (s > 0.5 && layer === 0 && i % 2) continue;
         g.globalAlpha = [0.55, 0.78, 0.95][layer];
         g.fillStyle = layer === 0 ? '#c9d6e6' : PAL.white;
         g.fillRect(Math.round(x), Math.round(y), size, size);
@@ -896,21 +959,41 @@ export class Ambience {
         }
       }
       if (s > 0.02) {
-        // visibility drops: a pale veil, heavier toward the edges
-        g.globalAlpha = s * 0.12;
-        g.fillStyle = '#dfe8f2';
+        // the light goes flat and cold, so the flakes stand out against it
+        g.globalAlpha = s * 0.2;
+        g.fillStyle = '#3a4a66';
         g.fillRect(0, 0, w, h);
+        // snow blown along the ground in long low streaks
+        g.globalAlpha = s * 0.7;
+        g.fillStyle = PAL.white;
+        for (let i = 0; i < 60; i++) {
+          const [a, b, cc] = this.flakeSeed[i + 400];
+          const x = ((a * w + now * (300 + cc * 200) * k) % (w + 60 * k)) - 30 * k;
+          g.fillRect(Math.round(x), Math.round(b * h), Math.round((10 + cc * 20) * k), k);
+        }
         this.drawFrost(g, w, h, k, s);
       }
     } else {
       if (s > 0.02) {
-        g.globalAlpha = s * 0.24;
+        // the storm comes in gusts: every few seconds the sand doubles
+        const gustK = Math.max(0, Math.sin(now * 0.9)) ** 3;
+        g.globalAlpha = s * (0.26 + gustK * 0.12);
         g.fillStyle = '#b8955a';
         g.fillRect(0, 0, w, h);
+        // a band of blown sand crossing the screen, dithered at half density
+        const bandH = Math.round(h / 3);
+        const bandY = Math.round(((now * 40 * k) % (h + bandH)) - bandH);
+        const cell = 2 * k;
+        g.globalAlpha = s * 0.35;
+        g.fillStyle = PAL.sandDark;
+        for (let yy = Math.max(0, bandY); yy < Math.min(h, bandY + bandH); yy += cell) {
+          const row = Math.floor(yy / cell);
+          for (let xx = (row % 2) * cell; xx < w; xx += cell * 2) g.fillRect(xx, yy, cell, cell);
+        }
         // bands of blowing sand in two speeds, hard ochre dashes, no white
-        const n = Math.round(320 * s);
+        const n = Math.round(320 * s * (1 + Math.max(0, Math.sin(now * 0.9)) ** 3));
         for (let i = 0; i < n; i++) {
-          const [a, b, cc, d] = this.flakeSeed[i % 320];
+          const [a, b, cc, d] = this.flakeSeed[i % this.flakeSeed.length];
           const fast = cc > 0.45;
           const speed = (fast ? 520 : 260) * k;
           const x = ((a * w + now * speed) % (w + 40 * k) + w + 40 * k) % (w + 40 * k) - 20 * k;

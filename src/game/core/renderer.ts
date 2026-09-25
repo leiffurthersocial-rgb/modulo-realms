@@ -228,9 +228,17 @@ function applyGroundDetail(g: CanvasRenderingContext2D, map: GameMap, cx: number
           // a cracked pan
           const c = 'rgba(90,60,30,0.45)';
           px(ox - 4, oy, c, 5, 1); px(ox, oy - 3, c, 1, 4); px(ox + 1, oy + 1, c, 4, 1); px(ox - 3, oy + 1, c, 1, 3);
-        } else if (id === T.DESERT_SAND && r < 0.065) {
-          // something bleached, long dead
-          px(ox, oy, PAL.bone, 5, 1); px(ox - 1, oy - 1, PAL.cloth, 2, 3); px(ox + 4, oy - 1, PAL.cloth, 2, 3);
+        } else if (id === T.DESERT_SAND && r < 0.058) {
+          // a bleached skull, half sunk, with a shadow
+          px(ox - 2, oy + 3, 'rgba(90,60,30,0.4)', 7, 1);
+          px(ox - 2, oy - 1, PAL.bone, 6, 4); px(ox - 1, oy - 2, PAL.cloth, 4, 1);
+          px(ox - 1, oy, PAL.ink, 1, 1); px(ox + 2, oy, PAL.ink, 1, 1);
+          px(ox, oy + 2, PAL.fog, 2, 1);
+        } else if (id === T.DESERT_SAND && r < 0.068) {
+          // one long bone with knobbed ends
+          px(ox - 4, oy + 1, 'rgba(90,60,30,0.4)', 10, 1);
+          px(ox - 3, oy, PAL.bone, 8, 1);
+          px(ox - 4, oy - 1, PAL.cloth, 2, 2); px(ox + 4, oy - 1, PAL.cloth, 2, 2);
         } else if (r < 0.1) {
           px(ox, oy, PAL.sandDark, 2, 1); px(ox + 3, oy + 1, PAL.sandDark, 1, 1);
         }
@@ -252,6 +260,27 @@ function applyGroundDetail(g: CanvasRenderingContext2D, map: GameMap, cx: number
           px(ox, oy, PAL.grassLit, 1, 2); px(ox + 1, oy + 1, PAL.grass, 1, 1); px(ox - 1, oy + 1, PAL.grass, 1, 1);
         } else if (id === T.ROAD_DIRT && r < 0.2) {
           px(ox, oy, PAL.rock, 2, 1);
+        }
+      } else if (id === T.WATER) {
+        // a pale line of foam where the water meets land, and lily pads off grass banks
+        const land = (n: number) => n !== T.WATER && n !== T.DEEP_WATER && !isMarine(n);
+        const l = map.tiles[ty * map.w + tx - 1];
+        const rr = map.tiles[ty * map.w + tx + 1];
+        const u = map.tiles[(ty - 1) * map.w + tx];
+        const d = map.tiles[(ty + 1) * map.w + tx];
+        const foam = 'rgba(190,230,236,0.55)';
+        for (let i = 0; i < TILE; i += 3) {
+          const wob = (i + tx * 5 + ty * 3) % 7 === 0 ? 1 : 0;
+          if (land(u)) px(dx + i, dy + 1 + wob, foam, 2, 1);
+          if (land(d)) px(dx + i, dy + TILE - 2 - wob, foam, 2, 1);
+          if (land(l)) px(dx + 1 + wob, dy + i, foam, 1, 2);
+          if (land(rr)) px(dx + TILE - 2 - wob, dy + i, foam, 1, 2);
+        }
+        const grassy = [l, rr, u, d].some((n) => n === T.GRASS || n === T.GRASS_DARK || n === T.TALL_GRASS);
+        if (grassy && r < 0.3) {
+          px(ox - 3, oy, PAL.leaf, 6, 3); px(ox - 2, oy - 1, PAL.leaf, 4, 1); px(ox - 2, oy + 3, PAL.leaf, 4, 1);
+          px(ox - 2, oy, PAL.leafLit, 3, 1); px(ox + 1, oy + 1, PAL.leafDark, 2, 1);
+          if (r < 0.1) { px(ox - 1, oy - 2, PAL.cloth, 2, 2); px(ox - 1, oy - 2, '#e87aa0', 1, 1); }
         }
       } else if (id === T.DIRT || id === T.FARM_SOIL) {
         if (r < 0.15) { px(ox, oy, PAL.rock, 2, 1); px(ox, oy, PAL.rockPale, 1, 1); }
@@ -385,7 +414,7 @@ const propIdx: number[] = [];
 /** Decorative life: smoke, fish, leaves, weather. See ambience.ts. */
 export const ambience = new Ambience();
 /** Lit windows of the buildings in view this frame, for the night glow. */
-const litWindows: Array<[number, number, number, number]> = [];
+const litWindows: Array<[number, number, number, number, number]> = [];
 
 /** Seconds the death shake takes to die away; the world then fades to black over `DEATH_DARKEN`. */
 export const DEATH_SETTLE = 2;
@@ -480,7 +509,7 @@ export function render(game: Game): void {
       const art = getBuilding(prop.art.slice(4));
       const dx = Math.round(prop.x - art.w / 2);
       const dy = Math.round(prop.y - art.h + 4 - (art.padTop ?? 0));
-      for (const [wx, wy, ww, wh] of art.windows ?? []) litWindows.push([dx + wx, dy + wy, ww, wh]);
+      for (const [wx, wy, ww, wh] of art.windows ?? []) litWindows.push([dx + wx, dy + wy, ww, wh, Math.round(prop.y + 4)]);
       drawables.push({ y: prop.y, draw: () => g.drawImage(art.canvas, dx, dy) });
       continue;
     }
@@ -507,9 +536,14 @@ export function render(game: Game): void {
         g.drawImage(art.canvas, frame * art.fw, row, art.fw, art.fh - row, dx, dy + row, art.fw, art.fh - row);
       } else g.drawImage(art.canvas, frame * art.fw, 0, art.fw, art.fh, dx, dy, art.fw, art.fh);
     };
-    const drawFn = flip
-      ? () => { g.save(); g.translate(dx * 2 + art.fw, 0); g.scale(-1, 1); blit(); g.restore(); }
-      : blit;
+    // a canopy you are standing behind goes see-through, so a tree never hides you
+    const behind = !!art.swayRow && art.fh > 40 && player.y < prop.y - 4 && player.y > prop.y - art.anchorY + 8
+      && Math.abs(player.x - prop.x) < art.fw * 0.45;
+    const drawFn = () => {
+      if (behind) { g.save(); g.globalAlpha = 0.5; }
+      if (flip) { g.save(); g.translate(dx * 2 + art.fw, 0); g.scale(-1, 1); blit(); g.restore(); } else blit();
+      if (behind) g.restore();
+    };
     if (prop.flat) drawFn();
     else drawables.push({ y: prop.y, draw: drawFn });
   }
@@ -631,30 +665,29 @@ export function render(game: Game): void {
         const tier = e.def.creature ? menaceTier(e.def.level) : 0;
         if (tier >= 2 && !e.friendly) {
           // the ground under the worst of them goes dark, in a slow pulse
-          // a hard ring of its own colour, stepping in and out, and
-          // scorched pixels on the ground inside it
+          // a tight, solid ring of its own colour hugging the feet, two hard
+          // bands that breathe by one pixel — too small to read as a telegraph
           const glow = e.def.creature?.glow ?? PAL.ember;
-          const step = Math.floor(game.now * 4 + e.id) % 4;
-          const rx = Math.round(e.radius * 1.5) + (step === 1 || step === 2 ? 1 : 0);
-          const ry = Math.round(rx * 0.4);
+          const step = Math.floor(game.now * 3 + e.id) % 2;
+          const rx = Math.round(e.radius * 0.95) + 2 + step;
+          const ry = Math.max(2, Math.round(rx * 0.35));
           const cx0 = Math.round(e.x);
           const cy0 = Math.round(e.y + 6);
           g.save();
+          g.globalAlpha = 0.35;
           g.fillStyle = '#0a0810';
-          g.globalAlpha = 0.28;
-          for (let k = 0; k < 14; k++) {
-            const a = k * 2.4 + e.id;
-            const rr = ((k * 37) % 10) / 10;
-            g.fillRect(Math.round(cx0 + Math.cos(a) * rx * rr), Math.round(cy0 + Math.sin(a) * ry * rr), 2, 1);
+          for (let yy = -ry; yy <= ry; yy++) {
+            const half = Math.round(rx * Math.sqrt(1 - (yy / (ry + 0.5)) ** 2));
+            g.fillRect(cx0 - half, cy0 + yy, half * 2, 1);
           }
-          g.globalAlpha = tier >= 3 ? 0.7 : 0.45;
+          g.globalAlpha = tier >= 3 ? 0.75 : 0.5;
           g.fillStyle = glow;
-          const n = Math.max(16, rx * 2);
-          for (let k = 0; k < n; k++) {
-            if ((k + step) % (tier >= 3 ? 3 : 4) === 0) continue;
-            const a = (k / n) * Math.PI * 2;
-            g.fillRect(Math.round(cx0 + Math.cos(a) * rx), Math.round(cy0 + Math.sin(a) * ry), 1, 1);
+          for (let yy = -ry; yy <= ry; yy++) {
+            const half = Math.round(rx * Math.sqrt(1 - (yy / (ry + 0.5)) ** 2));
+            g.fillRect(cx0 - half, cy0 + yy, 1, 1);
+            g.fillRect(cx0 + half - 1, cy0 + yy, 1, 1);
           }
+          g.fillRect(cx0 - Math.round(rx * 0.5), cy0 + ry, Math.round(rx), 1);
           g.restore();
         }
         ambience.enemyFx(e, frameFor(e.hurtTime > 0 ? 'hurt' : e.anim, e.animTime), game.now);
@@ -934,6 +967,47 @@ function drawStreak(game: Game, g: CanvasRenderingContext2D): void {
   g.restore();
 }
 
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+/** Radius fraction where each band ends, and how much darkness it lifts. */
+const LIGHT_BANDS: Array<[number, number]> = [[0.34, 0.95], [0.52, 0.84], [0.68, 0.7], [0.84, 0.54], [1, 0.36]];
+const stampCache = new Map<number, HTMLCanvasElement>();
+
+/**
+ * A pool of light in hard bands with an ordered-dither seam between them,
+ * the way lamplight is drawn in pixel art. Built once per radius and cached;
+ * the caller sets the strength with globalAlpha.
+ */
+function lightStamp(r: number): HTMLCanvasElement {
+  const hit = stampCache.get(r);
+  if (hit) return hit;
+  const size = r * 2;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const g = c.getContext('2d')!;
+  const img = g.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x + 0.5 - r, y + 0.5 - r) / r;
+      if (d >= 1) continue;
+      let b = 0;
+      while (b < LIGHT_BANDS.length - 1 && d > LIGHT_BANDS[b][0]) b++;
+      // dither the last 6% of each band into the next one out
+      const edge = LIGHT_BANDS[b][0];
+      const into = (d - (edge - 0.06)) / 0.06;
+      let level = LIGHT_BANDS[b][1];
+      if (into > 0 && into * 16 > BAYER[(y & 3) * 4 + (x & 3)]) level = b + 1 < LIGHT_BANDS.length ? LIGHT_BANDS[b + 1][1] : 0;
+      const i = (y * size + x) * 4;
+      img.data[i] = 255; img.data[i + 1] = 255; img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(level * 255);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  if (stampCache.size > 96) stampCache.delete(stampCache.keys().next().value!);
+  stampCache.set(r, c);
+  return c;
+}
+
 function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top: number, viewW: number, viewH: number): void {
   const map = game.map;
   const night = game.nightFactor;
@@ -977,23 +1051,14 @@ function drawLighting(game: Game, g: CanvasRenderingContext2D, left: number, top
     const sy = (worldY - top) * scale;
     const radius = worldR * scale;
     if (sx < -radius || sy < -radius || sx > w + radius || sy > h + radius) return;
-    // Stepped, not smooth: three hard bands, the way a lamp lights pixel art.
-    const grad = lg.createRadialGradient(sx, sy, 0, sx, sy, radius);
-    grad.addColorStop(0, `rgba(255,255,255,${0.95 * strength})`);
-    grad.addColorStop(0.42, `rgba(255,255,255,${0.95 * strength})`);
-    grad.addColorStop(0.42, `rgba(255,255,255,${0.66 * strength})`);
-    grad.addColorStop(0.72, `rgba(255,255,255,${0.66 * strength})`);
-    grad.addColorStop(0.72, `rgba(255,255,255,${0.32 * strength})`);
-    grad.addColorStop(0.999, `rgba(255,255,255,${0.32 * strength})`);
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    lg.fillStyle = grad;
-    lg.beginPath();
-    lg.arc(sx, sy, radius, 0, Math.PI * 2);
-    lg.fill();
+    const stamp = lightStamp(Math.max(2, Math.round(radius / 2) * 2));
+    lg.globalAlpha = Math.min(1, strength);
+    lg.drawImage(stamp, Math.round(sx - stamp.width / 2), Math.round(sy - stamp.height / 2));
+    lg.globalAlpha = 1;
   };
 
   const flicker = 1 + Math.sin(game.now * 9) * 0.04 + Math.sin(game.now * 21) * 0.02;
-  addLight(game.player.x, game.player.y - 10, (map.outdoor ? 190 : 130) * flicker, 0.92);
+  addLight(game.player.x, game.player.y - 10, (map.outdoor ? 112 : 130) * flicker, 0.92);
   for (const i of propIdx) {
     const prop = game.map.props[i];
     if (prop.art === 'mushroom_cluster' && map.outdoor) { addLight(prop.x, prop.y - 6, 26, 0.35 * night); continue; }
@@ -1047,6 +1112,16 @@ function drawNightGlow(game: Game, g: CanvasRenderingContext2D): void {
     g.globalAlpha = 0.55 * night * flick;
     g.fillStyle = PAL.flameLit;
     g.fillRect(wx, wy, ww, wh);
+  }
+  // and a warm trapezoid on the ground below each window, in two bands
+  for (const [wx, wy, ww, wh, base] of litWindows) {
+    if (base - (wy + wh) > 60) continue;
+    for (let i = 0; i < 12; i++) {
+      const spread = Math.round(i * 0.6);
+      g.globalAlpha = (i < 6 ? 0.14 : 0.07) * night * ((i + wx) % 2 === 0 || i < 6 ? 1 : 0);
+      g.fillStyle = PAL.flameLit;
+      g.fillRect(wx - spread, base + i, ww + spread * 2, 1);
+    }
   }
   g.restore();
 }
