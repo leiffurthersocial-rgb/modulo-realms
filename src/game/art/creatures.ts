@@ -2,6 +2,7 @@ import { PAL, mix, shade, withAlpha } from './palette';
 import { drawMythCreature, type MythCreatureKind } from './aegeanCreatures';
 import { Px, sheetGrid, type Canvas } from './pixel';
 import { CH_W, CH_H, CH_FEET, SHEET_COLS, type CharacterSheet } from './characters';
+import { drawGolem, drawMenaceTrim, drawWolf, menaceTier, scorpionStinger } from './beasts';
 
 export type CreatureKind =
   | 'wolf' | 'spider' | 'bat' | 'slime' | 'wisp' | 'golem' | 'treant'
@@ -19,9 +20,11 @@ export interface CreatureStyle {
   /** Integer upscale — 2 makes a boss-sized version of the same creature. */
   scale?: number;
   glow?: string | null;
+  /** 0..3, from the bestiary level — see `menaceTier`. Later creatures wear more. */
+  menace?: number;
 }
 
-interface CPose {
+export interface CPose {
   /** 0..1 progress used for idle/walk cycles. */
   t: number;
   walk: boolean;
@@ -233,7 +236,7 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
       break;
     }
     case 'wolf':
-      quadruped(p, s, dir, pose, { bodyW: 22, bodyH: 11, legH: 8, headR: 5, maned: true, tail: 'bushy' });
+      drawWolf(p, s, dir, pose, s.menace ?? 0);
       break;
     case 'boar':
       quadruped(p, s, dir, pose, { bodyW: 24, bodyH: 13, legH: 6, headR: 6, maned: true, tusks: true, tail: 'thin' });
@@ -321,38 +324,9 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
       p.fill(cx + 2, y - 1, 2, 2, eye);
       break;
     }
-    case 'golem': {
-      const bob = pose.bob + (pose.walk ? Math.round(Math.sin(pose.t * Math.PI * 2) * 1) : 0);
-      const top = F - 30 + bob;
-      p.ellipse(cx, F + 1, 13, 4, 'rgba(10,8,16,0.35)');
-      // legs
-      p.fill(cx - 8, F - 10, 6, 10, shade(primary, 0.8));
-      p.fill(cx + 2, F - 10, 6, 10, primary);
-      p.fill(cx - 9, F - 3, 8, 3, secondary);
-      p.fill(cx + 1, F - 3, 8, 3, secondary);
-      // torso
-      p.fill(cx - 10, top + 8, 20, 14, primary);
-      p.fill(cx - 10, top + 8, 20, 3, shade(primary, 1.2));
-      p.fill(cx + 7, top + 8, 3, 14, shade(primary, 0.7));
-      for (let i = 0; i < 4; i++) p.fill(cx - 9 + i * 5, top + 12, 4, 4, shade(primary, 1.08));
-      // core
-      p.ellipse(cx, top + 16, 4, 4, withAlpha(accent, 0.9));
-      p.ellipse(cx, top + 16, 7, 7, withAlpha(accent, 0.18));
-      // arms
-      const sw = pose.lunge * 6;
-      p.fill(cx - 15, top + 9 + sw, 5, 14, shade(primary, 0.85));
-      p.fill(cx + 10, top + 9 - sw, 5, 14, primary);
-      p.fill(cx - 16, top + 21 + sw, 7, 6, secondary);
-      p.fill(cx + 9, top + 21 - sw, 7, 6, secondary);
-      // head
-      p.fill(cx - 6, top, 12, 9, primary);
-      p.fill(cx - 6, top, 12, 2, shade(primary, 1.25));
-      p.fill(cx - 4, top + 3, 3, 2, eye);
-      p.fill(cx + 1, top + 3, 3, 2, eye);
-      p.fill(cx - 7, top + 1, 1, 6, secondary);
-      p.fill(cx + 6, top + 1, 1, 6, secondary);
+    case 'golem':
+      drawGolem(p, s, dir, pose, s.menace ?? 0);
       break;
-    }
     case 'treant': {
       const sway = Math.round(Math.sin(pose.t * Math.PI * 2) * 1.5);
       const top = F - 34 + pose.bob;
@@ -369,7 +343,7 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
       p.fill(cx + 2, top + 12, 3, 3, eye);
       p.fill(cx - 3, top + 18, 6, 2, PAL.ink);
       // arms / branches
-      const sw = pose.lunge * 5;
+      const sw = Math.min(1, pose.lunge) * 2;
       p.line(cx - 8, top + 12, cx - 16 - sw, top + 4 - sw, primary);
       p.line(cx - 9, top + 13, cx - 16 - sw, top + 6 - sw, primary);
       p.line(cx + 8, top + 12, cx + 16 + sw, top + 4 + sw, primary);
@@ -405,12 +379,18 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
         const a = -0.4 - i * 0.28;
         p.ellipse(cx - 6 - i * 0.4 + Math.cos(a) * i * 1.6, bodyY - 1 + Math.sin(a) * i * 1.6, 2.4 - i * 0.12, 2.4 - i * 0.12, primary);
       }
-      p.poly([[cx - 2, bodyY - 14], [cx + 3, bodyY - 18], [cx + 1, bodyY - 12]], accent);
+      {
+        const [sx, sy] = scorpionStinger(cx, bodyY);
+        p.poly([[sx - 1, sy + 1], [sx + 4, sy - 2], [sx + 2, sy + 3]], accent);
+        p.set(sx + 4, sy - 2, shade(accent, 1.3));
+      }
       p.set(cx - 3, bodyY + 1, eye);
       p.set(cx + 2, bodyY + 1, eye);
       break;
     }
     case 'serpent': {
+      // drawn four pixels left of centre so the strike stays inside the frame
+      const cx = CH_W / 2 - 4;
       const bodyY = F - 8 + pose.bob;
       p.ellipse(cx, F + 1, 12, 3, 'rgba(10,8,16,0.3)');
       for (let i = 0; i < 12; i++) {
@@ -446,6 +426,7 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
     }
   }
 
+  drawMenaceTrim(p, s, dir, pose, s.menace ?? 0);
   p.outline('rgba(12,9,18,0.8)');
   if (s.glow) {
     const g = p.clone();
@@ -547,7 +528,7 @@ export const CREATURE_PALETTES: Record<string, Pick<CreatureStyle, 'primary' | '
   saltgolem: { primary: '#cfd8d4', secondary: '#8a9a96', accent: PAL.foam, eye: PAL.water },
   cinderwisp: { primary: PAL.ember, secondary: PAL.emberDark, accent: PAL.flameLit, eye: PAL.white },
   ashscorpion: { primary: '#6a3a2a', secondary: '#3a1d14', accent: PAL.flame, eye: PAL.flameLit },
-  magmagolem: { primary: '#5a2418', secondary: '#2e120b', accent: PAL.flame, eye: PAL.flameLit },
+  magmagolem: { primary: '#3e2c28', secondary: '#1c1412', accent: PAL.flame, eye: PAL.flameLit },
   ashserpent: { primary: '#7a3a2a', secondary: '#45201a', accent: PAL.flameLit, eye: PAL.ember },
 
   /* --- the deep marches: the Drowning Reach, the Stormreach, the Emberdeep --- */
@@ -556,18 +537,22 @@ export const CREATURE_PALETTES: Record<string, Pick<CreatureStyle, 'primary' | '
   sunkentreant: { primary: '#1c2a26', secondary: '#0c1412', accent: '#4a7a6a', eye: '#8fd0f0' },
   drownedthing: { primary: '#38505a', secondary: '#1c2b33', accent: PAL.foam, eye: PAL.foam },
   stormwisp: { primary: '#9a8fe8', secondary: '#4b4470', accent: '#e0dcff', eye: PAL.white },
-  thunderwrought: { primary: '#5a5480', secondary: '#2e2a48', accent: '#b9b0ff', eye: '#e0dcff' },
+  thunderwrought: { primary: '#35314f', secondary: '#1a1830', accent: '#b9b0ff', eye: '#f0ecff' },
   stormserpent: { primary: '#4b4470', secondary: '#241f3c', accent: '#9a8fe8', eye: '#e0dcff' },
-  glasswolf: { primary: '#7f8fb4', secondary: '#454f6e', accent: '#c9d2ee', eye: '#b9b0ff' },
-  emberwrought: { primary: '#3a1210', secondary: '#1c0806', accent: PAL.flameLit, eye: PAL.flameLit },
+  glasswolf: { primary: '#3c4466', secondary: '#1f2440', accent: '#8f9fd8', eye: '#e0d8ff' },
+  emberwrought: { primary: '#2c201e', secondary: '#140e0c', accent: PAL.flameLit, eye: PAL.holy },
   deepscorpion: { primary: '#4a1a14', secondary: '#240c09', accent: PAL.ember, eye: PAL.flame },
   moltenserpent: { primary: '#8a2a18', secondary: '#4a120a', accent: PAL.flameLit, eye: PAL.white },
-  cindermaw: { primary: '#6a2016', secondary: '#330d08', accent: PAL.flame, eye: PAL.flameLit },
+  cindermaw: { primary: '#33241f', secondary: '#170f0d', accent: PAL.flame, eye: PAL.holy },
 };
 
-export function creatureStyle(kind: CreatureKind, paletteKey: string, scale = 1, glow?: string | null): CreatureStyle {
+export function creatureStyle(kind: CreatureKind, paletteKey: string, scale = 1, glow?: string | null, level?: number): CreatureStyle {
   const pal = CREATURE_PALETTES[paletteKey] ?? CREATURE_PALETTES.wolf;
-  return { kind, ...pal, scale, glow: glow ?? null };
+  const style: CreatureStyle = { kind, ...pal, scale, glow: glow ?? null };
+  // Only the original bestiary wears menace trim; the Greek sheets are
+  // authored per species and fingerprinted by their own check.
+  if (level !== undefined && !kind.startsWith('myth_')) style.menace = menaceTier(level);
+  return style;
 }
 
 export const mixColors = mix;

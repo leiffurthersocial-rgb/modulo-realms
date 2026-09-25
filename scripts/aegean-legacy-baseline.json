@@ -32,10 +32,18 @@
         "tiles": "7 tiles repaved as the forecourt, inside tx 450..456, ty 445..446",
         "props": "-1 bld:townhouse, +1 bld:casino, +casino_marquee, +casino_sign, +2 casino_lamp, +1 bench, +1 planter",
         "portals": "+1 door to int_casino"
+      },
+      {
+        "id": "ashvale_fire_not_electric",
+        "what": "The owner asked for the iron lamp posts to go (they read as electric light) and for the gate banners to stand on something.",
+        "fields": [
+          "props"
+        ],
+        "props": "-12 lamp_post (two by each service door) and -2 casino_lamp; the 4 lamp_post on the square's corners become brazier; the 4 gate 'banner' props become 'banner_standard' (a pole on a stone foot) with a phase offset. Net -14 props. Nothing else moves: the door lamps are still placed before the scatter pass and lifted out after it, so every tree, bush and rock lands exactly where it did."
       }
     ],
     "counts": {
-      "props": 95375,
+      "props": 95361,
       "portals": 45,
       "spawns": 2850,
       "chests": 99
@@ -43,7 +51,7 @@
     "sha256After": {
       "tiles": "245129e56e88b848ca52cc44df9c7dfa853b9546ebcc0cc25536ab23e0bf1346",
       "regions": "b17bef8ce88be0f80794f5baf83e23f4ec8e8c53fdba4e0b2b7deb2248c3f95c",
-      "props": "0c52021d31a6f832e8406377587f1749ae2e73012250db267bf32bdeef9ea800",
+      "props": "bdbec7d6bb71d75b258af0a28259db17485232fb84b769d9704ef88512915867",
       "portals": "f8dea7110c56a700784463efffd51eaf9fafc17d6749af1c51303f5602a4c37a",
       "spawns": "8be9f19fa4a8f11f497ce86cecc9979cfd4b6cd0a0ee270066e5ed87f4f88501",
       "chests": "085da26618841ea8d72dd931ca432f1b105ed361f7f665143c77ed990b3df1aa"
