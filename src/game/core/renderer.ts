@@ -775,6 +775,7 @@ export function render(game: Game): void {
   }
   ambience.drawAir(g, game.now);
   ambience.drawSnow(g, game.now);
+  ambience.drawSand(g, game.now);
 
   // auto-aim reticle, so it is always obvious what the next swing will hit
   const lock = game.lockTarget;

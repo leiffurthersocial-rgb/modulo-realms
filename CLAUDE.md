@@ -263,6 +263,13 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
 - **Schnee lebt in der Welt, nicht auf dem Glas** (`Ambience.stepSnow`/`drawSnow`):
   Flocken in Weltkoordinaten mit Parallaxe, pendeln langsam, bleiben liegen. Keine
   bildschirmfesten Punkte und keine Streifen — das las sich als Röhrenfernseher.
+- **Sandsturm lebt ebenfalls in der Welt** (`Ambience.stepSand`/`drawSand`, 25.09.):
+  Körner mit Parallaxe (hell + dunkel, immer waagerecht), rollende Staubwolken aus
+  Pixel-Ellipsen, die auf `sandDrift` in der Welt treiben, Sand-Schlangen am Boden
+  (`drawGround`). Auf dem Glas nur noch Ockertönung + harter Rand. Keine Striche/
+  Schachbrett-Bänder — lasen sich als schräge Striche. Steppenläufer = rotierende
+  3D-Zweigkugel (`buildTwigs`), Staubteufel = gedrehter Trichter mit Trümmern, beide
+  als Drawables y-sortiert.
 - Wind: Bäume/Büsche mit `swayRow` verschieben die Krone um ganze Pixel, Stamm bleibt;
   jede zweite Instanz wird per Positions-Hash gespiegelt.
 

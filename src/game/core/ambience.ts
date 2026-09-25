@@ -40,8 +40,18 @@ interface Mote {
 interface Ripple { x: number; y: number; life: number; max: number; r: number }
 interface Print { x: number; y: number; life: number; dx: number; dy: number; snow: boolean }
 interface Fish { x0: number; y0: number; dir: number; t: number; dur: number; h: number; big: boolean; splashed: boolean }
-interface Tumble { x: number; y: number; vx: number; z: number; vz: number; rot: number; r: number; life: number }
-interface Devil { x: number; y: number; vx: number; vy: number; life: number; max: number }
+/**
+ * A tumbleweed: a ball of dead twigs (`twigs`, xyz triples on a unit sphere)
+ * that rolls, wobbles, hops and squashes when it lands.
+ */
+interface Tumble { x: number; y: number; vx: number; z: number; vz: number; rot: number; r: number; life: number; twigs: Float32Array; squash: number; seed: number }
+/** Something the dust devil has picked up: a twig or a dry leaf on a spiral. */
+interface Debris { a: number; hy: number; rad: number; spd: number; color: string; big: boolean }
+interface Devil { x: number; y: number; vx: number; vy: number; life: number; max: number; h: number; seed: number; bits: Debris[] }
+/** A grain of blown sand, in the world like the snow: depth sets size, speed and parallax. */
+interface Grain { x: number; y: number; depth: 0 | 1 | 2; vx: number; phase: number; amp: number }
+/** A sand snake: a thin ribbon of sand skimming the dune surface in the wind. */
+interface Streamer { x: number; y: number; len: number; phase: number; amp: number; life: number; max: number; v: number }
 interface Glint { x: number; y: number; life: number }
 /**
  * A snowflake that lives in the world, not on the glass. Depth sets its size,
@@ -73,6 +83,59 @@ function hash(a: number, b = 0): number {
 }
 
 export interface View { left: number; top: number; w: number; h: number }
+
+/**
+ * The skeleton of a tumbleweed: a tangle of dead twigs laid as arcs over a
+ * sphere, each with a couple of short forks bent inward. Built once per
+ * tumbleweed; the renderer only rotates and plots it.
+ */
+function buildTwigs(seed: number): Float32Array {
+  const pts: number[] = [];
+  let n = 0;
+  const rnd = () => hash(seed * 7.13 + n++, seed * 0.37);
+  for (let t = 0; t < 14; t++) {
+    // an axis anywhere on the sphere and two unit vectors across it
+    const th = rnd() * Math.PI * 2;
+    const ph = Math.acos(rnd() * 2 - 1);
+    const ax = Math.sin(ph) * Math.cos(th), ay = Math.sin(ph) * Math.sin(th), az = Math.cos(ph);
+    const [rx, ry, rz] = Math.abs(ax) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+    let ux = ay * rz - az * ry, uy = az * rx - ax * rz, uz = ax * ry - ay * rx;
+    const ul = Math.hypot(ux, uy, uz);
+    ux /= ul; uy /= ul; uz /= ul;
+    const vx = ay * uz - az * uy, vy = az * ux - ax * uz, vz = ax * uy - ay * ux;
+    const start = rnd() * Math.PI * 2;
+    const len = 1.3 + rnd() * 1.7;
+    const rad = t < 3 ? 0.45 + rnd() * 0.25 : 0.8 + rnd() * 0.2;
+    const steps = 26;
+    for (let s = 0; s <= steps; s++) {
+      const a = start + (len * s) / steps;
+      const wig = rad * (1 + Math.sin(s * 1.9 + t * 3) * 0.07);
+      const px = (ux * Math.cos(a) + vx * Math.sin(a)) * wig;
+      const py = (uy * Math.cos(a) + vy * Math.sin(a)) * wig;
+      const pz = (uz * Math.cos(a) + vz * Math.sin(a)) * wig;
+      pts.push(px, py, pz);
+      if (s === 8 || s === 17) {
+        const side = s === 8 ? 1 : -1;
+        for (let k = 1; k <= 6; k++) {
+          const f = 1 - k * 0.07;
+          pts.push(px * f + ax * side * k * 0.05, py * f + ay * side * k * 0.05, pz * f + az * side * k * 0.05);
+        }
+      }
+    }
+  }
+  return new Float32Array(pts);
+}
+
+/** A pixel-row ellipse: the one soft shape the sandstorm is made of. */
+function puff(g: CanvasRenderingContext2D, x: number, y: number, r: number, ry: number, wob: number): void {
+  const n = Math.max(1, Math.round(ry));
+  for (let yy = -n; yy <= n; yy++) {
+    const q = 1 - (yy / (n + 0.5)) ** 2;
+    if (q <= 0) continue;
+    const half = Math.round(Math.sqrt(q) * r * (1 + 0.1 * Math.sin(yy * 0.9 + wob)));
+    g.fillRect(Math.round(x) - half, Math.round(y) + yy, half * 2 + 1, 1);
+  }
+}
 
 /**
  * Hoar frost for the blizzard: fern-like crystals growing in from the four
@@ -120,18 +183,24 @@ export class Ambience {
   private devils: Devil[] = [];
   private glints: Glint[] = [];
   private flakes: Flake[] = [];
+  private grains: Grain[] = [];
+  private streamers: Streamer[] = [];
+  /** How far the sandstorm's dust clouds have drifted downwind, world px. */
+  private sandDrift = 0;
+  private camDx = 0;
+  private camDy = 0;
+  private view: View = { left: 0, top: 0, w: 0, h: 0 };
   private lastCam = { x: NaN, y: NaN };
   private last = -1;
   private mapId = '';
   private startled = new Set<number>();
   private nextFish = 3;
   private nextTumble = 4;
-  private nextDevil = 20;
+  private nextDevil = 12;
   private nextVisitor = 0;
   private lastPrint = { x: 0, y: 0, side: 1 };
   private nextBreath = 0;
   private enemyCols = new WeakMap<Enemy, number>();
-  private flakeSeed = Array.from({ length: 900 }, (_, i) => [hash(i, 1), hash(i, 2), hash(i, 3), hash(i, 4)]);
   /** 0..1, ramps in and out: a sandstorm in the desert, a blizzard in the snow. */
   storm = 0;
   private stormTarget = 0;
@@ -185,6 +254,7 @@ export class Ambience {
       this.mapId = map.id;
       this.motes.length = 0; this.ripples.length = 0; this.prints.length = 0;
       this.fish.length = 0; this.tumbles.length = 0; this.devils.length = 0; this.startled.clear(); this.flakes.length = 0;
+      this.grains.length = 0; this.streamers.length = 0;
     }
     let dt = this.last < 0 ? 0 : now - this.last;
     this.last = now;
@@ -208,7 +278,16 @@ export class Ambience {
       }
     }
     this.player = game.player;
+    this.view = view;
+    const camX = view.left + view.w / 2;
+    const camY = view.top + view.h / 2;
+    this.camDx = Number.isNaN(this.lastCam.x) ? 0 : camX - this.lastCam.x;
+    this.camDy = Number.isNaN(this.lastCam.y) ? 0 : camY - this.lastCam.y;
+    this.lastCam.x = camX; this.lastCam.y = camY;
+    const jumped = Math.abs(this.camDx) > 200 || Math.abs(this.camDy) > 200;
+    if (jumped) { this.flakes.length = 0; this.grains.length = 0; }
     this.stepSnow(game, map, view, dt, now);
+    this.stepSand(map, view, dt, now);
     this.step(dt, now, map);
   }
 
@@ -394,13 +473,29 @@ export class Ambience {
   private spawnClimate(game: Game, map: GameMap, view: View, dt: number, now: number): void {
     const c = this.climate;
     if (c === 'desert') {
-      if (now > this.nextTumble) {
-        this.nextTumble = now + (this.storm > 0.3 ? 1 + Math.random() * 1.5 : 7 + Math.random() * 12);
-        this.tumbles.push({ x: view.left - 20, y: view.top + 30 + Math.random() * (view.h - 60), vx: 45 + Math.random() * 30 + this.storm * 70, z: 0, vz: 0, rot: 0, r: 7 + Math.floor(Math.random() * 3), life: 0 });
+      if (now > this.nextTumble && this.tumbles.length < 8) {
+        this.nextTumble = now + (this.storm > 0.3 ? 0.8 + Math.random() * 1.4 : 6 + Math.random() * 10);
+        const seed = Math.floor(Math.random() * 10000);
+        const r = 7 + Math.floor(Math.random() * 4) + (this.storm > 0.5 && Math.random() < 0.4 ? 3 : 0);
+        this.tumbles.push({ x: view.left - 24, y: view.top + 30 + Math.random() * (view.h - 60), vx: 40 + Math.random() * 30 + this.storm * 70, z: Math.random() * 20, vz: 30, rot: Math.random() * 6, r, life: 0, twigs: buildTwigs(seed), squash: 0, seed });
       }
-      if (now > this.nextDevil && this.storm < 0.3) {
-        this.nextDevil = now + 25 + Math.random() * 30;
-        this.devils.push({ x: view.left + Math.random() * view.w, y: view.top + view.h * (0.3 + Math.random() * 0.5), vx: 12 + Math.random() * 10, vy: (Math.random() - 0.5) * 8, life: 0, max: 10 + Math.random() * 6 });
+      if (now > this.nextDevil && this.storm < 0.3 && !this.devils.length) {
+        this.nextDevil = now + 18 + Math.random() * 24;
+        const seed = Math.random() * 100;
+        const bits: Debris[] = [];
+        const cols = [PAL.woodDark, PAL.soil, PAL.clay, PAL.sandDark, PAL.wood];
+        for (let i = 0; i < 26; i++) bits.push({ a: Math.random() * 6.28, hy: Math.random(), rad: 0.8 + Math.random() * 0.6, spd: 4 + Math.random() * 4, color: cols[i % cols.length], big: i % 4 === 0 });
+        this.devils.push({ x: view.left + view.w * (0.1 + Math.random() * 0.5), y: view.top + view.h * (0.35 + Math.random() * 0.45), vx: 14 + Math.random() * 12, vy: (Math.random() - 0.5) * 10, life: 0, max: 12 + Math.random() * 8, h: 64 + Math.random() * 26, seed, bits });
+      }
+      // sand snakes: thin ribbons of sand racing over the dunes, many in a storm
+      const gustK = Math.max(0, Math.sin(now * 0.9)) ** 3;
+      if (this.streamers.length < 40 && Math.random() < dt * (0.6 + gustK * 3 + this.storm * 22)) {
+        const x = view.left - 40 + Math.random() * (view.w + 40);
+        const y = view.top + Math.random() * view.h;
+        const id = map.tiles[Math.floor(y / TILE) * map.w + Math.floor(x / TILE)];
+        if (id === T.SAND || id === T.DESERT_SAND) {
+          this.streamers.push({ x, y, len: 18 + Math.random() * 40 + this.storm * 30, phase: Math.random() * 6.28, amp: 1 + Math.random() * 2, life: 0, max: 1.2 + Math.random() * 1.8, v: 60 + this.wind * 1.3 + Math.random() * 30 });
+        }
       }
       // sand lifting off the ground in the wind
       if (Math.random() < dt * (0.8 + this.storm * 10)) this.spawn({ kind: 'dust', x: view.left + Math.random() * view.w, y: view.top + Math.random() * view.h, vx: this.wind * 1.2, vy: -2, life: 0, max: 1.4, size: 2, color: PAL.sandLit });
@@ -575,18 +670,54 @@ export class Ambience {
     for (let i = this.tumbles.length - 1; i >= 0; i--) {
       const t = this.tumbles[i];
       t.life += dt;
-      t.vz -= 260 * dt;
+      // the wind, gusts and all, is what drives it: it speeds up in a gust
+      // and coasts when it drops, and it never runs a straight line
+      const target = 30 + this.wind * 0.7 + this.storm * 80 + (t.seed % 20);
+      t.vx += (target - t.vx) * dt * (t.z > 0 ? 0.35 : 0.9);
+      t.vz -= 280 * dt;
       t.z += t.vz * dt;
-      if (t.z <= 0) { t.z = 0; t.vz = 40 + Math.random() * 60 + this.storm * 60; }
+      t.squash = Math.max(0, t.squash - dt * 7);
+      if (t.z <= 0) {
+        const hit = -t.vz;
+        t.z = 0;
+        // mostly skipping hops, now and then a big bound off a hummock
+        const big = Math.random() < 0.18 + this.storm * 0.25;
+        t.vz = big ? 110 + Math.random() * 60 + this.storm * 70 : 25 + Math.random() * 45;
+        if (hit > 40) {
+          t.squash = Math.min(1, hit / 160);
+          for (let k = 0; k < 3 + (big ? 3 : 0); k++) this.spawn({ kind: 'dust', x: t.x + (Math.random() - 0.5) * t.r * 1.6, y: t.y + 1, vx: t.vx * 0.2 + (Math.random() - 0.5) * 30, vy: -6 - Math.random() * 12, life: 0, max: 0.5 + Math.random() * 0.4, size: Math.random() < 0.4 ? 2 : 1, color: PAL.sandLit });
+          // it sheds a twig on a hard landing
+          if (Math.random() < 0.3) this.spawn({ kind: 'leaf', x: t.x, y: t.y - t.r, vx: t.vx * 0.5, vy: -10, life: 0, max: 1.4, size: 1, color: Math.random() < 0.5 ? PAL.sandDark : PAL.clay });
+        }
+      }
       t.x += t.vx * dt;
+      t.y += Math.sin(t.life * 0.8 + t.seed) * 6 * dt;
       t.rot += (t.vx / t.r) * dt;
-      if (t.life > 40) this.tumbles.splice(i, 1);
+      if (t.life > 40 || t.x > this.view.left + this.view.w + 80) this.tumbles.splice(i, 1);
     }
     for (let i = this.devils.length - 1; i >= 0; i--) {
       const d = this.devils[i];
       d.life += dt;
+      d.vy += (Math.sin(d.life * 0.6 + d.seed) * 8 - d.vy) * dt;
       d.x += d.vx * dt; d.y += d.vy * dt;
+      for (const b of d.bits) {
+        b.a += b.spd * dt * (1.4 - b.hy * 0.6);
+        b.hy += dt * 0.08 * b.spd * 0.25;
+        if (b.hy > 1) { b.hy = 0; b.a = Math.random() * 6.28; }
+      }
+      // the foot of it scours the ground and throws sand out sideways
+      const k = Math.min(1, d.life, d.max - d.life);
+      if (k > 0 && Math.random() < dt * 22 * k) {
+        const a = Math.random() * 6.28;
+        this.spawn({ kind: 'dust', x: d.x + Math.cos(a) * 8, y: d.y + Math.sin(a) * 3, vx: -Math.sin(a) * 40 + d.vx, vy: -10 - Math.random() * 25, life: 0, max: 0.6 + Math.random() * 0.5, size: Math.random() < 0.3 ? 2 : 1, color: Math.random() < 0.5 ? PAL.sandLit : PAL.sand });
+      }
       if (d.life > d.max) this.devils.splice(i, 1);
+    }
+    for (let i = this.streamers.length - 1; i >= 0; i--) {
+      const st = this.streamers[i];
+      st.life += dt;
+      st.x += st.v * dt;
+      if (st.life > st.max) this.streamers.splice(i, 1);
     }
     for (let i = this.glints.length - 1; i >= 0; i--) {
       this.glints[i].life += dt;
@@ -608,12 +739,8 @@ export class Ambience {
   private stepSnow(game: Game, map: GameMap, view: View, dt: number, now: number): void {
     const snowing = this.climate === 'snow' && map.outdoor;
     const target = snowing ? Math.round(110 + this.storm * 170) : 0;
-    const camX = view.left + view.w / 2;
-    const camY = view.top + view.h / 2;
-    const dcx = Number.isNaN(this.lastCam.x) ? 0 : camX - this.lastCam.x;
-    const dcy = Number.isNaN(this.lastCam.y) ? 0 : camY - this.lastCam.y;
-    this.lastCam.x = camX; this.lastCam.y = camY;
-    if (Math.abs(dcx) > 200 || Math.abs(dcy) > 200) this.flakes.length = 0;
+    const dcx = this.camDx;
+    const dcy = this.camDy;
     const pad = 24;
     const spawn = (fill: boolean): Flake => {
       const r = Math.random();
@@ -656,6 +783,118 @@ export class Ambience {
       }
     }
     void game;
+  }
+
+  /**
+   * Blown sand, kept in the world like the snow. Grains ride the wind almost
+   * level, lifting and dropping on their own slow clocks; the nearer layer
+   * slides past faster when the camera moves. The dust clouds drift on
+   * `sandDrift` so they too stay put in the world between gusts.
+   */
+  private stepSand(map: GameMap, view: View, dt: number, now: number): void {
+    const blowing = this.climate === 'desert' && map.outdoor;
+    const target = blowing ? Math.round(this.storm * 420) : 0;
+    const pad = 30;
+    const spawn = (fill: boolean): Grain => {
+      const r = Math.random();
+      const depth: 0 | 1 | 2 = r < 0.5 ? 0 : r < 0.85 ? 1 : 2;
+      const x = fill ? view.left - pad + Math.random() * (view.w + pad * 2) : view.left - pad - Math.random() * 40;
+      return { x, y: view.top - pad + Math.random() * (view.h + pad * 2), depth, vx: [170, 240, 330][depth] * (0.85 + Math.random() * 0.3), phase: Math.random() * 6.28, amp: 5 + Math.random() * 16 };
+    };
+    while (this.grains.length < target) this.grains.push(spawn(true));
+    if (this.grains.length > target) this.grains.length = target;
+    if (dt <= 0) return;
+    this.sandDrift += (this.wind * 0.45 + this.storm * 45) * dt;
+    const gustK = Math.max(0, Math.sin(now * 0.9)) ** 3;
+    const push = 0.45 + this.storm * 0.75 + gustK * 0.35;
+    for (let i = 0; i < this.grains.length; i++) {
+      const f = this.grains[i];
+      const k = [1, 1.15, 1.35][f.depth];
+      f.x += this.camDx * (1 - k);
+      f.y += this.camDy * (1 - k);
+      f.x += f.vx * push * dt;
+      f.y += (Math.sin(now * (1.6 + f.depth * 0.5) + f.phase) * f.amp + 4) * dt;
+      if (f.x > view.left + view.w + pad || f.x < view.left - pad - 60 || f.y < view.top - pad - 20 || f.y > view.top + view.h + pad + 20) this.grains[i] = spawn(false);
+    }
+  }
+
+  /**
+   * The sandstorm itself, in the air layer: rolling clouds of dust that drift
+   * downwind in the world, thickening in the gusts, and the grains in front.
+   * Everything is whole pixels and horizontal; nothing is a diagonal stroke.
+   */
+  drawSand(g: CanvasRenderingContext2D, now: number): void {
+    const s = this.storm;
+    if (this.climate !== 'desert' || (s < 0.02 && !this.grains.length)) return;
+    const view = this.view;
+    const gustK = Math.max(0, Math.sin(now * 0.9)) ** 3;
+    g.save();
+    if (s > 0.02) {
+      const cell = 190;
+      const drift = this.sandDrift;
+      const x0 = Math.floor((view.left - drift - cell * 2) / cell);
+      const x1 = Math.floor((view.left + view.w - drift + cell) / cell);
+      const y0 = Math.floor((view.top - cell) / cell);
+      const y1 = Math.floor((view.top + view.h + cell) / cell);
+      const a = s * (0.3 + gustK * 0.12);
+      for (let cy = y0; cy <= y1; cy++) {
+        for (let cx = x0; cx <= x1; cx++) {
+          if (hash(cx, cy + 3) > 0.3 + s * 0.5) continue;
+          const bx = cx * cell + hash(cx, cy) * cell * 0.6 + drift;
+          const by = cy * cell + hash(cx + 5, cy) * cell * 0.6 + Math.sin(now * 0.5 + cx) * 6;
+          const rx = 50 + hash(cx * 2, cy) * 60;
+          // a billow of five lobes that turn over slowly, piled higher in the
+          // middle, each in four hard tones: brown underside, ochre body,
+          // sand, and a lit crest on the upwind top
+          for (let k = 0; k < 5; k++) {
+            const u = k / 4 - 0.5;
+            const ox = u * rx * 1.5 + Math.cos(now * 0.7 + k * 2.1 + cx) * 8;
+            const oy = Math.sin(now * 0.55 + k + cy) * 5 - (1 - Math.abs(u) * 2) * rx * 0.22;
+            const r = rx * (0.62 - Math.abs(u) * 0.35);
+            const wob = cx * 3 + k + now * 1.5;
+            g.globalAlpha = a;
+            g.fillStyle = PAL.dirtLit;
+            puff(g, bx + ox + 3, by + oy + r * 0.25, r, r * 0.5, wob);
+            g.fillStyle = PAL.sandDark;
+            puff(g, bx + ox, by + oy, r * 0.9, r * 0.46, wob);
+            g.fillStyle = PAL.sand;
+            puff(g, bx + ox - r * 0.12, by + oy - r * 0.12, r * 0.68, r * 0.32, wob + 0.5);
+            g.globalAlpha = a * 1.2;
+            g.fillStyle = PAL.sandLit;
+            puff(g, bx + ox - r * 0.25, by + oy - r * 0.24, r * 0.38, r * 0.16, wob + 1);
+          }
+        }
+      }
+    }
+    // grains: dark ones and bright ones, so they read against the dunes
+    // and against the dust alike; all of them level, the near ones long
+    for (const f of this.grains) {
+      const x = Math.round(f.x);
+      const y = Math.round(f.y);
+      const bright = f.phase > 2.6;
+      if (f.depth === 0) {
+        g.globalAlpha = 0.75;
+        g.fillStyle = bright ? PAL.sandLit : PAL.dirtLit;
+        g.fillRect(x, y, 1, 1);
+      } else if (f.depth === 1) {
+        g.globalAlpha = 0.55;
+        g.fillStyle = PAL.dirt;
+        g.fillRect(x, y + 1, 2, 1);
+        g.globalAlpha = 1;
+        g.fillStyle = bright ? PAL.cloth : PAL.sandDark;
+        g.fillRect(x, y, 2, 1);
+      } else {
+        g.globalAlpha = 0.6;
+        g.fillStyle = PAL.dirt;
+        g.fillRect(x - 3, y + 1, 5, 1);
+        g.globalAlpha = 1;
+        g.fillStyle = PAL.sandLit;
+        g.fillRect(x - 3, y, 3, 1);
+        g.fillStyle = PAL.cloth;
+        g.fillRect(x, y, 2, 1);
+      }
+    }
+    g.restore();
   }
 
   /** Snowflakes in world pixels: far ones a dim dot, near ones a little cross. */
@@ -729,27 +968,27 @@ export class Ambience {
       g.fillRect(gl.x, gl.y, 1, 1);
       if (k > 0.3 && k < 0.7) { g.fillRect(gl.x - 1, gl.y, 3, 1); g.fillRect(gl.x, gl.y - 1, 1, 3); }
     }
-    // dust devils: a leaning, narrowing stack of turning rings of sand
-    for (const d of this.devils) {
-      const fade = Math.min(1, d.life, d.max - d.life);
-      for (let ring = 0; ring < 9; ring++) {
-        const h = ring / 8;
-        const r = 3 + h * 11;
-        const ry = r * 0.3;
-        const lean = h * h * 10;
-        const cy = d.y - h * 44;
-        const n = 6 + ring * 2;
-        for (let i = 0; i < n; i++) {
-          const a = now * (8 - ring * 0.4) + (i / n) * Math.PI * 2 + ring;
-          if ((i + ring) % 2 === 0) continue;
-          g.globalAlpha = fade * (Math.sin(a) > 0 ? 0.75 : 0.4);
-          g.fillStyle = Math.sin(a) > 0 ? PAL.sandLit : PAL.sandDark;
-          g.fillRect(Math.round(d.x + lean + Math.cos(a) * r), Math.round(cy + Math.sin(a) * ry), 2, 1);
+    // sand snakes: a raised ribbon of lit sand with its own shadow under it,
+    // wriggling as it runs; a second, fainter strand beside most of them
+    for (const st of this.streamers) {
+      const fade = Math.min(1, st.life * 4, (st.max - st.life) * 2);
+      for (let strand = 0; strand < 2; strand++) {
+        const len = strand ? Math.round(st.len * 0.6) : Math.round(st.len);
+        const oy = strand ? 3 : 0;
+        const ph = st.phase + strand * 1.7;
+        for (let j = 0; j < len; j++) {
+          const tail = j / len;
+          const px = Math.round(st.x - j - strand * 6);
+          const py = Math.round(st.y + oy + Math.sin(j * 0.11 + ph + now * 5) * st.amp + Math.sin(j * 0.31 + ph) * 0.6);
+          const a = fade * (1 - tail) * (strand ? 0.45 : 0.8);
+          g.globalAlpha = a * 0.7;
+          g.fillStyle = PAL.dirtLit;
+          g.fillRect(px, py + 1, 1, 1);
+          g.globalAlpha = a;
+          g.fillStyle = tail < 0.25 ? PAL.cloth : PAL.sandLit;
+          g.fillRect(px, py, 1, 1);
         }
       }
-      g.globalAlpha = fade * 0.3;
-      g.fillStyle = PAL.sandDark;
-      g.fillRect(Math.round(d.x - 5), Math.round(d.y), 10, 1);
     }
     // vultures turning over the dunes: a shadow on the sand, the bird far above it
     if (this.climate === 'desert' && game.nightFactor < 0.5) {
@@ -813,10 +1052,13 @@ export class Ambience {
     g.restore();
   }
 
-  /** Things that stand on the ground and must sort with props: tumbleweeds, jumping fish. */
+  /** Things that stand on the ground and must sort with props: tumbleweeds, dust devils, jumping fish. */
   pushDrawables(out: Array<{ y: number; draw: () => void }>, g: CanvasRenderingContext2D): void {
     for (const t of this.tumbles) {
       out.push({ y: t.y, draw: () => this.drawTumble(g, t) });
+    }
+    for (const d of this.devils) {
+      out.push({ y: d.y, draw: () => this.drawDevil(g, d) });
     }
     for (const f of this.fish) {
       out.push({ y: f.y0 - 2, draw: () => this.drawFish(g, f) });
@@ -825,31 +1067,106 @@ export class Ambience {
 
   private drawTumble(g: CanvasRenderingContext2D, t: Tumble): void {
     g.save();
-    g.globalAlpha = 0.45;
+    // the shadow stays on the ground, shrinking and fading as it bounds up
+    const lift = Math.min(1, t.z / 70);
+    const sw = Math.max(4, Math.round(t.r * 2 * (1 - lift * 0.45)));
+    g.globalAlpha = 0.4 * (1 - lift * 0.6);
     g.fillStyle = '#0a0810';
-    const sw = Math.max(3, Math.round(t.r * 2 - t.z * 0.3));
-    g.fillRect(Math.round(t.x - sw / 2), Math.round(t.y), sw, 2);
-    g.globalAlpha = 1;
-    const cx = Math.round(t.x);
-    const cy = Math.round(t.y - t.r - t.z);
-    // a ball of dead twigs: rings of pixels rotated with the roll
-    // a dense, irregular ball of dead twigs: dark rim, a tangle inside,
-    // lit twigs on its upper left, all of it turning as it rolls
-    const lump = (a: number) => t.r * (0.85 + 0.15 * Math.sin(a * 3 + t.r));
-    for (let i = 0; i < 90; i++) {
-      const a = t.rot + i * 2.39996;
-      const rr = lump(a) * Math.sqrt(((i * 37) % 97) / 97);
-      const x = Math.round(cx + Math.cos(a) * rr);
-      const y = Math.round(cy + Math.sin(a) * rr * 0.9);
-      const lit = Math.cos(a - t.rot) < -0.3 && Math.sin(a - t.rot) < 0;
-      g.fillStyle = lit ? PAL.sandLit : i % 3 === 0 ? PAL.woodDark : i % 3 === 1 ? PAL.soil : PAL.clay;
-      g.fillRect(x, y, (i % 5 === 0) ? 2 : 1, 1);
+    g.fillRect(Math.round(t.x - sw / 2), Math.round(t.y), sw, 1);
+    g.fillRect(Math.round(t.x - sw / 2 + 1), Math.round(t.y + 1), Math.max(1, sw - 2), 1);
+    // squashes wide on a hard landing and springs back
+    const sx = t.r * (1 + t.squash * 0.14);
+    const sy = t.r * (1 - t.squash * 0.2);
+    const cx = t.x;
+    const cy = t.y - t.z - sy;
+    // roll about the axis across the wind, wobble about the vertical
+    const cr = Math.cos(t.rot), sr = Math.sin(t.rot);
+    const w = Math.sin(t.life * 1.7 + t.seed) * 0.55;
+    const cw = Math.cos(w), swb = Math.sin(w);
+    const tw = t.twigs;
+    // back twigs first, dark, seen through the gaps; lit ones in front
+    const buckets: number[][] = [[], [], [], [], []];
+    for (let i = 0; i < tw.length; i += 3) {
+      const x0 = tw[i], y0 = tw[i + 1], z0 = tw[i + 2];
+      const x1 = x0 * cr - y0 * sr;
+      const y1 = x0 * sr + y0 * cr;
+      const x2 = x1 * cw + z0 * swb;
+      const z2 = -x1 * swb + z0 * cw;
+      const light = -x2 * 0.45 - y1 * 0.55 + z2 * 0.7;
+      const b = z2 < -0.25 ? 0 : light > 0.62 ? 4 : light > 0.25 ? 3 : light > -0.15 ? 2 : 1;
+      buckets[b].push(Math.round(cx + x2 * sx), Math.round(cy + y1 * sy));
     }
-    for (let i = 0; i < 28; i++) {
-      const a = (i / 28) * Math.PI * 2 + t.rot * 0.2;
-      g.fillStyle = PAL.soilDark;
-      g.fillRect(Math.round(cx + Math.cos(a) * lump(a)), Math.round(cy + Math.sin(a) * lump(a) * 0.9), 1, 1);
+    const cols = [PAL.soilDark, PAL.soil, PAL.dirt, PAL.dirtLit, PAL.plankLit];
+    const alpha = [0.75, 1, 1, 1, 1];
+    for (let b = 0; b < 5; b++) {
+      g.globalAlpha = alpha[b];
+      g.fillStyle = cols[b];
+      const pts = buckets[b];
+      for (let i = 0; i < pts.length; i += 2) g.fillRect(pts[i], pts[i + 1], 1, 1);
     }
+    g.restore();
+  }
+
+  /**
+   * A dust devil: a twisting funnel of sand, narrow at the foot and flaring
+   * at the top, its axis snaking in the wind. Helical bands of lit sand run
+   * up it as it turns; twigs and dry leaves ride the spiral, bright where
+   * they pass in front of the column, dim behind it.
+   */
+  private drawDevil(g: CanvasRenderingContext2D, d: Devil): void {
+    const now = this.last;
+    const fade = Math.max(0, Math.min(1, d.life * 0.8, (d.max - d.life) * 0.8));
+    if (fade <= 0) return;
+    const H = Math.round(d.h);
+    const axis = (hN: number) => d.x + Math.sin(now * 1.2 + d.seed + hN * 2.6) * hN * 7 + hN * hN * 8;
+    const halfW = (hN: number) => 3 + Math.pow(hN, 1.4) * 21 + Math.sin(now * 3 + hN * 8 + d.seed) * (1 + hN * 2);
+    g.save();
+    // shadow and the scoured ring on the ground
+    g.globalAlpha = 0.28 * fade;
+    g.fillStyle = '#0a0810';
+    g.fillRect(Math.round(d.x - 7), Math.round(d.y), 14, 1);
+    g.fillRect(Math.round(d.x - 5), Math.round(d.y + 1), 10, 1);
+    const bit = (b: Debris, front: boolean) => {
+      const hN = b.hy;
+      const s = Math.sin(b.a);
+      if ((s > 0) !== front) return;
+      const x = Math.round(axis(hN) + Math.cos(b.a) * halfW(hN) * b.rad);
+      const y = Math.round(d.y - hN * H + s * halfW(hN) * 0.25);
+      g.globalAlpha = fade * (front ? 1 : 0.45) * Math.min(1, (1 - hN) * 4);
+      g.fillStyle = b.color;
+      const turn = Math.floor(b.a * 2) % 2 === 0;
+      if (b.big) { g.fillRect(x - 1, y, 3, 1); g.fillRect(turn ? x + 1 : x - 1, y - 1, 1, 1); }
+      else g.fillRect(x, y, turn ? 2 : 1, turn ? 1 : 2);
+    };
+    for (const b of d.bits) bit(b, false);
+    // the skirt of sand at its foot
+    for (let k = 0; k < 3; k++) {
+      const a = now * 5 + k * 2.1 + d.seed;
+      g.globalAlpha = fade * 0.35;
+      g.fillStyle = k === 1 ? PAL.sandLit : PAL.sand;
+      puff(g, d.x + Math.cos(a) * 6, d.y - 2 + Math.sin(a) * 2, 6 + k, 3, a);
+    }
+    // the funnel, row by row
+    for (let yy = 0; yy < H; yy++) {
+      const hN = yy / H;
+      const ax = axis(hN);
+      const hw = halfW(hN);
+      const n = Math.max(1, Math.round(hw));
+      const top = hN > 0.85 ? (1 - hN) / 0.15 : 1;
+      for (let px = -n; px <= n; px++) {
+        const u = px / (n + 0.5);
+        const ang = Math.asin(Math.max(-1, Math.min(1, u)));
+        const band = Math.sin(ang * 2.4 + now * 10 - hN * 13 + d.seed);
+        const edge = 1 - Math.abs(u);
+        // ragged, dithered edges; a solid core
+        if (edge < 0.25 && (px + yy + Math.floor(now * 20)) % 2 === 0) continue;
+        const a = fade * top * (0.45 + edge * 0.45) * (1 - hN * 0.35);
+        g.globalAlpha = a;
+        g.fillStyle = band > 0.6 ? (u < 0 ? PAL.cloth : PAL.sandLit) : band > -0.1 ? (u > 0.5 ? PAL.sandDark : PAL.sand) : band > -0.6 ? PAL.sandDark : PAL.dirtLit;
+        g.fillRect(Math.round(ax + px), Math.round(d.y - yy), 1, 1);
+      }
+    }
+    for (const b of d.bits) bit(b, true);
     g.restore();
   }
 
@@ -1066,34 +1383,22 @@ export class Ambience {
       }
     } else {
       if (s > 0.02) {
-        // the storm comes in gusts: every few seconds the sand doubles
+        // the air itself goes ochre, heavier in the gusts; the clouds, the
+        // grains and the sand snakes are in the world (drawSand, drawGround)
         const gustK = Math.max(0, Math.sin(now * 0.9)) ** 3;
-        g.globalAlpha = s * (0.26 + gustK * 0.12);
+        g.globalAlpha = s * (0.14 + gustK * 0.1);
         g.fillStyle = '#b8955a';
         g.fillRect(0, 0, w, h);
-        // a band of blown sand crossing the screen, dithered at half density
-        const bandH = Math.round(h / 3);
-        const bandY = Math.round(((now * 40 * k) % (h + bandH)) - bandH);
-        const cell = 2 * k;
-        g.globalAlpha = s * 0.35;
-        g.fillStyle = PAL.sandDark;
-        for (let yy = Math.max(0, bandY); yy < Math.min(h, bandY + bandH); yy += cell) {
-          const row = Math.floor(yy / cell);
-          for (let xx = (row % 2) * cell; xx < w; xx += cell * 2) g.fillRect(xx, yy, cell, cell);
-        }
-        // bands of blowing sand in two speeds, hard ochre dashes, no white
-        const n = Math.round(320 * s * (1 + Math.max(0, Math.sin(now * 0.9)) ** 3));
-        for (let i = 0; i < n; i++) {
-          const [a, b, cc, d] = this.flakeSeed[i % this.flakeSeed.length];
-          const fast = cc > 0.45;
-          const speed = (fast ? 520 : 260) * k;
-          const x = ((a * w + now * speed) % (w + 40 * k) + w + 40 * k) % (w + 40 * k) - 20 * k;
-          const band = Math.floor(b * 9);
-          const y = ((band / 9 + d * 0.08) * h + Math.sin(now * 2 + i) * 4 * k + h) % h;
-          g.globalAlpha = fast ? 0.7 : 0.45;
-          g.fillStyle = cc < 0.3 ? PAL.sandDark : cc < 0.7 ? PAL.sand : PAL.clay;
-          g.fillRect(Math.round(x), Math.round(y), Math.round((6 + d * 8) * k), 2 * k);
-          if (i % 3 === 0) { g.fillStyle = PAL.sandLit; g.fillRect(Math.round(x + 18 * k), Math.round(y + 3 * k), k, k); }
+        // and the edges of the view close in, in hard steps
+        const steps = 4;
+        for (let i = 0; i < steps; i++) {
+          const inset = Math.round((i + 1) * 10 * k * (0.6 + s * 0.6));
+          g.globalAlpha = s * 0.08;
+          g.fillStyle = PAL.sandDark;
+          g.fillRect(0, 0, w, inset);
+          g.fillRect(0, h - inset, w, inset);
+          g.fillRect(0, inset, inset, h - inset * 2);
+          g.fillRect(w - inset, inset, inset, h - inset * 2);
         }
       }
       // midday glare over the dunes

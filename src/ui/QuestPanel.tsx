@@ -10,7 +10,7 @@ import { Badge, Icon, Modal } from './kit';
 
 export default function QuestPanel({ game }: { game: Game }) {
   const p = game.player;
-  const [tab, setTab] = useState<'active' | 'done' | 'rumours'>('active');
+  const [tab, setTab] = useState<'active' | 'done' | 'rumours'>('rumours');
   const active = game.quests.active.map((a) => QUEST_BY_ID[a.id]).filter(Boolean);
   const done = game.quests.completed.map((id) => QUEST_BY_ID[id]).filter(Boolean);
   const rumours = QUESTS.filter((q) => game.quests.canAccept(q, p) && !active.includes(q));
@@ -24,9 +24,9 @@ export default function QuestPanel({ game }: { game: Game }) {
           {game.campaign.state.receipts.map((receipt, i) => <div key={i}><strong>{receipt.title}</strong>{receipt.lines.map((line, n) => <div key={n}>{line}</div>)}</div>)}
         </details> : null}
         <div className="tabs">
+          <button className={`tab ${tab === 'rumours' ? 'active' : ''}`} onClick={() => { setTab('rumours'); setSel(null); }}>Available</button>
           <button className={`tab ${tab === 'active' ? 'active' : ''}`} onClick={() => { setTab('active'); setSel(null); }}>Active</button>
           <button className={`tab ${tab === 'done' ? 'active' : ''}`} onClick={() => { setTab('done'); setSel(null); }}>Completed</button>
-          <button className={`tab ${tab === 'rumours' ? 'active' : ''}`} onClick={() => { setTab('rumours'); setSel(null); }}>Available</button>
         </div>
 
         <div className="quest-layout">
