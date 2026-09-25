@@ -43,6 +43,11 @@ interface Fish { x0: number; y0: number; dir: number; t: number; dur: number; h:
 interface Tumble { x: number; y: number; vx: number; z: number; vz: number; rot: number; r: number; life: number }
 interface Devil { x: number; y: number; vx: number; vy: number; life: number; max: number }
 interface Glint { x: number; y: number; life: number }
+/**
+ * A snowflake that lives in the world, not on the glass. Depth sets its size,
+ * brightness, fall speed and parallax; each one sways on its own clock.
+ */
+interface Flake { x: number; y: number; depth: 0 | 1 | 2; vy: number; phase: number; sway: number; land: number }
 
 export type Climate = 'none' | 'meadow' | 'forest' | 'mire' | 'desert' | 'snow' | 'ash' | 'salt' | 'storm';
 
@@ -114,6 +119,8 @@ export class Ambience {
   private tumbles: Tumble[] = [];
   private devils: Devil[] = [];
   private glints: Glint[] = [];
+  private flakes: Flake[] = [];
+  private lastCam = { x: NaN, y: NaN };
   private last = -1;
   private mapId = '';
   private startled = new Set<number>();
@@ -177,7 +184,7 @@ export class Ambience {
     if (map.id !== this.mapId) {
       this.mapId = map.id;
       this.motes.length = 0; this.ripples.length = 0; this.prints.length = 0;
-      this.fish.length = 0; this.tumbles.length = 0; this.devils.length = 0; this.startled.clear();
+      this.fish.length = 0; this.tumbles.length = 0; this.devils.length = 0; this.startled.clear(); this.flakes.length = 0;
     }
     let dt = this.last < 0 ? 0 : now - this.last;
     this.last = now;
@@ -201,6 +208,7 @@ export class Ambience {
       }
     }
     this.player = game.player;
+    this.stepSnow(game, map, view, dt, now);
     this.step(dt, now, map);
   }
 
@@ -398,7 +406,7 @@ export class Ambience {
       if (Math.random() < dt * (0.8 + this.storm * 10)) this.spawn({ kind: 'dust', x: view.left + Math.random() * view.w, y: view.top + Math.random() * view.h, vx: this.wind * 1.2, vy: -2, life: 0, max: 1.4, size: 2, color: PAL.sandLit });
     } else if (c === 'snow') {
       // glints on the snow
-      if (Math.random() < dt * 6 && this.glints.length < 30) {
+      if (Math.random() < dt * 1.2 && this.glints.length < 6) {
         const x = view.left + Math.random() * view.w;
         const y = view.top + Math.random() * view.h;
         const id = map.tiles[Math.floor(y / TILE) * map.w + Math.floor(x / TILE)];
@@ -589,6 +597,108 @@ export class Ambience {
   /* ---------------------------------------------------------------- */
   /* Drawing                                                          */
   /* ---------------------------------------------------------------- */
+
+  /**
+   * Snowfall. Flakes are kept in world coordinates inside a box a little
+   * larger than the view: when the player walks, the snow stays where it is
+   * in the world and the nearest layer slides past a little faster, so the
+   * fall has depth instead of sitting on the screen like static. Each flake
+   * sways on its own slow clock, and the near ones settle when they land.
+   */
+  private stepSnow(game: Game, map: GameMap, view: View, dt: number, now: number): void {
+    const snowing = this.climate === 'snow' && map.outdoor;
+    const target = snowing ? Math.round(110 + this.storm * 170) : 0;
+    const camX = view.left + view.w / 2;
+    const camY = view.top + view.h / 2;
+    const dcx = Number.isNaN(this.lastCam.x) ? 0 : camX - this.lastCam.x;
+    const dcy = Number.isNaN(this.lastCam.y) ? 0 : camY - this.lastCam.y;
+    this.lastCam.x = camX; this.lastCam.y = camY;
+    if (Math.abs(dcx) > 200 || Math.abs(dcy) > 200) this.flakes.length = 0;
+    const pad = 24;
+    const spawn = (fill: boolean): Flake => {
+      const r = Math.random();
+      const depth: 0 | 1 | 2 = r < 0.45 ? 0 : r < 0.85 ? 1 : 2;
+      const x = view.left - pad + Math.random() * (view.w + pad * 2);
+      const y = fill ? view.top + Math.random() * view.h : view.top - pad + Math.random() * 10;
+      return { x, y, depth, vy: [11, 17, 26][depth] * (0.8 + Math.random() * 0.4), phase: Math.random() * 6.28, sway: 3 + Math.random() * 5, land: view.top + view.h * (0.25 + Math.random() * 0.8) };
+    };
+    // new flakes (entering the Reach, or a blizzard building) appear all over the view
+    while (this.flakes.length < target) this.flakes.push(spawn(true));
+    if (this.flakes.length > target) this.flakes.length = target;
+    if (dt <= 0) return;
+    const wind = (this.wind - 10) * 0.35 + this.storm * 55;
+    for (let i = 0; i < this.flakes.length; i++) {
+      const f = this.flakes[i];
+      const k = [1, 1.12, 1.3][f.depth];
+      // parallax: flakes are above the ground, so the nearer ones slide past
+      // faster than the ground does when the camera moves
+      f.x += dcx * (1 - k);
+      f.y += dcy * (1 - k);
+      const storm = 1 + this.storm * 1.6;
+      f.x += (wind * (0.7 + f.depth * 0.2) + Math.cos(now * (0.7 + f.depth * 0.15) + f.phase) * f.sway * 0.9) * dt;
+      f.y += f.vy * storm * dt;
+      const out = f.x < view.left - pad - 20 || f.x > view.left + view.w + pad + 20 || f.y > view.top + view.h + pad;
+      // near flakes settle where they land, on snow, as a dot that melts in
+      if (f.depth === 2 && f.y > f.land && this.storm < 0.5) {
+        const id = map.tiles[Math.floor(f.y / TILE) * map.w + Math.floor(f.x / TILE)];
+        if (id === T.SNOW || id === T.ICE || id === T.SNOW_ROCK) this.spawn({ kind: 'dust', x: f.x, y: f.y, vx: 0, vy: 0, life: 0, max: 1.6, size: 1, color: PAL.white });
+        this.flakes[i] = spawn(false);
+        continue;
+      }
+      if (out) {
+        const n = spawn(false);
+        // re-enter from whichever side the wind is blowing from
+        if (f.x < view.left - pad - 20 || f.x > view.left + view.w + pad + 20) {
+          n.x = wind >= 0 ? view.left - pad : view.left + view.w + pad;
+          n.y = view.top + Math.random() * view.h;
+        }
+        this.flakes[i] = n;
+      }
+    }
+    void game;
+  }
+
+  /** Snowflakes in world pixels: far ones a dim dot, near ones a little cross. */
+  drawSnow(g: CanvasRenderingContext2D, now: number): void {
+    if (!this.flakes.length) return;
+    g.save();
+    for (const f of this.flakes) {
+      const x = Math.round(f.x);
+      const y = Math.round(f.y);
+      // every flake carries one cool shadow pixel under its lower right, so
+      // it still reads against the snow it is falling onto
+      if (f.depth === 0) {
+        g.globalAlpha = 0.35;
+        g.fillStyle = '#6f84a4';
+        g.fillRect(x + 1, y + 1, 1, 1);
+        g.globalAlpha = 0.8;
+        g.fillStyle = '#e4ecf6';
+        g.fillRect(x, y, 1, 1);
+      } else if (f.depth === 1) {
+        const wide = Math.sin(now * 2.5 + f.phase) > 0.2;
+        g.globalAlpha = 0.5;
+        g.fillStyle = '#6f84a4';
+        g.fillRect(x, y + 1, wide ? 3 : 2, 1);
+        g.globalAlpha = 1;
+        g.fillStyle = PAL.white;
+        g.fillRect(x, y, wide ? 2 : 1, 1);
+        if (!wide) g.fillRect(x, y - 1, 1, 1);
+      } else {
+        g.globalAlpha = 0.55;
+        g.fillStyle = '#6f84a4';
+        g.fillRect(x - 1, y + 2, 3, 1);
+        g.fillRect(x + 2, y, 1, 2);
+        g.globalAlpha = 0.9;
+        g.fillStyle = '#e4ecf6';
+        g.fillRect(x - 1, y, 3, 1);
+        g.fillRect(x, y - 1, 1, 3);
+        g.globalAlpha = 1;
+        g.fillStyle = PAL.white;
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+    g.restore();
+  }
 
   /** Ground layer, under everything that stands: ripples, prints, cloud shade. */
   drawGround(g: CanvasRenderingContext2D, game: Game, view: View): void {
@@ -946,39 +1056,12 @@ export class Ambience {
     const s = this.storm;
     g.save();
     if (c === 'snow') {
-      const n = Math.round(90 + s * 780);
-      for (let i = 0; i < n; i++) {
-        const [a, b, cc, d] = this.flakeSeed[i];
-        const layer = cc < 0.5 ? 0 : cc < 0.85 ? 1 : 2;
-        const speed = [22, 36, 58][layer] * (1 + s * 2.2);
-        const side = (this.wind * (0.6 + layer * 0.4) * (1 + s * 2.5) + Math.sin(now * 0.8 + d * 20) * 10 * (1 - s)) * (reducedMotion ? 0.3 : 1);
-        const x = ((a * w + now * side * k) % w + w) % w;
-        const y = ((b * h + now * speed * k) % h + h) % h;
-        const size = (layer === 2 ? 2 + (s > 0.5 ? 1 : 0) : layer === 1 ? (s > 0.5 ? 2 : 1) : 1) * k;
-        if (s > 0.5 && layer === 0 && i % 2) continue;
-        g.globalAlpha = [0.55, 0.78, 0.95][layer];
-        g.fillStyle = layer === 0 ? '#c9d6e6' : PAL.white;
-        g.fillRect(Math.round(x), Math.round(y), size, size);
-        if (s > 0.4 && layer > 0) {
-          // in a blizzard the flakes streak along the wind
-          g.globalAlpha *= 0.5;
-          g.fillRect(Math.round(x - 3 * k), Math.round(y - k), 3 * k, k);
-        }
-      }
+      // the flakes themselves are in the world (drawSnow); on the glass
+      // there is only what a blizzard does to the light and to the edges
       if (s > 0.02) {
-        // the light goes flat and cold, so the flakes stand out against it
-        g.globalAlpha = s * 0.2;
-        g.fillStyle = '#3a4a66';
+        g.globalAlpha = s * 0.14;
+        g.fillStyle = '#c8d6e8';
         g.fillRect(0, 0, w, h);
-        // snow blown along the ground in long low streaks
-        g.globalAlpha = s * 0.7;
-        g.fillStyle = PAL.white;
-        for (let i = 0; i < 60; i++) {
-          const [a, b, cc] = this.flakeSeed[i + 400];
-          const x = ((a * w + now * (300 + cc * 200) * k) % (w + 60 * k)) - 30 * k;
-          const len = Math.round(8 + cc * 12);
-          for (let j = 0; j < len; j++) g.fillRect(Math.round(x + j * k), Math.round(b * h + j * 0.35 * k), k, k);
-        }
         this.drawFrost(g, w, h, k, s);
       }
     } else {

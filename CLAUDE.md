@@ -260,6 +260,9 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
   Renderer (`BuildingArt.windows`). `BuildingArt.h` ist die Layout-Höhe, das Canvas
   hat `padTop` Kopffreiheit für Firstspitzen — `h` nie auf Canvas-Höhe ändern, sonst
   verschiebt `placeBuilding` Props der eingefrorenen Westwelt.
+- **Schnee lebt in der Welt, nicht auf dem Glas** (`Ambience.stepSnow`/`drawSnow`):
+  Flocken in Weltkoordinaten mit Parallaxe, pendeln langsam, bleiben liegen. Keine
+  bildschirmfesten Punkte und keine Streifen — das las sich als Röhrenfernseher.
 - Wind: Bäume/Büsche mit `swayRow` verschieben die Krone um ganze Pixel, Stamm bleibt;
   jede zweite Instanz wird per Positions-Hash gespiegelt.
 

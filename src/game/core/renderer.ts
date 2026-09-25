@@ -255,8 +255,6 @@ function applyGroundDetail(g: CanvasRenderingContext2D, map: GameMap, cx: number
         } else if (r < 0.16) {
           // a stick poking out of the snow
           px(ox, oy, PAL.woodDark, 1, 3); px(ox + 1, oy - 1, PAL.woodDark, 1, 1);
-        } else if (r < 0.3) {
-          px(ox, oy, PAL.white, 2, 1);
         }
       } else if (id === T.ROAD || id === T.ROAD_DIRT) {
         // weeds in the joints where the road meets grass
@@ -776,6 +774,7 @@ export function render(game: Game): void {
     drawActor(g, getCharacterSheet(player.look()), player.anim, player.animTime, player.dir, player.x, player.y + 6, 1, 0, 0.45);
   }
   ambience.drawAir(g, game.now);
+  ambience.drawSnow(g, game.now);
 
   // auto-aim reticle, so it is always obvious what the next swing will hit
   const lock = game.lockTarget;
