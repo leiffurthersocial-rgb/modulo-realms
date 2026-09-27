@@ -1,4 +1,5 @@
 import { shipGuidanceTarget } from '../aegean/guidance';
+import { caveLife } from './caveLife';
 import { ANIM, ROW, getCharacterSheet, type CharacterSheet } from '../art/characters';
 import { getCreatureSheet, creatureStyle } from '../art/creatures';
 import { getBuilding } from '../art/buildings';
@@ -512,6 +513,8 @@ export function render(game: Game): void {
   const view = { left, top, w: viewW, h: viewH };
   ambience.update(game, view, propIdx);
   ambience.drawGround(g, game, view);
+  caveLife.update(game, view, propIdx);
+  caveLife.drawGround(g, game.now);
   litWindows.length = 0;
   let playerHidden = false;
   const walking = Math.hypot(player.vx, player.vy) > 5;
@@ -774,6 +777,7 @@ export function render(game: Game): void {
     drawActor(g, getCharacterSheet(player.look()), player.anim, player.animTime, player.dir, player.x, player.y + 6, 1, 0, 0.45);
   }
   ambience.drawAir(g, game.now);
+  caveLife.drawAir(g, game.now);
   ambience.drawSnow(g, game.now);
 
   // auto-aim reticle, so it is always obvious what the next swing will hit
@@ -821,6 +825,7 @@ export function render(game: Game): void {
   }
   drawNightGlow(game, g);
   ambience.drawEmissive(g, game.now, game.nightFactor);
+  caveLife.drawEmissive(g, game, propIdx);
 
   // Interaction prompt, nameplates and floating words share one layout: the
   // prompt claims its box first, a nameplate under it steps aside (the

@@ -244,8 +244,98 @@ export function generateDungeon(loc: LocationDef, seed: number): GameMap {
     });
   }
 
+  if (spec.theme === 'mine') decorateCave(map, rooms, theme, new RNG(`${seed}:${spec.mapId}:cavelife`));
+
   buildPropGrid(map);
   return map;
+}
+
+/**
+ * Dress a mine so it reads as lived-in: water on the floor, things growing
+ * at the walls, webs in the corners, timbering and a length of track.
+ *
+ * Runs last, on its own RNG, and only appends props. Every room, corridor,
+ * spawn, chest and trap is laid exactly where it was before; this adds
+ * scenery on top and moves none of it. Only the cart and the crystals take
+ * up space, and they keep clear of everything already standing.
+ */
+function decorateCave(map: GameMap, rooms: Room[], theme: Theme, rng: RNG): void {
+  const taken = (x: number, y: number, r: number) =>
+    map.props.some((p) => p.art !== 'cave_rails' && Math.abs(p.x - x) < r && Math.abs(p.y - y) < r)
+    || map.chests.some((c) => Math.abs(c.x - x) < r && Math.abs(c.y - y) < r)
+    || map.spawns.some((sp) => sp.boss && Math.abs(sp.x - x) < 90 && Math.abs(sp.y - y) < 90);
+  const floorAt = (tx: number, ty: number) => getTile(map, tx, ty) === theme.floor;
+  const put = (tx: number, ty: number, art: string, o: Partial<PropInstance> = {}, room = 26) => {
+    const x = tx * TILE + TILE / 2, y = ty * TILE + TILE;
+    if (!floorAt(tx, ty) || taken(x, y, room)) return false;
+    prop(map, tx, ty, art, o);
+    return true;
+  };
+
+  // one room gets the old workings: a line of track and a cart left on it
+  const tracked = rooms.filter((r) => r.kind === 'normal' && r.w >= 9 && r.h >= 6);
+  const railRoom = tracked.length ? rng.pick(tracked) : undefined;
+
+  // a few tries at a random spot, so one crowded tile does not lose the piece
+  const tryPut = (n: number, at: () => [number, number], art: () => string, o: () => Partial<PropInstance>, room: number) => {
+    for (let i = 0; i < n; i++) {
+      const [tx, ty] = at();
+      if (put(tx, ty, art(), o(), room)) return true;
+    }
+    return false;
+  };
+
+  for (const r of rooms) {
+    const bottom = r.y + r.h - 1;
+    const right = r.x + r.w - 1;
+    const inside = (): [number, number] => [r.x + rng.int(1, r.w - 2), r.y + rng.int(1, r.h - 2)];
+    const edge = (): [number, number] => {
+      const side = rng.int(0, 2);
+      return [side === 0 ? r.x : side === 1 ? right : r.x + rng.int(1, r.w - 2), side === 2 ? bottom : r.y + rng.int(1, r.h - 2)];
+    };
+    if (r.kind !== 'entry') {
+      // standing water, which caveLife drips into
+      for (let i = rng.int(1, 2); i > 0; i--) tryPut(5, inside, () => (rng.bool(0.5) ? 'cave_puddle_a' : 'cave_puddle_b'), () => ({ flat: true }), 40);
+      // amethyst in some walls
+      if (rng.bool(0.5)) tryPut(5, () => [rng.bool() ? r.x : right, r.y + rng.int(1, r.h - 2)], () => 'cave_crystal', () => ({ cw: 16, ch: 8, light: 64, lightColor: '#9578e8' }), 34);
+      // glowing growth along the side and bottom walls
+      for (let i = rng.int(1, 3); i > 0; i--) tryPut(4, edge, () => 'cave_glowshroom', () => ({ light: 56, lightColor: '#6fd0e8', phase: rng.range(0, 6) }), 30);
+    }
+    // webs in the upper corners
+    if (rng.bool(0.6)) put(r.x, r.y, 'cave_web_l', { flat: true }, 16);
+    if (rng.bool(0.6)) put(right, r.y, 'cave_web_r', { flat: true }, 16);
+    // loose stone and cracks everywhere; they are what breaks up the floor
+    for (let i = rng.int(3, 6); i > 0; i--) {
+      put(r.x + rng.int(0, r.w - 1), r.y + rng.int(0, r.h - 1), rng.pick(['cave_pebbles_a', 'cave_pebbles_b', 'cave_crack']), { flat: true }, 20);
+    }
+
+    if (r === railRoom) {
+      const ty = r.y + Math.floor(r.h / 2) + 1;
+      let cart = false;
+      for (let tx = r.x; tx <= right; tx++) {
+        if (!floorAt(tx, ty)) continue;
+        prop(map, tx, ty, 'cave_rails', { flat: true });
+        if (!cart && tx > r.x + 2 && rng.bool(0.3)) cart = put(tx, ty, 'cave_cart', { cw: 30, ch: 10 }, 30);
+      }
+    }
+  }
+
+  // Timber sets across the north-south tunnels, every few tiles: two posts
+  // against the rock, a beam overhead, a lantern. That is what a mine is.
+  const inRoom = (tx: number, ty: number) => rooms.some((r) => tx >= r.x - 1 && tx <= r.x + r.w && ty >= r.y - 1 && ty <= r.y + r.h);
+  for (let tx = 1; tx < map.w - 2; tx++) {
+    let since = 99;
+    for (let ty = 2; ty < map.h - 2; ty++) {
+      const tunnel = floorAt(tx, ty) && floorAt(tx + 1, ty) && !floorAt(tx - 1, ty) && !floorAt(tx + 2, ty)
+        && floorAt(tx, ty - 1) && floorAt(tx, ty + 1) && !inRoom(tx, ty);
+      since++;
+      if (!tunnel || since < 6 || !rng.bool(0.5)) continue;
+      const x = (tx + 1) * TILE, y = ty * TILE + TILE;
+      if (map.props.some((p) => Math.abs(p.x - x) < 40 && Math.abs(p.y - y) < 60)) continue;
+      map.props.push({ art: 'cave_support', x, y, light: 150, lightColor: '#f6bf5d', phase: rng.range(0, 6) });
+      since = 0;
+    }
+  }
 }
 
 export function dungeonEntry(map: GameMap): { x: number; y: number } {

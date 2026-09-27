@@ -19,6 +19,7 @@ import { ALL_TEMPLATES, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/ite
 import { LOCATIONS, LOCATION_BY_ID, REGIONS, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
+import { Training, TRAINING_DONE } from './training';
 import { MAIN_ACT_BY_NUM, MAIN_ORDER, MAIN_REPORT, type MainAct } from '../../data/mainquest';
 import { FACTION_BY_ID, FACTIONS, RACE_BY_ID, type FactionId, type RaceId } from '../../data/races';
 import type { Look } from '../art/characters';
@@ -257,6 +258,10 @@ export class Game implements WorldCtx {
   currentWaystone: string | null = null;
   /** Game-clock time the player last took damage, for the fast-travel lockout. */
   lastDamageTaken = -Infinity;
+  /** When the player last dashed — the training's dodge check reads it. */
+  lastDashAt = -Infinity;
+  /** The controls training of a brand-new character; null once done. */
+  training: Training | null = null;
   /** Seconds after taking damage before a waystone can be used again. */
   readonly travelLockoutAfterDamage = 3;
   activeSpawns = new Map<string, Enemy[]>();
@@ -425,15 +430,49 @@ export class Game implements WorldCtx {
 
     this.player.discovered.add('ashvale');
     this.player.waystones.add('ashvale');
-    this.quests.accept('tutorial');
-    this.trackedQuest = 'tutorial';
     this.clock = DAY_SECONDS * (8 / 24);
     this.day = 1;
     this.screen = 'playing';
     this.panel = null;
     this.toast('Ashvale', 'Your story begins at the edge of the valley.', PAL.goldLit);
+    // The first quest waits for the training: walk, fight, dodge.
+    this.training = new Training(this);
+    this.touch();
+  }
+
+  /**
+   * Training over — played or skipped. The flag is the whole of what is
+   * saved; the first quest is handed over exactly as a new game used to.
+   */
+  finishTraining(skipped = false): void {
+    this.training = null;
+    this.player.flags.add(TRAINING_DONE);
+    if (!this.quests.isActive('tutorial') && !this.quests.isCompleted('tutorial')) {
+      this.quests.accept('tutorial');
+      this.trackedQuest = 'tutorial';
+    }
+    if (!skipped) {
+      this.toast('Training complete', 'The rest you learn on the road.', PAL.goldLit, 'quest');
+      audio.play('levelup', 0.6);
+    }
     this.toast('New quest: Somewhere to Start', 'Head south-west and find Whisperwell Cave.', '#6fbf5a');
     this.touch();
+  }
+
+  /**
+   * On load: a character that never finished training starts it again; any
+   * save from before it existed — the first quest already given, or past
+   * level 1 — is marked as trained and never sees it.
+   */
+  private resumeTraining(): void {
+    const p = this.player;
+    if (p.flags.has(TRAINING_DONE)) { this.training = null; return; }
+    if (p.level > 1 || this.quests.isActive('tutorial') || this.quests.isCompleted('tutorial')) {
+      p.flags.add(TRAINING_DONE);
+      this.training = null;
+      return;
+    }
+    this.training = new Training(this);
   }
 
   private buildInteriorsFor(world: GameMap): void {
@@ -2985,6 +3024,7 @@ export class Game implements WorldCtx {
    * load so a save made before a bounty existed still picks it up.
    */
   catchUpBounties(): void {
+    this.resumeTraining();
     for (const id of this.player.discovered) this.offerAutoQuests(id, true);
     this.offerMainQuests(true);
   }
@@ -3003,6 +3043,8 @@ export class Game implements WorldCtx {
    */
   offerMainQuests(catchUp = false): void {
     const p = this.player;
+    // the story starts when the training ends
+    if (this.training) { this.mainCheckedLevel = p.level; return; }
     let caught = 0;
     // A hand-in inside this loop would call back in; the loop is already
     // walking forward.
@@ -4327,6 +4369,7 @@ export class Game implements WorldCtx {
     this.aegeanHazards.update(dt);
     this.updateChests();
     for (const e of this.enemies) e.update(this);
+    this.training?.update();
     this.enemies = this.enemies.filter((e) => !e.dead);
     this.updateNpcs(dt);
     this.updateProjectiles(dt);
@@ -4473,6 +4516,7 @@ export class Game implements WorldCtx {
       p.dashVy = Math.sin(dir) * 620;
       p.dashTimer = 0.2;
       p.invuln = Math.max(p.invuln, 0.24);
+      this.lastDashAt = this.now;
       this.fx.spawn(p.x, p.y, 12, PAL.fog, { speed: 90, life: 0.3, size: 2 });
       audio.play('step', 0.4);
     }

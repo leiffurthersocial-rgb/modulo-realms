@@ -123,6 +123,11 @@ src/
                          balance.ts, aegean/*
   data/mainquest.ts      Hauptquest West: MAIN_ACTS, MAIN_QUESTS, MAIN_ORDER, MAIN_REPORT
   game/quests/questlog.ts  QuestLog: Fortschritt, `hunt`, `precredit`, `markerVisible`
+  game/core/training.ts  Steuerungs-Training neuer Charaktere (laufen/kämpfen/Dash-Dodge)
+  game/art/caveProps.ts  Höhlen-Deko (Pfützen, Leuchtpilze, Kristalle, Netze, Geröll,
+                         Stützbalken, Schienen, Lore) — `getProp` fragt hier vor GEN
+  game/core/caveLife.ts  Höhlen-Animation, nie gespeichert: Tropfen, Sporen, Funkeln,
+                         Staub im Fackellicht, Fledermäuse, Ratten (nur `map.kind === 'cave'`)
   ui/                    28 React-Panels + hooks.ts, aegeanNames.ts
   ui/kit/                UI-Designsystem in Code: tokens.ts (Palette aus PAL, UI-Zoom),
                          glyphs.ts + font.ts (Pixel-Fonts als TTF zur Laufzeit gebaut),
@@ -304,6 +309,25 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
   `main_remainder` aktiv ist oder er schon tot ist (`mainStorySeal`).
 - Nicht gebaut (Vorschlag, offen): Kopfgeld-Brett mit täglichen Aufträgen, Marken-Währung,
   Boss-Rematch-Stufen, Jagdbuch.
+
+## Einstieg & Höhlen (seit 27.09.)
+
+- **Training statt Tasten-Ecke:** Neuer Charakter startet `Training` (`core/training.ts`):
+  1 laufen (240 px) → 2 Wolf töten → 3 drei Schläge per Dash ausweichen (Cutter mit
+  `windupMul` 2.4 + Boden-Ring, Trainer treffen für 1) → 4 Trainer besiegen. Erst danach
+  kommt „Somewhere to Start“ (`Game.finishTraining`). „Skip“ auf der Karte. Gespeichert
+  wird nur das Flag `training:done`; alte Saves (Level > 1 oder Tutorial-Quest da) werden
+  beim Laden still markiert. Während des Trainings: kein Tracker, keine Hauptquest.
+- **Keine Tastenhilfe mehr im HUD.** Die Steuerung steht nur noch im Pausemenü, Tab
+  „Controls“ (`PausePanel`), über `input.keyLabel` → zeigt umbelegte Tasten richtig.
+- **Doppelte Quests:** Eine Bounty mit denselben Zielen wie das aktuelle Hauptkapitel wird im
+  Tracker nicht nochmal gezeigt (zahlt trotzdem).
+- **Höhlen-Deko** (`theme: 'mine'`): `decorateCave` in `world/dungeons.ts` läuft **zuletzt,
+  mit eigenem RNG** (`${seed}:${mapId}:cavelife`) und hängt nur Props an — Räume, Spawns,
+  Chests, Fallen bleiben exakt, wo sie waren. Nicht in die Haupt-RNG-Kette ziehen, sonst
+  verschiebt sich jeder Mine-Dungeon. Stützbalken stehen quer in Nord-Süd-Gängen (die
+  Rückwände sind von Fackeln belegt). Leucht-Halos sind gestufte flache Ovale, keine
+  Gradients (UI-/Pixel-Regel).
 
 ## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen
 
