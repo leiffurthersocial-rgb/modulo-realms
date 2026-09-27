@@ -10,7 +10,8 @@ import { ASHVALE_BUILDINGS } from '../src/game/world/village';
 import { TILE, T } from '../src/game/world/tiles';
 
 const residents = NPCS.filter((n) => n.map === 'overworld' && n.tx < 960 && n.schedule?.length);
-assert.equal(residents.length, 5, 'Exercise all five scheduled Ashvale residents');
+// Hanne, Corin and Kesh; Pell and Sable work indoors behind their counters now.
+assert.equal(residents.length, 3, 'Exercise all three scheduled Ashvale residents');
 const inn = ASHVALE_BUILDINGS.find((b) => b.id === 'inn')!;
 const map = createMap({ id: 'schedule-test', name: 'Open ground', w: WORLD_W, h: WORLD_H });
 map.tiles.fill(T.GRASS);
@@ -59,4 +60,4 @@ try {
   Math.random = random;
 }
 
-console.log('All five Ashvale residents stay in town through work, tavern, home and the next morning.');
+console.log('All three scheduled Ashvale residents stay in town through work, tavern, home and the next morning.');

@@ -422,6 +422,8 @@ function generateTile(id: number, rng: RNG): Px {
     case T.CASINO_CARPET: return casinoCarpetTile(rng);
     case T.CASINO_PARQUET: return casinoParquetTile(rng);
     case T.CASINO_MARBLE: return casinoMarbleTile(rng);
+    case T.ROOM_PLANK: return roomPlankTile(rng);
+    case T.ROOM_FLAG: return roomFlagTile(rng);
     case T.EUROTAS_EARTH: return eurotasTile(rng);
     case T.DEEP_WATER: return waterTile(rng, true);
     case T.WATER: return waterTile(rng, false);
@@ -821,6 +823,57 @@ function casinoParquetTile(rng: RNG): Px {
   }
   // A low sheen across the top of each course, so it reads as polished.
   for (let y = 1; y < S; y += 8) p.fill(0, y, S, 1, withAlpha('#b98f5c', 0.16));
+  return p;
+}
+
+/**
+ * Floorboards for a lived-in room: long boards running across the room,
+ * low contrast so furniture reads on top of them, the butt joints staggered
+ * on multiples of 32 so the boards run on across tile edges.
+ */
+function roomPlankTile(rng: RNG): Px {
+  const p = new Px(S, S);
+  const tones = ['#7a5a3a', '#735335', '#7f5f3e', '#76563a'];
+  for (let y = 0; y < S; y++) {
+    const board = Math.floor(y / 8);
+    p.fill(0, y, S, 1, tones[board % tones.length]);
+  }
+  for (let i = 0; i < 40; i++) p.set(rng.int(0, S - 1), rng.int(0, S - 1), withAlpha(rng.bool() ? '#5a3f26' : '#9a7650', 0.35));
+  for (let y = 7; y < S; y += 8) p.fill(0, y, S, 1, withAlpha('#3f2a17', 0.55));
+  // one joint per board per tile, at a board-dependent offset
+  for (let b = 0; b < 4; b++) p.fill((b * 13 + 5) % S, b * 8, 1, 7, withAlpha('#3f2a17', 0.5));
+  for (let y = 0; y < S; y += 8) p.fill(0, y, S, 1, withAlpha('#a07a50', 0.18));
+  return p;
+}
+
+/**
+ * Worn flags in quiet grey, for the forge, hall and chapel: three courses of
+ * different depth per tile, the joints staggered course to course and the
+ * odd darker or chipped stone, so it reads as laid stone and not as tile.
+ */
+function roomFlagTile(rng: RNG): Px {
+  const p = new Px(S, S);
+  const tones = ['#6a6470', '#645e6a', '#706a76', '#5f5966', '#6d6773'];
+  const courses: Array<[number, number, number[]]> = [[0, 12, [0, 14]], [12, 9, [7, 22]], [21, 11, [3, 19]]];
+  for (const [y, h, joints] of courses) {
+    const cuts = [...joints, S];
+    let x0 = 0;
+    for (const x1 of cuts) {
+      if (x1 <= x0) continue;
+      const c = tones[rng.int(0, tones.length - 1)];
+      p.fill(x0, y, x1 - x0, h, c);
+      p.fill(x0, y, x1 - x0, 1, withAlpha('#8a8494', 0.45));
+      p.fill(x0, y + h - 1, x1 - x0, 1, withAlpha('#3a3440', 0.7));
+      p.fill(x1 - 1, y, 1, h, withAlpha('#3a3440', 0.6));
+      x0 = x1;
+    }
+  }
+  for (let i = 0; i < 30; i++) p.set(rng.int(0, S - 1), rng.int(0, S - 1), withAlpha(rng.bool() ? '#4a4452' : '#8a8494', 0.4));
+  // now and then a hairline crack across one stone
+  if (rng.bool(0.35)) {
+    let x = rng.int(2, 24), y = rng.int(2, 28);
+    for (let i = rng.int(3, 6); i > 0; i--) { p.set(x, y, '#4a4452'); x += 1; y += rng.int(-1, 1); }
+  }
   return p;
 }
 

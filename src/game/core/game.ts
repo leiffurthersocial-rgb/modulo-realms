@@ -14,7 +14,7 @@ import { RouletteShow, WHEEL_FIXED, WHEEL_HEAD_TAKEN } from '../casino/roulette'
 import { AegeanEncounterDirector } from '../aegean/encounters';
 import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
-import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
+import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, armorDefenseAt, damageTaken } from '../../data/balance';
 import { ALL_TEMPLATES, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
 import { LOCATIONS, LOCATION_BY_ID, REGIONS, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
@@ -2806,6 +2806,38 @@ export class Game implements WorldCtx {
           case 'attack':
             this.startDuel(npc);
             return;
+          case 'guide':
+            d.lines = this.guideLines(a.what);
+            d.lineIndex = 0;
+            d.frame = undefined;
+            this.refreshDialogueChoices();
+            this.touch();
+            return;
+          case 'bless': {
+            const p = this.player;
+            p.hp = p.maxHp; p.mp = p.maxMp; p.statuses = [];
+            p.buffs = p.buffs.filter((b) => b.id !== 'blessing');
+            // a rare breastplate's worth of armour, at your level, for ten minutes
+            p.buffs.push({ id: 'blessing', name: 'Blessing of the Last Light', stat: 'defense', amount: Math.round(armorDefenseAt(p.level, 'rare') * 0.5), until: this.now + 600, color: PAL.holy });
+            this.fx.spawn(p.x, p.y, 26, PAL.holy, { speed: 80, life: 0.9, size: 3, gravity: -90 });
+            audio.play('heal', 0.7);
+            this.toast('Blessing of the Last Light', 'Healed, and warded for ten minutes.', PAL.holy);
+            break;
+          }
+          case 'sharpen': {
+            const p = this.player;
+            const weapon = p.equipment.mainHand;
+            const cost = 10 + p.level * 6;
+            if (!weapon) { this.toast('Nothing to sharpen', 'Put a weapon in your hand first.', '#d9553f'); break; }
+            if (p.gold < cost) { this.toast('Not enough gold', `Corin wants ${cost} for an edge.`, '#d9553f'); break; }
+            p.gold -= cost;
+            p.buffs = p.buffs.filter((b) => b.id !== 'sharpened');
+            // a tenth more bite on whatever you carry, for ten minutes
+            p.buffs.push({ id: 'sharpened', name: 'Fresh Edge', stat: 'damage', amount: Math.max(1, Math.round((weapon.stats.damage ?? 0) * 0.1)), until: this.now + 600, color: PAL.steel });
+            audio.play('ui_big', 0.5);
+            this.toast('Fresh Edge', `-${cost} gold · +10% weapon damage for ten minutes.`, PAL.steel);
+            break;
+          }
           case 'goto':
             break;
           default:
@@ -3079,6 +3111,50 @@ export class Game implements WorldCtx {
     this.touch();
   }
 
+  /**
+   * Words for a `guide` dialogue action, from the live game state: Hanne on
+   * where the story goes next, Bryn on a bounty worth the walk, Kesh on where
+   * someone of your level should hunt. Directions are always given from
+   * Ashvale, because that is where these three stand.
+   */
+  guideLines(what: 'story' | 'rumour' | 'hunt'): string[] {
+    const p = this.player;
+    const home = LOCATION_BY_ID.ashvale;
+    const dir = (tx: number, ty: number) => {
+      const dx = tx - home.tx, dy = ty - home.ty;
+      const d = Math.hypot(dx, dy);
+      if (d < 20) return 'just outside Ashvale';
+      const names = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
+      const i = ((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8;
+      const far = d < 130 ? 'a short walk' : d < 300 ? 'a good day\'s walk' : 'a long road';
+      return `${far} ${names[i]} of Ashvale`;
+    };
+    if (what === 'story') {
+      const st = this.mainStoryState();
+      if (st.kind === 'done') return ['"You finished it. The whole valley slept the night you did."', '"If you want more, look east. The sea has started doing something new."'];
+      if (st.kind === 'level') return [`"Not yet. What comes next would kill you as you are — come back at level ${st.needLevel}."`, `"Until then: take the bounties, clear what caves you can${st.huntRegion ? `, and hunt in ${st.huntRegion}` : ''}. It all counts."`];
+      if (st.kind === 'report' && st.reportTo) {
+        const r = MAIN_REPORT[st.reportTo];
+        return [`"You have done what was asked. Now go and tell ${NPC_BY_ID[st.reportTo]?.name ?? 'them'} — ${r?.where ?? 'they will be waiting'}."`, '"I have put a question mark on your map, in case you are the sort who forgets."'];
+      }
+      const def = st.def;
+      return [`"${def.summary}"`, ...(def.hint ? [`"${def.hint}"`] : []), '"Look for the question mark on your map. That is where the story is."'];
+    }
+    if (what === 'rumour') {
+      const open = QUESTS.filter((q) => q.auto && !q.main && !this.quests.isCompleted(q.id) && q.level <= p.level + 4 && q.marker && LOCATION_BY_ID[q.marker])
+        .sort((a, b) => a.level - b.level);
+      const q = open.find((x) => !p.discovered.has(x.marker!)) ?? open[0];
+      if (!q) return ['"Quiet week. Nothing worth your boots that you have not already walked to."', '"Come back after you have grown a little. The rumours get bigger when you do."'];
+      const loc = LOCATION_BY_ID[q.marker!];
+      return [`"Folk at the bar keep on about ${loc.name}, ${dir(loc.tx, loc.ty)}."`, `"${q.summary} There is a bounty on it — the notice pays the moment it is done."`];
+    }
+    const regions = REGIONS.filter((r) => p.level >= r.level[0] - 1 && p.level <= r.level[1]).sort((a, b) => a.level[0] - b.level[0]);
+    const r = regions[regions.length - 1] ?? REGIONS[0];
+    const town = LOCATIONS.find((l) => l.region === r.id && (l.kind === 'village' || l.kind === 'town'));
+    const where = town ? dir(town.tx, town.ty) : 'out past the fences';
+    return [`"At your level? ${r.name}, ${r.id === 'central' ? 'right here in the valley' : where}."`, `"${r.blurb}"`, `"Stay a while and hunt. The beasts there will teach you more than I can."`];
+  }
+
   /** The main story as the tracker and journal show it. */
   mainStoryState(): MainStoryState {
     const p = this.player;
@@ -3099,6 +3175,43 @@ export class Game implements WorldCtx {
       return { kind: 'active', def, act, guided: false };
     }
     return { kind: 'done' };
+  }
+
+  /**
+   * Where the main story wants you, for the "?" on the atlas and minimap.
+   * Unlike the compass these always show — even an unfound place gets its
+   * question mark, so there is never a moment of not knowing which way the
+   * story lies. Several at once for a chapter with several targets (the four
+   * leaks), the reporting town when a chapter only waits on its hand-in.
+   */
+  storyTargets(): Array<{ x: number; y: number; name: string; loc: string }> {
+    if (this.inAegean || this.training) return [];
+    const st = this.mainStoryState();
+    if (st.kind === 'done' || st.kind === 'level') return [];
+    const at = (id: string) => {
+      const l = LOCATION_BY_ID[id];
+      return l ? { x: l.tx * TILE, y: l.ty * TILE, name: l.name, loc: l.id } : null;
+    };
+    if (st.kind === 'report' && st.reportTo) {
+      const r = MAIN_REPORT[st.reportTo];
+      const t = r && at(r.location);
+      return t ? [t] : [];
+    }
+    const def = st.def;
+    const aq = this.quests.get(def.id);
+    const out: Array<{ x: number; y: number; name: string; loc: string }> = [];
+    def.objectives.forEach((o, i) => {
+      if (aq && this.quests.isObjectiveDone(def, aq, i, this.player)) return;
+      let id: string | undefined;
+      if (o.type === 'boss' || o.type === 'kill') id = LOCATIONS.find((l) => l.dungeon?.boss === o.enemy || l.dungeon?.miniboss === o.enemy)?.id;
+      else if (o.type === 'explore') id = o.location;
+      else if (o.type === 'clear') id = LOCATIONS.find((l) => l.dungeon?.mapId === o.map)?.id;
+      if (!id && def.marker) id = def.marker;
+      const t = id ? at(id) : null;
+      if (t && !out.some((x) => x.loc === t.loc)) out.push(t);
+    });
+    if (!out.length && def.marker) { const t = at(def.marker); if (t) out.push(t); }
+    return out;
   }
 
   /**

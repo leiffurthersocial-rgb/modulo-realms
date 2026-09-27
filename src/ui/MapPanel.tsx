@@ -264,6 +264,12 @@ function WorldMap({ game }: { game: Game }) {
                 />
               );
             })}
+            {game.storyTargets().map((t) => (
+              <span key={`story-${t.loc}`} className="map-marker story-mark named" style={toPos(t.x / TILE, t.y / TILE - 5)} title={`Main story: ${t.name}`}>
+                <span className="story-q">?</span>
+                <span className="map-marker-label">Story</span>
+              </span>
+            ))}
             {trackedMarker ? (() => {
               const loc = LOCATIONS.find((l) => l.id === trackedMarker.location);
               return loc ? <Marker icon="quest" at={toPos(loc.tx, loc.ty - 6)} title={`Tracking: ${trackedMarker.quest.name}`} className="tracked-flag blink" /> : null;
@@ -276,6 +282,7 @@ function WorldMap({ game }: { game: Game }) {
           <span><Icon name="dungeon" />Dungeon</span>
           <span><Icon name="camp" />Enemy camp</span>
           <span><Icon name="landmark" />Landmark</span>
+          <span><span className="story-q legend">?</span>Main story</span>
           <span><Icon name="waystone" />Waystone — click to travel</span>
           {trackedMarker ? <span className="tracking"><Icon name="quest" />{trackedMarker.quest.name}</span> : null}
           <span className="muted">Drag to pan · Ctrl+wheel to zoom</span>

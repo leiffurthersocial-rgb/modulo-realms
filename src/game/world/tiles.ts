@@ -85,10 +85,15 @@ export const T = {
   CASINO_CARPET: 78,
   CASINO_PARQUET: 79,
   CASINO_MARBLE: 80,
+  // Floors for the rooms behind Ashvale's doors. `FLOOR_WOOD` is short,
+  // high-contrast, staggered boards that read as brick at room scale and
+  // swallow small furniture; these are long, quiet boards and plain flags.
+  ROOM_PLANK: 81,
+  ROOM_FLAG: 82,
 } as const;
 
 export type TileId = number;
-export const TILE_COUNT = 81;
+export const TILE_COUNT = 83;
 
 export interface TileDef {
   id: TileId;
@@ -218,6 +223,8 @@ reg(d(T.SAND_WALL, 'Tomb Wall', { solid: true, map: '#6d5426', blend: 95, step: 
 reg(d(T.CASINO_CARPET, 'Gilded Spade carpet', { map: '#7c1f2e', blend: 92, step: 'wood', family: 'casino-floor' }));
 reg(d(T.CASINO_PARQUET, 'Gilded Spade parquet', { map: '#5b3a22', blend: 92, step: 'wood', family: 'casino-floor' }));
 reg(d(T.CASINO_MARBLE, 'Gilded Spade marble', { map: '#3a3442', blend: 92, step: 'stone', family: 'casino-floor' }));
+reg(d(T.ROOM_PLANK, 'Boarded floor', { map: '#7a5a3a', blend: 92, step: 'wood', family: 'room-floor' }));
+reg(d(T.ROOM_FLAG, 'Flagstone floor', { map: '#6a6470', blend: 92, step: 'stone', family: 'room-floor' }));
 
 for (let i = 0; i < TILE_COUNT; i++) {
   if (!TILES[i]) reg(d(i, 'Unknown', { map: '#ff00ff' }));

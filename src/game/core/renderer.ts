@@ -1314,6 +1314,19 @@ export function drawMinimapInto(game: Game, canvas: HTMLCanvasElement): void {
       g.fillRect(mx - m, my - m, 3 * m, 4 * m);
     }
   }
+  // the main story's "?" — shown even for places not found yet
+  if (overworld) {
+    for (const t of game.storyTargets()) {
+      const [mx, my] = toMini(t.x, t.y);
+      // a 3x5 question mark on a gold plate with an ink edge
+      g.fillStyle = PAL.ink;
+      g.fillRect(mx - 3 * m, my - 4 * m, 7 * m, 9 * m);
+      g.fillStyle = PAL.goldLit;
+      g.fillRect(mx - 2 * m, my - 3 * m, 5 * m, 7 * m);
+      g.fillStyle = PAL.ink;
+      for (const [qx, qy] of [[-1, -2], [0, -2], [1, -2], [1, -1], [0, 0], [0, 2]]) g.fillRect(mx + qx * m, my + qy * m, m, m);
+    }
+  }
   const tracked = game.trackedTarget();
   if (tracked && overworld) {
     const [mx, my] = toMini(tracked.x, tracked.y);

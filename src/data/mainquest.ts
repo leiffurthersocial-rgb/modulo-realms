@@ -65,8 +65,8 @@ export const MAIN_QUESTS: QuestDef[] = [
     id: 'main_count', name: 'What the Cave Counted', giver: 'elder_hanne', turnIn: 'ivo_marrow',
     level: 2, main: true, act: 1, guide: 'discovered',
     summary: 'Clear Whisperwell Cave to the bottom, then tell Ivo at the Kettle & Crown what you saw.',
-    detail: 'Hanne did not like what you said about the cave mouth — the drips falling up, the torches burning in the wrong order. "Go all the way down. Then find Ivo at the inn and tell him. He will pretend not to be interested and then ask you forty questions."',
-    hint: 'Whisperwell is south-west of Ashvale. The Kettle & Crown is the inn in the middle of town.',
+    detail: 'A runner from Hanne catches up with you at the cave mouth, out of breath. "She says: go all the way down — the drips here fall the wrong way. Then find Ivo at the inn and tell him. He will pretend not to be interested and then ask you forty questions."',
+    hint: 'Whisperwell is south-west of Ashvale. The Kettle & Crown is the inn on the south-east corner of the town square.',
     objectives: [{ type: 'clear', map: 'dungeon_whisper', label: 'Clear Whisperwell Cave' }],
     rewards: { ...pay(3, 1, 'rare'), items: ['potion_health_m', 'potion_health_m'] },
     prereq: { quest: 'tutorial' }, marker: 'whisperwell',
@@ -77,7 +77,7 @@ export const MAIN_QUESTS: QuestDef[] = [
     level: 6, main: true, act: 1, guide: 'discovered',
     summary: 'Thin out the valley, then kill the Brood Mother at the bottom of Ironroot Mine.',
     detail: '"The miners at Ironroot dug into something that counts back. Twelve went down. What came up had too many legs." Ivo taps the table. "Kill whatever is at the bottom and look at the walls while you do it. I want to know if they are numbered."',
-    hint: 'Ironroot Mine is east of Ashvale: cross Kettle Bridge and follow the river north.',
+    hint: 'Ironroot Mine is north-east of Ashvale: take the east road to Kettle Bridge, then keep north-east past the far shore of the lake.',
     objectives: [
       { type: 'hunt', region: 'central', count: 20, label: 'Hunt in Ashvale Valley' },
       { type: 'boss', enemy: 'mini_broodmother', label: 'Kill the Brood Mother in Ironroot Mine' },
@@ -205,7 +205,7 @@ export const MAIN_QUESTS: QuestDef[] = [
     objectives: [{ type: 'boss', enemy: 'boss_remainder', label: 'End the Remainder' }],
     rewards: pay(75, 3, 'legendary'),
     prereq: { quest: 'main_floor', level: 74 }, marker: 'under_the_gate',
-    turnInText: 'Hanne is in the square where you first met her, as though she never left it. "Ivo came by. He cried, which he will deny." She looks east, past the river, where the sky over the sea has started doing something new. "Everything divided evenly, for once. I expect it will not last. It never does. Sit down. Eat something. Then go and see what the storm wants."',
+    turnInText: 'Hanne is outside the Moot Hall, where she always is, as though she never left it. "Ivo came by. He cried, which he will deny." She looks east, past the river, where the sky over the sea has started doing something new. "Everything divided evenly, for once. I expect it will not last. It never does. Sit down. Eat something. Then go and see what the storm wants."',
   },
 ];
 
@@ -217,7 +217,7 @@ export const MAIN_ORDER: string[] = ['tutorial', ...MAIN_QUESTS.map((q) => q.id)
  * compass may point at once it is known, and the words the tracker prints.
  */
 export const MAIN_REPORT: Record<string, { location: string; where: string }> = {
-  elder_hanne: { location: 'ashvale', where: 'the square in Ashvale' },
+  elder_hanne: { location: 'ashvale', where: 'outside the Moot Hall, Ashvale' },
   ivo_marrow: { location: 'ashvale', where: 'the Kettle & Crown inn, Ashvale' },
   warden_ysolde: { location: 'thornhollow', where: 'Thornhollow' },
   clanmother_greta: { location: 'northwatch', where: 'Northwatch' },

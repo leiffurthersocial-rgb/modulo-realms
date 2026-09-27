@@ -4,6 +4,7 @@ import { Px, strip, type Canvas } from './pixel';
 import { getAegeanProp } from './aegean';
 import { CASINO_PROP_NAMES, getCasinoProp } from './casinoRoom';
 import { CAVE_PROP_NAMES, getCaveProp } from './caveProps';
+import { INTERIOR_PROP_NAMES, getInteriorProp } from './interiorProps';
 
 export interface PropArt {
   /** Sheet containing `frames` horizontally laid out frames. */
@@ -2169,6 +2170,8 @@ export function getProp(name: string): PropArt {
   if (gilded) return gilded;
   const cave = getCaveProp(name);
   if (cave) return cave;
+  const room = getInteriorProp(name);
+  if (room) return room;
   let a = cache.get(name);
   if (!a) {
     const gen = GEN[name] ?? FALLBACK;
@@ -2178,4 +2181,4 @@ export function getProp(name: string): PropArt {
   return a;
 }
 
-export const PROP_NAMES = [...Object.keys(GEN), ...CASINO_PROP_NAMES, ...CAVE_PROP_NAMES];
+export const PROP_NAMES = [...Object.keys(GEN), ...CASINO_PROP_NAMES, ...CAVE_PROP_NAMES, ...INTERIOR_PROP_NAMES];
