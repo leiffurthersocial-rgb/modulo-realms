@@ -4,6 +4,7 @@ import { Px, strip, type Canvas } from './pixel';
 import { getAegeanProp } from './aegean';
 import { CASINO_PROP_NAMES, getCasinoProp } from './casinoRoom';
 import { CAVE_PROP_NAMES, getCaveProp } from './caveProps';
+import { INTERIOR_PROP_NAMES, getInteriorProp } from './interiorProps';
 
 export interface PropArt {
   /** Sheet containing `frames` horizontally laid out frames. */
@@ -502,16 +503,20 @@ GEN.fence = (rng) => {
   return art([p], 27);
 };
 GEN.crate = (rng) => {
-  const p = new Px(26, 26);
-  groundShadow(p, 13, 24, 9);
-  p.fill(3, 5, 20, 19, PAL.wood);
-  p.fill(3, 5, 20, 3, PAL.plank);
-  p.box(3, 5, 20, 19, PAL.woodDark);
-  p.line(3, 5, 22, 23, PAL.plank);
-  p.line(22, 5, 3, 23, PAL.plank);
-  p.fill(3, 12, 20, 2, PAL.woodDark);
-  for (let i = 0; i < 5; i++) p.set(rng.int(4, 21), rng.int(6, 22), PAL.woodLit);
-  return art([p], 25);
+  // a plank crate in three-quarter: the lid in the same wood as the sides,
+  // a cross brace on the front, a clear edge between the two faces
+  const p = new Px(26, 28);
+  groundShadow(p, 13, 26, 10);
+  p.fill(3, 4, 20, 7, shade(PAL.wood, 1.18));
+  for (let x = 3; x < 23; x += 5) p.fill(x, 4, 1, 7, shade(PAL.wood, 0.9));
+  p.fill(3, 10, 20, 1, PAL.woodDark);
+  p.fill(3, 11, 20, 14, PAL.wood);
+  p.box(3, 11, 20, 14, PAL.woodDark);
+  p.line(4, 12, 21, 23, PAL.plank); p.line(21, 12, 4, 23, PAL.plank);
+  for (let i = 0; i < 4; i++) p.set(rng.int(4, 21), rng.int(12, 23), PAL.woodLit);
+  p.fill(2, 25, 22, 1, 'rgba(10,8,16,0.5)');
+  p.outline(PAL.ink);
+  return art([p], 26);
 };
 GEN.barrel = (rng) => {
   const p = new Px(24, 30);
@@ -527,15 +532,27 @@ GEN.barrel = (rng) => {
   return art([p], 29);
 };
 GEN.sack = (rng) => {
-  const p = new Px(22, 24);
-  groundShadow(p, 11, 22, 8);
-  p.ellipse(11, 15, 8, 8, PAL.sand);
-  p.ellipse(9, 13, 5, 5, PAL.sandLit);
-  p.fill(8, 4, 6, 6, PAL.sand);
-  p.fill(7, 8, 8, 2, PAL.clay);
-  for (let i = 0; i < 6; i++) p.set(rng.int(5, 17), rng.int(10, 21), PAL.sandDark);
+  // a burlap sack: heavy at the bottom, a neck gathered and tied with cord,
+  // a flop of cloth above the tie, a patch and a few coarse weave marks
+  const p = new Px(22, 26);
+  groundShadow(p, 11, 24, 8);
+  const cloth = mix(PAL.sand, PAL.plank, 0.45);
+  p.ellipse(11, 18, 8, 6.5, shade(cloth, 0.9));
+  p.ellipse(11, 16, 7, 7, cloth);
+  p.ellipse(8, 14, 3, 4, shade(cloth, 1.12));
+  p.fill(8, 7, 6, 4, cloth);
+  p.fill(7, 9, 8, 2, PAL.clay); p.fill(7, 9, 8, 1, shade(PAL.clay, 1.25));
+  p.poly([[7, 7], [11, 3], [15, 7]], shade(cloth, 1.1));
+  p.set(11, 4, shade(cloth, 1.25));
+  p.fill(12, 17, 4, 3, shade(PAL.sand, 0.7)); p.box(12, 17, 4, 3, PAL.soil);
+  for (let i = 0; i < 9; i++) p.set(rng.int(5, 17), rng.int(12, 22), shade(cloth, 0.8));
+  // a flat, slumped base and two folds down the front
+  p.fill(3, 21, 16, 3, shade(cloth, 0.85)); p.fill(3, 23, 16, 1, shade(cloth, 0.65));
+  p.line(8, 12, 7, 20, shade(cloth, 0.7)); p.line(14, 13, 15, 20, shade(cloth, 0.7));
+  p.fill(7, 9, 8, 2, PAL.soil); p.fill(7, 9, 8, 1, shade(PAL.clay, 0.8));
+  p.fill(2, 24, 18, 1, 'rgba(10,8,16,0.5)');
   p.outline(PAL.soil);
-  return art([p], 23);
+  return art([p], 25);
 };
 GEN.hay = (rng) => {
   const p = new Px(36, 34);
@@ -606,25 +623,26 @@ GEN.signpost = (rng) => {
   return art([p], 33);
 };
 GEN.weapon_rack = (rng) => {
+  // a rack with a sword, an axe, a spear and a mace standing in it — each
+  // with its own head and a brown grip, so it is weapons and not a fence
   const p = new Px(36, 40);
-  p.fill(2, 34, 32, 4, PAL.woodDark);
-  p.fill(4, 6, 3, 30, PAL.wood);
-  p.fill(29, 6, 3, 30, PAL.wood);
-  p.fill(2, 8, 32, 3, PAL.wood);
-  const weapons = 4;
-  for (let i = 0; i < weapons; i++) {
-    const x = 7 + i * 7;
-    p.fill(x, 10, 2, 20, PAL.steel);
-    p.fill(x, 10, 1, 20, PAL.white);
-    p.fill(x - 2, 30, 6, 2, PAL.gold);
-    p.fill(x, 32, 2, 4, PAL.wood);
-    if (rng.bool(0.3)) p.fill(x - 1, 10, 4, 3, PAL.iron);
-  }
+  groundShadow(p, 18, 38, 15, 2);
+  p.fill(2, 33, 32, 4, PAL.woodDark); p.fill(2, 33, 32, 1, PAL.wood);
+  p.fill(3, 8, 3, 28, PAL.wood); p.fill(30, 8, 3, 28, PAL.wood);
+  p.fill(2, 16, 32, 2, PAL.woodDark);
+  // sword
+  p.fill(9, 3, 2, 19, PAL.steel); p.fill(9, 3, 1, 19, PAL.white); p.fill(7, 21, 6, 2, PAL.gold); p.fill(9, 23, 2, 8, PAL.woodLit);
+  // axe
+  p.fill(16, 6, 2, 26, PAL.wood); p.poly([[12, 5], [17, 7], [17, 13], [12, 14]], PAL.iron); p.fill(12, 6, 1, 7, PAL.steel);
+  // spear
+  p.fill(22, 4, 1, 28, PAL.woodLit); p.poly([[20, 5], [22, 0], [24, 5], [22, 8]], PAL.steel);
+  // mace
+  p.fill(27, 12, 2, 20, PAL.woodDark); p.ellipse(28, 10, 3, 3, PAL.iron); p.set(27, 9, PAL.ironLit);
+  for (const [x, y] of [[25, 10], [31, 10], [28, 7]]) p.set(x, y, PAL.ironDark);
+  void rng;
+  p.outline(PAL.ink);
   return art([p], 38);
 };
-
-/* --- containers --- */
-
 function chestGen(open: boolean, gold: boolean) {
   return (rng: RNG): PropArt => {
     const p = new Px(30, 28);
@@ -677,10 +695,14 @@ GEN.torch = () => {
   const frames: Px[] = [];
   for (let f = 0; f < 4; f++) {
     const p = new Px(20, 40);
-    p.fill(8, 16, 4, 22, PAL.wood);
-    p.fill(9, 16, 1, 22, PAL.woodLit);
-    p.fill(7, 14, 6, 4, PAL.ironDark);
-    flame(p, 10, 14, 1.25, (f / 4) * Math.PI * 2, [PAL.flameLit, PAL.flame, PAL.ember]);
+    p.ellipse(10, 38, 5, 1.5, 'rgba(10,8,16,0.3)');
+    // a post, an iron cup on a bracket, a wrapped head burning in it
+    p.fill(8, 17, 5, 21, PAL.wood);
+    p.fill(8, 17, 1, 21, PAL.woodLit); p.fill(12, 17, 1, 21, PAL.woodDark);
+    p.fill(7, 35, 7, 3, PAL.woodDark);
+    p.fill(6, 13, 9, 4, PAL.ironDark); p.fill(6, 13, 9, 1, PAL.iron);
+    p.fill(7, 17, 1, 2, PAL.ironDark); p.fill(13, 17, 1, 2, PAL.ironDark);
+    flame(p, 10, 13, 1.25, (f / 4) * Math.PI * 2, [PAL.flameLit, PAL.flame, PAL.ember]);
     frames.push(p);
   }
   return art(frames, 38, 10);
@@ -767,23 +789,28 @@ GEN.well = (rng) => {
     const r2 = new RNG('well-stones');
     const p = new Px(44, 50);
     groundShadow(p, 22, 47, 17);
-    p.ellipse(22, 36, 16, 9, PAL.stone);
+    p.ellipse(22, 36, 16, 9, PAL.rock);
     p.ellipse(22, 35, 13, 7, PAL.ink);
     p.ellipse(22, 36, 11, 5, PAL.water);
     // light on the water, drifting
     p.fill(15 + f * 2, 35, 3, 1, withAlpha(PAL.foam, 0.8));
     p.set(27 - f, 37, withAlpha(PAL.foam, 0.6));
-    p.fill(6, 36, 32, 8, PAL.stone);
-    p.ellipse(22, 44, 16, 5, PAL.stone);
-    for (let i = 0; i < 5; i++) p.fill(7 + i * 6 + (i % 2), 37 + (i % 2) * 3, 5, 3, shade(PAL.stone, 1.15));
-    for (let i = 0; i < 14; i++) p.set(r2.int(7, 37), r2.int(36, 47), r2.bool() ? PAL.slate : PAL.fog);
+    p.fill(6, 36, 32, 8, PAL.rock);
+    p.ellipse(22, 44, 16, 5, PAL.rock);
+    // dressed blocks in courses, a lit top row
+    p.fill(7, 36, 30, 1, PAL.rockLit);
+    for (let row = 0; row < 3; row++) for (let i = 0; i < 6; i++) p.fill(6 + i * 6 + (row % 2) * 3, 37 + row * 3, 1, 3, PAL.rockDark);
+    for (let row = 0; row < 3; row++) p.fill(6, 39 + row * 3, 32, 1, PAL.rockDark);
+    for (let i = 0; i < 6; i++) p.set(r2.int(7, 37), r2.int(36, 47), PAL.rockLit);
     for (let i = 0; i < 5; i++) p.set(r2.int(7, 37), r2.int(41, 47), PAL.moss);
     // posts, roof, crank
     p.fill(9, 10, 4, 28, PAL.wood);
     p.fill(31, 10, 4, 28, PAL.wood);
     p.fill(9, 10, 1, 28, PAL.woodLit);
-    p.poly([[4, 12], [22, 2], [40, 12], [40, 15], [22, 6], [4, 15]], PAL.clay);
-    p.poly([[4, 12], [22, 2], [22, 6], [4, 15]], mix(PAL.clay, PAL.flame, 0.3));
+    p.poly([[3, 12], [22, 1], [41, 12], [41, 17], [22, 7], [3, 17]], shade(PAL.clay, 0.8));
+    p.poly([[3, 12], [22, 1], [41, 12], [41, 15], [22, 5], [3, 15]], PAL.clay);
+    p.poly([[3, 12], [22, 1], [22, 5], [3, 15]], mix(PAL.clay, PAL.flame, 0.3));
+    p.fill(20, 0, 5, 2, PAL.woodDark);
     for (let i = 0; i < 4; i++) p.line(6 + i * 4, 12 - i * 2, 6 + i * 4, 14 - i * 2, shade(PAL.clay, 0.75));
     p.fill(9, 17, 26, 3, PAL.woodDark);
     p.fill(35, 16, 3, 2, PAL.ironDark);
@@ -802,58 +829,102 @@ GEN.well = (rng) => {
 };
 
 GEN.anvil = () => {
-  const p = new Px(32, 30);
-  groundShadow(p, 16, 28, 11);
-  // a stump block under the iron
-  p.fill(9, 20, 14, 8, PAL.wood);
-  p.fill(9, 20, 14, 2, PAL.woodLit);
-  p.fill(9, 27, 14, 1, PAL.woodDark);
-  p.fill(12, 16, 8, 5, PAL.ironDark);
-  p.fill(13, 12, 6, 5, PAL.iron);
-  p.fill(4, 7, 24, 6, PAL.iron);
-  p.fill(4, 7, 24, 2, PAL.ironLit);
-  p.fill(6, 7, 6, 1, PAL.steel);
-  p.poly([[28, 7], [32, 10], [28, 13]], PAL.iron);
-  p.fill(4, 11, 24, 2, PAL.ironDark);
-  // a hammer resting on the face, tongs leaning on the block
-  p.fill(15, 4, 8, 3, PAL.ironDark);
-  p.fill(15, 4, 8, 1, PAL.iron);
-  p.fill(8, 5, 8, 2, PAL.woodLit);
-  p.line(23, 18, 28, 27, PAL.ironDark);
-  p.line(25, 18, 29, 27, PAL.iron);
-  p.set(23, 17, PAL.ironLit);
+  // a proper London-pattern anvil on a squared oak block: horn to the right,
+  // square heel and hardy hole to the left, a bar left on the face still
+  // glowing, the hammer across it and the tongs against the block
+  const p = new Px(40, 36);
+  groundShadow(p, 20, 34, 14, 3);
+  grain(p, 10, 22, 20, 12, PAL.wood, new RNG('anvil-block'), true);
+  p.fill(10, 22, 20, 2, PAL.plankLit);
+  p.ellipse(20, 22, 10, 2, PAL.plank);
+  p.ellipse(20, 22, 6, 1, shade(PAL.plank, 0.85));
+  // feet, waist, body
+  p.poly([[11, 22], [29, 22], [26, 19], [14, 19]], PAL.ironDark);
+  p.fill(16, 14, 9, 6, PAL.ironDark);
+  p.fill(17, 14, 7, 5, PAL.iron);
+  p.fill(6, 7, 26, 8, PAL.iron);
+  p.fill(6, 7, 26, 3, PAL.steel);
+  p.fill(7, 7, 24, 1, PAL.white);
+  p.fill(6, 14, 26, 1, PAL.ironDark);
+  p.poly([[32, 8], [39, 10], [32, 15]], PAL.iron);
+  p.poly([[32, 8], [39, 10], [32, 10]], PAL.steel);
+  p.fill(8, 9, 2, 2, PAL.ink); p.fill(12, 9, 1, 1, PAL.ink);
+  // the bar, still hot
+  p.fill(14, 6, 12, 2, PAL.flame); p.fill(18, 6, 5, 2, PAL.flameLit); p.set(20, 6, PAL.white);
+  // hammer across the heel
+  p.fill(3, 5, 9, 2, PAL.woodLit); p.fill(10, 3, 4, 5, PAL.ironDark); p.fill(10, 3, 4, 1, PAL.ironLit);
+  // tongs leaning on the block
+  p.line(31, 20, 35, 33, PAL.ironDark); p.line(33, 20, 36, 33, PAL.iron); p.set(32, 19, PAL.ironLit);
+  p.fill(9, 34, 22, 1, 'rgba(10,8,16,0.55)');
   p.outline(PAL.ink);
-  return art([p], 29);
+  return art([p], 34);
 };
-
 GEN.forge = () => {
+  // the yard forge: a brick hearth under a stone hood and a short chimney,
+  // with a dark arched fire mouth that burns yellow at the heart and red at
+  // the rim, embers on the lip and warm light spilling onto the paving
   const frames: Px[] = [];
   for (let f = 0; f < 4; f++) {
-    const p = new Px(44, 46);
-    p.fill(4, 20, 36, 24, PAL.stone);
-    p.box(4, 20, 36, 24, PAL.charcoal);
-    for (let y = 22; y < 44; y += 6) for (let x = 5 + ((y / 6) % 2 ? 0 : 7); x < 39; x += 14) p.fill(x, y, 12, 5, PAL.slate);
-    p.fill(10, 24, 24, 14, PAL.ink);
-    p.ellipse(22, 34, 12, 7, withAlpha(PAL.ember, 0.35));
-    flame(p, 22, 37, 1.5, (f / 4) * Math.PI * 2, [PAL.flameLit, PAL.flame, PAL.ember]);
-    p.fill(12, 2, 20, 18, PAL.stone);
-    p.fill(12, 2, 20, 3, PAL.fog);
-    p.box(12, 2, 20, 18, PAL.charcoal);
+    const p = new Px(48, 54);
+    p.ellipse(24, 51, 18, 3, withAlpha(PAL.flame, 0.18 + (f % 2) * 0.06));
+    groundShadow(p, 24, 51, 20, 3);
+    // chimney and hood
+    p.fill(18, 0, 12, 16, PAL.rockDark); p.fill(19, 0, 10, 16, PAL.stone); p.fill(19, 0, 10, 2, PAL.fog);
+    p.poly([[6, 24], [18, 13], [30, 13], [42, 24]], PAL.rockDark);
+    p.poly([[9, 23], [19, 15], [29, 15], [39, 23]], PAL.stone);
+    for (let y = 17; y < 23; y += 3) p.fill(20 - (y - 17), y, 8 + (y - 17) * 2, 1, shade(PAL.stone, 0.82));
+    // brick hearth
+    p.fill(3, 24, 42, 26, PAL.clay);
+    for (let y = 24; y < 50; y += 4) {
+      p.fill(3, y, 42, 1, shade(PAL.clay, 0.72));
+      for (let x = 3 + ((y / 4) % 2 ? 4 : 0); x < 45; x += 8) p.fill(x, y, 1, 4, shade(PAL.clay, 0.72));
+    }
+    p.fill(3, 24, 42, 2, PAL.rockLit);
+    // the arched fire mouth
+    p.fill(17, 32, 14, 14, PAL.ink);
+    p.ellipse(24, 32, 7, 5, PAL.ink);
+    p.fill(18, 34, 12, 11, PAL.emberDark);
+    p.ellipse(24, 34, 6, 4, PAL.emberDark);
+    const lick = [0, 1, 2, 1][f];
+    p.poly([[18, 45], [21, 35 + lick], [24, 45]], PAL.ember);
+    p.poly([[23, 45], [26, 33 + (2 - lick)], [30, 45]], PAL.ember);
+    p.poly([[19, 45], [22, 38 + lick], [25, 45]], PAL.flame);
+    p.poly([[23, 45], [26, 37 + (2 - lick)], [29, 45]], PAL.flame);
+    p.poly([[21, 45], [24, 40 - (f % 2)], [27, 45]], PAL.flameLit);
+    p.set(24, 43, PAL.white);
+    // embers on the lip and a stone sill
+    p.fill(16, 45, 16, 2, PAL.rockLit);
+    for (const x of [18, 22, 27]) p.set(x + (f % 2), 45, PAL.flameLit);
+    p.fill(3, 48, 42, 2, PAL.ironDark);
+    p.outline(PAL.ink);
     frames.push(p);
   }
-  return art(frames, 45, 8);
+  return art(frames, 52, 7);
 };
 GEN.grindstone = () => {
-  const p = new Px(30, 30);
-  groundShadow(p, 15, 28, 10);
-  p.fill(4, 20, 22, 8, PAL.wood);
-  p.fill(4, 20, 22, 2, PAL.plank);
-  p.circle(15, 14, 10, PAL.stone);
-  p.circle(15, 14, 8, PAL.fog);
-  p.circle(15, 14, 2, PAL.ironDark);
-  p.ellipse(11, 10, 3, 2, PAL.bone);
-  p.outline(PAL.charcoal);
-  return art([p], 29);
+  // a grey sandstone wheel standing edge-on in an oak trestle, its lower rim
+  // dipping in a water trough, an iron crank out to the side
+  const p = new Px(40, 36);
+  groundShadow(p, 20, 34, 15, 3);
+  // trough first: a plank box with water showing in it
+  p.fill(8, 24, 24, 8, PAL.woodDark);
+  p.fill(9, 25, 22, 4, PAL.water); p.fill(10, 25, 9, 1, PAL.waterLit); p.set(24, 26, PAL.foam);
+  p.fill(8, 29, 24, 3, PAL.wood); p.fill(8, 29, 24, 1, PAL.plank);
+  // trestle legs either side of the wheel
+  for (const [x0, x1] of [[8, 13], [32, 27]]) { p.line(x0, 33, x1, 10, PAL.woodDark); p.line(x0 + 1, 33, x1 + 1, 10, PAL.wood); }
+  p.fill(12, 9, 17, 2, PAL.woodDark);
+  // the wheel, edge-on: a narrow tall ellipse, mid grey, lit along its top arc
+  p.ellipse(20, 16, 5, 11, PAL.rock);
+  p.ellipse(19, 16, 4, 10, PAL.rockLit);
+  p.ellipse(18, 16, 2, 9, PAL.rockPale);
+  p.poly([[16, 8], [20, 5], [23, 8], [20, 7]], PAL.white);
+  for (const y of [12, 17, 21]) p.set(21, y, PAL.rock);
+  // axle through both legs, hub, and an iron L of a crank out to the side
+  p.fill(9, 15, 25, 2, PAL.ironDark); p.fill(9, 15, 25, 1, PAL.iron);
+  p.fill(18, 14, 3, 3, PAL.iron); p.set(19, 14, PAL.ironLit);
+  p.fill(33, 9, 3, 8, PAL.iron); p.fill(33, 9, 3, 1, PAL.ironLit); p.fill(35, 6, 3, 4, PAL.woodLit);
+  p.outline(PAL.ink);
+  return art([p], 34);
 };
 GEN.cauldron = () => {
   const frames: Px[] = [];
@@ -1147,6 +1218,35 @@ GEN.market_stall = (rng) => {
  * in Ashvale you can actually use, under a name plate, so the town labels
  * itself instead of making the player try every door.
  */
+/* Devices painted on the shop signs (drawn over the board by the renderer). */
+const signIcon = (paint: (p: Px) => void) => () => { const p = new Px(12, 10); paint(p); return art([p], 10); };
+GEN.sign_icon_forge = signIcon((p) => {
+  p.fill(0, 2, 11, 3, PAL.white); p.poly([[11, 2], [12, 3], [11, 5]], PAL.white); p.fill(0, 4, 11, 1, PAL.steel);
+  p.fill(4, 5, 4, 2, PAL.steel); p.fill(2, 7, 8, 3, PAL.steel);
+  p.outline(PAL.ink);
+});
+GEN.sign_icon_coins = signIcon((p) => {
+  for (const y of [7, 5, 3]) { p.ellipse(6, y, 4.5, 1.8, PAL.goldLit); p.fill(2, y + 1, 9, 1, PAL.gold); }
+  p.ellipse(6, 2, 4.5, 1.6, PAL.goldLit); p.set(5, 2, PAL.white);
+  p.outline(PAL.ink);
+});
+GEN.sign_icon_potion = signIcon((p) => {
+  p.fill(5, 0, 2, 2, PAL.bone); p.fill(5, 2, 2, 2, '#d8f0f8'); p.ellipse(6, 6, 4, 3.5, '#c8f07a'); p.set(4, 5, PAL.white);
+  p.outline(PAL.ink);
+});
+GEN.sign_icon_mug = signIcon((p) => {
+  p.fill(3, 2, 6, 7, PAL.plank); p.fill(3, 1, 6, 2, PAL.cloth); p.fill(9, 3, 2, 1, PAL.plank); p.fill(10, 3, 1, 4, PAL.plank); p.fill(9, 6, 2, 1, PAL.plank);
+  p.fill(4, 3, 1, 5, PAL.plankLit);
+  p.outline(PAL.ink);
+});
+GEN.sign_icon_sun = signIcon((p) => {
+  p.circle(6, 5, 2, PAL.holy); p.set(6, 5, PAL.white);
+  for (const [x, y] of [[6, 0], [6, 9], [1, 5], [11, 5], [2, 1], [10, 1], [2, 9], [10, 9]] as Array<[number, number]>) p.set(x, y, PAL.goldLit);
+});
+GEN.sign_icon_crown = signIcon((p) => {
+  p.fill(2, 5, 8, 3, PAL.gold); p.poly([[2, 5], [2, 1], [4, 4], [6, 0], [8, 4], [10, 1], [10, 5]], PAL.gold);
+  p.set(6, 6, PAL.blood); p.set(3, 6, PAL.goldLit);
+});
 GEN.shop_sign = (rng) => {
   const p = new Px(30, 44);
   groundShadow(p, 15, 42, 8);
@@ -1646,6 +1746,8 @@ GEN.waystone = (rng) => {
 
     // A low, warm wash on the ground in front, like firelight off stone.
     p.ellipse(36, 74, 30, 12, withAlpha(RUNE, 0.035 + glow * 0.035));
+    // a dark edge so the stones stand off grey paving
+    p.outline(PAL.ink);
     frames.push(p);
   }
   // Eight frames over nine seconds: slow enough that nothing about it reads
@@ -1680,9 +1782,12 @@ GEN.bench = (rng) => {
   p.fill(2, 15, 38, 1, PAL.woodDark);
   p.fill(2, 4, 38, 4, PAL.wood);
   p.fill(2, 4, 38, 1, PAL.plank);
-  p.fill(5, 15, 3, 7, PAL.woodDark);
-  p.fill(34, 15, 3, 7, PAL.woodDark);
+  p.fill(2, 15, 38, 2, shade(PAL.woodDark, 0.75)); // the seat's front edge
+  for (const x of [4, 34]) { p.fill(x, 16, 4, 6, PAL.woodDark); p.fill(x, 16, 1, 6, PAL.wood); }
+  for (const x of [5, 35]) p.fill(x, 4, 2, 7, PAL.woodDark); // back supports
   for (let i = 0; i < 6; i++) p.fill(rng.int(3, 38), rng.int(5, 14), rng.int(2, 4), 1, shade(PAL.wood, 0.85));
+  p.fill(3, 22, 36, 1, 'rgba(10,8,16,0.45)');
+  p.outline(PAL.ink);
   return art([p], 23);
 };
 
@@ -1698,9 +1803,11 @@ GEN.planter = (rng) => {
     const h = rng.int(3, 8);
     for (let k = 0; k < h; k++) p.set(x, 12 - k, k > h - 2 ? PAL.grassPale : PAL.grass);
   }
-  for (let i = 0; i < 3; i++) {
-    const x = rng.int(6, 23);
-    p.set(x, 6 + rng.int(0, 3), rng.pick([PAL.blood, PAL.gold, PAL.bone]));
+  // flowers: a few heads of colour, each two pixels with a lit one on top
+  for (let i = 0; i < 6; i++) {
+    const x = rng.int(6, 23), y = 5 + rng.int(0, 4);
+    const c = rng.pick([PAL.blood, PAL.goldLit, PAL.cloth, PAL.arcaneLit, '#e87aa0']);
+    p.fill(x, y, 2, 2, c); p.set(x, y, shade(c, 1.25));
   }
   p.outline(PAL.woodDark);
   return art([p], 25);
@@ -2169,6 +2276,8 @@ export function getProp(name: string): PropArt {
   if (gilded) return gilded;
   const cave = getCaveProp(name);
   if (cave) return cave;
+  const room = getInteriorProp(name);
+  if (room) return room;
   let a = cache.get(name);
   if (!a) {
     const gen = GEN[name] ?? FALLBACK;
@@ -2178,4 +2287,4 @@ export function getProp(name: string): PropArt {
   return a;
 }
 
-export const PROP_NAMES = [...Object.keys(GEN), ...CASINO_PROP_NAMES, ...CAVE_PROP_NAMES];
+export const PROP_NAMES = [...Object.keys(GEN), ...CASINO_PROP_NAMES, ...CAVE_PROP_NAMES, ...INTERIOR_PROP_NAMES];

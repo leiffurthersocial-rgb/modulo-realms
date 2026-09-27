@@ -1481,6 +1481,13 @@ details[open] > summary::before { content: '↓ '; }
 .map-marker.blink { animation: marker-blink 0.8s steps(1, end) infinite; }
 @keyframes marker-blink { 50% { translate: -50% calc(-50% - 1px); } }
 .map-marker.you { z-index: 5; animation: marker-blink 0.6s steps(1, end) infinite; }
+.map-marker.story-mark { z-index: 4; animation: marker-blink 0.9s steps(1, end) infinite; line-height: 10px; }
+.story-q {
+  display: inline-grid; place-items: center; width: 11px; height: 12px;
+  color: var(--c-ink); background: var(--c-gold-lit); border: 1px solid var(--c-ink);
+  font-family: var(--font); font-size: 10px; line-height: 10px;
+}
+.story-q.legend { margin-right: 2px; }
 .map-marker-label {
   position: absolute; left: 50%; bottom: 100%; translate: -50% -1px;
   padding: 0 1px;

@@ -20,7 +20,13 @@ export type DialogueAction =
   | { type: 'gold'; amount: number }
   | { type: 'remake' }
   | { type: 'crown' }
-  | { type: 'attack' };
+  | { type: 'attack' }
+  /** Answer from the live game: the story's next step, a bounty rumour, or where to hunt. */
+  | { type: 'guide'; what: 'story' | 'rumour' | 'hunt' }
+  /** Father Alun's blessing: tended, and a ward that lasts ten minutes. */
+  | { type: 'bless' }
+  /** Corin puts an edge on the main-hand weapon, for coin, for ten minutes. */
+  | { type: 'sharpen' };
 
 export interface DialogueCond {
   classes?: ClassId[];

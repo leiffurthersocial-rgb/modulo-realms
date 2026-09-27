@@ -2,6 +2,7 @@ import ShipyardPanel from './ui/ShipyardPanel';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Game } from './game/core/game';
 import { ambience, render } from './game/core/renderer';
+import { townLife } from './game/core/townLife';
 import { audio } from './game/audio/audio';
 import { TILES } from './game/world/tiles';
 import { ALL_TEMPLATES } from './data/items';
@@ -111,6 +112,8 @@ export default function App() {
     (window as unknown as { moduloLocations: typeof LOCATIONS }).moduloLocations = LOCATIONS;
     // and the weather, so a test can call a sandstorm instead of waiting minutes for one
     if (import.meta.env.DEV) (window as unknown as { moduloAmbience: typeof ambience }).moduloAmbience = ambience;
+    // and Ashvale's town life, so a test can ring the chapel bell
+    if (import.meta.env.DEV) (window as unknown as { moduloTownLife: typeof townLife }).moduloTownLife = townLife;
 
     setGame(g);
     return () => {

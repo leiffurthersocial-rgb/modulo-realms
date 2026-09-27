@@ -1,5 +1,6 @@
 import { shipGuidanceTarget } from '../aegean/guidance';
 import { caveLife } from './caveLife';
+import { townLife } from './townLife';
 import { ANIM, ROW, getCharacterSheet, type CharacterSheet } from '../art/characters';
 import { getCreatureSheet, creatureStyle } from '../art/creatures';
 import { getBuilding } from '../art/buildings';
@@ -21,6 +22,12 @@ import { drawPrompt, pixelText, promptBox, rectsOverlap, setFont, type ScreenRec
 import { canvasUiScale } from './zoom';
 import { Ambience } from './ambience';
 import { menaceTier } from '../art/beasts';
+
+/** Which painted device each Ashvale shop sign carries, by its nameplate. */
+const SIGN_DEVICE: Record<string, string> = {
+  FORGE: 'sign_icon_forge', 'TRADING POST': 'sign_icon_coins', APOTHECARY: 'sign_icon_potion',
+  INN: 'sign_icon_mug', CHAPEL: 'sign_icon_sun', 'MOOT HALL': 'sign_icon_crown',
+};
 
 const identities = new WeakMap<GameMap,number>();
 let nextIdentity=1;
@@ -515,6 +522,7 @@ export function render(game: Game): void {
   ambience.drawGround(g, game, view);
   caveLife.update(game, view, propIdx);
   caveLife.drawGround(g, game.now);
+  townLife.update(game);
   litWindows.length = 0;
   let playerHidden = false;
   const walking = Math.hypot(player.vx, player.vy) > 5;
@@ -560,8 +568,12 @@ export function render(game: Game): void {
     const drawFn = flip
       ? () => { g.save(); g.translate(dx * 2 + art.fw, 0); g.scale(-1, 1); blit(); g.restore(); }
       : blit;
-    if (prop.flat) drawFn();
-    else drawables.push({ y: prop.y, draw: drawFn });
+    // a shop sign carries the device of the house it hangs outside — read
+    // off its nameplate, so the frozen town keeps its one sign prop
+    const device = prop.art === 'shop_sign' && prop.nameplate ? SIGN_DEVICE[prop.nameplate] : undefined;
+    const drawWithDevice = device ? () => { drawFn(); g.drawImage(getProp(device).canvas, dx + 11, dy + 15); } : drawFn;
+    if (prop.flat) drawWithDevice();
+    else drawables.push({ y: prop.y, draw: drawWithDevice });
   }
 
   // chests
@@ -770,6 +782,7 @@ export function render(game: Game): void {
   }
 
   ambience.pushDrawables(drawables, g);
+  townLife.pushDrawables(drawables, g, drawActor);
   drawables.sort((a, b) => a.y - b.y);
   for (const d of drawables) d.draw();
   if (playerHidden && !game.naval.aboard) {
@@ -778,6 +791,7 @@ export function render(game: Game): void {
   }
   ambience.drawAir(g, game.now);
   caveLife.drawAir(g, game.now);
+  townLife.drawAir(g);
   ambience.drawSnow(g, game.now);
 
   // auto-aim reticle, so it is always obvious what the next swing will hit
@@ -826,6 +840,7 @@ export function render(game: Game): void {
   drawNightGlow(game, g);
   ambience.drawEmissive(g, game.now, game.nightFactor);
   caveLife.drawEmissive(g, game, propIdx);
+  townLife.drawEmissive(g);
 
   // Interaction prompt, nameplates and floating words share one layout: the
   // prompt claims its box first, a nameplate under it steps aside (the
@@ -1312,6 +1327,19 @@ export function drawMinimapInto(game: Game, canvas: HTMLCanvasElement): void {
       g.fillRect(mx - 2 * m, my - 3 * m, 5 * m, 6 * m);
       g.fillStyle = PAL.void;
       g.fillRect(mx - m, my - m, 3 * m, 4 * m);
+    }
+  }
+  // the main story's "?" — shown even for places not found yet
+  if (overworld) {
+    for (const t of game.storyTargets()) {
+      const [mx, my] = toMini(t.x, t.y);
+      // a 3x5 question mark on a gold plate with an ink edge
+      g.fillStyle = PAL.ink;
+      g.fillRect(mx - 3 * m, my - 4 * m, 7 * m, 9 * m);
+      g.fillStyle = PAL.goldLit;
+      g.fillRect(mx - 2 * m, my - 3 * m, 5 * m, 7 * m);
+      g.fillStyle = PAL.ink;
+      for (const [qx, qy] of [[-1, -2], [0, -2], [1, -2], [1, -1], [0, 0], [0, 2]]) g.fillRect(mx + qx * m, my + qy * m, m, m);
     }
   }
   const tracked = game.trackedTarget();

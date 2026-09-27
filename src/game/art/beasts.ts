@@ -39,16 +39,6 @@ function spike(p: Px, x: number, y: number, h: number, lean: number, color: stri
 /* Wolf                                                                */
 /* ------------------------------------------------------------------ */
 
-/** A tapered horn of bone: dark at the root, pale along the shaft, a white tip. */
-function boneSpike(p: Px, x: number, y: number, h: number, lean: number, root: string, bone: string): void {
-  for (let j = 0; j < h; j++) {
-    const k = j / Math.max(1, h - 1);
-    const w = k < 0.45 ? 2 : 1;
-    const c = k < 0.3 ? root : k < 0.85 ? bone : shade(bone, 1.12);
-    p.fill(x + lean * k * h * 0.5 - (w === 2 ? 0 : 0), y - j, w, 1, c);
-  }
-}
-
 /** Quadratic bezier through a bushy tail, thick in the middle and dark at the tip. */
 function bushyTail(p: Px, x0: number, y0: number, cxp: number, cyp: number, x1: number, y1: number, fur: string, dark: string, deep: string): void {
   const n = 9;
@@ -91,7 +81,7 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
 
   if (dir === 'right') {
     const sx = Math.round(strike * 3 - crouch * 2 - (hurt ? 2 : 0));
-    const bx = cx - 4 + sx;
+    const bx = cx - 3 + sx;
     const by = F - 17 + pose.bob + runBob + Math.round(crouch * 2) + (hurt ? 1 : 0) - (strike > 0.9 ? 1 : 0);
 
     const leg = (hipX: number, hipY: number, front: boolean, off: number, near: boolean) => {
@@ -208,103 +198,135 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
   }
 
   const by = F - 17 + pose.bob + runBob + Math.round(crouch * 2) + (hurt ? 1 : 0);
+  const legLift = (side: number, off: number) => (pose.walk ? Math.max(0, Math.sin(ph + off + (side < 0 ? 0 : Math.PI))) * 2 : 0);
+
+  /** Three bone spikes staggered either side of the spine, pointing up. */
+  const spineSpikesUp = (x: number, y0: number) => {
+    for (let i = 0; i < 3; i++) {
+      const sx = x + (i % 2 ? 2 : -2), y = y0 + i * 3;
+      p.poly([[sx - 1.5, y + 1], [sx, y - 3], [sx + 1.5, y + 1]], deep);
+      p.poly([[sx - 0.5, y + 0.5], [sx, y - 2], [sx + 0.5, y + 0.5]], PAL.bone);
+      p.set(sx, y - 1, PAL.bone);
+    }
+  };
 
   if (dir === 'down') {
-    // Facing the camera a wolf is a wedge: wide cheeks and tall ears
-    // narrowing to a pale muzzle and a black nose, over two forelegs with a
-    // dark gap between them. The back shows only as a hump above the head.
+    // Three-quarter view, coming at the camera. What sells it is the
+    // silhouette: two tall ears standing clear of everything, shoulders
+    // flaring wider than the head, and only a short hump of back showing
+    // above — the body runs away from us, so there is little of it to see.
+    const bite = strike > 0.35;
+    const hy = F - 13 + pose.bob + runBob + Math.round(crouch) + (bite ? 2 : 0) + (hurt ? 1 : 0);
     const hx = cx;
-    const hy = by + 2 + Math.round(crouch * 2 + strike * 2) - (hurt ? 2 : 0);
-    p.ellipse(cx, by + 1, 4, 2.5, dark);
-    const wag = pose.walk ? Math.round(Math.sin(ph)) : 0;
-    p.fill(cx + 4 + wag, by - 1, 2, 3, fur);
-    p.set(cx + 5 + wag, by - 2, deep);
-    if (crouch > 0 || strike > 0) p.ellipse(cx, hy - 5, 6.5, 3, dark);
-    p.ellipse(cx, by + 8, 8, 3.8, fur);
-    p.ellipse(cx - 3, by + 6.5, 3, 1.3, shade(fur, 1.12));
-    p.fill(cx - 3, by + 11, 6, F - by - 12, deep);
-    const spread = strike > 0 ? 1 : 0;
+    const headW = bite ? 7 : 6;
+    // hind paws, set back and higher, outside the shoulders
     for (const side of [-1, 1]) {
-      const lift = pose.walk ? Math.max(0, Math.sin(ph + (side < 0 ? 0 : Math.PI))) * 2.2 : 0;
-      const x = side < 0 ? cx - 5 - spread : cx + 3 + spread;
-      p.fill(x, by + 9, 2, F - by - 9 - lift, fur);
-      p.fill(side < 0 ? x : x + 1, by + 10, 1, F - by - 11 - lift, shade(fur, side < 0 ? 1.12 : 0.8));
-      p.fill(x - (side < 0 ? 1 : 0), F - 1 - lift, 3, 1, dark);
-      p.set(x - (side < 0 ? 1 : 0), F - 1 - lift, deep);
+      const lift = legLift(side, Math.PI);
+      const x = cx + side * 8 - (side < 0 ? 1 : 0);
+      p.fill(x, F - 8 - lift, 2, 6, shade(fur, 0.8));
+      p.fill(x - (side < 0 ? 1 : 0), F - 3 - lift, 3, 1, deep);
     }
-    p.poly([[cx - 4, by + 7], [cx, by + 14], [cx + 4, by + 7]], belly);
-    if (tier >= 2) for (const side of [-1, 1]) boneSpike(p, cx + side * 5 - (side > 0 ? 1 : 0), by + 7, 5, side * 1.2, deep, bone);
-    if (tier >= 3) { p.line(cx - 5, by + 7, cx - 3, by + 10, vein); p.line(cx + 5, by + 7, cx + 3, by + 10, vein); }
-    // ears
+    // a short hump of back, darker, narrow at the far end
+    const back = mix(fur, dark, 0.45);
+    p.ellipse(cx, hy - 8, 3, 2.5, back);
+    p.ellipse(cx, hy - 5, 5, 3, back);
+    p.fill(cx - 2, hy - 10, 4, 1, shade(back, 1.25));
+    p.ellipse(cx, hy - 8, 1.5, 1.5, deep);
+    if (tier >= 1 || crouch > 0) for (let i = 0; i < 2; i++) p.poly([[cx - 2, hy - 6 + i * 2], [cx, hy - 9 + i * 2 - (crouch > 0 ? 1 : 0)], [cx + 2, hy - 6 + i * 2]], dark);
+    if (tier >= 2) spineSpikesUp(cx, hy - 7);
+    if (tier >= 3) { p.line(cx - 5, hy - 5, cx - 3, hy - 2, vein); p.line(cx + 5, hy - 5, cx + 3, hy - 2, vein); }
+    // shoulders, flaring past the cheeks
+    p.ellipse(cx, hy - 1, 8, 3, fur);
+    p.fill(cx - 7, hy - 4, 14, 1, shade(fur, 1.18));
+    p.ellipse(cx, hy + 3, 7, 2, fur);
+    // forelegs, nearest and lightest
+    const spread = bite ? 2 : 0;
+    for (const side of [-1, 1]) {
+      const lift = legLift(side, 0) * 1.2;
+      const x = cx + side * (5 + spread) - 1;
+      const yTop = bite ? F - 5 : hy + 1;
+      p.fill(x, yTop, 3, F - yTop - lift, shade(fur, 1.05));
+      p.fill(side < 0 ? x : x + 2, yTop + 1, 1, F - yTop - 2 - lift, shade(fur, side < 0 ? 1.2 : 0.78));
+      p.fill(x - 1, F - 1 - lift, 4, 1, dark);
+    }
+    // ears: tall, clear of the back, dark inside
     const flat = strike > 0 || crouch > 0;
     for (const side of [-1, 1]) {
       if (flat) {
-        // pinned: lying back along the skull, up and out at forty-five degrees
-        p.poly([[hx + side * 2, hy - 2], [hx + side * 6, hy - 6], [hx + side * 5, hy - 1]], fur);
-        p.line(hx + side * 3, hy - 3, hx + side * 5, hy - 5, deep);
+        p.poly([[hx + side * 2, hy - 2], [hx + side * 7, hy - 6], [hx + side * 6, hy - 1]], fur);
+        p.line(hx + side * 3, hy - 2, hx + side * 6, hy - 5, deep);
       } else {
-        p.poly([[hx + side * 6, hy - 2], [hx + side * 5, hy - 9], [hx + side * 1.5, hy - 3]], fur);
-        p.line(hx + side * 4.5, hy - 7, hx + side * 4, hy - 3, deep);
+        p.poly([[hx + side * 6.5, hy - 1], [hx + side * 5, hy - 8], [hx + side * 2, hy - 2]], PAL.ink);
+        p.poly([[hx + side * 6, hy - 1], [hx + side * 5, hy - 7], [hx + side * 2.5, hy - 2]], fur);
+        p.poly([[hx + side * 5, hy - 2], [hx + side * 4.8, hy - 5], [hx + side * 3.6, hy - 2]], mix(fur, MAW, 0.45));
       }
     }
-    // the wedge
-    p.poly([[hx - 6.5, hy - 2.5], [hx + 6.5, hy - 2.5], [hx + 2.5, hy + 6], [hx - 2.5, hy + 6]], fur);
-    p.poly([[hx - 7, hy], [hx - 4, hy - 1], [hx - 4, hy + 3]], fur);
-    p.poly([[hx + 7, hy], [hx + 4, hy - 1], [hx + 4, hy + 3]], fur);
-    p.fill(hx - 1, hy - 3, 2, 4, dark);
-    p.poly([[hx - 2, hy + 1], [hx + 2, hy + 1], [hx + 1.5, hy + 6], [hx - 1.5, hy + 6]], belly);
-    p.fill(hx - 1, hy + 5, 2, 2, PAL.ink);
-    p.poly([[hx - 3, hy + 6], [hx + 3, hy + 6], [hx, hy + 9]], belly);
-    // slanted eyes under a V of a brow
+    // head: broad skull with cheek ruffs, the muzzle coming at us
+    p.ellipse(hx, hy + 1, headW, 4.5, fur);
+    p.fill(hx - 3, hy - 3, 6, 1, shade(fur, 1.15));
+    p.poly([[hx - headW - 2, hy + 3], [hx - 5, hy - 1], [hx - 4, hy + 5]], fur);
+    p.poly([[hx + headW + 2, hy + 3], [hx + 5, hy - 1], [hx + 4, hy + 5]], fur);
+    p.poly([[hx - 3, hy + 2], [hx + 3, hy + 2], [hx + 2.5, hy + 8], [hx - 2.5, hy + 8]], belly);
+    p.fill(hx - 3, hy + 3, 1, 3, shade(belly, 0.85));
+    p.fill(hx - 1, hy + 7, 3, 2, PAL.ink);
     const eyeC = hurt ? deep : s.eye;
-    p.set(hx - 4, hy - 1, eyeC); p.set(hx - 3, hy, eyeC);
-    p.set(hx + 3, hy - 1, eyeC); p.set(hx + 2, hy, eyeC);
-    p.set(hx - 3, hy - 1, deep); p.set(hx + 2, hy - 1, deep);
-    p.set(hx - 2, hy, deep); p.set(hx + 1, hy, deep);
-    if (tier >= 1 && !hurt) { p.set(hx - 5, hy - 1, withAlpha(s.eye, 0.55)); p.set(hx + 4, hy - 1, withAlpha(s.eye, 0.55)); }
-    if (tier >= 3 && !hurt) {
-      const hot = mix(s.eye, PAL.white, 0.45);
-      p.set(hx - 4, hy - 1, hot); p.set(hx + 3, hy - 1, hot);
-      p.set(hx - 6, hy - 2, withAlpha(vein, 0.7)); p.set(hx + 5, hy - 2, withAlpha(vein, 0.7));
-    }
+    p.fill(hx - 4, hy + 1, 2, 1, eyeC); p.fill(hx + 2, hy + 1, 2, 1, eyeC);
+    p.fill(hx - 4, hy, 2, 1, deep); p.fill(hx + 2, hy, 2, 1, deep);
+    if (tier >= 1 && !hurt) { p.set(hx - 5, hy + 1, withAlpha(s.eye, 0.55)); p.set(hx + 4, hy + 1, withAlpha(s.eye, 0.55)); }
+    if (tier >= 3 && !hurt) { p.set(hx - 4, hy + 1, mix(s.eye, PAL.white, 0.45)); p.set(hx + 3, hy + 1, mix(s.eye, PAL.white, 0.45)); }
     if (open) {
-      p.fill(hx - 2, hy + 6, 4, open + 1, MAW);
-      p.set(hx - 2, hy + 6, PAL.white); p.set(hx + 1, hy + 6, PAL.white);
-      p.set(hx - 1, hy + 6 + open, PAL.white); p.set(hx, hy + 6 + open, PAL.white);
-    } else if (tier >= 2) {
-      p.set(hx - 2, hy + 6, PAL.white); p.set(hx + 1, hy + 6, PAL.white);
-    }
+      p.fill(hx - 2, hy + 8, 5, open + 1, MAW);
+      p.set(hx - 2, hy + 8, PAL.white); p.set(hx + 2, hy + 8, PAL.white);
+      p.set(hx - 1, hy + 8 + open, PAL.white); p.set(hx + 1, hy + 8 + open, PAL.white);
+    } else if (tier >= 2) { p.set(hx - 2, hy + 8, PAL.white); p.set(hx + 2, hy + 8, PAL.white); }
     return;
   }
 
-  // up: head furthest away, a long back, the rump nearest, tail between the hocks
+  // Three-quarter view, going away: the rump and tail are nearest, the back
+  // runs up the frame to the head and ears furthest away. The rump sits on
+  // two hind legs with daylight between them — that gap is what says
+  // "standing" and not "sitting". On the bite the body stretches away.
+  const reach = strike > 0.35 ? Math.round(strike * 3) : 0;
+  const hy = by - 3 - reach - (hurt ? 1 : 0) + Math.round(crouch * 2);
+  // forelegs, far and dark, just below the shoulders
   for (const side of [-1, 1]) {
-    const lift = pose.walk ? Math.max(0, Math.sin(ph + (side < 0 ? Math.PI : 0))) * 1.5 : 0;
-    p.fill(cx + side * 3 - 1, by + 5 - lift, 2, F - by - 6, deep);
+    const lift = Math.round(legLift(side, Math.PI));
+    const x = cx + side * 3 - (side < 0 ? 1 : 0);
+    p.fill(x, by + 2 - reach, 2, 8 - lift, deep);
   }
-  const hy = by - 1 - (hurt ? 1 : 0) + Math.round(crouch * 2);
   for (const side of [-1, 1]) {
-    p.poly([[cx + side, hy - 1], pinned ? [cx + side * 6, hy - 3] : [cx + side * 4, hy - 5], [cx + side * 4, hy + 1]], fur);
-    p.line(cx + side * 2, hy - 1, cx + side * 3, hy - 4, deep);
+    p.poly([[cx + side * 1, hy - 1], pinned ? [cx + side * 6, hy - 4] : [cx + side * 4, hy - 7], [cx + side * 4.5, hy + 1]], fur);
+    p.line(cx + side * 2, hy - 2, cx + side * 3.5, hy - 5, deep);
   }
-  p.ellipse(cx, hy, 3.4, 2.8, fur);
-  p.ellipse(cx, hy + 3, 4, 2.2, dark);
-  p.ellipse(cx, by + 5, 4.5, 3.5, fur);
-  p.ellipse(cx, by + 9, 5.5, 4, fur);
-  p.ellipse(cx, by + 5, 3, 3, dark);
-  p.fill(cx - 4, by + 8, 2, 1, shade(fur, 1.12));
-  if (tier >= 2) for (let i = 0; i < 3; i++) boneSpike(p, cx - 1 + (i % 2), by + 3 + i * 3, 4 - i, 0, deep, bone);
-  if (tier >= 3) p.line(cx - 3, by + 7, cx + 3, by + 10, vein);
+  p.ellipse(cx, hy, 3.5, 3, fur);
+  p.fill(cx - 1, hy - 2, 2, 3, dark);
+  // the back, near-constant width, rump lifted clear of the ground
+  p.ellipse(cx, by + 2 - reach, 5, 3.5, fur);
+  p.ellipse(cx, by + 6 - Math.round(reach / 2), 5.5, 4, fur);
+  p.ellipse(cx, by + 10, 6.5, 4, fur);
+  p.fill(cx - 1, by + 1 - reach, 2, 7, dark);
+  p.fill(cx - 1, by + 8, 2, 2, mix(dark, fur, 0.5));
+  p.ellipse(cx - 4, by + 9, 1.5, 2, shade(fur, 1.12));
+  if (tier >= 1 || strike > 0 || crouch > 0) for (let i = 0; i < 2; i++) p.poly([[cx - 2, by + 2 + i * 2], [cx, by + i * 2 - 1], [cx + 2, by + 2 + i * 2]], dark);
+  if (tier >= 2) spineSpikesUp(cx, by + 3);
+  if (tier >= 3) p.line(cx - 3, by + 7, cx + 3, by + 11, vein);
+  // hind legs: two columns with a gap between, alternating in the walk
   for (const side of [-1, 1]) {
-    const lift = pose.walk ? Math.max(0, Math.sin(ph + (side < 0 ? 0 : Math.PI))) * 2.2 : 0;
-    const x = cx + side * 4 - 1;
-    p.ellipse(x + 1, by + 10, 2, 3, shade(fur, 0.92));
-    limb(p, [[x, by + 11], [x + side * 1.5, by + 14], [x, F - 1 - lift]], 2, shade(fur, 0.88));
-    p.fill(x - 0.5, F - 1 - lift, 3, 1, dark);
+    const lift = Math.round(legLift(side, 0) * 1.4);
+    const x = cx + side * 4 - (side < 0 ? 2 : 0);
+    p.fill(x, by + 12, 3, F - by - 12 - lift, shade(fur, side < 0 ? 0.95 : 0.85));
+    p.fill(side < 0 ? x : x + 2, by + 13, 1, F - by - 14 - lift, shade(fur, side < 0 ? 1.12 : 0.75));
+    p.fill(x - (side < 0 ? 1 : 0), F - 1 - lift, 4, 1, dark);
   }
-  const wag = Math.sin(ph) * (pose.walk ? 1.5 : 1);
-  if (strike > 0) bushyTail(p, cx, by + 10, cx + wag, by + 6, cx + wag * 2, by + 2, fur, dark, deep);
-  else bushyTail(p, cx, by + 10, cx + wag, by + 14, cx + wag * 1.5, F - 3, fur, dark, deep);
+  // a bushy tail hanging between the hocks, swaying
+  const wag = Math.round(Math.sin(ph) * (pose.walk ? 1 : 0.6));
+  if (strike > 0) bushyTail(p, cx, by + 11, cx + wag, by + 7, cx + wag * 2, by + 3, fur, dark, deep);
+  else {
+    p.fill(cx - 3 + wag, by + 10, 6, 9, PAL.ink);
+    p.fill(cx - 2 + wag, by + 11, 4, 7, shade(fur, 1.1));
+    p.fill(cx + 1 + wag, by + 12, 1, 5, shade(fur, 1.25));
+    p.fill(cx - 1 + wag, by + 16, 3, 2, mix(fur, PAL.bone, 0.5));
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -312,11 +334,12 @@ export function drawWolf(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', 
 /* ------------------------------------------------------------------ */
 
 /**
- * A golem is a pile of quarried stone that someone taught to stand up. Its
- * weight is the whole read: a small sunk head under a brow ridge, boulder
- * pauldrons, fists bigger than the head, and a chest that is cracked open
- * around whatever keeps it moving. It stomps — the body drops on every
- * footfall — and its attack is a two-fisted slam from overhead.
+ * A golem is quarried stone that someone taught to stand up, and it is
+ * built like it: every part is a cut block — a chest block, a sunk head
+ * block, boulder shoulders, arms of two stacked stones and fists that are
+ * square, knuckled blocks bigger than the head. At rest it stands like an
+ * ape, knuckles on the ground either side of its feet. It winds up by lifting
+ * both fists together over its head and slams them down in front.
  */
 export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPose, tier: number): void {
   const cx = 18;
@@ -332,177 +355,208 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
   const stepA = pose.walk ? Math.max(0, Math.sin(ph)) : 0;
   const stepB = pose.walk ? Math.max(0, Math.sin(ph + Math.PI)) : 0;
   const drop = pose.walk && Math.abs(Math.cos(ph)) > 0.8 ? 1 : 0;
-  const hx = hurt ? -1 : 0;
-  const top = F - 31 + pose.bob + drop + Math.round(crouch) + (strike > 0.9 ? 2 : 0);
+  const top = F - 30 + pose.bob + drop + Math.round(crouch * 0.5) + (strike > 0.9 ? 3 : 0) + (hurt ? 1 : 0);
   const pulse = 0.55 + 0.45 * Math.sin(ph * (pose.walk ? 1 : 2)) + strike * 0.4;
   const moss = mix(st, '#5a6b46', 0.7);
   const crystal = core;
   const crystalLit = mix(core, PAL.white, 0.3);
-  const vein = (x0: number, y0: number, x1: number, y1: number) => { p.line(x0 - 1, y0, x1 - 1, y1, shade(core, 0.7)); p.line(x0, y0, x1, y1, mix(core, PAL.white, 0.5)); };
+  const hot = mix(core, PAL.white, 0.55);
+  /** A vein of light along a seam, kinked once, dark-edged with a bright core pixel. */
+  const vein = (x0: number, y0: number, x1: number, y1: number) => {
+    const mx = Math.round((x0 + x1) / 2) + 1, my = Math.round((y0 + y1) / 2);
+    for (const [a, b, c, d] of [[x0, y0, mx, my], [mx, my, x1, y1]]) { p.line(a - 1, b, c - 1, d, shade(core, 0.6)); p.line(a, b, c, d, core); }
+    p.set(mx, my, mix(core, PAL.holy, 0.6));
+  };
+  /** An orbiting chunk of rock with one ember in it: irregular, outlined, clear of the body. */
+  const shard = (x: number, y: number, i: number) => {
+    const ox = Math.round(x), oy = Math.round(y);
+    const shapes: Array<Array<[number, number]>> = [[[0, 0], [1, 0], [0, 1], [1, 1], [2, 1]], [[0, 0], [0, 1], [1, 1], [0, 2], [1, 3]], [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]]];
+    const cells = shapes[i % 3];
+    for (const [dx, dy] of cells) p.set(ox + dx, oy + dy + 1, shade(dk, 0.7));
+    for (const [dx, dy] of cells) p.set(ox + dx, oy + dy, shade(st, 1.35));
+    p.set(ox + cells[1][0], oy + cells[1][1], core);
+  };
+  const lerp = (k: number, a: [number, number], b: [number, number]): [number, number] => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+
+  /** A cut stone: lit top, dark underside, shaded right face, clipped corners. */
+  const stone = (x: number, y: number, w: number, h: number, c: string) => {
+    x = Math.round(x); y = Math.round(y);
+    p.fill(x + 1, y, w - 2, h, c);
+    p.fill(x, y + 1, w, h - 2, c);
+    p.fill(x + 1, y, w - 2, 1, shade(c, 1.2));
+    p.fill(x + 1, y + h - 1, w - 2, 1, shade(c, 0.62));
+    p.fill(x + w - 1, y + 1, 1, h - 2, shade(c, 0.78));
+  };
+  /** A fist: a square block with three knuckles across its front. */
+  const fist = (fx: number, fy: number, c: string, facing: 'front' | 'side') => {
+    const w = facing === 'front' ? 9 : 8, h = 7;
+    const x = Math.round(fx - w / 2), y = Math.round(fy - h);
+    const lit = shade(c, 1.12);
+    stone(x, y, w, h, lit);
+    // a pale top face, then knuckle ridges down the front
+    p.fill(x + 1, y, w - 2, 2, shade(c, 1.35));
+    for (let i = 1; i < 3; i++) p.fill(x + Math.round((w * i) / 3), y + 3, 1, h - 4, shade(c, 0.6));
+    p.fill(x + 1, y + 2, w - 2, 1, shade(c, 0.8));
+    if (tier >= 2) p.fill(x + 2, y, w - 4, 1, shade(core, 0.9));
+  };
+  /** An arm from a shoulder to a fist: two stacked stones along the way. */
+  const arm = (sx: number, sy: number, fx: number, fy: number, c: string, facing: 'front' | 'side') => {
+    const [ux, uy] = lerp(0.36, [sx, sy], [fx, fy - 6]);
+    const [lx, ly] = lerp(0.72, [sx, sy], [fx, fy - 6]);
+    stone(ux - 3, uy - 3, 6, 7, c);
+    stone(lx - 3, ly - 3, 7, 7, shade(c, 0.94));
+    p.fill(Math.round(ux) - 2, Math.round(uy) + 3, 5, 1, dk);
+    fist(fx, fy, c, facing);
+  };
+  const debris = (x: number) => {
+    // a crack in the ground, chips thrown out, separate puffs of dust — or
+    // of embers, on anything that burns inside
+    const puff = tier >= 3 ? PAL.flame : mix(PAL.sand, PAL.fog, 0.4);
+    p.line(x - 7, F + 1, x + 7, F + 1, dk);
+    p.line(x - 7, F + 1, x - 9, F - 1, dk); p.line(x + 7, F + 1, x + 9, F + 2, dk);
+    for (const [dx, dy, r] of [[-9, -1, 2], [-4, -3, 1.5], [4, -3, 1.5], [9, -1, 2]]) p.ellipse(x + dx, F + dy, r, r * 0.8, withAlpha(puff, 0.8));
+    for (const [dx, dy] of [[-8, -5], [7, -6], [-3, -8], [10, -3], [2, -9]]) p.fill(x + dx, F + dy, 2, 1, lt);
+  };
 
   p.ellipse(cx, F + 1, 14, 3.4, 'rgba(10,8,16,0.38)');
 
-  const fist = (x: number, y: number, r: number, color: string) => {
-    p.ellipse(x, y, r, r * 0.9, color);
-    p.ellipse(x - 1, y - 1.2, r * 0.55, r * 0.35, shade(color, 1.18));
-    p.line(x - r + 1, y + 1, x + r - 1, y + 1, dk);
-    // the core lights the top of its fists
-    if (tier >= 2) p.line(x - r + 2, y - r * 0.9 + 1, x + r - 2, y - r * 0.9 + 1, shade(core, 0.85));
-  };
-
   if (dir === 'right') {
-    const bx = cx - 5 + hx + Math.round(strike * 2);
-    // far leg and far arm, darker
-    const legAt = (x: number, lift: number, color: string) => {
-      p.fill(x, F - 11 - lift, 6, 6, color);
-      p.fill(x - 1, F - 6 - lift, 8, 5, shade(color, 1.05));
-      p.fill(x - 1, F - 6 - lift, 8, 1, dk);
-      p.fill(x - 2, F - 2 - lift, 10, 2, dk);
+    const bx = cx - 3 + Math.round(strike * 2) - (hurt ? 1 : 0) - (crouch > 0 ? 1 : 0);
+    // far leg and far arm first, in shade
+    const leg = (x: number, lift: number, c: string) => {
+      stone(x, top + 21 - lift, 7, F - top - 23, c);
+      stone(x - 1, F - 3 - lift, 9, 3, shade(c, 0.9));
     };
-    legAt(bx - 1, stepB * 2.5, sh);
-    const shoulder: [number, number] = [bx + 3, top + 10];
-    const fistRest: [number, number] = [bx + 12, top + 24];
-    const fistUp: [number, number] = [bx + 4, top - 2];
-    const fistDown: [number, number] = [bx + 12, F - 3];
-    const at = (k: number, a: [number, number], b: [number, number]): [number, number] => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
-    const armSwing = pose.walk ? Math.sin(ph) * 2 : 0;
-    const f: [number, number] = strike > 0 ? at(strike, fistUp, fistDown) : crouch > 0 ? at(crouch, fistRest, fistUp) : [fistRest[0] + armSwing, fistRest[1]];
-    limb(p, [[shoulder[0] - 5, shoulder[1]], [f[0] - 6, f[1]]], 3, shade(sh, 0.9));
-    fist(f[0] - 5, f[1], 4, sh);
-    // hunched torso with a back plate
-    p.poly([[bx - 8, top + 10], [bx - 3, top + 5], [bx + 5, top + 6], [bx + 9, top + 11], [bx + 7, top + 22], [bx - 7, top + 22]], st);
-    p.poly([[bx - 8, top + 10], [bx - 3, top + 5], [bx + 1, top + 5], [bx - 3, top + 13], [bx - 8, top + 14]], lt);
-    p.poly([[bx + 5, top + 6], [bx + 9, top + 11], [bx + 7, top + 22], [bx + 4, top + 15]], sh);
-    p.line(bx - 6, top + 16, bx - 2, top + 19, dk);
-    p.line(bx + 1, top + 9, bx + 2, top + 13, dk);
-    p.fill(bx - 7, top + 20, 14, 3, dk);
-    // the core, seen from the side as a split in the flank
-    p.line(bx + 4, top + 12, bx + 6, top + 16, shade(core, 0.7));
-    p.line(bx + 5, top + 12, bx + 7, top + 16, core);
-    p.set(bx + 6, top + 14, mix(core, PAL.white, 0.55));
-    // a dark gap where the leg meets the torso, and a lit rim down the back
-    p.fill(bx - 6, top + 22, 12, 2, shade(dk, 0.5));
-    p.line(bx - 8, top + 10, bx - 7, top + 21, lt);
-    legAt(bx - 4 + Math.round(stepA * 2), stepA * 2.5, st);
-    // head: forward, low, all brow
-    const hdX = bx + 7 + Math.round(strike * 2);
-    const hdY = top + 5 + Math.round(crouch) - (hurt ? 1 : 0);
-    p.poly([[hdX - 4, hdY - 3], [hdX + 3, hdY - 3], [hdX + 5, hdY + 1], [hdX + 3, hdY + 4], [hdX - 4, hdY + 4]], shade(st, 0.95));
-    p.fill(hdX - 3, hdY - 2, 9, 2, dk);
-    p.fill(hdX + 1, hdY, 4, 1, hurt ? dk : s.eye);
-    // pauldron over it all
-    p.ellipse(bx + 1, top + 8, 5.5, 4.5, st);
-    p.ellipse(bx, top + 6.5, 3.5, 1.8, lt);
-    const nearFist: [number, number] = [f[0] + 1, f[1] + 1];
-    limb(p, [[bx + 1, top + 11], [nearFist[0] - 1, nearFist[1] - 3]], 4, st);
-    fist(nearFist[0], nearFist[1], 5, st);
-    if (tier === 0) { p.set(bx - 1, top + 4, moss); p.set(bx + 1, top + 4, moss); p.set(bx, top + 5, moss); p.set(bx - 5, top + 9, moss); }
-    if (tier >= 1) { p.set(bx - 1, top + 8, withAlpha(core, 0.7)); p.set(bx + 2, top + 8, withAlpha(core, 0.7)); }
+    leg(bx - 5, stepB * 2.5, sh);
+    const farRest: [number, number] = [bx + 4, F - 1];
+    const farF = strike > 0 ? lerp(strike, [bx - 7, top + 3], [bx + 9, F - 1]) : crouch > 0 ? lerp(Math.min(1, crouch), farRest, [bx - 7, top + 3]) : [farRest[0] - (pose.walk ? Math.sin(ph) * 2 : 0), farRest[1]] as [number, number];
+    arm(bx - 1, top + 8, farF[0], farF[1], sh, 'side');
+    // the hunched body: a back block high at the rear, the chest block
+    // forward and lower, a belly stone under both
+    stone(bx - 9, top + 5, 12, 11, st);
+    stone(bx - 2, top + 8, 11, 12, st);
+    stone(bx - 7, top + 15, 12, 7, sh);
+    p.fill(bx - 8, top + 6, 1, 9, lt);
+    p.line(bx - 6, top + 11, bx - 2, top + 13, dk);
+    // the core, seen as a split in the flank
+    p.line(bx + 3, top + 11, bx + 5, top + 16, shade(core, 0.7));
+    p.line(bx + 4, top + 11, bx + 6, top + 16, core);
+    p.set(bx + 5, top + 13, hot);
+    leg(bx - 1 + Math.round(stepA * 2), stepA * 2.5, st);
+    // head: forward, low, a block under a brow
+    const hdX = bx + 9 + Math.round(strike * 2);
+    const hdY = top + 6 + Math.round(crouch * 0.5) - (hurt ? 1 : 0);
+    stone(hdX - 4, hdY - 3, 8, 7, shade(st, 1.05));
+    p.fill(hdX - 5, hdY - 3, 1, 7, shade(dk, 0.7));
+    p.fill(hdX - 4, hdY - 2, 8, 2, dk);
+    p.fill(hdX, hdY, 3, 1, hurt ? dk : s.eye);
+    if (!hurt) p.set(hdX + 2, hdY, hot);
+    // boulder shoulder, as massive as it is from the front, and the near arm
+    stone(bx - 3, top + 1, 11, 9, st);
+    p.fill(bx - 2, top + 1, 8, 1, lt);
+    const nearRest: [number, number] = [bx + 13, F - 3];
+    const nearF = strike > 0 ? lerp(strike, [bx - 5, top + 2], [bx + 12, F - 1]) : crouch > 0 ? lerp(Math.min(1, crouch), nearRest, [bx - 5, top + 2]) : [nearRest[0] + (pose.walk ? Math.sin(ph) * 2 : 0), nearRest[1]] as [number, number];
+    if (crouch > 0 || (strike > 0 && strike < 0.9)) {
+      // swept back: a forearm block from the shoulder to the raised fist
+      const [ex, ey] = lerp(0.5, [bx + 1, top + 4], [nearF[0], nearF[1] - 4]);
+      stone(ex - 2, ey - 3, 5, 7, shade(st, 0.94));
+      fist(nearF[0], nearF[1], st, 'side');
+    } else arm(bx + 3, top + 7, nearF[0], nearF[1], st, 'side');
+    if (tier === 0) { p.set(bx, top + 3, moss); p.set(bx + 2, top + 3, moss); p.set(bx - 6, top + 5, moss); p.set(bx - 5, top + 5, moss); }
+    if (tier >= 1) { p.set(bx + 1, top + 6, withAlpha(core, 0.7)); p.set(bx + 4, top + 7, withAlpha(core, 0.7)); }
     if (tier >= 2) {
-      spike(p, bx - 2, top + 5, 6, -1.5, shade(crystal, 0.75), crystalLit);
-      spike(p, bx - 6, top + 8, 5, -2, shade(crystal, 0.75), crystalLit);
-      spike(p, bx + 2, top + 5, 4, 0.5, crystal);
+      spike(p, bx + 1, top + 3, 6, -1.5, shade(crystal, 0.75), crystalLit);
+      spike(p, bx - 6, top + 5, 5, -2, shade(crystal, 0.75), crystalLit);
+      spike(p, bx + 5, top + 3, 4, 0.5, crystal);
     }
     if (tier >= 3) {
-      vein(bx - 6, top + 12, bx - 4, top + 14); vein(bx - 4, top + 14, bx - 4, top + 17); vein(bx - 4, top + 17, bx - 6, top + 20);
-      p.set(bx - 3, top + 15, core);
-      vein(bx - 1, F - 9, bx + 1, F - 5);
-      for (let i = 0; i < 3; i++) {
-        const a = ph + i * 2.1;
-        const ox = Math.round(hdX + Math.cos(a) * 8);
-        const oy = Math.round(hdY - 7 + Math.sin(a) * 2.5);
-        p.fill(ox, oy, 2, 3, crystal);
-        p.set(ox, oy, crystalLit);
-      }
+      vein(bx - 6, top + 9, bx - 4, top + 12); vein(bx - 4, top + 12, bx - 5, top + 16);
+      for (let i = 0; i < 3; i++) shard(hdX - 4 + Math.cos(ph + i * 2.1) * 9, hdY - 9 + Math.sin(ph + i * 2.1) * 2.5, i);
     }
-    if (strike > 0.9) {
-      for (const [dx, dy] of [[-2, 0], [2, -1], [5, 0], [-4, -1]]) p.set(fistDown[0] + dx, F + dy, lt);
-      p.line(fistDown[0] - 5, F, fistDown[0] + 5, F, dk);
-    }
+    if (strike > 0.9) debris(bx + 12);
     return;
   }
 
-  // front and back share the frame: legs, pelvis, torso, pauldrons, arms
+  // front and back share the frame: legs, pelvis, torso, shoulders, arms, head
+  const tx = cx + (hurt ? -1 : 0);
   for (const side of [-1, 1]) {
     const lift = (side < 0 ? stepA : stepB) * 2.5;
-    const x = cx + side * 5 - 3 + hx;
-    const c = side < 0 ? sh : st;
-    p.fill(x, F - 11 - lift, 6, 5, c);
-    p.fill(x - 1, F - 6 - lift, 8, 5, shade(c, 1.05));
-    p.fill(x - 1, F - 6 - lift, 8, 1, dk);
-    p.fill(x - 2, F - 2 - lift, 10, 2, dk);
-    if (tier >= 3) { p.line(x + 1, F - 10 - lift, x + 2, F - 4 - lift, shade(core, 0.7)); p.line(x + 2, F - 10 - lift, x + 3, F - 4 - lift, mix(core, PAL.white, 0.5)); }
+    const x = tx + side * 5 - 3;
+    const c = side < 0 ? sh : shade(sh, 0.9);
+    stone(x, top + 20 - lift, 7, F - top - 22, c);
+    stone(x, F - 3 - lift, 7, 3, shade(c, 0.8));
+    if (tier >= 3) vein(x + 3, top + 22 - lift, x + 4, F - 5 - lift);
   }
-  const tx = cx + hx;
-  p.fill(tx - 7, top + 20, 14, 4, dk);
-  p.poly([[tx - 10, top + 9], [tx - 6, top + 6], [tx + 6, top + 6], [tx + 10, top + 9], [tx + 9, top + 21], [tx + 4, top + 23], [tx - 4, top + 23], [tx - 9, top + 21]], st);
-  p.poly([[tx - 10, top + 9], [tx - 6, top + 6], [tx, top + 6], [tx - 2, top + 12], [tx - 9, top + 13]], lt);
-  p.poly([[tx + 6, top + 6], [tx + 10, top + 9], [tx + 9, top + 21], [tx + 6, top + 17]], sh);
-  p.line(tx - 3, top + 8, tx - 1, top + 11, dk);
-  p.line(tx + 4, top + 16, tx + 7, top + 20, dk);
-  p.line(tx - 8, top + 17, tx - 5, top + 19, dk);
+  stone(tx - 7, top + 18, 14, 4, dk);
+  // chest block over the belly block: wide at the shoulders, narrower below
+  p.poly([[tx - 10, top + 7], [tx + 10, top + 7], [tx + 9, top + 14], [tx - 9, top + 14]], st);
+  p.poly([[tx - 8, top + 14], [tx + 8, top + 14], [tx + 7, top + 20], [tx - 7, top + 20]], shade(st, 0.92));
+  p.fill(tx - 10, top + 7, 20, 1, lt);
+  p.fill(tx - 9, top + 14, 18, 1, dk);
+  p.poly([[tx + 6, top + 8], [tx + 10, top + 7], [tx + 9, top + 14], [tx + 6, top + 14]], sh);
+  p.line(tx - 7, top + 9, tx - 4, top + 12, dk);
+  p.line(tx + 3, top + 16, tx + 5, top + 19, dk);
 
   if (dir === 'down') {
-    // the cracked-open chest and the thing inside it, in three hard rings
-    const hot = mix(core, PAL.white, 0.55);
-    p.poly([[tx, top + 9], [tx + 4, top + 14], [tx, top + 19], [tx - 4, top + 14]], shade(dk, 0.7));
-    p.poly([[tx, top + 10], [tx + 3, top + 14], [tx, top + 18], [tx - 3, top + 14]], shade(core, 0.6));
-    p.poly([[tx, top + 11], [tx + 2, top + 14], [tx, top + 17], [tx - 2, top + 14]], core);
-    p.fill(tx - 1, top + 13, 2, 2 + (pulse > 0.8 ? 1 : 0), hot);
+    // the chest is split open around whatever keeps it moving
+    p.poly([[tx, top + 8], [tx + 4, top + 12], [tx, top + 17], [tx - 4, top + 12]], shade(dk, 0.6));
+    p.poly([[tx, top + 9], [tx + 3, top + 12], [tx, top + 16], [tx - 3, top + 12]], shade(core, 0.6));
+    p.poly([[tx, top + 10], [tx + 2, top + 12], [tx, top + 15], [tx - 2, top + 12]], core);
+    p.fill(tx - 1, top + 11, 2, 2 + (pulse > 0.8 ? 1 : 0), hot);
     const cr = pulse > 0.6 ? core : shade(core, 0.75);
-    p.line(tx - 4, top + 14, tx - 7, top + 12, cr);
-    p.line(tx + 4, top + 15, tx + 7, top + 17, cr);
-    p.line(tx - 1, top + 19, tx - 2, top + 22, cr);
-    p.set(tx - 7, top + 12, hot); p.set(tx + 7, top + 17, hot);
+    p.line(tx - 4, top + 12, tx - 7, top + 10, cr);
+    p.line(tx + 4, top + 13, tx + 7, top + 16, cr);
+    p.line(tx, top + 16, tx - 1, top + 19, cr);
   } else {
-    // a back plate and a spine of fitted stones
-    for (let i = 0; i < 4; i++) p.ellipse(tx, top + 8 + i * 3.6, 2.2, 1.6, i % 2 ? lt : sh);
-    p.fill(tx - 6, top + 11, 1, 8, dk);
-    p.fill(tx + 5, top + 11, 1, 8, dk);
+    // a spine of fitted stones down the back, moss in the joints
+    for (let i = 0; i < 4; i++) stone(tx - 2, top + 7 + i * 3, 4, 3, i % 2 ? lt : sh);
+    if (tier === 0) { p.set(tx - 3, top + 10, moss); p.set(tx + 2, top + 13, moss); p.set(tx - 3, top + 16, moss); }
   }
 
-  // arms: hanging to the knee, up over the head, then down into the ground
+  // arms: knuckles on the ground at rest, both fists up over the head in the
+  // wind-up, and down together in front on the slam
   for (const side of [-1, 1]) {
     const sX = tx + side * 11;
-    const sY = top + 10;
-    const rest: [number, number] = [tx + side * 14, top + 24];
-    const up: [number, number] = [tx + side * 8, top - 2];
-    const down: [number, number] = [tx + side * 8, F - 3];
-    const swing = pose.walk ? Math.sin(ph) * 1.6 * side : 0;
-    const lerp = (k: number, a: [number, number], b: [number, number]): [number, number] => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
-    const f: [number, number] = strike > 0 ? lerp(strike, up, down) : crouch > 0 ? lerp(crouch, rest, up) : [rest[0], rest[1] + swing];
-    const c = side < 0 ? shade(st, 0.9) : st;
-    limb(p, [[sX - 1, sY + 2], [(sX + f[0]) / 2 + side, (sY + f[1]) / 2], [f[0] - 1, f[1] - 2]], 4, c);
-    fist(f[0], f[1], 5, c);
-    // boulder pauldron
-    p.ellipse(sX, sY, 5, 4.5, st);
-    p.ellipse(sX - 1, sY - 1.5, 3, 1.5, lt);
-    p.fill(sX - 4, sY + 3, 8, 1, dk);
-    if (tier === 0) for (const [mx, my] of [[-2, -3], [0, -4], [1, -3], [-3, -2]]) p.set(sX + mx * side, sY + my, moss);
-    if (tier >= 1) { p.set(sX - 2, sY, withAlpha(core, 0.75)); p.set(sX + 1, sY + 1, withAlpha(core, 0.75)); p.set(sX, sY - 1, withAlpha(core, 0.5)); }
+    const sY = top + 9;
+    const rest: [number, number] = [tx + side * 13, F - 2];
+    const up: [number, number] = [tx + side * 6, top + 2];
+    const down: [number, number] = [tx + side * 6, F - 1];
+    const swing = pose.walk ? Math.round(Math.sin(ph) * 1.5 * side) : 0;
+    const f: [number, number] = strike > 0 ? lerp(strike, up, down) : crouch > 0 ? lerp(Math.min(1, crouch), rest, up) : [rest[0], rest[1] - Math.max(0, swing)];
+    const c = side < 0 ? st : shade(st, 0.9);
+    if (strike > 0 || crouch > 0) {
+      // raised: an upper arm from the shoulder up and in, then the fist
+      const [ex, ey] = lerp(0.5, [sX + side * 2, sY - 2], [f[0], f[1] - 4]);
+      stone(sX - 3 + side * 2, sY - 7, 6, 8, c);
+      stone(ex - 3, ey - 3, 6, 7, shade(c, 0.94));
+      if (strike > 0 && strike < 0.9) {
+        // coming down at the camera: the fists pass in front of the chest,
+        // a shade brighter so they stay readable against it
+        p.fill(Math.round(f[0] - 5.5), Math.round(f[1] - 7), 11, 9, PAL.ink);
+        fist(f[0], f[1] + 1, shade(c, 1.18), 'front');
+      } else fist(f[0], f[1], c, 'front');
+    } else arm(sX, sY, f[0], f[1], c, 'front');
+    // boulder shoulder
+    stone(sX - 5, sY - 5, 10, 8, st);
+    p.fill(sX - 4, sY - 5, 6, 1, lt);
+    if (tier === 0) for (const [mx, my] of [[-2, -5], [0, -5], [1, -4], [-3, -4]]) p.set(sX + mx * side, sY + my, moss);
+    if (tier >= 1) { p.set(sX - 2, sY - 1, withAlpha(core, 0.75)); p.set(sX + 1, sY, withAlpha(core, 0.75)); }
     if (tier >= 2) {
-      spike(p, sX - side, sY - 3, 7, side * 1.5, shade(crystal, 0.75), crystalLit);
-      if (tier === 2) spike(p, sX + side * 3, sY - 2, 4, side * 2.2, crystal);
+      spike(p, sX - side, sY - 5, 7, side * 1.5, shade(crystal, 0.75), crystalLit);
+      if (tier === 2) spike(p, sX + side * 3, sY - 4, 4, side * 2.2, crystal);
     }
   }
-  if (strike > 0.9) {
-    for (const side of [-1, 1]) {
-      const x = tx + side * 8;
-      p.line(x - 4, F, x + 4, F, dk);
-      p.set(x - 5, F - 2, lt); p.set(x + 5, F - 3, lt); p.set(x + side * 7, F - 1, lt);
-    }
-  }
+  if (strike > 0.9) { debris(tx - 6); debris(tx + 6); }
 
   // head: sunk between the shoulders, a brow ridge and one lit slit
-  const hdY = top + Math.round(crouch) - (hurt ? 1 : 0);
-  p.poly([[tx - 4, hdY + 1], [tx + 4, hdY + 1], [tx + 5, hdY + 5], [tx + 3, hdY + 8], [tx - 3, hdY + 8], [tx - 5, hdY + 5]], shade(st, 0.95));
+  const hdY = top + Math.round(crouch * 0.5) - (hurt ? 1 : 0) + (dir === 'up' ? 2 : 0);
+  stone(tx - 4, hdY, 8, 8, shade(st, 0.95));
   if (dir === 'down') {
-    p.fill(tx - 5, hdY + 3, 10, 2, dk);
-    if (!hurt) { p.set(tx - 4, hdY + 5, shade(s.eye, 0.6)); p.set(tx + 3, hdY + 5, shade(s.eye, 0.6)); }
+    p.fill(tx - 4, hdY + 2, 8, 2, dk);
     p.fill(tx - 3, hdY + 5, 6, 1, hurt ? dk : s.eye);
-    if (!hurt) p.set(tx, hdY + 5, mix(s.eye, PAL.white, 0.6));
+    if (!hurt) p.set(tx, hdY + 5, hot);
   } else {
-    p.fill(tx - 4, hdY + 2, 8, 1, lt);
+    p.fill(tx - 3, hdY + 1, 6, 1, lt);
     if (tier === 0) { p.set(tx - 1, hdY + 1, moss); p.set(tx + 1, hdY + 2, moss); }
   }
   if (tier === 2) {
@@ -510,25 +564,12 @@ export function drawGolem(p: Px, s: CreatureStyle, dir: 'down' | 'up' | 'right',
     spike(p, tx + 3, hdY + 1, 4, 1, crystal);
   } else if (tier >= 3) spike(p, tx, hdY, 5, 0, shade(crystal, 0.75), crystalLit);
   if (tier >= 3) {
-    vein(tx - 8, top + 10, tx - 5, top + 15);
-    vein(tx + 7, top + 9, tx + 5, top + 13);
-    vein(tx - 3, top + 18, tx - 6, top + 22);
-    // a crown of molten drips off the fists
-    for (const side of [-1, 1]) { p.fill(tx + side * 14, top + 29, 1, 2 + (Math.floor(pose.t * 4) % 2), core); }
-    for (let i = 0; i < 3; i++) {
-      const a = ph + i * 2.1;
-      const ox = Math.round(tx + Math.cos(a) * 14);
-      const oy = Math.round(top + 9 + Math.sin(a) * 3);
-      // a diamond shard with two dim pixels trailing it round its orbit
-      p.set(ox, oy - 1, crystalLit); p.fill(ox - 1, oy, 3, 1, crystal); p.set(ox, oy + 1, shade(crystal, 0.8));
-      const tx1 = Math.round(tx + Math.cos(a - 0.35) * 14), ty1 = Math.round(top + 9 + Math.sin(a - 0.35) * 3);
-      const tx2 = Math.round(tx + Math.cos(a - 0.7) * 14), ty2 = Math.round(top + 9 + Math.sin(a - 0.7) * 3);
-      p.set(tx1, ty1, shade(crystal, 0.6)); p.set(tx2, ty2, shade(crystal, 0.4));
-    }
+    // veins along the seams between the blocks, not across them
+    vein(tx - 8, top + 14, tx - 2, top + 14);
+    vein(tx + 3, top + 7, tx + 3, top + 12);
+    for (let i = 0; i < 3; i++) shard(tx + Math.cos(ph + i * 2.1) * 16, top - 1 + Math.sin(ph + i * 2.1) * 3, i);
   }
-  if (hurt) {
-    for (const [dx, dy] of [[-13, -2], [12, 1], [-9, 6], [14, -6]]) p.set(tx + dx, top + 8 + dy, lt);
-  }
+  if (hurt) for (const [dx, dy] of [[-13, -2], [12, 1], [-9, 6], [14, -6]]) p.set(tx + dx, top + 8 + dy, lt);
 }
 
 /** Where a scorpion's tail ends, so the stinger sits on it and not in the air. */

@@ -20,24 +20,33 @@ interface InteriorSpec {
    * and the cashier's cage into actual pools of light instead of decals.
    */
   dark?: number;
+  /** The faced back wall, two tiles tall. The casino keeps its own. */
+  face?: string;
 }
 
+/**
+ * Rooms are sized to what is in them. They used to be barns — the inn was
+ * 25x18 tiles with nine tables in it — and every one had a forge for a
+ * hearth. Now the back wall is two tiles tall and faced (`face`), so there is
+ * something to hang a window or a shelf on, and the floor holds a room's
+ * worth of furniture rather than a field's.
+ */
 const SPECS: Record<string, InteriorSpec> = {
-  int_home: { kind: 'home', name: 'Your Home', w: 17, h: 13, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD },
-  int_inn: { kind: 'inn', name: 'The Kettle & Crown', w: 25, h: 18, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD },
-  int_smithy: { kind: 'smithy', name: 'Ashvale Forge', w: 19, h: 14, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
-  int_store: { kind: 'store', name: 'Ashvale Trading Post', w: 19, h: 14, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD },
-  int_apothecary: { kind: 'apothecary', name: "Sable's Apothecary", w: 17, h: 13, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD },
-  int_hall: { kind: 'hall', name: 'Ashvale Moot Hall', w: 23, h: 16, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
-  int_chapel: { kind: 'chapel', name: 'Chapel of the Last Light', w: 17, h: 17, floor: T.FLOOR_STONE, wall: T.WALL_STONE },
-  int_farm: { kind: 'farm', name: 'Fallow Farmhouse', w: 19, h: 13, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD },
+  int_home: { kind: 'home', name: 'Your Home', w: 10, h: 8, floor: T.ROOM_PLANK, wall: T.WALL_WOOD, face: 'int_wall_plaster' },
+  int_inn: { kind: 'inn', name: 'The Kettle & Crown', w: 15, h: 11, floor: T.ROOM_PLANK, wall: T.WALL_WOOD, face: 'int_wall_plaster' },
+  int_smithy: { kind: 'smithy', name: 'Ashvale Forge', w: 11, h: 8, floor: T.ROOM_FLAG, wall: T.WALL_STONE, face: 'int_wall_stone' },
+  int_store: { kind: 'store', name: 'Ashvale Trading Post', w: 11, h: 8, floor: T.ROOM_PLANK, wall: T.WALL_WOOD, face: 'int_wall_wood' },
+  int_apothecary: { kind: 'apothecary', name: "Sable's Apothecary", w: 10, h: 8, floor: T.ROOM_PLANK, wall: T.WALL_WOOD, face: 'int_wall_plaster' },
+  int_hall: { kind: 'hall', name: 'Ashvale Moot Hall', w: 13, h: 10, floor: T.ROOM_FLAG, wall: T.WALL_STONE, face: 'int_wall_stone' },
+  int_chapel: { kind: 'chapel', name: 'Chapel of the Last Light', w: 11, h: 11, floor: T.ROOM_FLAG, wall: T.WALL_STONE, face: 'int_wall_stone' },
+  int_farm: { kind: 'farm', name: 'Fallow Farmhouse', w: 11, h: 8, floor: T.ROOM_PLANK, wall: T.WALL_WOOD, face: 'int_wall_wood' },
   // Smaller than it was (17x13). A gaming room lives on people being close
   // enough to each other to overhear a bad beat; the old floor had eight tiles
   // of empty carpet between the tables and read as a warehouse.
   int_casino: { kind: 'casino', name: 'The Gilded Spade', w: 15, h: 12, floor: T.CASINO_PARQUET, wall: T.WALL_STONE, dark: 0.34 },
 };
 
-const defaultSpec = (name: string): InteriorSpec => ({ kind: 'cottage', name, w: 15, h: 12, floor: T.FLOOR_WOOD, wall: T.WALL_WOOD });
+const defaultSpec = (name: string): InteriorSpec => ({ kind: 'cottage', name, w: 10, h: 8, floor: T.ROOM_PLANK, wall: T.WALL_WOOD, face: 'int_wall_plaster' });
 
 const prop = (map: GameMap, tx: number, ty: number, art: string, o: Partial<PropInstance> = {}) => {
   map.props.push({ art, x: tx * TILE + TILE / 2, y: ty * TILE + TILE, ...o });
@@ -185,96 +194,161 @@ function dressCasino(map: GameMap, w: number, h: number): void {
   for (const [x, y, phase] of glints) at(x, y, 'casino_glint', { flat: true, phase });
 }
 
+/**
+ * Furnish a room. The rules the layouts keep to: nothing wider than a tile
+ * stands in the outer floor column or on the last floor row (it would clip
+ * the side or front wall), counters sit one tile in front of the shelves
+ * their keeper sells from, beds put their heads to a wall, and every room
+ * has one thing on each side wall so no wall is bare.
+ */
 function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
   const { w, h } = spec;
   const cx = Math.floor(w / 2);
+  /** Something on the back wall (drawn over the wall face). */
+  const onWall = (tx: number, art: string, o: Partial<PropInstance> = {}) => prop(map, tx, 1, art, o);
+  /** Placement in pixels, for the pieces that do not sit on the tile grid. */
+  const px = (x: number, ty: number, art: string, o: Partial<PropInstance> = {}) => prop(map, 0, ty, art, { x, ...o });
+  const seat = (tx: number, ty: number) => prop(map, tx, ty, 'chair', { cw: 16, ch: 10 });
+  const stool = (x: number, ty: number) => px(x, ty, 'int_stool', { cw: 12, ch: 8 });
+  const table = (tx: number, ty: number) => prop(map, tx, ty, 'table', { cw: 40, ch: 14 });
 
-  // Hearth on the back wall for every interior that is somebody's home or
-  // workplace. The casino is the exception: it is lit by its own signage and
-  // an open fire in the corner would fight the room for attention.
-  if (spec.kind !== 'casino') {
-    prop(map, 2, 2, 'forge', { cw: 30, ch: 14, light: 200, lightColor: '#e8763a' });
-    prop(map, w - 3, 1, 'bookshelf', { cw: 34, ch: 12 });
-  }
+  /** Exact placement — x and the prop's foot y in pixels — for pieces snapped into corners. */
+  const at = (x: number, y: number, art: string, o: Partial<PropInstance> = {}) => map.props.push({ art, x, y, ...o });
+  // a bed with its head to the back wall and its side to the right wall
+  const cornerBed = (o: Partial<PropInstance> = {}) => at((w - 1) * TILE - 20, 2 * TILE + 51, 'bed', { cw: 30, ch: 40, ...o });
 
   switch (spec.kind) {
     case 'home':
-      prop(map, w - 3, 4, 'bed', { cw: 30, ch: 40, interact: 'bed', label: 'Sleep until morning' });
-      prop(map, 2, 6, 'chest', { cw: 24, ch: 14, interact: 'storage', label: 'Open your storage chest' });
-      prop(map, cx, 5, 'rug', { flat: true });
-      prop(map, cx, 7, 'table', { cw: 40, ch: 14 });
-      prop(map, cx - 2, 8, 'chair', { cw: 16, ch: 10 });
-      prop(map, cx + 2, 8, 'chair', { cw: 16, ch: 10 });
-      prop(map, 3, 3, 'barrel', { cw: 16, ch: 10 });
-      prop(map, w - 2, 8, 'weapon_rack', { cw: 24, ch: 10 });
-      prop(map, 2, h - 3, 'crate', { cw: 18, ch: 12 });
+      onWall(2, 'int_fireplace', { cw: 52, ch: 10 });
+      at(2 * TILE + 16, 2 * TILE + 12, 'int_hearthstone', { flat: true });
+      onWall(4, 'int_painting');
+      onWall(6, 'int_window');
+      cornerBed({ interact: 'bed', label: 'Sleep until morning' });
+      at(4 * TILE, 4 * TILE + 30, 'int_rug_green', { flat: true });
+      at(4 * TILE, 4 * TILE + 20, 'table', { cw: 40, ch: 14 });
+      at(4 * TILE - 32, 4 * TILE + 20, 'int_stool', { cw: 12, ch: 8 }); at(4 * TILE + 32, 4 * TILE + 20, 'int_stool', { cw: 12, ch: 8 });
+      at(1 * TILE + 14, 6 * TILE + 24, 'int_plant', { cw: 12, ch: 8 });
+      px(1 * TILE + 22, 5, 'barrel', { cw: 16, ch: 10 });
+      px(8 * TILE + 12, 5, 'chest', { cw: 24, ch: 14, interact: 'storage', label: 'Open your storage chest' });
+      px(1 * TILE + 22, 3, 'int_woodpile', { cw: 28, ch: 8 });
       break;
     case 'inn':
-      for (let i = 0; i < 3; i++) {
-        prop(map, 4 + i * 6, 6, 'table', { cw: 40, ch: 14 });
-        prop(map, 3 + i * 6, 7, 'chair', { cw: 16, ch: 10 });
-        prop(map, 6 + i * 6, 7, 'chair', { cw: 16, ch: 10 });
-      }
-      for (let i = 0; i < 3; i++) {
-        prop(map, 4 + i * 6, 11, 'table', { cw: 40, ch: 14 });
-        prop(map, 3 + i * 6, 12, 'chair', { cw: 16, ch: 10 });
-      }
-      prop(map, w - 5, 3, 'table', { cw: 40, ch: 14 });
-      for (let i = 0; i < 4; i++) prop(map, w - 7 + i, 2, 'barrel', { cw: 16, ch: 10 });
-      prop(map, w - 3, 8, 'bed', { cw: 30, ch: 40, interact: 'inn_bed', label: 'Rent a room (20 gold)' });
-      prop(map, w - 3, 13, 'bed', { cw: 30, ch: 40 });
-      prop(map, cx, h - 3, 'rug', { flat: true });
-      for (const [tx, ty] of [[1, 5], [1, 11], [w - 2, 5], [w - 2, 12]]) prop(map, tx, ty, 'torch', { light: 170, lightColor: '#f6bf5d', cw: 6, ch: 4 });
+      // hearth and the regular's table on the left, the bar with its bottle
+      // shelf and casks on the right, the long table in the middle, beds in
+      // a nook at the back right behind a partition of screens
+      onWall(3, 'int_fireplace', { cw: 52, ch: 10 });
+      at(3 * TILE + 16, 2 * TILE + 12, 'int_hearthstone', { flat: true });
+      onWall(6, 'int_window');
+      onWall(8, 'int_painting');
+      onWall(10, 'int_shelf_jars', { cw: 36, ch: 8 });
+      prop(map, 10, 3, 'int_bar', { cw: 92, ch: 6 });
+      at(12 * TILE + 28, 3 * TILE + 26, 'int_kegs', { cw: 38, ch: 10 });
+      for (const x of [9, 10, 11]) stool(x * TILE + 16, 4);
+      table(3, 4); stool(3 * TILE - 18, 4); stool(3 * TILE + 50, 4);
+      px(6 * TILE + 16, 7, 'int_rug_long', { flat: true });
+      px(6 * TILE + 16, 6, 'int_bench_table', { cw: 80, ch: 10 });
+      table(3, 8); stool(3 * TILE - 18, 8); stool(3 * TILE + 50, 8);
+      at(11 * TILE + 22, 6 * TILE + 30, 'int_screen', { cw: 40, ch: 8 });
+      at(11 * TILE + 22, 7 * TILE + 44, 'int_screen', { cw: 40, ch: 8 });
+      at(6 * TILE + 16, 2 * TILE + 26, 'int_side_table', { cw: 30, ch: 6 });
+      at(13 * TILE + 12, 6 * TILE + 28, 'bed', { cw: 30, ch: 40, interact: 'inn_bed', label: 'Rent a bed (20 gold)' });
+      at(13 * TILE + 12, 8 * TILE + 28, 'bed', { cw: 30, ch: 40 });
+      px(1 * TILE + 20, 6, 'int_plant', { cw: 12, ch: 8 });
+      px(1 * TILE + 22, 9, 'barrel', { cw: 16, ch: 10 });
       break;
     case 'smithy':
-      prop(map, 4, 3, 'anvil', { cw: 26, ch: 12, interact: 'anvil', label: 'Use the anvil' });
-      prop(map, 7, 3, 'grindstone', { cw: 24, ch: 12 });
-      prop(map, w - 4, 4, 'weapon_rack', { cw: 28, ch: 10 });
-      prop(map, w - 7, 4, 'weapon_rack', { cw: 28, ch: 10 });
-      for (let i = 0; i < 4; i++) prop(map, 3 + i * 3, h - 3, 'crate', { cw: 18, ch: 12 });
-      prop(map, 2, h - 4, 'barrel', { cw: 16, ch: 10 });
+      onWall(6, 'int_tool_wall');
+      onWall(9, 'int_window');
+      px(2 * TILE + 8, 2, 'int_forge', { cw: 64, ch: 14, light: 200, lightColor: '#e8763a' });
+      at(2 * TILE + 8 + 52, 2 * TILE + 28, 'int_bellows', { cw: 26, ch: 8 });
+      at(1 * TILE + 18, 3 * TILE + 24, 'int_coals', { cw: 26, ch: 8 });
+      prop(map, 5, 4, 'anvil', { cw: 26, ch: 12, interact: 'anvil', label: 'Use the anvil' });
+      prop(map, 7, 4, 'int_quench', { cw: 26, ch: 10 });
+      at((w - 1) * TILE - 16, 2 * TILE + 30, 'grindstone', { cw: 24, ch: 12 });
+      at((w - 1) * TILE - 16, 4 * TILE + 30, 'int_armor_stand', { cw: 20, ch: 8 });
+      at((w - 1) * TILE - 16, 6 * TILE + 20, 'weapon_rack', { cw: 24, ch: 10 });
+      px(1 * TILE + 22, 6, 'int_crates', { cw: 28, ch: 10 });
+      px(3 * TILE + 8, 6, 'barrel', { cw: 16, ch: 10 });
       break;
     case 'store':
-      for (let i = 0; i < 4; i++) prop(map, 3 + i * 4, 4, 'crate', { cw: 18, ch: 12 });
-      for (let i = 0; i < 4; i++) prop(map, 3 + i * 4, 6, 'barrel', { cw: 16, ch: 10 });
-      prop(map, cx, 9, 'table', { cw: 40, ch: 14 });
-      prop(map, w - 3, 8, 'bookshelf', { cw: 34, ch: 12 });
-      prop(map, 2, 9, 'sack', { cw: 16, ch: 10 });
-      prop(map, 4, 10, 'sack', { cw: 16, ch: 10 });
+      onWall(2, 'int_window');
+      onWall(4, 'int_shelf_goods', { cw: 36, ch: 8 });
+      onWall(6, 'int_shelf_goods', { cw: 36, ch: 8 });
+      onWall(8, 'int_window');
+      prop(map, 5, 3, 'int_counter_store', { cw: 60, ch: 6 });
+      // dry goods down the left wall, crates and casks down the right
+      px(1 * TILE + 20, 3, 'barrel', { cw: 16, ch: 10 });
+      at(1 * TILE + 34, 3 * TILE + 34, 'sack', { cw: 16, ch: 10 });
+      at(1 * TILE + 18, 4 * TILE + 18, 'sack', { cw: 16, ch: 10 });
+      at((w - 1) * TILE - 18, 2 * TILE + 38, 'int_crates', { cw: 28, ch: 10 });
+      at((w - 1) * TILE - 18, 4 * TILE + 30, 'barrel_stack', { cw: 26, ch: 12 });
+      at((w - 1) * TILE - 14, 6 * TILE + 22, 'int_plant', { cw: 12, ch: 8 });
+      px(5 * TILE + 16, 5, 'int_rug_green', { flat: true });
+      px(3 * TILE + 8, 6, 'int_display_table', { cw: 46, ch: 8 });
       break;
     case 'apothecary':
-      prop(map, 4, 4, 'alchemy_table', { cw: 38, ch: 12 });
-      prop(map, 8, 4, 'cauldron', { cw: 24, ch: 12, light: 90, lightColor: '#8fbf4a' });
-      prop(map, w - 4, 4, 'bookshelf', { cw: 34, ch: 12 });
-      for (let i = 0; i < 5; i++) prop(map, 3 + i * 2, h - 3, 'mushroom_cluster');
+      onWall(2, 'int_shelf_jars', { cw: 36, ch: 8 });
+      onWall(5, 'int_herbs');
+      onWall(7, 'int_shelf_jars', { cw: 36, ch: 8 });
+      px(4 * TILE + 16, 3, 'int_counter_apoth', { cw: 60, ch: 6 });
+      px(5 * TILE + 24, 2, 'int_side_table', { cw: 30, ch: 6 });
+      px(7 * TILE + 16, 4, 'int_cauldron_fire', { cw: 26, ch: 10 });
+      at((w - 1) * TILE - 24, 6 * TILE + 24, 'alchemy_table', { cw: 40, ch: 12 });
+      at(1 * TILE + 32, 6 * TILE + 24, 'int_planter_bench', { cw: 56, ch: 8 });
+      at(3 * TILE + 12, 6 * TILE + 22, 'int_plant', { cw: 12, ch: 8 });
       break;
     case 'hall':
-      prop(map, cx, 3, 'table', { cw: 40, ch: 14 });
-      prop(map, cx, h - 4, 'rug', { flat: true });
-      for (let i = 0; i < 4; i++) {
-        prop(map, 3 + i * 4, 5, 'chair', { cw: 16, ch: 10 });
-        prop(map, 3 + i * 4, 9, 'chair', { cw: 16, ch: 10 });
-      }
-      prop(map, 2, 2, 'banner', { cw: 8, ch: 4 });
-      prop(map, w - 3, 2, 'banner', { cw: 8, ch: 4 });
-      prop(map, w - 4, 6, 'bookshelf', { cw: 34, ch: 12 });
-      for (const [tx, ty] of [[1, 4], [1, 10], [w - 2, 4], [w - 2, 10]]) prop(map, tx, ty, 'torch', { light: 170, lightColor: '#f6bf5d', cw: 6, ch: 4 });
+      // the king's chair on a dais against the back wall, the council table
+      // before it, the runner from the door to the table
+      onWall(3, 'int_window');
+      onWall(5, 'int_sconce');
+      onWall(7, 'int_sconce');
+      onWall(9, 'int_window');
+      at(6 * TILE + 16, 3 * TILE + 24, 'int_dais', { flat: true });
+      prop(map, 6, 2, 'int_throne', { cw: 28, ch: 8 });
+      px(4 * TILE + 8, 3, 'int_candles', { cw: 8, ch: 6 });
+      px(8 * TILE + 24, 3, 'int_candles', { cw: 8, ch: 6 });
+      at(6 * TILE + 16, 5 * TILE + 26, 'int_long_table', { cw: 144, ch: 10 });
+      for (const x of [4, 6, 8]) { at(x * TILE + 16, 5 * TILE + 4, 'chair', { cw: 16, ch: 6 }); at(x * TILE + 16, 5 * TILE + 44, 'chair', { cw: 16, ch: 10 }); }
+      at(6 * TILE + 16, 9 * TILE + 12, 'int_runner_short', { flat: true });
+      at(1 * TILE + 22, 4 * TILE + 30, 'bookshelf', { cw: 34, ch: 12 });
+      at((w - 1) * TILE - 28, 4 * TILE + 30, 'int_map_table', { cw: 46, ch: 10 });
+      at(1 * TILE + 20, 7 * TILE + 28, 'banner', { cw: 8, ch: 4 });
+      at((w - 1) * TILE - 16, 7 * TILE + 28, 'banner', { cw: 8, ch: 4 });
+      at((w - 1) * TILE - 18, 2 * TILE + 44, 'int_armor_stand', { cw: 20, ch: 8 });
+      at(2 * TILE + 16, 8 * TILE + 24, 'chest', { cw: 24, ch: 14 });
       break;
     case 'chapel':
-      prop(map, cx, 3, 'shrine', { cw: 24, ch: 12, light: 220, lightColor: '#ffe9a8', interact: 'shrine', label: 'Pray at the altar' });
-      prop(map, cx, 5, 'altar', { cw: 36, ch: 14 });
-      for (let i = 0; i < 4; i++) {
-        prop(map, cx - 3, 8 + i * 2, 'chair', { cw: 16, ch: 10 });
-        prop(map, cx + 3, 8 + i * 2, 'chair', { cw: 16, ch: 10 });
+      onWall(2, 'int_sconce');
+      onWall(5, 'int_rose_window');
+      onWall(8, 'int_sconce');
+      at(5 * TILE + 16, 3 * TILE + 26, 'int_dais', { flat: true });
+      prop(map, 5, 3, 'int_altar', { cw: 54, ch: 10, interact: 'shrine', label: 'Pray at the altar' });
+      at(3 * TILE + 26, 3 * TILE + 16, 'int_lectern', { cw: 14, ch: 6 });
+      for (const y of [5 * TILE + 20, 6 * TILE + 30, 8 * TILE + 8]) {
+        at(3 * TILE, y, 'int_pew', { cw: 60, ch: 8 });
+        at(8 * TILE, y, 'int_pew', { cw: 60, ch: 8 });
       }
-      for (const [tx, ty] of [[2, 4], [w - 3, 4], [2, h - 4], [w - 3, h - 4]]) prop(map, tx, ty, 'brazier', { light: 190, lightColor: '#ffe9a8', cw: 12, ch: 8 });
+      at(5 * TILE + 16, 4 * TILE + 26 + 96, 'int_runner', { flat: true });
+      at(5 * TILE + 16, 4 * TILE + 26 + 170, 'int_runner', { flat: true });
+      at(1 * TILE + 20, 9 * TILE + 20, 'int_plant', { cw: 12, ch: 8 });
+      at(9 * TILE + 12, 9 * TILE + 20, 'int_plant', { cw: 12, ch: 8 });
       break;
     case 'farm':
-      prop(map, w - 3, 4, 'bed', { cw: 30, ch: 40 });
-      prop(map, cx, 6, 'table', { cw: 40, ch: 14 });
-      prop(map, cx - 2, 7, 'chair', { cw: 16, ch: 10 });
-      for (let i = 0; i < 4; i++) prop(map, 3 + i * 3, h - 3, 'sack', { cw: 16, ch: 10 });
-      prop(map, 2, 4, 'hay', { cw: 26, ch: 12 });
+      onWall(2, 'int_fireplace', { cw: 52, ch: 10 });
+      at(2 * TILE + 16, 2 * TILE + 12, 'int_hearthstone', { flat: true });
+      onWall(5, 'int_herbs');
+      onWall(7, 'int_window');
+      cornerBed();
+      at(4 * TILE - 2, 2 * TILE + 24, 'int_woodpile', { cw: 28, ch: 8 });
+      at(5 * TILE, 4 * TILE + 32, 'int_bench_table', { cw: 80, ch: 10 });
+      // pantry corner
+      px(1 * TILE + 18, 4, 'int_churn', { cw: 12, ch: 8 });
+      px(1 * TILE + 20, 5, 'sack', { cw: 16, ch: 10 });
+      px(1 * TILE + 22, 6, 'barrel', { cw: 16, ch: 10 });
+      px(2 * TILE + 14, 6, 'int_basket', { cw: 20, ch: 8 });
+      at((w - 1) * TILE - 20, 5 * TILE + 30, 'int_spinning_wheel', { cw: 24, ch: 8 });
+      at((w - 1) * TILE - 50, 5 * TILE + 30, 'int_stool', { cw: 12, ch: 8 });
       break;
     case 'casino':
       dressCasino(map, w, h);
@@ -282,21 +356,18 @@ function dress(map: GameMap, spec: InteriorSpec, rng: RNG, id: string) {
     default:
       // Every lodge earns its door: somewhere to sleep and the same stash you
       // keep at home, so a settlement is a real forward base.
-      prop(map, w - 3, 3, 'bed', { cw: 30, ch: 40, interact: 'bed', label: 'Sleep until morning' });
-      prop(map, 2, 6, 'chest', { cw: 24, ch: 14, interact: 'storage', label: 'Open your storage chest' });
-      prop(map, 3, 5, 'table', { cw: 40, ch: 14 });
-      prop(map, 3, 6, 'chair', { cw: 16, ch: 10 });
-      prop(map, cx, h - 4, 'rug', { flat: true });
-      prop(map, w - 3, h - 4, 'crate', { cw: 18, ch: 12 });
-      if (rng.bool(0.5)) prop(map, 2, 3, 'barrel', { cw: 16, ch: 10 });
+      onWall(2, 'int_fireplace', { cw: 52, ch: 10 });
+      onWall(5, 'int_window');
+      prop(map, 7, 3, 'bed', { cw: 30, ch: 40, interact: 'bed', label: 'Sleep until morning' });
+      px(8 * TILE + 8, 5, 'chest', { cw: 24, ch: 14, interact: 'storage', label: 'Open your storage chest' });
+      px(3 * TILE + 16, 5, 'int_rug_green', { flat: true });
+      table(3, 4); seat(3, 5);
+      px(1 * TILE + 22, 6, 'int_crates', { cw: 28, ch: 10 });
+      if (rng.bool(0.5)) px(1 * TILE + 22, 3, 'barrel', { cw: 16, ch: 10 });
+      void cx;
       break;
   }
-
-  // wall sconces (the casino places its own, around the banners)
-  if (spec.kind !== 'casino') {
-    for (let tx = 3; tx < w - 2; tx += 5) prop(map, tx, 1, 'torch', { light: 160, lightColor: '#f6bf5d', cw: 6, ch: 4 });
-  }
-  void id;
+  void id; void h;
 }
 
 export function buildInterior(id: string, name: string, returnX: number, returnY: number): GameMap {
@@ -318,7 +389,10 @@ export function buildInterior(id: string, name: string, returnX: number, returnY
   });
 
   fillRect(map, 0, 0, spec.w, spec.h, spec.wall);
-  fillRect(map, 1, 1, spec.w - 2, spec.h - 2, spec.floor);
+  // a faced room loses its first floor row to the back wall
+  const top = spec.face ? 2 : 1;
+  fillRect(map, 1, top, spec.w - 2, spec.h - 1 - top, spec.floor);
+  if (spec.face) for (let tx = 1; tx < spec.w - 1; tx++) prop(map, tx, 1, spec.face, { flat: true });
   // doorway at the bottom centre
   const dx = Math.floor(spec.w / 2);
   setTile(map, dx, spec.h - 1, spec.floor);

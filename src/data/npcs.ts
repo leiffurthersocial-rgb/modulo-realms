@@ -198,6 +198,8 @@ export const NPCS: NpcDef[] = [
       { lines: ['"You look like someone who walked a long way to find a small town."', '"Ashvale will take you. It takes everyone. That is the whole trouble with it."'] },
     ],
     topics: [
+      { text: 'Where should I go next?', accent: 'gold', actions: [{ type: 'guide', what: 'story' }] },
+      { text: 'I came with next to nothing.', cond: { notFlag: 'gift:hanne' }, to: 'gift' },
       { text: 'What is this place?', to: 'about_town' },
       { text: 'What happened here?', to: 'about_trouble' },
       { tag: 'Mage', text: 'The valley is thick with loose magic. Something is leaking.', cond: { classes: ['mage', 'necromancer'] }, to: 'about_magic' },
@@ -205,6 +207,7 @@ export const NPCS: NpcDef[] = [
       { tag: 'Elf', text: 'The Forest Court sends no word to you?', cond: { races: ['elf'] }, to: 'about_court' },
     ],
     nodes: [
+      { id: 'gift', text: ['"Most people do. Here."', 'She presses a purse and three small bottles into your hands.', '"The red ones close cuts. Drink one before you need to, not after."'], choices: [{ text: 'Thank you.', actions: [{ type: 'give', item: 'potion_health_s', qty: 3 }, { type: 'gold', amount: 60 }, { type: 'flag', flag: 'gift:hanne' }] }] },
       { id: 'about_town', text: ['"Ashvale. Four hundred people, one forge, one inn, and a river that floods every third spring."', '"We are the last town between the valley and everything that wants into it."'] },
       { id: 'about_trouble', text: ['"Wolves first. Then bandits with money they did not earn. Then the fortress in the north woke up."', '"Things come in waves here, and the waves are getting closer together."'] },
       { id: 'about_magic', text: ['"You feel it too. Good — I was starting to think I was old rather than right."', '"Ivo calls it the Modulo. A thing the world divides itself by. He talks like that when he is frightened."'] },
@@ -214,7 +217,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'smith_corin', name: 'Corin Emberhand', title: 'Blacksmith', race: 'dwarf', faction: 'guild',
     personality: 'Blunt, fair, secretly proud of every blade he sells.',
-    ...ashvaleResident(-11, -5, -14, -3),
+    ...ashvaleResident(-14, -3),
     look: look({ skin: PAL.skin3, hair: '#b5462f', hairStyle: 'short', beard: 'long', height: 0.86, bulk: 1.18, shirt: '#6a4436', pants: '#3a2f28', armor: 'light', armorColor: '#5a4436', weapon: { kind: 'hammer', metal: PAL.iron, grip: PAL.woodDark } }),
     wander: 26,
     shop: {
@@ -235,6 +238,7 @@ export const NPCS: NpcDef[] = [
       { lines: ['"Mind the sparks. Everything on the rack is honest; everything off it is negotiable."'] },
     ],
     topics: [
+      { text: 'Put an edge on my weapon. (gold)', actions: [{ type: 'sharpen' }] },
       { text: 'Tell me about your work.', to: 'about_work' },
       { tag: 'Dwarf', text: 'Ironroot temper, or valley steel?', cond: { races: ['dwarf'] }, to: 'about_steel' },
       { tag: 'Rogue', text: 'And if I wanted something the guards never see?', cond: { classes: ['rogue'] }, to: 'about_quiet' },
@@ -246,13 +250,37 @@ export const NPCS: NpcDef[] = [
     ],
   },
   {
+    // Corin works the yard; the forge inside needed somebody at the anvil.
+    id: 'smith_wyn', name: 'Wyn', title: 'Forge Apprentice', race: 'human', faction: 'guild',
+    personality: 'Eager, sooty, explains things nobody asked about with total confidence.',
+    map: 'int_smithy', tx: 5, ty: 3,
+    look: look({ skin: PAL.skin2, hair: '#3a2a20', hairStyle: 'short', shirt: '#6a4436', pants: '#3a2f28', armor: 'light', armorColor: '#4a3a2e', weapon: { kind: 'hammer', metal: PAL.iron, grip: PAL.woodDark } }),
+    wander: 6,
+    shop: {
+      id: 'shop_wyn', name: 'Forge Stores', priceMod: 1,
+      stock: [
+        { item: 'mat_iron_ore', qty: 20 }, { item: 'mat_iron_ingot', qty: 12 }, { item: 'mat_leather', qty: 8 }, { item: 'mat_cloth', qty: 8 },
+      ],
+      buys: ['material'], gold: 500,
+    },
+    greeting: [
+      { lines: ['"Master Corin is out in the yard. I do the inside. The inside is where the fire is, so I think I have the better half."'] },
+    ],
+    topics: [{ text: 'What do I need to forge something?', to: 'forge' }],
+    nodes: [{ id: 'forge', text: [
+      '"The anvil there — use it. Better gear wants ore and ingots, better still wants the odd rune or crystal off something big."',
+      '"I sell the plain stuff. The rest you have to take off whatever you are brave enough to hit."',
+    ] }],
+  },
+  {
     id: 'merchant_pell', name: 'Pell', title: 'General Merchant', race: 'human', faction: 'alliance',
     personality: 'Cheerful, exhausting, would sell you your own boots.',
-    ...ashvaleResident(0, -7),
+    // behind the trading post counter
+    map: 'int_store', tx: 5, ty: 3,
     look: look({ hair: '#8a6a3a', hairStyle: 'ponytail', shirt: '#7a5a3a', pants: '#4a3a2a', armor: 'light', armorColor: '#8a6a4a' }),
-    wander: 20,
+    wander: 4,
     shop: {
-      id: 'shop_pell', name: "Pell's Stall", priceMod: 1.05,
+      id: 'shop_pell', name: "Pell's Trading Post", priceMod: 1.05,
       stock: [
         { item: 'potion_health_s', qty: 8 }, { item: 'potion_mana_s', qty: 6 }, { item: 'potion_stamina', qty: 5 },
         { item: 'food_bread', qty: 8 }, { item: 'food_cheese', qty: 6 }, { item: 'food_apple', qty: 8 }, { item: 'food_meat', qty: 4 },
@@ -278,9 +306,10 @@ export const NPCS: NpcDef[] = [
   {
     id: 'innkeeper_bryn', name: 'Bryn Tallow', title: 'Innkeeper', race: 'beastfolk', faction: 'alliance',
     personality: 'Warm, nosy, remembers every name that comes through the door.',
-    map: 'int_inn', tx: 20, ty: 4,
+    // behind the bar
+    map: 'int_inn', tx: 10, ty: 3,
     look: look({ skin: PAL.skinBeast, hair: '#6b4b34', hairStyle: 'wild', ears: 'beast', eyes: PAL.gold, shirt: '#8a6a4a', pants: '#4a3a2a', armor: 'light', armorColor: '#9a7046' }),
-    wander: 12,
+    wander: 4,
     services: ['inn'],
     shop: {
       id: 'shop_bryn', name: 'The Kettle & Crown', priceMod: 1,
@@ -290,15 +319,16 @@ export const NPCS: NpcDef[] = [
     greeting: [
       { cond: { races: ['beastfolk'] }, lines: ['"Ha! Ears like mine. Sit anywhere, the fire is yours."'] },
       { cond: { races: ['revenant'] }, lines: ['"You will not want the stew, I suppose. Bed is twenty either way."'] },
-      { lines: ['"Bed upstairs, stew in the pot, and whatever you overhear stays in the room."'] },
+      { lines: ['"Beds at the back, stew in the pot, and whatever you overhear stays in the room."'] },
     ],
     topics: [
+      { text: 'Heard any rumours?', actions: [{ type: 'guide', what: 'rumour' }] },
       { text: 'Who drinks here?', to: 'patrons' },
       { tag: 'Paladin', text: 'Has the chapel been kept?', cond: { classes: ['paladin'] }, to: 'chapel' },
     ],
     nodes: [
       { id: 'patrons', text: ['"Guards, mostly. Corin when his hands ache. Ivo when he wants an audience."', '"And Rook, who does not drink so much as wait."'], choices: [{ text: 'Rook?', actions: [{ type: 'flag', flag: 'knows_rook' }], to: 'rook' }, { text: 'I see.' }] },
-      { id: 'rook', text: ['"Sits out back. Buys things that have no owner. Do not tell Dara I told you."'] },
+      { id: 'rook', text: ['"Sits out back. Buys things that have no owner. Do not tell Hanne I told you."'] },
       { id: 'chapel', text: ['"Father Alun keeps it lit. Not many go, but he keeps it lit."'] },
     ],
   },
@@ -308,15 +338,16 @@ export const NPCS: NpcDef[] = [
     // Crown because that is where Bryn said he does.
     id: 'ivo_marrow', name: 'Ivo Marrow', title: 'Lapsed Concord Scholar', race: 'human', faction: 'arcane',
     personality: 'Nervous, brilliant, talks in numbers when he is frightened, which is most of the time.',
-    map: 'int_inn', tx: 13, ty: 9,
+    // at the table by the fire
+    map: 'int_inn', tx: 3, ty: 3,
     look: look({ skin: PAL.skin1, hair: '#8a7a6a', hairStyle: 'short', beard: 'stubble', eyes: '#6a8ab0', shirt: '#4a4a6a', pants: '#2b2b3d', armor: 'robe', armorColor: '#3d3a5a', armorTrim: PAL.arcaneLit }),
-    wander: 14,
+    wander: 3,
     greeting: [
       { cond: { questDone: 'main_remainder' }, lines: ['"It divides evenly. I have checked eleven times."', 'He does not look up from the page. He is smiling.'] },
       { cond: { questActive: 'main_remainder' }, lines: ['"Sigrun lifted the bar. I felt it from here, like a tooth coming out."', '"Go on. I will be counting."'] },
       { cond: { questDone: 'main_spire' }, lines: ['Ivo has Vareth\'s ledger open beside his cup. Every margin has something new written in it.', '"The numbers are getting larger. Not faster. Larger."'] },
       { cond: { questDone: 'main_count' }, lines: ['"You again. Good. Sit. Do not touch that — it is a proof."'] },
-      { lines: ['A thin man at the middle table is writing numbers on the wood with a wet finger and rubbing them out.', '"If you are here to tell me something is wrong in the valley, you are late. If you are here to tell me what, sit down."'] },
+      { lines: ['A thin man at the table by the fire is writing numbers on the wood with a wet finger and rubbing them out.', '"If you are here to tell me something is wrong in the valley, you are late. If you are here to tell me what, sit down."'] },
     ],
     topics: [
       { text: 'What is the Modulo?', to: 'modulo' },
@@ -416,9 +447,10 @@ export const NPCS: NpcDef[] = [
   {
     id: 'alchemist_sable', name: 'Sable Quill', title: 'Apothecary', race: 'elf', faction: 'arcane',
     personality: 'Precise, faintly amused by everyone, including herself.',
-    ...ashvaleResident(11, -5),
+    // behind her own counter, not on the step outside it
+    map: 'int_apothecary', tx: 4, ty: 3,
     look: look({ skin: PAL.skinElf, hair: '#9578e8', hairStyle: 'long', ears: 'elf', eyes: '#2f6f93', shirt: '#4a3a6a', pants: '#2b1f4d', armor: 'robe', armorColor: '#4a3a6a', armorTrim: PAL.frost }),
-    wander: 22,
+    wander: 4,
     shop: {
       id: 'shop_sable', name: "Sable's Apothecary", priceMod: 1.08,
       stock: [
@@ -436,11 +468,13 @@ export const NPCS: NpcDef[] = [
       { lines: ['"Everything here either heals you or teaches you something. Occasionally both."'] },
     ],
     topics: [
+      { text: 'I am new to the road.', cond: { notFlag: 'gift:sable' }, to: 'kit' },
       { text: 'What are you working on?', to: 'work' },
       { tag: 'Necromancer', text: 'You keep bone dust behind the counter.', cond: { classes: ['necromancer'] }, to: 'bone' },
       { tag: 'Elf', text: 'You are far from the Court.', cond: { races: ['elf'] }, to: 'court' },
     ],
     nodes: [
+      { id: 'kit', text: ['She looks you over the way she looks over a patient.', '"Then you will need these more than I need the shelf space. Blue for the mind, red for the body."'], choices: [{ text: 'Take them.', actions: [{ type: 'give', item: 'potion_health_s', qty: 2 }, { type: 'give', item: 'potion_mana_s', qty: 2 }, { type: 'flag', flag: 'gift:sable' }] }] },
       { id: 'work', text: ['"A tonic that stops frostbite. It works perfectly, twice out of three."', '"I do not sell the third."'] },
       { id: 'bone', text: ['"I do. It is an excellent binder and a terrible conversation."', '"Take it. Do not tell Alun."'], choices: [{ text: 'Thank you.', actions: [{ type: 'give', item: 'mat_bone', qty: 3 }, { type: 'rep', faction: 'arcane', amount: 3 }] }] },
       { id: 'court', text: ['"The Court asks that we tend the wood. I asked what the wood had done for me."', '"So: Ashvale."'] },
@@ -449,7 +483,8 @@ export const NPCS: NpcDef[] = [
   {
     id: 'priest_alun', name: 'Father Alun', title: 'Keeper of the Chapel', race: 'human', faction: 'alliance',
     personality: 'Gentle, stubborn, has buried more people than he will mention.',
-    map: 'int_chapel', tx: 8, ty: 7,
+    // beside the altar
+    map: 'int_chapel', tx: 7, ty: 3,
     look: look({ hair: '#d8cfc4', hairStyle: 'bald', beard: 'full', shirt: '#c9c0a8', pants: '#8a8070', armor: 'robe', armorColor: '#c9c0a8', armorTrim: PAL.gold }),
     services: ['heal'],
     wander: 10,
@@ -459,6 +494,7 @@ export const NPCS: NpcDef[] = [
       { lines: ['"You are welcome here, whoever you are and whatever you have done on the road."'] },
     ],
     topics: [
+      { text: 'Bless me before I go.', accent: 'gold', actions: [{ type: 'bless' }] },
       { text: 'Will you tend my wounds?', to: 'heal_node' },
       { tag: 'Necromancer', text: 'Your light and my work are not so different.', cond: { classes: ['necromancer'] }, to: 'argue' },
     ],
@@ -470,7 +506,8 @@ export const NPCS: NpcDef[] = [
   {
     id: 'hunter_kesh', name: 'Kesh', title: 'Hunter', race: 'beastfolk', faction: 'forest',
     personality: 'Quiet, watchful, more comfortable outside town than in it.',
-    ...ashvaleResident(6, 3),
+    // behind the east market stall, which is his
+    ...ashvaleResident(7, 1),
     look: look({ skin: PAL.skinBeast, hair: '#a3823f', hairStyle: 'ponytail', ears: 'beast', eyes: PAL.gold, shirt: '#3f6a4a', pants: '#4a3324', armor: 'light', armorColor: '#4a5a3a', helmet: 'hood', weapon: { kind: 'bow', metal: PAL.wood, grip: PAL.woodDark } }),
     wander: 30,
     shop: {
@@ -483,13 +520,18 @@ export const NPCS: NpcDef[] = [
       { cond: { classes: ['ranger'] }, lines: ['"You hold a bow like someone who has waited in the cold for one."', '"We will get along."'] },
       { lines: ['"The wood is loud this year. That is not a good sign, whatever Pell says."'] },
     ],
-    topics: [{ text: 'Loud how?', to: 'loud' }],
+    topics: [
+      { text: 'Where is the hunting good for me?', actions: [{ type: 'guide', what: 'hunt' }] },
+      { text: 'Loud how?', to: 'loud' },
+    ],
     nodes: [{ id: 'loud', text: ['"Birds where birds should not be. Deer running at noon."', '"Something in Thornhollow is moving them. I would like to know what before it reaches the fences."'] }],
   },
   {
     id: 'fence_rook', name: 'Rook', title: 'Dealer in Lost Property', race: 'human', faction: 'bandits',
     personality: 'Soft-spoken, entirely transactional.',
-    map: 'overworld', tx: 472, ty: 460,
+    // the lane down the east side of the Kettle & Crown — "out back", as Bryn
+    // and Corin both put it
+    map: 'overworld', tx: VILLAGE_TX + 18, ty: VILLAGE_TY + 6,
     look: look({ hair: '#2a2029', hairStyle: 'short', shirt: '#3b3346', pants: '#241d2e', armor: 'light', armorColor: '#33304a', helmet: 'hood', weapon: { kind: 'dagger', metal: PAL.iron, grip: PAL.woodDark } }),
     wander: 8,
     shop: {
@@ -499,7 +541,7 @@ export const NPCS: NpcDef[] = [
       buys: ['weapon', 'armor', 'accessory', 'material', 'misc'], gold: 1500,
     },
     greeting: [
-      { cond: { classes: ['rogue'] }, lines: ['"You found the back of the inn without asking. That is the interview."'] },
+      { cond: { classes: ['rogue'] }, lines: ['"You found the lane behind the inn without asking. That is the interview."'] },
       { cond: { repMin: { faction: 'bandits', value: 20 } }, lines: ['"The Cutters speak well of you. That is rarely a compliment, but it is useful."'] },
       { lines: ['"I buy what has stopped belonging to anyone. Do not make it complicated."'] },
     ],
@@ -803,7 +845,8 @@ export const NPCS: NpcDef[] = [
   {
     id: 'king_jovan', name: 'King Jovan', title: 'Glorious King of the Ashvale Crown', race: 'human', faction: 'alliance',
     personality: 'Generous to a fault, genuinely warm, and quietly terrified of how little time is left.',
-    map: 'int_hall', tx: 11, ty: 5,
+    // in front of his chair at the head of the table
+    map: 'int_hall', tx: 6, ty: 3,
     look: look({
       skin: PAL.skin2, hair: '#4a3324', hairStyle: 'long', beard: 'full', eyes: '#5a3f28',
       height: 1.12, bulk: 1.06,
