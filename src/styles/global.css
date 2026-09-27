@@ -964,6 +964,10 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
 .quest-tracker .qname { color: var(--text-hi); }
 .quest-tracker .obj { display: flex; justify-content: space-between; gap: 4px; color: var(--muted); }
 .quest-tracker .obj.done { color: var(--good); }
+.quest-tracker .main-story { padding-bottom: 2px; margin-bottom: 3px; border-bottom: 1px solid var(--line); }
+.quest-tracker .main-story h4 { color: var(--title); }
+.quest-tracker .main-story small { display: block; margin-top: 1px; color: var(--muted); font-size: 10px; }
+.quest-tracker .main-story .segbar { margin-top: 1px; }
 
 .next-action-card { position: relative; padding: 0 10px 2px 0; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
 .next-action-card strong { color: var(--title); }
@@ -1315,6 +1319,11 @@ input[type='checkbox'] { accent-color: var(--c-flame); }
 .obj-item.done { color: var(--good); }
 .obj-dot { display: inline-block; width: 5px; height: 5px; margin-right: 4px; border: 1px solid var(--c-stone); vertical-align: 1px; }
 .obj-dot.on { background: var(--good); border-color: var(--good); }
+.main-story-page { min-height: 0; }
+.story-act { margin-top: 4px; }
+.obj-item.story-now { outline: 1px solid var(--c-gold); }
+.story-sub { display: block; margin: 1px 0 0 9px; color: var(--muted); }
+.story-hint { color: var(--muted); }
 .reward-row { display: flex; gap: 2px; flex-wrap: wrap; margin-top: 2px; align-items: center; }
 .reward-pill {
   display: inline-flex; align-items: center; gap: 2px; padding: 0 2px;

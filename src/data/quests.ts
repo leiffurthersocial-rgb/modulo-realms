@@ -1,6 +1,7 @@
 import type { ClassId } from './classes';
 import type { FactionId, RaceId } from './races';
 import { AEGEAN_QUESTS } from './aegean/quests';
+import { MAIN_QUESTS } from './mainquest';
 export { AEGEAN_CHAPTERS, AEGEAN_STORIES, AEGEAN_CONTRACTS, AEGEAN_DISCOVERIES, AEGEAN_COMMISSIONS } from './aegean/progression';
 
 export type Objective =
@@ -10,7 +11,9 @@ export type Objective =
   | { type: 'explore'; location: string; label: string }
   | { type: 'clear'; map: string; label: string }
   | { type: 'boss'; enemy: string; label: string }
-  | { type: 'interact'; target: string; count?: number; label: string };
+  | { type: 'interact'; target: string; count?: number; label: string }
+  /** Any hostile kill inside a region counts — the main story's grind step. */
+  | { type: 'hunt'; region: string; count: number; label: string };
 
 export interface QuestReward {
   xp: number;
@@ -27,6 +30,16 @@ export interface QuestDef {
   turnIn?: string;
   level: number;
   main?: boolean;
+  /** Main story act (`MAIN_ACTS` in `mainquest.ts`). */
+  act?: number;
+  /**
+   * `'discovered'`: no compass arrow, minimap square or atlas flag until the
+   * player has found the marker location on their own. `hint` carries the
+   * directions until then.
+   */
+  guide?: 'discovered';
+  /** Plain directions — which way from which town — shown while unguided. */
+  hint?: string;
   summary: string;
   detail: string;
   objectives: Objective[];
@@ -54,7 +67,7 @@ export const QUESTS: QuestDef[] = [
     detail: 'Every road out of town leads somewhere worse. Whisperwell is the closest and the shallowest. Start there.',
     objectives: [{ type: 'explore', location: 'whisperwell', label: 'Find Whisperwell Cave' }],
     rewards: { xp: 180, gold: 150, items: ['potion_health_m', 'potion_health_m'], loot: { level: 4, rarity: 'rare' } },
-    marker: 'whisperwell',
+    marker: 'whisperwell', act: 1, next: 'main_count',
   },
 
   /* ---------------- self-serve bounties ---------------- */
@@ -142,6 +155,7 @@ export const QUESTS: QuestDef[] = [
     rewards: { xp: 950, gold: 550, loot: { level: 9, rarity: 'superRare' }, rep: [{ faction: 'alliance', amount: 15 }, { faction: 'bandits', amount: -15 }] },
     marker: 'cutter_camp',
   },
+  ...MAIN_QUESTS,
   ...AEGEAN_QUESTS,
 ];
 

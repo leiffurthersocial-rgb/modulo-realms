@@ -187,7 +187,7 @@ function WorldMap({ game }: { game: Game }) {
   const drag = useRef<{ x: number; y: number; l: number; t: number } | null>(null);
 
   const toPos = (tx: number, ty: number) => ({ left: Math.round((tx / world.w) * w), top: Math.round((ty / world.h) * h) });
-  const markers = game.quests.markers();
+  const markers = game.quests.markers(game.player);
   const trackedMarker = game.trackedQuest ? markers.find((m) => m.quest.id === game.trackedQuest) : undefined;
   const knownRegions = useMemo(() => {
     const set = new Set<string>();

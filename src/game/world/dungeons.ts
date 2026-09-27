@@ -192,10 +192,10 @@ export function generateDungeon(loc: LocationDef, seed: number): GameMap {
       const bossId = r.kind === 'boss' ? spec.boss! : spec.miniboss!;
       map.spawns.push({
         id: `${spec.mapId}_boss`, enemy: bossId, x: c.x * TILE, y: c.y * TILE,
-        level: spec.level + (r.kind === 'boss' ? 1 : 0), radius: 400, respawn: Infinity,
+        level: r.kind === 'boss' ? spec.bossLevel ?? spec.level + 1 : spec.level, radius: 400, respawn: Infinity,
         boss: r.kind === 'boss', elite: true, region: loc.region,
       });
-      map.chests.push({ id: `${spec.mapId}_bosschest`, x: c.x * TILE, y: (c.y + 4) * TILE, level: spec.level + 2, tier: 'boss' });
+      map.chests.push({ id: `${spec.mapId}_bosschest`, x: c.x * TILE, y: (c.y + 4) * TILE, level: (spec.bossLevel ?? spec.level) + 2, tier: 'boss' });
       return;
     }
 

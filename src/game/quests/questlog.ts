@@ -1,5 +1,6 @@
 import { QUEST_BY_ID, type Objective, type QuestDef } from '../../data/quests';
 import type { Player } from '../player/player';
+import { REGION_BY_ID, type RegionId } from '../../data/locations';
 
 export interface ActiveQuest {
   id: string;
@@ -56,7 +57,44 @@ export class QuestLog {
   }
 
   objectiveTarget(obj: Objective): number {
-    return obj.type === 'kill' || obj.type === 'collect' ? obj.count : obj.type === 'interact' ? obj.count ?? 1 : 1;
+    return obj.type === 'kill' || obj.type === 'collect' || obj.type === 'hunt' ? obj.count : obj.type === 'interact' ? obj.count ?? 1 : 1;
+  }
+
+  /**
+   * Credit what the player already did before this quest was theirs.
+   *
+   * Bosses and dungeon floors stay dead, and a place stays found. A main
+   * story step that asks for one of those after a bounty already took it
+   * would otherwise be impossible to finish. Kill counts cover the named
+   * elites that are not bosses. `hunt` and repeatable kills are only
+   * credited on the load-time catch-up — otherwise they are the part you are
+   * meant to go and do.
+   */
+  precredit(id: string, player: Player, catchUp = false): boolean {
+    const q = this.get(id);
+    const def = QUEST_BY_ID[id];
+    if (!q || !def) return false;
+    let any = false;
+    def.objectives.forEach((o, i) => {
+      const done =
+        (o.type === 'boss' && (player.bossesKilled.has(o.enemy) || (player.killCounts[o.enemy] ?? 0) > 0)) ||
+        (o.type === 'clear' && player.clearedDungeons.has(o.map)) ||
+        (o.type === 'explore' && player.discovered.has(o.location));
+      if (done && q.progress[i] < 1) {
+        q.progress[i] = 1;
+        any = true;
+      }
+    });
+    // A save walking forward through chapters it earned before the story
+    // existed: if the thing the cull was clearing the way to is already dead,
+    // the cull is not sent back to be done at level 80 against wolves.
+    if (catchUp && def.objectives.every((o, i) => o.type === 'hunt' || this.isObjectiveDone(def, q, i, player))) {
+      def.objectives.forEach((o, i) => {
+        const outgrown = player.level > (REGION_BY_ID[o.type === 'hunt' ? o.region as RegionId : 'central']?.level[1] ?? Infinity);
+        if (o.type === 'hunt' && outgrown && q.progress[i] < o.count) { q.progress[i] = o.count; any = true; }
+      });
+    }
+    return any;
   }
 
   isObjectiveDone(def: QuestDef, q: ActiveQuest, i: number, player: Player): boolean {
@@ -87,8 +125,11 @@ export class QuestLog {
     return touched;
   }
 
-  onKill(enemyId: string): string[] {
-    return this.bump((o) => (o.type === 'kill' && o.enemy === enemyId) || (o.type === 'boss' && o.enemy === enemyId));
+  onKill(enemyId: string, region?: string): string[] {
+    return this.bump((o) =>
+      (o.type === 'kill' && o.enemy === enemyId) ||
+      (o.type === 'boss' && o.enemy === enemyId) ||
+      (o.type === 'hunt' && !!region && o.region === region));
   }
 
   onTalk(npcId: string): string[] {
@@ -113,12 +154,22 @@ export class QuestLog {
     if (!this.completed.includes(id)) this.completed.push(id);
   }
 
+  /**
+   * Whether the map may point at this quest's marker. A `guide: 'discovered'`
+   * quest only gets its arrow once the player has found the place; before
+   * that, its `hint` is all they get.
+   */
+  markerVisible(def: QuestDef, player: Player): boolean {
+    if (!def.marker) return false;
+    return def.guide !== 'discovered' || player.discovered.has(def.marker);
+  }
+
   /** Quest ids currently trackable on the map, with their marker location. */
-  markers(): Array<{ quest: QuestDef; location: string }> {
+  markers(player: Player): Array<{ quest: QuestDef; location: string }> {
     const out: Array<{ quest: QuestDef; location: string }> = [];
     for (const q of this.active) {
       const def = QUEST_BY_ID[q.id];
-      if (def?.marker) out.push({ quest: def, location: def.marker });
+      if (def?.marker && this.markerVisible(def, player)) out.push({ quest: def, location: def.marker });
     }
     return out;
   }

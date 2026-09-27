@@ -7,10 +7,11 @@ import { FACTION_BY_ID } from '../data/races';
 import { getIconUrl } from '../game/art/icons';
 import { TEMPLATE_BY_ID } from '../data/items';
 import { Badge, Icon, Modal } from './kit';
+import { MAIN_ACTS, MAIN_ORDER } from '../data/mainquest';
 
 export default function QuestPanel({ game }: { game: Game }) {
   const p = game.player;
-  const [tab, setTab] = useState<'active' | 'done' | 'rumours'>('active');
+  const [tab, setTab] = useState<'story' | 'active' | 'done' | 'rumours'>(game.inAegean ? 'active' : 'story');
   const active = game.quests.active.map((a) => QUEST_BY_ID[a.id]).filter(Boolean);
   const done = game.quests.completed.map((id) => QUEST_BY_ID[id]).filter(Boolean);
   const rumours = QUESTS.filter((q) => game.quests.canAccept(q, p) && !active.includes(q));
@@ -24,12 +25,13 @@ export default function QuestPanel({ game }: { game: Game }) {
           {game.campaign.state.receipts.map((receipt, i) => <div key={i}><strong>{receipt.title}</strong>{receipt.lines.map((line, n) => <div key={n}>{line}</div>)}</div>)}
         </details> : null}
         <div className="tabs">
+          <button className={`tab ${tab === 'story' ? 'active' : ''}`} onClick={() => { setTab('story'); setSel(null); }}>Main story</button>
           <button className={`tab ${tab === 'active' ? 'active' : ''}`} onClick={() => { setTab('active'); setSel(null); }}>Active</button>
           <button className={`tab ${tab === 'done' ? 'active' : ''}`} onClick={() => { setTab('done'); setSel(null); }}>Completed</button>
           <button className={`tab ${tab === 'rumours' ? 'active' : ''}`} onClick={() => { setTab('rumours'); setSel(null); }}>Available</button>
         </div>
 
-        <div className="quest-layout">
+        {tab === 'story' ? <MainStory game={game} /> : <div className="quest-layout">
           <div className="quest-list scroll">
             {list.length === 0 ? (
               <div style={{ padding: 9, color: 'var(--muted)' }}>
@@ -77,6 +79,7 @@ export default function QuestPanel({ game }: { game: Game }) {
                   </button>
                 ) : null}
                 <p className="help-p" style={{ marginTop: 6 }}>{sel.summary}</p>
+                {sel.hint && !game.quests.markerVisible(sel, p) ? <p className="help-p story-hint">Where: {sel.hint}</p> : null}
                 {sel.detail !== sel.summary ? <details><summary>Story &amp; hints</summary><div style={{ color: 'var(--muted)' }}>{sel.detail}</div></details> : null}
 
                 <div className="section-h">Objectives</div>
@@ -131,7 +134,55 @@ export default function QuestPanel({ game }: { game: Game }) {
               <div style={{ color: 'var(--muted)' }}>Select a quest.</div>
             )}
           </div>
-        </div>
+        </div>}
     </Modal>
+  );
+}
+
+/**
+ * Every act and chapter on one page: what is done, what is now, and what
+ * level the next one wants. The rest of the list stays dark until you get
+ * there — names only, no spoilers past the current chapter.
+ */
+function MainStory({ game }: { game: Game }) {
+  const p = game.player;
+  const state = game.mainStoryState();
+  const current = state.kind === 'done' ? null : state.def.id;
+  const doneCount = MAIN_ORDER.filter((id) => game.quests.isCompleted(id)).length;
+  let reachedCurrent = false;
+  return (
+    <div className="journal-page frame-parchment scroll main-story-page">
+      <div className="q-title">The Main Story</div>
+      <div style={{ color: 'var(--muted)', marginTop: 2 }}>{doneCount} / {MAIN_ORDER.length} chapters · {state.kind === 'done' ? 'Finished. The sea is east.' : state.kind === 'level' ? `Next chapter at level ${state.needLevel}` : state.kind === 'report' ? `Report to ${NPC_BY_ID[state.reportTo ?? '']?.name ?? 'them'}` : 'In progress'}</div>
+      {MAIN_ACTS.map((act) => {
+        const steps = MAIN_ORDER.map((id) => QUEST_BY_ID[id]).filter((q) => q && (q.act ?? 1) === act.act);
+        return (
+          <div key={act.act} className="story-act">
+            <div className="section-h">Act {act.numeral} · {act.name}</div>
+            <div className="obj-list">
+              {steps.map((q) => {
+                const done = game.quests.isCompleted(q.id);
+                const now = q.id === current;
+                const ahead = !done && !now && reachedCurrent;
+                if (now) reachedCurrent = true;
+                const aq = game.quests.get(q.id);
+                return (
+                  <div key={q.id} className={`obj-item ${done ? 'done' : ''} ${now ? 'story-now' : ''}`}>
+                    <span>
+                      <i className={`obj-dot ${done ? 'on' : ''}`} />
+                      {ahead ? '???' : q.name}
+                      {now && aq ? <span className="story-sub">{q.summary}</span> : null}
+                      {now && q.hint && !game.quests.markerVisible(q, p) ? <span className="story-sub">Where: {q.hint}</span> : null}
+                    </span>
+                    <span>Lv {q.prereq?.level ?? q.level}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {act.act === (state.kind === 'done' ? 0 : state.act.act) ? <div style={{ color: 'var(--muted)', marginTop: 2 }}>{act.blurb}</div> : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }
