@@ -54,7 +54,7 @@ transitiv über Vite, `tsx` gar nicht. `check:aegean` kann bei einem Vite-Major 
 Loop (`src/App.tsx`): fixed timestep, Simulation **immer 60 Hz** (`accumulator`,
 `g.update(1/60)`). Battery Saver rendert 30 fps, simuliert weiter 60 Hz.
 Dev-Hooks auf `window`: `game`, `modulo`, `moduloTiles`, `moduloTemplates`,
-`moduloLocations` — nur im DEV-Build, Vite strippt sie in Production.
+`moduloLocations`, `moduloAmbience`, `moduloTownLife` — nur im DEV-Build.
 
 ## `src/data/balance.ts` — vor jeder Zahl lesen
 
@@ -143,7 +143,19 @@ src/
                          `deepnorth`, Asche in `farsouth`/`emberdeep`). Läuft auf
                          `game.now`, Dev-Hook `window.moduloAmbience`.
   game/art/beasts.ts     Wolf- und Golem-Anatomie + `menaceTier(level)` (0..3 aus
-                         dem Bestiarium-Level) und Menace-Trims für späte Kreaturen
+                         dem Bestiarium-Level) und Menace-Trims für späte Kreaturen.
+                         Seit 27.09. neu gezeichnet: Wolf mit echter Front-/Rückansicht
+                         (Kopf vorn, Schulterfell, Hinterläufe + Rute hinten), Golem aus
+                         Steinblöcken mit Ober-/Unterarm und Fäusten, die am Boden ruhen
+  game/art/interiorProps.ts  Möbel der Ashvale-Innenräume (Wandflächen, Kamin, Theke,
+                         Fässer, Esse, Blasebalg, Bänke, Altar, Thron, Regale …) —
+                         `getProp` fragt hier nach casino/cave, vor GEN
+  game/core/townLife.ts  25 Stadt-Details in Ashvale, nie gespeichert: Hühner, Hahn,
+                         Katze, Hund, zwei Botengänger, Kinder am Brunnen, Wäsche, Wimpel,
+                         Markisenfransen, Amboss-/Schleifsteinfunken, Krähen/Spatzen, Bienen,
+                         Blüten, Aushänge, Küchendampf, Brunnentropfen, Heu, Apfel, Motten,
+                         Essenglut, Kapellenglocke (6/12/18 Uhr), Teppichklopfen.
+                         Anker = vorhandene Props (liest nur), Dev-Hook `window.moduloTownLife`
   styles/global.css      UI-Stylesheet, nur UI-Pixel + --c-*/--img-* Variablen
 ```
 
@@ -328,6 +340,27 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
   verschiebt sich jeder Mine-Dungeon. Stützbalken stehen quer in Nord-Süd-Gängen (die
   Rückwände sind von Fackeln belegt). Leucht-Halos sind gestufte flache Ovale, keine
   Gradients (UI-/Pixel-Regel).
+
+## Ashvale-Überarbeitung (seit 27.09.)
+
+- **Innenräume** (`world/interiors.ts`): kleiner (Haus 10×8 … Kapelle 11×11), eigene Böden
+  `ROOM_PLANK` 81 / `ROOM_FLAG` 82, zwei Wandreihen mit Wandflächen-Prop (`face`), voll
+  möbliert per `dress()`. Interiors sind nicht Teil der eingefrorenen Westwelt.
+- **NPC-Standorte passen zum Text:** Pell (Laden) und Sable (Apotheke) stehen drinnen,
+  Ivo „am Tisch beim Feuer“, Rook am Brunnenplatz, neuer Lehrling **Wyn** (`smith_wyn`,
+  Esse, Rohstoffe). `check-npc-schedules` erwartet 3 Außenbewohner (Hanne, Corin, Kesh).
+- **Starter-NPCs sind nützlich** über drei Dialog-Aktionen (`dialogue/types.ts`):
+  `guide` (story/rumour/hunt → Richtung ab Ashvale), `bless` (Alun, 10 min Rüstung),
+  `sharpen` (Corin, Gold → 10 min +10 % Waffenschaden). Hanne/Sable schenken einmalig
+  Tränke (Flag `gift:*`).
+- **Story-„?“** auf Atlas und Minimap aus `Game.storyTargets()`: nur Ziele, die die
+  Hauptquest ohnehin zeigen darf (Regel „kein Dauerpfeil“ gilt weiter).
+- **Außen-Props neu gezeichnet** (Amboss, Schleifstein, Esse, Waffenständer, Brunnen …);
+  Ladenschilder bekommen ihr Symbol per Renderer-Overlay (`SIGN_DEVICE`) — Prop-Liste
+  der Westwelt bleibt unverändert.
+- Design-Kritik-Loops (eigener Kritiker-Agent, max. 3 Runden, Ziel ≥ 9/10): Interiors
+  5 → 7, Wolf 5 → 6, Golem 6 → 7, Außen-Props 5,5 → 7, Stadt-Details 5 → siehe PR.
+  **Keiner hat 9/10 erreicht** — nicht als „fertig poliert“ weitergeben.
 
 ## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen
 

@@ -47,7 +47,7 @@ type DrawActor = (g: CanvasRenderingContext2D, sheet: CharacterSheet, anim: stri
 interface Pt { x: number; y: number }
 interface Critter { x: number; y: number; hx: number; hy: number; vx: number; vy: number; t: number; state: number; seed: number; face: number }
 interface Walker { look: Look; path: Pt[]; leg: number; x: number; y: number; t: number; wait: number; dir: string; moving: boolean; carry: 'basket' | 'buckets' }
-interface Speck { x: number; y: number; vx: number; vy: number; t: number; max: number; color: string; kind: 'spark' | 'petal' | 'hay' | 'dust' | 'steam' | 'drop' | 'ember' }
+interface Speck { x: number; y: number; vx: number; vy: number; t: number; max: number; color: string; ox?: number; oy?: number; seed?: number; kind: 'spark' | 'petal' | 'hay' | 'dust' | 'steam' | 'drop' | 'ember' }
 interface Bird { x: number; y: number; hx: number; hy: number; state: 'perch' | 'fly' | 'gone'; t: number; vx: number; vy: number; seed: number; kind: 'crow' | 'sparrow' }
 
 const hash = (a: number, b = 0) => { const n = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return n - Math.floor(n); };
@@ -101,12 +101,20 @@ export class TownLife {
     for (const b of [a.chapel, a.hall]) {
       if (!b) continue;
       const art = getBuilding(b.art.slice(4));
-      for (let i = 0; i < 2; i++) {
-        // on the gable either side of the finial, following the slope down
-        const d = i ? 8 : -6;
-        const x = b.x + d, y = b.y - art.h - (art.padTop ?? 0) + 14 + Math.round(Math.abs(d) * 1.1);
-        this.birds.push({ x, y, hx: x, hy: y, state: 'perch', t: hash(x, y) * 10, vx: 0, vy: 0, seed: hash(y, x), kind: 'crow' });
-      }
+      const top = b.y - art.h + 4 - (art.padTop ?? 0);
+      const roofAt = (col: number): number => {
+        const cx2 = Math.round(art.w / 2 + col);
+        try {
+          const px = (art.canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(cx2, 0, 1, art.canvas.height).data;
+          for (let y = 0; y < art.canvas.height; y++) if (px[y * 4 + 3] > 200) return y;
+        } catch { /* no pixels to read (headless check) */ }
+        return 14;
+      };
+      // either side of the ridge ornament (and clear of the chapel's bell-cote)
+      [-16, 18].forEach((d, i) => {
+        const x = b.x + d, y = top + roofAt(d) + 1;
+        this.birds.push({ x, y, hx: x, hy: y, state: 'perch', t: hash(x, y) * 10, vx: 0, vy: 0, seed: i ? 0.8 : 0.2, kind: 'crow' });
+      });
     }
     if (a.well) for (let i = 0; i < 2; i++) {
       const x = a.well.x - 8 + i * 14, y = a.well.y - 44;
@@ -200,7 +208,7 @@ export class TownLife {
     if (a.well) this.kids.forEach((k, i) => {
       k.t += dt;
       const ang = now * (1.1 + i * 0.05) + i * 2.4 + Math.sin(now * 0.7) * 0.4;
-      const nx = a.well!.x + Math.cos(ang) * 58, ny = a.well!.y + 6 + Math.sin(ang) * 30;
+      const nx = a.well!.x + Math.cos(ang) * 52, ny = a.well!.y + 18 + Math.sin(ang) * 18;
       k.face = Math.sign(nx - k.x) || k.face;
       k.vx = nx - k.x; k.vy = ny - k.y; k.x = nx; k.y = ny;
     });
@@ -244,8 +252,8 @@ export class TownLife {
     if (this.apple) { const ap = this.apple; ap.t += dt; ap.x += ap.vx * dt; ap.vx *= 1 - dt * 1.2; if (ap.t > 6) this.apple = null; }
     // 22 moths at night; 23 forge chimney sparks at night
     if (this.night > 0.4) {
-      for (const br of a.braziers) if (Math.random() < dt * 0.2) spawn({ kind: 'dust', x: br.x, y: br.y - 34, vx: 0, vy: 0, t: 0, max: 5, color: PAL.bone });
-      if (a.forge && Math.random() < dt * 1.5) spawn({ kind: 'ember', x: a.forge.x + (Math.random() - 0.5) * 6, y: a.forge.y - 52, vx: this.wind * 0.4, vy: -26 - Math.random() * 20, t: 0, max: 1.4, color: Math.random() < 0.5 ? PAL.flameLit : PAL.flame });
+      for (const br of a.braziers) if (Math.random() < dt * 0.25) spawn({ kind: 'dust', x: br.x, y: br.y - 34, ox: br.x, oy: br.y - 36, seed: Math.random() * 6, vx: 0, vy: 0, t: 0, max: 6, color: PAL.bone });
+      if (a.forge && Math.random() < dt * 6) spawn({ kind: 'ember', x: a.forge.x + (Math.random() - 0.5) * 6, y: a.forge.y - 52, vx: this.wind * 0.4, vy: -26 - Math.random() * 20, t: 0, max: 1.4, color: Math.random() < 0.5 ? PAL.flameLit : PAL.flame });
     }
     // 24 the chapel bell
     const h = Math.floor(this.hour);
@@ -260,8 +268,12 @@ export class TownLife {
       s.t += dt;
       if (s.kind === 'spark' || s.kind === 'drop') s.vy += 260 * dt;
       if (s.kind === 'petal' || s.kind === 'hay') { s.vy = Math.sin(now * 3 + s.x * 0.1) * 6 + 5; }
-      if (s.kind === 'dust' && s.max > 3) { s.vx = Math.cos(now * 3 + s.y) * 20; s.vy = Math.sin(now * 4 + s.x) * 14; }
-      s.x += s.vx * dt; s.y += s.vy * dt;
+      if (s.ox !== undefined && s.oy !== undefined) {
+        // a moth: loops round its fire instead of drifting off
+        const q = s.seed ?? 0;
+        s.x = s.ox + Math.cos(now * 3.1 + q) * 11 + Math.sin(now * 7 + q) * 2;
+        s.y = s.oy + Math.sin(now * 4.3 + q) * 6;
+      } else { s.x += s.vx * dt; s.y += s.vy * dt; }
       if (s.t > s.max) this.specks.splice(i, 1);
     }
   }
@@ -282,24 +294,28 @@ export class TownLife {
     const shadow = (x: number, y: number, w: number) => { g.fillStyle = 'rgba(10,8,16,0.3)'; g.fillRect(Math.round(x - w / 2), Math.round(y), w, 1); };
     for (const h of this.hens) out.push({ y: h.y, draw: () => {
       const x = Math.round(h.x), y = Math.round(h.y), f = h.face;
+      // drawn facing right; `R` mirrors each rect for a hen facing left
+      const R = (dx: number, dy: number, w: number, hh: number, c: string) => { g.fillStyle = c; g.fillRect(f > 0 ? x + dx : x - dx - w, y + dy, w, hh); };
       const peck = h.state === 0 && Math.sin(now * 4 + h.seed * 7) > 0.5;
       const flap = h.state === 2 && Math.floor(now * 14) % 2 === 0;
-      shadow(x, y, 7);
-      g.fillStyle = PAL.ink; g.fillRect(x - 4, y - 6, 8, 6);
-      g.fillStyle = PAL.cloth; g.fillRect(x - 3, y - 5, 6, 4);
-      g.fillStyle = shade(PAL.cloth, 0.8); g.fillRect(x - 3 * f - (f > 0 ? 1 : 0), y - 4, 2, 2);
-      if (flap) { g.fillStyle = PAL.cloth; g.fillRect(x - 1, y - 8, 3, 2); }
-      const hx = x + f * (peck ? 3 : 2) - (f < 0 ? 2 : 0), hy = peck ? y - 3 : y - 8;
-      g.fillStyle = PAL.ink; g.fillRect(hx - 1, hy - 1, 4, 4);
-      g.fillStyle = PAL.cloth; g.fillRect(hx, hy, 2, 2);
-      g.fillStyle = PAL.blood; g.fillRect(hx, hy - 1, 2, 1);
-      g.fillStyle = PAL.flame; g.fillRect(f > 0 ? hx + 2 : hx - 1, hy + 1, 1, 1);
-      g.fillStyle = PAL.gold; g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1);
+      shadow(x, y, 9);
+      R(-7, -11, 3, 6, PAL.ink); R(-6, -10, 2, 4, PAL.cloth);          // cocked tail
+      R(-5, -8, 9, 7, PAL.ink); R(-4, -7, 7, 5, PAL.cloth);            // body
+      R(-3, -3, 6, 1, shade(PAL.cloth, 0.85));                          // belly shade
+      R(-2, -6, 3, 2, shade(PAL.cloth, 0.78));                          // wing
+      if (flap) { R(-3, -10, 4, 3, PAL.ink); R(-2, -9, 2, 1, PAL.cloth); }
+      const hx = peck ? 4 : 2, hy = peck ? -6 : -11;
+      R(hx, hy, 4, 5, PAL.ink); R(hx + 1, hy + 1, 2, 3, PAL.cloth);   // neck and head
+      R(hx + 1, hy - 1, 2, 1, PAL.blood);                               // comb
+      R(hx + 2, hy + 2, 1, 1, PAL.ink);                                 // eye
+      R(hx + 4, hy + 2, 1, 1, PAL.flame);                               // beak
+      R(hx + 3, hy + 4, 1, 1, PAL.blood);                               // wattle
+      R(-1, -1, 1, 1, PAL.gold); R(1, -1, 1, 1, PAL.gold);
     } });
     // the rooster on the cart
     const cart = this.a.cart;
     if (cart) out.push({ y: cart.y + 1, draw: () => {
-      const x = Math.round(cart.x + 10), y = Math.round(cart.y - 20);
+      const x = Math.round(cart.x - 14), y = Math.round(cart.y - 18);
       const crow = now - this.rooster < 1.4;
       g.fillStyle = PAL.ink; g.fillRect(x - 4, y - 6, 8, 6);
       g.fillStyle = PAL.clay; g.fillRect(x - 3, y - 5, 6, 4);
@@ -339,36 +355,69 @@ export class TownLife {
     const dog = this.dog;
     if (dog) out.push({ y: dog.y, draw: () => {
       const x = Math.round(dog.x), y = Math.round(dog.y), f = dog.face;
+      const R = (dx: number, dy: number, w: number, hh: number, c: string) => { g.fillStyle = c; g.fillRect(f > 0 ? x + dx : x - dx - w, y + dy, w, hh); };
       const wag = Math.floor(now * (dog.state ? 10 : 6)) % 2;
       const trot = dog.state ? Math.floor(now * 10) % 2 : 0;
-      shadow(x, y, 12);
-      g.fillStyle = PAL.ink; g.fillRect(x - 6, y - 8, 12, 7);
-      g.fillStyle = PAL.dirtLit; g.fillRect(x - 5, y - 7, 10, 5);
-      g.fillStyle = PAL.bone; g.fillRect(x - 2, y - 3, 5, 1);
-      g.fillStyle = PAL.ink; g.fillRect(x + f * 5 - 2, y - 12, 5, 6);
-      g.fillStyle = PAL.dirtLit; g.fillRect(x + f * 5 - 1, y - 11, 3, 4);
-      g.fillStyle = PAL.dirt; g.fillRect(x + f * 5 - (f > 0 ? 1 : 0), y - 13, 2, 3);
-      g.fillStyle = PAL.ink; g.fillRect(x + f * 7, y - 9, 1, 1);
-      g.fillStyle = PAL.dirtLit; g.fillRect(x - f * 7 - (f > 0 ? 0 : 1), y - 9 - wag, 2, 2);
-      g.fillStyle = PAL.dirt; g.fillRect(x - 4 + trot, y - 1, 2, 1); g.fillRect(x + 3 - trot, y - 1, 2, 1);
+      shadow(x, y, 14);
+      R(-10, -12 + wag, 3, 5, PAL.ink); R(-9, -11 + wag, 1, 3, PAL.dirtLit);   // tail, off the rump
+      for (const [lx, ph] of [[-6, trot], [-4, -trot], [1, -trot], [3, trot]] as const) { R(lx + ph, -3, 1, 3, PAL.ink); }
+      R(-7, -9, 12, 7, PAL.ink); R(-6, -8, 10, 5, PAL.dirtLit);                  // body
+      R(-5, -4, 8, 1, PAL.dirt);                                                 // belly shade
+      R(-5, -8, 6, 1, shade(PAL.dirtLit, 1.12));                                 // back, lit
+      R(3, -12, 6, 7, PAL.ink); R(4, -11, 4, 5, PAL.dirtLit);                    // head, forward and overlapping
+      R(8, -9, 3, 4, PAL.ink); R(8, -8, 2, 2, PAL.dirtLit); R(10, -9, 1, 1, PAL.ink); // muzzle, nose
+      R(6, -10, 1, 1, PAL.ink);                                                  // eye
+      R(4, -11, 2, 4, PAL.dirt);                                                 // drooping ear
+      R(3, -7, 1, 3, PAL.blood);                                                 // collar
     } });
     // errand-runners
     for (const w of this.walkers) out.push({ y: w.y, draw: () => {
-      drawActor(g, getCharacterSheet(w.look), w.moving ? 'walk' : 'idle', w.moving ? w.t : now, w.dir, w.x, w.y + 6);
       const x = Math.round(w.x), y = Math.round(w.y);
-      if (w.carry === 'basket') {
-        g.fillStyle = PAL.ink; g.fillRect(x + 4, y - 16, 9, 7);
-        g.fillStyle = PAL.plank; g.fillRect(x + 5, y - 15, 7, 5);
-        g.fillStyle = PAL.blood; g.fillRect(x + 6, y - 17, 2, 2); g.fillStyle = PAL.goldLit; g.fillRect(x + 9, y - 17, 2, 2);
-      } else {
-        for (const s of [-1, 1]) { g.fillStyle = PAL.ink; g.fillRect(x + s * 9 - 3, y - 14, 6, 7); g.fillStyle = PAL.wood; g.fillRect(x + s * 9 - 2, y - 13, 4, 5); g.fillStyle = PAL.water; g.fillRect(x + s * 9 - 2, y - 13, 4, 1); }
+      const load = () => {
+        if (w.carry === 'basket') {
+          const side = w.dir === 'left' ? -1 : 1, bx = x + side * 8 - 4;
+          g.fillStyle = PAL.ink; g.fillRect(bx, y - 12, 9, 7); g.fillRect(bx + 1, y - 15, 1, 3); g.fillRect(bx + 7, y - 15, 1, 3); g.fillRect(bx + 2, y - 16, 5, 1);
+          g.fillStyle = PAL.plank; g.fillRect(bx + 1, y - 11, 7, 5);
+          g.fillStyle = shade(PAL.plank, 0.75); g.fillRect(bx + 1, y - 9, 7, 1);
+          g.fillStyle = PAL.blood; g.fillRect(bx + 2, y - 13, 2, 2); g.fillStyle = PAL.goldLit; g.fillRect(bx + 5, y - 13, 2, 2);
+        } else {
+          for (const sd of [-1, 1]) { g.fillStyle = PAL.ink; g.fillRect(x + sd * 9 - 3, y - 11, 6, 7); g.fillStyle = PAL.wood; g.fillRect(x + sd * 9 - 2, y - 10, 4, 5); g.fillStyle = PAL.water; g.fillRect(x + sd * 9 - 2, y - 10, 4, 1); }
+        }
+      };
+      if (w.dir === 'up') load();
+      drawActor(g, getCharacterSheet(w.look), w.moving ? 'walk' : 'idle', w.moving ? w.t : now, w.dir, w.x, w.y + 6);
+      if (w.dir !== 'up') load();
+    } });
+    // 8 washing on a line
+    const line = this.lineAt();
+    if (line) out.push({ y: line.y + 32, draw: () => {
+      g.fillStyle = PAL.woodDark;
+      g.fillRect(line.x0 - 1, line.y - 2, 2, 34); g.fillRect(line.x1 - 1, line.y - 2, 2, 34);
+      for (let x = line.x0; x < line.x1; x += 2) g.fillRect(x, line.y + Math.round(Math.sin(((x - line.x0) / (line.x1 - line.x0)) * Math.PI) * 4), 2, 1);
+      const cloths: Array<[number, string, number, number]> = [[0.18, PAL.cloth, 10, 12], [0.4, '#6a8ab0', 8, 14], [0.62, PAL.blood, 12, 10], [0.84, PAL.sandLit, 8, 11]];
+      for (const [k, c, w, h] of cloths) {
+        const x = Math.round(line.x0 + (line.x1 - line.x0) * k - w / 2), y = Math.round(line.y + Math.sin(k * Math.PI) * 4 + 1);
+        const billow = Math.round(Math.sin(now * 2.5 + k * 9) * (this.wind / 9));
+        g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, w + 2, h + 2);
+        g.fillStyle = c; g.fillRect(x, y, w, h);
+        g.fillStyle = shade(c, 0.8); g.fillRect(x + (billow > 0 ? w - 2 : 0), y + 2, 2, h - 2);
+        g.fillRect(x + billow, y + h, w, 1);
       }
+    } });
+    // 25 the rug over its rail
+    const rug = this.rugAt();
+    if (rug) out.push({ y: rug.y, draw: () => {
+      g.fillStyle = PAL.woodDark; g.fillRect(rug.x - 14, rug.y - 18, 2, 18); g.fillRect(rug.x + 12, rug.y - 18, 2, 18); g.fillRect(rug.x - 14, rug.y - 19, 28, 2);
+      g.fillStyle = PAL.ink; g.fillRect(rug.x - 11, rug.y - 18, 22, 14);
+      g.fillStyle = '#6a2a3a'; g.fillRect(rug.x - 10, rug.y - 17, 20, 12);
+      g.fillStyle = PAL.gold; g.fillRect(rug.x - 10, rug.y - 17, 20, 1); g.fillRect(rug.x - 10, rug.y - 7, 20, 1);
+      for (let i = 0; i < 3; i++) g.fillRect(rug.x - 6 + i * 6, rug.y - 13, 2, 2);
     } });
     // children
     const kidLook: Look[] = [{ ...DEFAULT_LOOK, hair: '#c9a86b', shirt: '#6a8ab0', height: 0.72 }, { ...DEFAULT_LOOK, hair: '#4a2a1a', hairStyle: 'ponytail', shirt: '#b5462f', height: 0.7 }];
     if (this.hour > 7 && this.hour < 19) this.kids.forEach((k, i) => out.push({ y: k.y, draw: () => {
       const dir = Math.abs(k.vx) > Math.abs(k.vy) ? (k.vx > 0 ? 'right' : 'left') : (k.vy > 0 ? 'down' : 'up');
-      drawActor(g, getCharacterSheet(kidLook[i]), 'walk', now * 1.6 + i, dir, k.x, k.y + 6, 0.8);
+      drawActor(g, getCharacterSheet(kidLook[i]), 'walk', now * 1.6 + i, dir, k.x, k.y + 6);
     } }));
     // the apple
     const ap = this.apple;
@@ -397,44 +446,23 @@ export class TownLife {
       const n = Math.floor(len / 12);
       for (let i = 1; i < n; i++) {
         const k = i / n, x = Math.round(x0 + (x1 - x0) * k), y = Math.round(cord(k)) + 1;
-        const sway = Math.round(Math.sin(now * 3 + i) * (this.wind / 12));
+        const sv = Math.sin(now * 3 + i * 0.8) * (this.wind / 10), sway = sv > 0.3 ? 1 : sv < -0.3 ? -1 : 0;
         const c = [PAL.blood, PAL.goldLit, '#4f9ce8', PAL.cloth][i % 4];
         g.fillStyle = PAL.ink; g.fillRect(x - 3, y, 7, 1);
         g.fillStyle = c; g.fillRect(x - 2, y + 1, 5, 2); g.fillRect(x - 1 + sway, y + 3, 3, 1); g.fillRect(x + sway, y + 4, 1, 1);
         g.fillStyle = shade(c, 0.7); g.fillRect(x + 2, y + 1, 1, 2);
       }
     }
-    // 10 awning fringes
+    // 10 awning fringes: tabs along the hem, their tips swinging in the wind
     for (const s of a.stalls) {
       for (let i = 0; i < 9; i++) {
-        const x = Math.round(s.x - 26 + i * 6.5), y = Math.round(s.y - 40 + (Math.sin(now * 5 + i + s.x) * (this.wind / 12) > 0.5 ? 1 : 0));
-        g.fillStyle = i % 2 ? PAL.cloth : PAL.blood; g.fillRect(x, y, 3, 2);
+        const x = Math.round(s.x - 26 + i * 6.5), y = Math.round(s.y - 19);
+        const w = Math.sin(now * 5 + i * 0.9 + s.x) * (this.wind / 10);
+        const tip = w > 0.35 ? 1 : w < -0.35 ? -1 : 0;
+        const c = i % 2 ? PAL.cloth : PAL.blood;
+        g.fillStyle = PAL.ink; g.fillRect(x - 1, y, 5, 3); g.fillRect(x + tip, y + 3, 3, 1);
+        g.fillStyle = c; g.fillRect(x, y, 3, 2); g.fillRect(x + 1 + tip, y + 2, 1, 1);
       }
-    }
-    // 8 washing on a line
-    const line = this.lineAt();
-    if (line) {
-      g.fillStyle = PAL.woodDark;
-      g.fillRect(line.x0 - 1, line.y - 2, 2, 34); g.fillRect(line.x1 - 1, line.y - 2, 2, 34);
-      for (let x = line.x0; x < line.x1; x += 2) g.fillRect(x, line.y + Math.round(Math.sin(((x - line.x0) / (line.x1 - line.x0)) * Math.PI) * 4), 2, 1);
-      const cloths: Array<[number, string, number, number]> = [[0.18, PAL.cloth, 10, 12], [0.4, '#6a8ab0', 8, 14], [0.62, PAL.blood, 12, 10], [0.84, PAL.sandLit, 8, 11]];
-      for (const [k, c, w, h] of cloths) {
-        const x = Math.round(line.x0 + (line.x1 - line.x0) * k - w / 2), y = Math.round(line.y + Math.sin(k * Math.PI) * 4 + 1);
-        const billow = Math.round(Math.sin(now * 2.5 + k * 9) * (this.wind / 9));
-        g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, w + 2, h + 2);
-        g.fillStyle = c; g.fillRect(x, y, w, h);
-        g.fillStyle = shade(c, 0.8); g.fillRect(x + (billow > 0 ? w - 2 : 0), y + 2, 2, h - 2);
-        g.fillRect(x + billow, y + h, w, 1);
-      }
-    }
-    // 25 the rug over its rail
-    const rug = this.rugAt();
-    if (rug) {
-      g.fillStyle = PAL.woodDark; g.fillRect(rug.x - 14, rug.y - 18, 2, 18); g.fillRect(rug.x + 12, rug.y - 18, 2, 18); g.fillRect(rug.x - 14, rug.y - 19, 28, 2);
-      g.fillStyle = PAL.ink; g.fillRect(rug.x - 11, rug.y - 18, 22, 14);
-      g.fillStyle = '#6a2a3a'; g.fillRect(rug.x - 10, rug.y - 17, 20, 12);
-      g.fillStyle = PAL.gold; g.fillRect(rug.x - 10, rug.y - 17, 20, 1); g.fillRect(rug.x - 10, rug.y - 7, 20, 1);
-      for (let i = 0; i < 3; i++) g.fillRect(rug.x - 6 + i * 6, rug.y - 13, 2, 2);
     }
     // 17 notices lifting
     if (a.board) for (let i = 0; i < 4; i++) {
@@ -457,10 +485,24 @@ export class TownLife {
       if (b.state === 'perch') {
         const caw = crow && Math.sin(now * 0.8 + b.seed * 20) > 0.97;
         const hop = !crow && Math.sin(now * 3 + b.seed * 10) > 0.8 ? -1 : 0;
-        g.fillStyle = body; g.fillRect(x - 2, y - 3 + hop, crow ? 5 : 4, crow ? 4 : 3);
-        g.fillRect(x + (crow ? 2 : 1), y - 5 + hop, 2, 2);
-        g.fillStyle = crow ? PAL.charcoal : PAL.sand; g.fillRect(x + (crow ? 4 : 3), y - 4 + hop, caw ? 2 : 1, 1);
-        if (caw) { g.fillStyle = PAL.ink; g.fillRect(x + 7, y - 8, 1, 1); g.fillRect(x + 9, y - 10, 1, 1); }
+        const f = b.seed > 0.5 ? -1 : 1;
+        const R = (dx: number, dy: number, w: number, h: number, c: string) => { g.fillStyle = c; g.fillRect(f > 0 ? x + dx : x - dx - w, y + dy + hop, w, h); };
+        if (crow) {
+          R(-5, -4, 3, 2, PAL.ink);                 // tail
+          R(-3, -5, 6, 5, PAL.ink); R(1, -7, 3, 3, PAL.ink);
+          R(-2, -5, 4, 1, PAL.stone); R(2, -7, 1, 1, PAL.stone); // lit back and crown
+          R(4, -6, caw ? 3 : 2, 1, PAL.rockLit);      // beak
+          if (caw) R(4, -5, 2, 1, PAL.rockLit);
+          R(2, -6, 1, 1, PAL.goldLit);              // eye
+          R(-1, 0, 1, 1, PAL.ink); R(1, 0, 1, 1, PAL.ink);
+        } else {
+          R(-4, -4, 7, 5, PAL.ink); R(1, -6, 4, 4, PAL.ink);
+          R(-3, -3, 5, 3, PAL.dirtLit); R(2, -5, 2, 2, PAL.dirt);
+          R(-2, -1, 4, 1, PAL.sandLit);             // pale belly
+          R(-3, -3, 3, 1, PAL.dirt);                // wing bar
+          R(5, -4, 1, 1, PAL.gold);
+        }
+        if (caw) { g.fillStyle = PAL.ink; g.fillRect(x + f * 8, y - 10, 1, 1); g.fillRect(x + f * 10, y - 12, 1, 1); }
       } else {
         const up = Math.floor(now * 12 + b.seed * 10) % 2;
         g.fillStyle = body; g.fillRect(x - 1, y - 1, 3, 2);
@@ -477,29 +519,34 @@ export class TownLife {
       if (s.kind === 'hay') g.fillRect(Math.round(s.x) + 1, Math.round(s.y) + 1, 2, 1);
     }
     g.globalAlpha = 1;
-    // 24 the bell: rings spreading from the chapel roof
+    // 24 the bell-cote on the chapel ridge; the bell swings on the hour
     const chapel = a.chapel;
-    if (chapel && this.bell >= 0 && now - this.bell < 6) {
+    if (chapel) {
       const art = getBuilding('chapel');
       const bx = chapel.x, by = chapel.y - art.h - (art.padTop ?? 0) + 18;
-      // a little bell-cote on the finial: yoke, swinging bell, clapper
-      const swing = Math.round(Math.sin(now * 7) * 2);
-      g.fillStyle = PAL.ink; g.fillRect(bx - 7, by - 10, 14, 3); g.fillRect(bx - 7, by - 10, 2, 12); g.fillRect(bx + 5, by - 10, 2, 12);
-      g.fillStyle = PAL.woodDark; g.fillRect(bx - 6, by - 9, 12, 1);
-      g.fillStyle = PAL.ink; g.fillRect(bx - 4 + swing, by - 7, 8, 8);
-      g.fillStyle = PAL.gold; g.fillRect(bx - 3 + swing, by - 6, 6, 6);
-      g.fillStyle = PAL.goldLit; g.fillRect(bx - 2 + swing, by - 6, 2, 3);
-      g.fillStyle = PAL.ink; g.fillRect(bx - swing, by + 1, 1, 2);
-      // sound waves either side, one per stroke, fading as they travel
-      const k = ((now - this.bell) % 1.5) / 1.5;
-      g.fillStyle = PAL.goldLit; g.globalAlpha = 0.9 * (1 - k);
-      for (const side of [-1, 1]) for (let i = 0; i < 2; i++) {
-        const d = 10 + i * 5 + Math.round(k * 10);
-        const x = Math.round(bx + side * d);
-        g.fillRect(x, by - 7 - i, 1, 7 + i * 2);
-        g.fillRect(x - side, by - 8 - i, 1, 1); g.fillRect(x - side, by + 1 + i, 1, 1);
+      const ringing = this.bell >= 0 && now - this.bell < 6;
+      const swing = ringing ? Math.round(Math.sin(now * 7) * 2) : 0;
+      const B = (dx: number, dy: number, w: number, h: number, c: string) => { g.fillStyle = c; g.fillRect(bx + dx, by + dy, w, h); };
+      B(-9, -14, 18, 2, PAL.ink); B(-8, -14, 16, 1, '#5a5f6e');           // cap
+      B(-8, -12, 3, 15, PAL.ink); B(-7, -12, 1, 14, PAL.woodDark);        // posts
+      B(5, -12, 3, 15, PAL.ink); B(6, -12, 1, 14, PAL.woodDark);
+      B(-5, -12, 10, 2, PAL.ink); B(-5, -11, 10, 1, PAL.woodDark);        // yoke
+      // the bell: narrow crown, flared mouth, a lip
+      B(-2 + swing, -10, 4, 2, PAL.ink); B(-3 + swing, -8, 6, 5, PAL.ink); B(-4 + swing, -3, 8, 2, PAL.ink);
+      B(-1 + swing, -9, 2, 1, PAL.gold); B(-2 + swing, -8, 4, 4, PAL.gold); B(-3 + swing, -3, 6, 1, PAL.gold);
+      B(-2 + swing, -8, 1, 3, PAL.goldLit);
+      B(-swing, -1, 1, 1, PAL.ink);                                         // clapper
+      if (ringing) {
+        const k = ((now - this.bell) % 1.5) / 1.5;
+        g.fillStyle = PAL.goldLit; g.globalAlpha = 0.9 * (1 - k);
+        for (const side of [-1, 1]) for (let i = 0; i < 2; i++) {
+          const d = 11 + i * 5 + Math.round(k * 10);
+          const x = Math.round(bx + side * d);
+          g.fillRect(x, by - 8 - i, 1, 7 + i * 2);
+          g.fillRect(x - side, by - 9 - i, 1, 1); g.fillRect(x - side, by + i, 1, 1);
+        }
+        g.globalAlpha = 1;
       }
-      g.globalAlpha = 1;
     }
     g.restore();
   }
@@ -513,7 +560,7 @@ export class TownLife {
       if (s.kind !== 'spark' && s.kind !== 'ember' && !(s.kind === 'dust' && s.max > 3)) continue;
       g.globalAlpha = Math.min(1, (1 - s.t / s.max) * 1.5) * (s.kind === 'dust' ? 0.5 : 0.9);
       g.fillStyle = s.color;
-      g.fillRect(Math.round(s.x), Math.round(s.y), s.kind === 'dust' ? 2 : 1, 1);
+      g.fillRect(Math.round(s.x), Math.round(s.y), s.kind === 'spark' ? 1 : 2, s.kind === 'ember' ? 2 : 1);
     }
     g.restore();
   }
