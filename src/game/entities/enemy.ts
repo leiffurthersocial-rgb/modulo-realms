@@ -72,6 +72,8 @@ export class Enemy implements Entity {
   lifetime = Infinity;
   friendly = false;
   bossCooldowns: Record<string, number> = {};
+  /** The region it was spawned in — what a main-story `hunt` counts. */
+  region = 'central';
   /** The danger multiplier of the region it was spawned in. */
   regionMul = 1;
   /** The same, softened, for what it hits for. See the constructor. */
@@ -119,6 +121,7 @@ export class Enemy implements Entity {
     // bosses take their own multiplier so that a starter region can still
     // keep something frightening at the bottom of it.
     const regionKey = opts.region ?? def.region ?? 'central';
+    this.region = regionKey;
     this.regionMul = this.isBoss
       ? (REGION_BOSS_DIFFICULTY[regionKey] ?? 1)
       : (REGION_DIFFICULTY[regionKey] ?? 1);

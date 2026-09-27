@@ -303,6 +303,42 @@ export const NPCS: NpcDef[] = [
     ],
   },
   {
+    // The main story's hub. He was only a name in Hanne's and Bryn's mouths
+    // until the story needed someone to report to; he drinks at the Kettle &
+    // Crown because that is where Bryn said he does.
+    id: 'ivo_marrow', name: 'Ivo Marrow', title: 'Lapsed Concord Scholar', race: 'human', faction: 'arcane',
+    personality: 'Nervous, brilliant, talks in numbers when he is frightened, which is most of the time.',
+    map: 'int_inn', tx: 13, ty: 9,
+    look: look({ skin: PAL.skin1, hair: '#8a7a6a', hairStyle: 'short', beard: 'stubble', eyes: '#6a8ab0', shirt: '#4a4a6a', pants: '#2b2b3d', armor: 'robe', armorColor: '#3d3a5a', armorTrim: PAL.arcaneLit }),
+    wander: 14,
+    greeting: [
+      { cond: { questDone: 'main_remainder' }, lines: ['"It divides evenly. I have checked eleven times."', 'He does not look up from the page. He is smiling.'] },
+      { cond: { questActive: 'main_remainder' }, lines: ['"Sigrun lifted the bar. I felt it from here, like a tooth coming out."', '"Go on. I will be counting."'] },
+      { cond: { questDone: 'main_spire' }, lines: ['Ivo has Vareth\'s ledger open beside his cup. Every margin has something new written in it.', '"The numbers are getting larger. Not faster. Larger."'] },
+      { cond: { questDone: 'main_count' }, lines: ['"You again. Good. Sit. Do not touch that — it is a proof."'] },
+      { lines: ['A thin man at the middle table is writing numbers on the wood with a wet finger and rubbing them out.', '"If you are here to tell me something is wrong in the valley, you are late. If you are here to tell me what, sit down."'] },
+    ],
+    topics: [
+      { text: 'What is the Modulo?', to: 'modulo' },
+      { text: 'What is the Concord?', to: 'concord' },
+      { tag: 'Mage', text: 'I can feel the leak from here.', cond: { classes: ['mage', 'necromancer'] }, to: 'feel' },
+    ],
+    nodes: [
+      { id: 'modulo', text: [
+        '"Everything divides. A river into streams, a year into seasons, a person into the people they were."',
+        '"Divide the world by anything and there is a remainder. The Modulo is what does the dividing. The remainder is what is left, and it used to be very small."',
+      ] },
+      { id: 'concord', text: [
+        '"A college of people who measure things. I was one. They measured the Modulo, got a number they did not like, and stopped measuring."',
+        '"I did not stop. That is what lapsed means, in the Concord. It means you kept going."',
+      ] },
+      { id: 'feel', text: [
+        '"Then you know it is not a smell and not a sound. It is the feeling of a sum that does not come out."',
+        '"Keep that feeling. It will tell you which way to walk better than I can."',
+      ], choices: [{ text: 'I will.', actions: [{ type: 'rep', faction: 'arcane', amount: 3 }] }] },
+    ],
+  },
+  {
     id: 'dealer_dario', name: 'Dario', title: 'Dealer at the Gilded Spade', race: 'human', faction: 'guild',
     personality: 'Courteous, endlessly patient, and has already worked out what you can afford to lose.',
     map: 'int_casino', tx: 10, ty: 8,

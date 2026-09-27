@@ -30,14 +30,14 @@ npm install
 npm run dev            # http://localhost:5173
 npm run typecheck      # tsc --noEmit
 npm run build          # typecheck + vite build
-npm run check:aegean   # 26 serielle Regressionsgruppen — DER große Lauf
+npm run check:aegean   # 27 serielle Regressionsgruppen — DER große Lauf
 ```
 
 **Vor jedem Push:** `npm run typecheck && npm run build && npm run check:aegean`.
 
 Letzter verifizierter Stand (selbst ausgeführt): typecheck 0 Fehler, Build OK
 (1,297 MB / 415 KB gzip, Single-Chunk-Warnung ist bekannt und akzeptiert),
-check:aegean alle 26 Gruppen grün. Keine TODO/FIXME/HACK im Code.
+check:aegean alle 27 Gruppen grün (27.09., mit Hauptquest). Keine TODO/FIXME/HACK im Code.
 
 ⚠️ `esbuild` und `tsx` sind **nicht in `package.json` deklariert**. `esbuild` kommt nur
 transitiv über Vite, `tsx` gar nicht. `check:aegean` kann bei einem Vite-Major brechen.
@@ -121,6 +121,8 @@ src/
                          neben Dario liest sich als Kinderzimmer.
   data/                  races, classes, items, enemies, npcs, quests, locations,
                          balance.ts, aegean/*
+  data/mainquest.ts      Hauptquest West: MAIN_ACTS, MAIN_QUESTS, MAIN_ORDER, MAIN_REPORT
+  game/quests/questlog.ts  QuestLog: Fortschritt, `hunt`, `precredit`, `markerVisible`
   ui/                    28 React-Panels + hooks.ts, aegeanNames.ts
   ui/kit/                UI-Designsystem in Code: tokens.ts (Palette aus PAL, UI-Zoom),
                          glyphs.ts + font.ts (Pixel-Fonts als TTF zur Laufzeit gebaut),
@@ -180,8 +182,9 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
 
 ## Bewusste Design-Entscheidungen — nicht "korrigieren"
 
-- **Fast keine Quests.** Genau eine Tutorial-Quest. Alles andere sind Bounties, die sich
-  beim Entdecken selbst anbieten und sofort auszahlen.
+- **Eine Hauptquest, sonst Bounties.** Nebenbei bleibt alles Bounty: bietet sich beim
+  Entdecken selbst an, zahlt sofort aus. Die Hauptquest (siehe eigener Abschnitt) ist die
+  einzige Kette mit Rückmeldung an NPCs.
 - **Türen:** nutzbare Gebäude sehen aus wie ihre Funktion, alles andere ist dasselbe
   verrammelte Stadthaus. Eine Silhouette, einmal prüfen reicht.
 - **Licht:** Interiors hell, Dunkelheit nur in Dungeons/Krypten/Höhlen/Türmen.
@@ -266,6 +269,42 @@ Default-Seed **1337**; `AEGEAN_TEST_SEED=42` gibt eine zweite Geographie.
 - Wind: Bäume/Büsche mit `swayRow` verschieben die Krone um ganze Pixel, Stamm bleibt;
   jede zweite Instanz wird per Positions-Hash gespiegelt.
 
+## Hauptquest West — „Der Rest“ (seit 27.09.)
+
+Daten in `src/data/mainquest.ts`, Logik in `Game.offerMainQuests` / `mainStoryState` /
+`mainStorySeal` + `QuestLog`. Geprüft von `scripts/check-mainquest.ts` (Teil von `check:aegean`).
+
+Story: Das Modulo teilt die Welt, der **Rest** wird größer. Tutorial → Whisperwell →
+Ivo → Ironroot → Thornhollow/Matriarch → Northwatch/Stone Warden → Vareth → vier Lecks
+(Gloam Mother, Tide King, Aldrhrim, Cinder Maw — freie Reihenfolge) → Drowned Court →
+Storm Throne → Floor of the World → **The Remainder** (Level 75, Finale). 6 Akte, 12 Kapitel.
+Die drei `AEGEAN_ENTRY_BOSSES` liegen alle auf dem Weg — Hauptquest-Ende = Tür nach Achaea.
+
+Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
+- **Level-Gates** (`prereq.level`): das nächste Kapitel kommt erst mit dem Level. Tracker
+  zeigt „Reach level N“ + XP-Balken + Region zum Leveln. Die Lücke ist gewollt (Bounties,
+  Dungeons, Kasino). Gates nicht entfernen, nur verschieben.
+- **Kein Dauerpfeil:** `guide: 'discovered'` → Kompass, Minimap und Atlas-Flagge erst,
+  wenn der Spieler den Ort selbst entdeckt hat. Vorher nur `hint` (Richtung ab welcher
+  Stadt). Jeder unguided Schritt braucht einen `hint` (Check erzwingt).
+- **`hunt`-Ziel** `{ region, count }`: jeder echte Spawn-Kill in der Region; Beschwörungen
+  zählen nicht. Grind im Kapitel.
+- **Vorher erledigt zählt** (`QuestLog.precredit`): Boss (`bossesKilled`/`killCounts`),
+  Dungeon (`clearedDungeons`), Ort (`discovered`). Hunts nie — außer beim Laden, wenn der
+  Spieler die Region überlevelt hat (`catchUp`). Alte Saves laufen beim Laden in einem
+  Rutsch durch alle verdienten Kapitel (ein Toast).
+- Kapitel werden **automatisch angenommen** (Hand-in, jedes Level-up, Laden), nie per
+  NPC-Angebot. Kapitel ohne `turnIn` zahlen sofort; mit `turnIn` → Rückmeldung (Tracker
+  sagt wo, `MAIN_REPORT`).
+- Belohnungen kommen aus den Kurven (`pay()` = `enemyXpAt`/`enemyGoldAt`), nie per Hand.
+- **Ivo Marrow** (`ivo_marrow`, Kettle & Crown, `int_inn` 13/9) ist der Story-Hub. Neuer
+  NPC im Interior — Westwelt-Baseline unberührt.
+- **Der Remainder** steht per `DungeonSpec.bossLevel: 75` am Ende von „Under the Gate“
+  (Trash bleibt 59). Der Abstieg (`dungeon_remainder`) ist **versiegelt**, bis
+  `main_remainder` aktiv ist oder er schon tot ist (`mainStorySeal`).
+- Nicht gebaut (Vorschlag, offen): Kopfgeld-Brett mit täglichen Aufträgen, Marken-Währung,
+  Boss-Rematch-Stufen, Jagdbuch.
+
 ## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen
 
 `scripts/check-aegean-world.ts` friert die komplette Westhälfte (960×1088) gegen
@@ -302,12 +341,14 @@ Forging bis Level 75 ist unverändert; Upgrades **jenseits 75** nutzen dieselbe
 Template-Kurve wie der Loader — sonst entsteht temporäre Exponentialkraft, die beim
 Reload verschwindet. Abgedeckt von `scripts/check-endgame-reforge.ts`.
 
-## Check-Skripte (`scripts/`, 32 Stück, kein Test-Framework)
+## Check-Skripte (`scripts/`, 33 Stück, kein Test-Framework)
 
 `npx tsx scripts/<name>.ts`:
 - `check-balance` — jede Waffe/Rüstung/jeder Gegner gegen Budget. Alles soll `x1.00` lesen,
   außer benannten Relics (erlaubte 1,12×-Prämie).
 - `check-content` — nicht auflösbare Referenzen zwischen Datendateien
+- `check-mainquest` — Hauptquest-Kette, Referenzen, Level-Gates, Führung ohne Pfeil,
+  Hunts, Pre-Credit, Siegel am Remainder, Catch-up alter Saves (echte `Game`-Instanz)
 - `check-regions` — was ein Kampf pro Region kostet
 - `measure-dps` — baut echten `Player` pro Level, rüstet aus, misst Output
 - `reprice-enemies` — schreibt abgeleitete Bestiarium-Literale neu, wenn eine Kurve wandert

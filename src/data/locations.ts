@@ -45,6 +45,12 @@ export interface DungeonSpec {
   rooms: number;
   boss?: string;
   miniboss?: string;
+  /**
+   * The boss's own level, when the story puts it later than the halls in
+   * front of it. Only the Remainder uses it: the last chapter of the main
+   * story sits at the top of the level range, behind a dungeon from before.
+   */
+  bossLevel?: number;
   enemies: string[];
   name: string;
   /** A bespoke encounter generator, independent of the legacy room maze. */
@@ -199,7 +205,7 @@ export const LEGACY_LOCATIONS: LocationDef[] = [
   {
     id: 'under_the_gate', name: 'Under the Gate', kind: 'dungeon', tx: 516, ty: 22, region: 'deepnorth', level: 59,
     desc: 'The stair past the gate keeps going down. Nobody built the part at the bottom.',
-    dungeon: { mapId: 'dungeon_remainder', theme: 'glacier', level: 59, rooms: 18, boss: 'boss_remainder', miniboss: 'mini_glacier_maw', enemies: ['bone_colossus', 'frost_giant', 'herald_winter', 'glass_golem', 'jotun_thrall'], name: 'Under the Gate' },
+    dungeon: { mapId: 'dungeon_remainder', theme: 'glacier', level: 59, rooms: 18, boss: 'boss_remainder', bossLevel: 75, miniboss: 'mini_glacier_maw', enemies: ['bone_colossus', 'frost_giant', 'herald_winter', 'glass_golem', 'jotun_thrall'], name: 'Under the Gate' },
   },
   {
     id: 'the_last_gate', name: 'The Last Gate', kind: 'dungeon', tx: 480, ty: 42, region: 'deepnorth', level: 55,

@@ -16,9 +16,10 @@ import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
 import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, damageTaken } from '../../data/balance';
 import { ALL_TEMPLATES, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
-import { LOCATIONS, LOCATION_BY_ID, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
+import { LOCATIONS, LOCATION_BY_ID, REGIONS, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
+import { MAIN_ACT_BY_NUM, MAIN_ORDER, MAIN_REPORT, type MainAct } from '../../data/mainquest';
 import { FACTION_BY_ID, FACTIONS, RACE_BY_ID, type FactionId, type RaceId } from '../../data/races';
 import type { Look } from '../art/characters';
 import { PAL } from '../art/palette';
@@ -47,6 +48,12 @@ import { RNG } from './rng';
 import type { DamageOpts, ProjectileSpec, WorldCtx } from './world';
 import type { DialogueChoice } from '../dialogue/types';
 import { condMet, greetingFor, rootOptions } from '../dialogue/runtime';
+
+/** Where the main story stands, for the tracker and the journal. */
+export type MainStoryState =
+  | { kind: 'active' | 'report'; def: QuestDef; act: MainAct; guided: boolean; reportTo?: string }
+  | { kind: 'level'; def: QuestDef; act: MainAct; needLevel: number; huntRegion?: string }
+  | { kind: 'done' };
 
 export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'shipyard' | 'poker' | 'slots' | 'roulette' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
@@ -235,6 +242,9 @@ export class Game implements WorldCtx {
   fade = { alpha: 0, target: 0, speed: 3.2, pending: null as null | (() => void), label: '' };
   /** Quest the player asked to be guided to. */
   trackedQuest: string | null = null;
+  /** Level the main story last looked at, so a level up offers the next chapter. */
+  private mainCheckedLevel = 0;
+  private offeringMain = false;
   /**
    * Pulls the camera off the player and onto a fixed point — used to lean in
    * over a table before its panel opens, so sitting down reads as walking up
@@ -422,7 +432,7 @@ export class Game implements WorldCtx {
     this.screen = 'playing';
     this.panel = null;
     this.toast('Ashvale', 'Your story begins at the edge of the valley.', PAL.goldLit);
-    this.toast('New quest: Somewhere to Start', 'Head east and find Whisperwell Cave.', '#6fbf5a');
+    this.toast('New quest: Somewhere to Start', 'Head south-west and find Whisperwell Cave.', '#6fbf5a');
     this.touch();
   }
 
@@ -494,7 +504,7 @@ export class Game implements WorldCtx {
   /** Fade to black, swap the map, fade back in. */
   travel(mapId: string, x: number, y: number, label?: string): void {
     if (this.fade.pending) return;
-    const reason = this.campaign.access(mapId);
+    const reason = this.mainStorySeal(mapId) ?? this.campaign.access(mapId);
     if (reason) { this.toast('The way is sealed', reason, '#e7c778'); return; }
     this.fade.target = 1;
     this.fade.label = label ?? '';
@@ -1042,7 +1052,9 @@ export class Game implements WorldCtx {
 
     // bookkeeping
     p.killCounts[e.def.id] = (p.killCounts[e.def.id] ?? 0) + 1;
-    for (const qid of this.quests.onKill(e.def.id)) this.questProgressToast(qid);
+    // Only a real spawn counts toward a region hunt: a boss's summoned adds
+    // would otherwise let one fight pay for a whole cull.
+    for (const qid of this.quests.onKill(e.def.id, e.spawnId && !e.friendly ? e.region : undefined)) this.questProgressToast(qid);
     if (e.spawnId) {
       const st = this.mapState(this.map.id);
       const sp = this.map.spawns.find((s) => s.id === e.spawnId);
@@ -2853,6 +2865,7 @@ export class Game implements WorldCtx {
     this.toast(`Quest complete: ${def.name}`, `+${def.rewards.xp} XP, +${def.rewards.gold} gold`, PAL.goldLit, 'quest');
     audio.play('quest', 0.8);
     if (levels > 0) audio.play('levelup', 0.8);
+    if (def.main && !this.offeringMain) this.offerMainQuests();
     this.touch();
   }
 
@@ -2865,8 +2878,9 @@ export class Game implements WorldCtx {
     const def = QUEST_BY_ID[id];
     if (!def) return;
     if (this.quests.isComplete(id, this.player)) {
-      // Bounties pay on the spot — no walking back to a quest giver.
-      if (def.auto) {
+      // Bounties pay on the spot — no walking back to a quest giver — and so
+      // does a main-story step with nobody to report to.
+      if (def.auto || (def.main && !def.turnIn)) {
         this.turnInQuest(id);
         return;
       }
@@ -2886,7 +2900,7 @@ export class Game implements WorldCtx {
   private offerAutoQuests(location?: string, quiet = false): void {
     const p = this.player;
     for (const def of QUESTS) {
-      if (!def.auto) continue;
+      if (!def.auto || def.main && def.id !== 'tutorial') continue;
       if (location && def.marker !== location) continue;
       if (!this.quests.canAccept(def, p)) continue;
       this.quests.accept(def.id);
@@ -2972,6 +2986,88 @@ export class Game implements WorldCtx {
    */
   catchUpBounties(): void {
     for (const id of this.player.discovered) this.offerAutoQuests(id, true);
+    this.offerMainQuests(true);
+  }
+
+  /**
+   * Take the next main-story step the moment the player qualifies for it.
+   *
+   * The story never waits at an NPC to be asked for: the step appears in the
+   * log with a toast, credits anything already done (`precredit`), and the
+   * tracker says where to go. Called on a hand-in, on every level up and on
+   * load.
+   *
+   * `catchUp` is the load path. An older save, or one whose owner killed the
+   * bosses before the story existed, walks forward through every step it has
+   * already earned and is paid for each — one toast, not twelve.
+   */
+  offerMainQuests(catchUp = false): void {
+    const p = this.player;
+    let caught = 0;
+    // A hand-in inside this loop would call back in; the loop is already
+    // walking forward.
+    this.offeringMain = true;
+    for (let guard = 0; guard < MAIN_ORDER.length; guard++) {
+      const def = MAIN_ORDER.map((id) => QUEST_BY_ID[id]).find((q) => q && this.quests.canAccept(q, p));
+      if (!def) break;
+      this.quests.accept(def.id);
+      this.quests.precredit(def.id, p, catchUp);
+      if (!this.trackedQuest || !this.quests.isActive(this.trackedQuest)) this.trackedQuest = def.id;
+      if (catchUp && this.quests.isComplete(def.id, p)) {
+        this.turnInQuest(def.id);
+        caught++;
+        continue;
+      }
+      if (!catchUp) {
+        const act = MAIN_ACT_BY_NUM[def.act ?? 0];
+        this.toast(act ? `Act ${act.numeral} · ${def.name}` : def.name, def.summary, PAL.goldLit, 'quest');
+        audio.play('quest', 0.7);
+      }
+      // A step whose objectives were all done beforehand still needs its
+      // hand-in if it has one; one without pays now.
+      if (this.quests.isComplete(def.id, p) && !def.turnIn) {
+        this.turnInQuest(def.id);
+        continue;
+      }
+      break;
+    }
+    this.offeringMain = false;
+    if (caught > 0) this.toast('Main story caught up', `${caught} chapter${caught > 1 ? 's' : ''} you had already earned`, PAL.goldLit, 'quest');
+    this.mainCheckedLevel = p.level;
+    this.touch();
+  }
+
+  /** The main story as the tracker and journal show it. */
+  mainStoryState(): MainStoryState {
+    const p = this.player;
+    for (const id of MAIN_ORDER) {
+      const def = QUEST_BY_ID[id];
+      if (!def || this.quests.isCompleted(id)) continue;
+      const act = MAIN_ACT_BY_NUM[def.act ?? 1];
+      if (this.quests.isActive(id)) {
+        const ready = this.quests.isComplete(id, p) && !!def.turnIn;
+        const guided = this.quests.markerVisible(def, p);
+        return { kind: ready ? 'report' : 'active', def, act, guided, reportTo: ready ? def.turnIn : undefined };
+      }
+      const needLevel = def.prereq?.level ?? 0;
+      if (needLevel > p.level) {
+        const region = REGIONS.filter((r) => p.level >= r.level[0] && p.level <= r.level[1]).sort((a, b) => a.level[1] - b.level[1])[0];
+        return { kind: 'level', def, act, needLevel, huntRegion: region?.name };
+      }
+      return { kind: 'active', def, act, guided: false };
+    }
+    return { kind: 'done' };
+  }
+
+  /**
+   * The bar on the way down to the Remainder. Sigrun lifts it when the main
+   * story says so; a save that already went down keeps its way open.
+   */
+  mainStorySeal(mapId: string): string | null {
+    if (mapId !== 'dungeon_remainder') return null;
+    if (this.player.bossesKilled.has('boss_remainder')) return null;
+    if (this.quests.isActive('main_remainder') || this.quests.isCompleted('main_remainder')) return null;
+    return 'A bar as thick as a man lies across the way down. Sigrun Barwarden keeps it, and she lifts it for no one who has not sealed what lies beneath the world.';
   }
 
   /** Gold it costs to retrain into another class. */
@@ -3079,7 +3175,7 @@ export class Game implements WorldCtx {
           this.activities.state.runs[field.id] && this.activities.active?.id !== field.id)
         this.activities.start(field.id);
       const target = this.trackedTarget();
-      this.toast(`Tracking: ${def?.name ?? ''}`, target ? `Marked ${target.name} on your map.` : undefined, '#f0c93c', 'quest');
+      this.toast(`Tracking: ${def?.name ?? ''}`, target ? `Marked ${target.name} on your map.` : def?.hint, '#f0c93c', 'quest');
     }
     audio.play('ui', 0.6);
     this.touch();
@@ -3091,7 +3187,14 @@ export class Game implements WorldCtx {
       return this.activities.target;
     if (!this.trackedQuest) return null;
     const def = QUEST_BY_ID[this.trackedQuest];
-    if (!def?.marker) return null;
+    // A finished main step points home to whoever it reports to — if the
+    // player has been there, which for a hand-in they always have.
+    const report = def?.main && def.turnIn && this.quests.isComplete(def.id, this.player) ? MAIN_REPORT[def.turnIn] : undefined;
+    if (report) {
+      const at = LOCATION_BY_ID[report.location];
+      return at && this.player.discovered.has(at.id) ? { x: at.tx * TILE, y: at.ty * TILE, name: at.name } : null;
+    }
+    if (!def?.marker || !this.quests.markerVisible(def, this.player)) return null;
     const loc = LOCATION_BY_ID[def.marker];
     if (!loc) return null;
     return { x: loc.tx * TILE, y: loc.ty * TILE, name: loc.name };
@@ -4173,6 +4276,9 @@ export class Game implements WorldCtx {
     this.input.tick(dt);
     this.updateFade(dt);
     this.handleHotkeys();
+    // Every level up anywhere — a kill, a quest, a trial — can open the next
+    // chapter; one integer compare a frame is cheaper than hooking them all.
+    if (this.player.level !== this.mainCheckedLevel) this.offerMainQuests();
 
     // The reels have to spin down while their own panel is open, so this sits
     // above the `uiOpen` early-out rather than with the world simulation.

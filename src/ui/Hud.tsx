@@ -1,7 +1,10 @@
 import { AEGEAN_SHIPS } from '../data/aegean/content';
 import { nextShipStep, shipGuidanceTarget } from '../game/aegean/guidance';
 import { aegeanName } from './aegeanNames';
-import type { Game } from '../game/core/game';
+import type { Game, MainStoryState } from '../game/core/game';
+import { MAIN_REPORT } from '../data/mainquest';
+import { NPC_BY_ID } from '../data/npcs';
+import { xpToNext } from '../game/player/player';
 import { getIconUrl } from '../game/art/icons';
 import { QUEST_BY_ID } from '../data/quests';
 import { Icon, KeyCap, SegBar } from './kit';
@@ -87,11 +90,16 @@ function Tracker({ game }: { game: Game }) {
   const useKey = game.input.touchMode ? 'USE' : game.input.keyLabel('interact');
   const fieldQuest = game.trackedQuest && QUEST_BY_ID[game.trackedQuest]?.fieldAdventure
     ? game.quests.get(game.trackedQuest) : undefined;
+  // In the west the main story has its own block at the top; the list under
+  // it is what you do in the meantime.
+  const story = !game.inAegean ? game.mainStoryState() : null;
+  const side = story ? game.quests.active.filter(q => !QUEST_BY_ID[q.id]?.main) : game.quests.active;
   const tracked = fieldQuest
-    ? [fieldQuest, ...game.quests.active.filter(q => q.id !== fieldQuest.id)].slice(0, 3)
-    : game.quests.active.slice(0, game.inAegean ? 1 : 3);
+    ? [fieldQuest, ...side.filter(q => q.id !== fieldQuest.id)].slice(0, 3)
+    : side.slice(0, game.inAegean ? 1 : story && story.kind !== 'done' ? 2 : 3);
+  const showStory = !!story && story.kind !== 'done' && !game.encounters.active && !component && !game.naval.aboard;
 
-  if (!(tracked.length || component || game.encounters.active || game.naval.aboard)) return null;
+  if (!(tracked.length || showStory || component || game.encounters.active || game.naval.aboard)) return null;
   return (
     <div className="quest-tracker frame-ash">
       {component ? <div className="next-action-card">
@@ -117,7 +125,8 @@ function Tracker({ game }: { game: Game }) {
           <div className="obj">{game.encounters.status}</div>
         </div>
       ) : null}
-      {tracked.length && !game.encounters.active && !component ? <h4>Next adventure</h4> : null}
+      {showStory && story ? <MainStoryBlock game={game} story={story} /> : null}
+      {tracked.length && !game.encounters.active && !component ? <h4>{showStory ? 'Meanwhile' : 'Next adventure'}</h4> : null}
       {(!game.encounters.active && !component ? tracked : []).map((aq) => {
         const def = QUEST_BY_ID[aq.id];
         if (!def) return null;
@@ -138,6 +147,56 @@ function Tracker({ game }: { game: Game }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * The main story, always on top: what to do, and nothing that does it for
+ * you. An unfound place gets directions instead of a distance; a chapter
+ * that waits on a level says which level and where people of yours go.
+ */
+function MainStoryBlock({ game, story }: { game: Game; story: MainStoryState }) {
+  const p = game.player;
+  if (story.kind === 'done') return null;
+  const head = <h4>Act {story.act.numeral} · {story.act.name}</h4>;
+  if (story.kind === 'level') {
+    return (
+      <div className="qt-block main-story">
+        {head}
+        <div className="qname">{story.def.name}</div>
+        <div className="obj"><span>Reach level {story.needLevel}</span><span>{p.level}/{story.needLevel}</span></div>
+        <SegBar kind="xp" value={p.xp} max={xpToNext(p.level)} />
+        <small>Meanwhile: bounties, dungeons{story.huntRegion ? `, or hunting in ${story.huntRegion}` : ''}.</small>
+      </div>
+    );
+  }
+  const def = story.def;
+  const aq = game.quests.get(def.id);
+  if (!aq) return null;
+  const report = story.kind === 'report' && story.reportTo ? MAIN_REPORT[story.reportTo] : undefined;
+  // Targets are overworld points; from inside a room or a dungeon the
+  // distance to one means nothing.
+  const target = game.trackedQuest === def.id && game.map.id === 'overworld' ? game.trackedTarget() : null;
+  return (
+    <div className="qt-block main-story">
+      {head}
+      <div className="qname">{def.name}</div>
+      {report ? (
+        <div className="obj"><span><i className="obj-dot on" />Report to {NPC_BY_ID[story.reportTo!]?.name ?? 'them'} — {report.where}</span></div>
+      ) : def.objectives.map((o, i) => {
+        const cur = game.quests.objectiveCount(def, aq, i, p);
+        const need = game.quests.objectiveTarget(o);
+        const done = cur >= need;
+        return (
+          <div className={`obj ${done ? 'done' : ''}`} key={i}>
+            <span><i className={`obj-dot ${done ? 'on' : ''}`} />{o.label}</span>
+            <span>{need > 1 ? `${cur}/${need}` : ''}</span>
+          </div>
+        );
+      })}
+      {target ? <small>→ {target.name} · {Math.round(Math.hypot(target.x - p.x, target.y - p.y) / 32)}m</small>
+        : !report && def.hint && !story.guided ? <small>{def.hint}</small> : null}
     </div>
   );
 }
