@@ -249,7 +249,7 @@ export class Ambience {
       switch (art) {
         case 'forge':
           if (Math.random() < dt * 5) this.spawn({ kind: 'spark', x: prop.x + (Math.random() - 0.5) * 12, y: prop.y - 12, vx: (Math.random() - 0.5) * 50, vy: -50 - Math.random() * 50, life: 0, max: 0.5 + Math.random() * 0.5, size: 1, color: Math.random() < 0.5 ? PAL.flameLit : PAL.flame, gravity: 120 });
-          if (Math.random() < dt * 1.2) this.spawn({ kind: 'smoke', x: prop.x, y: prop.y - 44, vx: 0, vy: -12, life: 0, max: 3.5, size: 2, color: '#5d5866' });
+          if (Math.random() < dt * 1.2) this.spawn({ kind: 'smoke', x: prop.x, y: prop.y - 52, vx: 0, vy: -12, life: 0, max: 3.5, size: 2, color: '#5d5866' });
           break;
         case 'torch':
         case 'brazier':
@@ -939,26 +939,37 @@ export class Ambience {
           break;
         }
         case 'pigeon': {
+          // a plump grey bird side-on: shadow, body, darker wing bars, an
+          // iridescent neck, a small round head that bobs or pecks, an orange
+          // beak and two pink feet — readable as a pigeon, not as grit
           g.globalAlpha = 1;
           const peck = Math.sin(now * 5 + m.seed) > 0.6 && m.vx === 0;
           const bob = Math.floor(now * 4 + m.seed) % 2;
+          const face = m.vx < 0 ? -1 : 1;
+          g.fillStyle = 'rgba(10,8,16,0.3)';
+          g.fillRect(x - 4, y + 1, 8, 1);
           g.fillStyle = PAL.ink;
-          g.fillRect(x - 4, y - 3, 7, 4);
+          g.fillRect(x - 4, y - 4, 8, 5);
           g.fillStyle = m.color;
-          g.fillRect(x - 3, y - 3, 5, 3);
-          g.fillStyle = PAL.cloth;
-          g.fillRect(x - 2, y - 2, 3, 1);
-          g.fillStyle = shade(m.color, 0.7);
-          g.fillRect(x - 4, y - 2, 1, 1);
-          const hx = peck ? x + 2 : x + 1 + bob;
-          const hy = peck ? y - 2 : y - 6;
+          g.fillRect(x - 3, y - 3, 6, 3);
+          g.fillStyle = shade(m.color, 1.2);
+          g.fillRect(x - 3, y - 3, 4, 1);
+          g.fillStyle = shade(m.color, 0.65);
+          g.fillRect(x - 2 * face - (face < 0 ? 0 : 1), y - 2, 2, 1);
+          g.fillRect(x - 4 * face - (face < 0 ? 0 : 1), y - 3, 2, 2);
+          const hx = x + face * (peck ? 3 : 2 + bob) - (face < 0 ? 2 : 0);
+          const hy = peck ? y - 1 : y - 6;
           g.fillStyle = PAL.ink;
           g.fillRect(hx - 1, hy - 1, 4, 4);
-          g.fillStyle = '#5a6a7a';
+          g.fillStyle = '#6a7486';
           g.fillRect(hx, hy, 2, 2);
-          g.fillStyle = '#6fbf8a';
-          g.fillRect(hx, hy + 2, 1, 1);
-          g.fillStyle = PAL.clay;
+          g.fillStyle = PAL.leafLit;
+          g.fillRect(hx - 1, hy + 2, 3, 1);
+          g.fillStyle = PAL.arcaneLit;
+          g.fillRect(hx + 1, hy + 2, 1, 1);
+          g.fillStyle = PAL.flame;
+          g.fillRect(face > 0 ? hx + 2 : hx - 1, hy + 1, 1, 1);
+          g.fillStyle = '#d88a8a';
           g.fillRect(x - 1, y + 1, 1, 1); g.fillRect(x + 1, y + 1, 1, 1);
           break;
         }
