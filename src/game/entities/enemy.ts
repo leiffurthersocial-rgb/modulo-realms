@@ -72,6 +72,12 @@ export class Enemy implements Entity {
   lifetime = Infinity;
   friendly = false;
   bossCooldowns: Record<string, number> = {};
+  /** Stretches its wind-up. The training lookout swings slowly on purpose. */
+  windupMul = 1;
+  /** Rings every swing on the ground, like an elite, without being one. */
+  showTelegraph = false;
+  /** Health share it runs at; the bestiary's by default, 0 never. */
+  fleeAt: number | undefined;
   /** The region it was spawned in — what a main-story `hunt` counts. */
   region = 'central';
   /** The danger multiplier of the region it was spawned in. */
@@ -417,10 +423,10 @@ export class Enemy implements Entity {
     this.stateTime = 0;
     this.anim = 'attack';
     this.animTime = 0;
-    this.windupTime = this.def.windup;
-    if (this.elite || this.isBoss || this.def.id.startsWith('aegean_')) {
+    this.windupTime = this.def.windup * this.windupMul;
+    if (this.elite || this.isBoss || this.showTelegraph || this.def.id.startsWith('aegean_')) {
       const range = this.def.ranged ? 0 : this.def.attackRange + 26;
-      if (range > 0) ctx.telegraph(this.x, this.y, range, this.def.windup, '#e8763a', 'circle');
+      if (range > 0) ctx.telegraph(this.x, this.y, range, this.windupTime, '#e8763a', 'circle');
     }
   }
 
@@ -957,7 +963,8 @@ export class Enemy implements Entity {
     const d = dist(this.x, this.y, p.x, p.y);
     const sees = !p.dead && this.canSeePlayer(ctx);
 
-    if (this.def.flee && this.hp / this.maxHp < this.def.flee && this.state !== 'flee') {
+    const flee = this.fleeAt ?? this.def.flee;
+    if (flee && this.hp / this.maxHp < flee && this.state !== 'flee') {
       this.state = 'flee';
       this.stateTime = 0;
       ctx.floatText(this.x, this.y - this.radius * 2, 'Fleeing!', '#f6bf5d', 11);

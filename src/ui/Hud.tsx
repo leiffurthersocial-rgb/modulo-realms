@@ -6,7 +6,7 @@ import { MAIN_REPORT } from '../data/mainquest';
 import { NPC_BY_ID } from '../data/npcs';
 import { xpToNext } from '../game/player/player';
 import { getIconUrl } from '../game/art/icons';
-import { QUEST_BY_ID } from '../data/quests';
+import { QUEST_BY_ID, type Objective } from '../data/quests';
 import { Icon, KeyCap, SegBar } from './kit';
 import { useGameValue, useTicker } from './hooks';
 import { Purse, Vitals } from './hud/Vitals';
@@ -36,7 +36,7 @@ export default function Hud({ game }: { game: Game }) {
       </div>
       <RecentReward game={game} />
       <Hotbar game={game} />
-      <FirstSteps game={game} />
+      <TrainingCard game={game} />
       <Banners game={game} />
     </div>
   );
@@ -92,8 +92,18 @@ function Tracker({ game }: { game: Game }) {
     ? game.quests.get(game.trackedQuest) : undefined;
   // In the west the main story has its own block at the top; the list under
   // it is what you do in the meantime.
+  // During the training the card at the top is the only instruction.
+  if (game.training) return null;
   const story = !game.inAegean ? game.mainStoryState() : null;
-  const side = story ? game.quests.active.filter(q => !QUEST_BY_ID[q.id]?.main) : game.quests.active;
+  // A bounty that asks for exactly what the current chapter asks for (clear
+  // Whisperwell twice over) is the same job: it still pays, it just is not
+  // printed a second time.
+  const chapter = story && story.kind !== 'done' && story.kind !== 'level' ? story.def : undefined;
+  const covered = (id: string) => {
+    const def = QUEST_BY_ID[id];
+    return !!chapter && !!def && def.objectives.every((o) => chapter.objectives.some((c) => objectiveKey(c) === objectiveKey(o)));
+  };
+  const side = story ? game.quests.active.filter(q => !QUEST_BY_ID[q.id]?.main && !covered(q.id)) : game.quests.active;
   const tracked = fieldQuest
     ? [fieldQuest, ...side.filter(q => q.id !== fieldQuest.id)].slice(0, 3)
     : side.slice(0, game.inAegean ? 1 : story && story.kind !== 'done' ? 2 : 3);
@@ -149,6 +159,19 @@ function Tracker({ game }: { game: Game }) {
       })}
     </div>
   );
+}
+
+/** What an objective asks for, without its wording. */
+function objectiveKey(o: Objective): string {
+  switch (o.type) {
+    case 'kill': case 'boss': return `kill:${o.enemy}`;
+    case 'collect': return `collect:${o.item}`;
+    case 'talk': return `talk:${o.npc}`;
+    case 'explore': return `explore:${o.location}`;
+    case 'clear': return `clear:${o.map}`;
+    case 'interact': return `interact:${o.target}`;
+    case 'hunt': return `hunt:${o.region}`;
+  }
 }
 
 /**
@@ -234,24 +257,42 @@ function Toasts({ game }: { game: Game }) {
 }
 
 /**
- * The controls, shown only while a character is brand new. The old HUD kept
- * a block of key hints in the corner for good; after the first few minutes
- * the prompts over doors and people and the How to Play page do that job.
+ * The training, one instruction at a time. It replaces the old corner block
+ * of key hints: the controls are learned by doing them here, and are listed
+ * afterwards under Controls in the pause menu.
  */
-function FirstSteps({ game }: { game: Game }) {
-  const show = useGameValue(() => game.player.playTime < 180 && !game.input.touchMode && !game.uiOpen, 1);
-  if (!show) return null;
+function TrainingCard({ game }: { game: Game }) {
+  const t = useGameValue(() => {
+    const tr = game.training;
+    if (!tr || game.uiOpen) return null;
+    return { stage: tr.stage, ...tr.progress, recent: tr.recent, touch: game.input.touchMode };
+  }, 8);
+  if (!t) return null;
   const k = (a: Parameters<typeof game.input.keyLabel>[0]) => {
+    if (t.touch) return a === 'attack' ? 'ATK' : a === 'dash' ? 'DODGE' : a === 'heavy' ? 'HVY' : 'USE';
     const l = game.input.keyLabel(a);
     return l === 'Space' ? 'SPC' : l;
   };
+  const step = { move: 1, attack: 2, dodge: 3, finish: 4 }[t.stage];
   return (
-    <div className="first-steps frame-ash" role="note">
-      <div><span><KeyCap>W</KeyCap><KeyCap>A</KeyCap><KeyCap>S</KeyCap><KeyCap>D</KeyCap></span> move</div>
-      <div><KeyCap>{k('attack')}</KeyCap> attack · <KeyCap>{k('heavy')}</KeyCap> heavy</div>
-      <div><KeyCap>{k('dash')}</KeyCap> dodge · <KeyCap>{k('interact')}</KeyCap> use</div>
-      <div><KeyCap>{k('inventory')}</KeyCap> pack · <KeyCap>{k('map')}</KeyCap> map</div>
-      <div><KeyCap>ESC</KeyCap> menu &amp; how to play</div>
+    <div className={`training-card frame-ash${t.recent ? ' lit' : ''}`} role="status">
+      <div className="tc-head"><span>Training {step}/4</span>
+        <button className="tc-skip" onClick={() => game.training?.complete(true)}>Skip</button>
+      </div>
+      {t.stage === 'move' ? <>
+        <div className="tc-line">{t.touch ? 'Walk with the stick' : <><span className="tc-keys"><KeyCap>W</KeyCap><KeyCap>A</KeyCap><KeyCap>S</KeyCap><KeyCap>D</KeyCap></span> walk</>}</div>
+        <SegBar kind="xp" value={t.value} max={t.max} />
+      </> : null}
+      {t.stage === 'attack' ? <>
+        <div className="tc-line">A wolf. <KeyCap>{k('attack')}</KeyCap> attack</div>
+        <div className="tc-sub"><KeyCap>{k('heavy')}</KeyCap> is a slower, heavier blow.</div>
+      </> : null}
+      {t.stage === 'dodge' ? <>
+        <div className="tc-line">Ring on the ground? <KeyCap>{k('dash')}</KeyCap> dash</div>
+        <div className="tc-sub">Dash while he winds up, and the swing hits air.</div>
+        <div className="tc-count">{Array.from({ length: t.max }).map((_, i) => <i key={i} className={i < t.value ? 'on' : ''} />)}</div>
+      </> : null}
+      {t.stage === 'finish' ? <div className="tc-line">Good. Now put him down.</div> : null}
     </div>
   );
 }
