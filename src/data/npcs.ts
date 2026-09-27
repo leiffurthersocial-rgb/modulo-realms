@@ -217,7 +217,7 @@ export const NPCS: NpcDef[] = [
   {
     id: 'smith_corin', name: 'Corin Emberhand', title: 'Blacksmith', race: 'dwarf', faction: 'guild',
     personality: 'Blunt, fair, secretly proud of every blade he sells.',
-    ...ashvaleResident(-11, -5, -14, -3),
+    ...ashvaleResident(-14, -3),
     look: look({ skin: PAL.skin3, hair: '#b5462f', hairStyle: 'short', beard: 'long', height: 0.86, bulk: 1.18, shirt: '#6a4436', pants: '#3a2f28', armor: 'light', armorColor: '#5a4436', weapon: { kind: 'hammer', metal: PAL.iron, grip: PAL.woodDark } }),
     wander: 26,
     shop: {

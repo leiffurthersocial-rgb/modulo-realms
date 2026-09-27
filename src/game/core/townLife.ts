@@ -51,6 +51,15 @@ interface Walker { look: Look; path: Pt[]; leg: number; x: number; y: number; t:
 interface Speck { x: number; y: number; vx: number; vy: number; t: number; max: number; color: string; ox?: number; oy?: number; seed?: number; kind: 'spark' | 'petal' | 'hay' | 'dust' | 'steam' | 'drop' | 'ember' }
 interface Bird { x: number; y: number; hx: number; hy: number; state: 'perch' | 'fly' | 'gone'; t: number; vx: number; vy: number; seed: number; kind: 'crow' | 'sparrow' }
 
+/** First opaque row of a sprite's column — where something can perch on it. */
+function surfaceAt(canvas: HTMLCanvasElement | OffscreenCanvas, col: number, h: number, fallback: number): number {
+  try {
+    const px = (canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(Math.round(col), 0, 1, h).data;
+    for (let y = 0; y < h; y++) if (px[y * 4 + 3] > 200) return y;
+  } catch { /* no pixels to read (headless check) */ }
+  return fallback;
+}
+
 const hash = (a: number, b = 0) => { const n = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return n - Math.floor(n); };
 
 export class TownLife {
@@ -99,11 +108,7 @@ export class TownLife {
     if (a.barrels) {
       // sit the cat on the lid: first opaque row of the sprite above its middle
       const art = getProp('barrel_stack');
-      let lid = art.anchorY - 22;
-      try {
-        const px = (art.canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(Math.round(art.fw / 2), 0, 1, art.fh).data;
-        for (let y = 0; y < art.fh; y++) if (px[y * 4 + 3] > 200) { lid = y; break; }
-      } catch { /* headless */ }
+      const lid = surfaceAt(art.canvas, art.fw / 2, art.fh, art.anchorY - 22);
       this.cat = critter(a.barrels.x + 2, a.barrels.y - art.anchorY + lid + 3, 7);
     }
     if (a.inn) this.dog = critter(a.inn.x - 40, a.inn.y + 22, 11);
@@ -113,14 +118,7 @@ export class TownLife {
       if (!b) continue;
       const art = getBuilding(b.art.slice(4));
       const top = b.y - art.h + 4 - (art.padTop ?? 0);
-      const roofAt = (col: number): number => {
-        const cx2 = Math.round(art.w / 2 + col);
-        try {
-          const px = (art.canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(cx2, 0, 1, art.canvas.height).data;
-          for (let y = 0; y < art.canvas.height; y++) if (px[y * 4 + 3] > 200) return y;
-        } catch { /* no pixels to read (headless check) */ }
-        return 14;
-      };
+      const roofAt = (col: number) => surfaceAt(art.canvas, art.w / 2 + col, art.canvas.height, 14);
       // either side of the ridge ornament (and clear of the chapel's bell-cote)
       [-16, 18].forEach((d, i) => {
         const x = b.x + d, y = top + roofAt(d) + 1;
@@ -128,7 +126,9 @@ export class TownLife {
       });
     }
     if (a.well) for (let i = 0; i < 2; i++) {
-      const x = a.well.x - 12 + i * 19, y = a.well.y - 44 + i;
+      const art = getProp('well');
+      const d = -12 + i * 19;
+      const x = a.well.x + d, y = a.well.y - art.anchorY + surfaceAt(art.canvas, art.fw / 2 + d, art.fh, art.anchorY - 44);
       this.birds.push({ x, y, hx: x, hy: y, state: 'perch', t: i * 3, vx: 0, vy: 0, seed: i ? 0.8 : 0.2, kind: 'sparrow' });
     }
     // two errand-runners: the market round, and water from the well to the farm
@@ -346,14 +346,18 @@ export class TownLife {
       const x = Math.round(cat.x), y = Math.round(cat.y) + (cat.state === 0 ? 0 : 0);
       g.fillStyle = PAL.ink;
       if (cat.state === 0) {
-        // curled asleep, tail flicking
-        g.fillRect(x - 5, y - 4, 10, 5);
-        g.fillStyle = PAL.rock; g.fillRect(x - 4, y - 3, 8, 3);
-        g.fillStyle = shade(PAL.rock, 0.7); g.fillRect(x - 2, y - 3, 1, 3); g.fillRect(x + 1, y - 3, 1, 3);
-        g.fillStyle = PAL.rock; g.fillRect(x + 2, y - 5, 3, 2);
-        g.fillStyle = PAL.ink; g.fillRect(x + 2, y - 6, 1, 1); g.fillRect(x + 4, y - 6, 1, 1);
+        // curled asleep: loaf body, head at one end, tail wrapped along the front
+        g.fillRect(x - 6, y - 5, 11, 6);
+        g.fillStyle = PAL.rock; g.fillRect(x - 5, y - 4, 9, 4);
+        g.fillStyle = PAL.rockDark; g.fillRect(x - 3, y - 4, 1, 3); g.fillRect(x - 1, y - 4, 1, 3); g.fillRect(x + 1, y - 4, 1, 2);
+        g.fillStyle = PAL.ink; g.fillRect(x + 2, y - 8, 6, 5); g.fillRect(x + 2, y - 9, 1, 1); g.fillRect(x + 7, y - 9, 1, 1);
+        g.fillStyle = PAL.rock; g.fillRect(x + 3, y - 7, 4, 3); g.fillRect(x + 3, y - 8, 1, 1); g.fillRect(x + 6, y - 8, 1, 1);
+        g.fillStyle = PAL.ink; g.fillRect(x + 4, y - 6, 1, 1); g.fillRect(x + 6, y - 6, 1, 1);   // shut eyes
+        g.fillStyle = PAL.cloth; g.fillRect(x + 3, y - 3, 2, 2);                                  // white bib
         const flick = Math.sin(now * 2 + cat.seed) > 0.8 ? -1 : 0;
-        g.fillStyle = PAL.rock; g.fillRect(x - 6, y - 2 + flick, 2, 1);
+        g.fillStyle = PAL.ink; g.fillRect(x - 6, y, 9, 1);
+        g.fillStyle = PAL.rock; g.fillRect(x - 5, y - 1, 7, 1);
+        g.fillStyle = PAL.rockDark; g.fillRect(x - 6, y - 1 + flick, 1, 1);
       } else {
         const run = Math.floor(now * 12) % 2;
         g.fillRect(x - 5, y - 5, 10, 5);
@@ -437,13 +441,14 @@ export class TownLife {
       g.fillStyle = PAL.ink; g.fillRect(x - 15, y - 20, 3, 21); g.fillRect(x + 12, y - 20, 3, 21); g.fillRect(x - 15, y - 21, 30, 3);
       g.fillStyle = PAL.woodDark; g.fillRect(x - 14, y - 19, 1, 19); g.fillRect(x + 13, y - 19, 1, 19); g.fillRect(x - 14, y - 20, 28, 1);
       const rx = x - 11 + jolt, red = '#6a2a3a';
-      g.fillStyle = PAL.ink; g.fillRect(rx, y - 22, 22, 4); g.fillRect(rx, y - 19, 22, 15);  // back flap, front drop
-      g.fillStyle = shade(red, 0.7); g.fillRect(rx + 1, y - 21, 20, 2);
-      g.fillStyle = red; g.fillRect(rx + 1, y - 18, 20, 13);
+      g.fillStyle = PAL.ink; g.fillRect(rx, y - 24, 22, 6); g.fillRect(rx, y - 19, 22, 15); g.fillRect(rx + 7, y - 4, 8, 1);  // back flap, front drop, sag
+      g.fillStyle = shade(red, 0.7); g.fillRect(rx + 1, y - 23, 20, 4);
+      g.fillStyle = red; g.fillRect(rx + 1, y - 18, 20, 13); g.fillRect(rx + 7, y - 5, 8, 1);
       g.fillStyle = shade(red, 1.35); g.fillRect(rx + 1, y - 19, 20, 1);                        // the fold, lit
       g.fillStyle = PAL.gold; g.fillRect(rx + 3, y - 16, 16, 1); g.fillRect(rx + 3, y - 8, 16, 1);
-      g.fillStyle = PAL.goldLit; for (let i = 0; i < 3; i++) g.fillRect(rx + 6 + i * 4, y - 13, 2, 2);
-      g.fillStyle = PAL.sandLit; for (let i = 1; i < 21; i += 2) g.fillRect(rx + i, y - 4, 1, 1 + (i % 4 === 1 ? 1 : 0)); // tassels
+      g.fillStyle = PAL.goldLit; for (let r = 0; r < 5; r++) { const hw = 2 - Math.abs(r - 2); g.fillRect(rx + 11 - hw, y - 14 + r, hw * 2 + 1, 1); }
+      g.fillStyle = red; g.fillRect(rx + 11, y - 12, 1, 1);
+      g.fillStyle = PAL.sandLit; for (let i = 1; i < 21; i += 2) g.fillRect(rx + i, (i >= 7 && i < 15 ? y - 3 : y - 4), 1, 1 + (i % 4 === 1 ? 1 : 0)); // tassels
     } });
     // children
     const kidLook: Look[] = [{ ...DEFAULT_LOOK, hair: '#c9a86b', shirt: '#6a8ab0', height: 0.72 }, { ...DEFAULT_LOOK, hair: '#4a2a1a', hairStyle: 'ponytail', shirt: '#b5462f', height: 0.7 }];
@@ -528,13 +533,14 @@ export class TownLife {
           R(2, -6, 1, 1, PAL.goldLit);              // eye
           R(-1, 0, 1, 1, PAL.ink); R(1, 0, 1, 1, PAL.ink);
         } else {
-          R(-6, -6, 3, 3, PAL.ink); R(-5, -5, 1, 1, PAL.dirt);   // cocked tail
-          R(-4, -4, 7, 5, PAL.ink); R(1, -7, 4, 4, PAL.ink);
-          R(-3, -3, 5, 3, PAL.dirtLit); R(2, -6, 2, 2, PAL.dirt);
-          R(-3, -3, 3, 1, PAL.dirt);                // wing bar
-          R(-2, -1, 4, 1, PAL.sandLit);             // pale belly, underneath
-          R(3, -6, 1, 1, PAL.ink);                  // eye
-          R(5, -5, 1, 1, PAL.gold);
+          R(-7, -3, 3, 2, PAL.ink); R(-6, -3, 2, 1, PAL.dirt);    // tail, back and down
+          R(-3, -5, 5, 1, PAL.ink); R(-4, -4, 7, 3, PAL.ink); R(-3, -1, 5, 1, PAL.ink);
+          R(-3, -4, 5, 3, PAL.dirtLit); R(-3, -4, 3, 1, PAL.dirt);  // body, wing bar
+          R(-2, -2, 4, 1, PAL.sandLit);                             // belly
+          R(1, -8, 5, 5, PAL.ink); R(2, -7, 3, 3, PAL.dirt); R(3, -5, 2, 1, PAL.sandLit); // head
+          R(3, -7, 1, 1, PAL.ink);                                  // eye
+          R(-1, 0, 1, 1, PAL.ink); R(1, 0, 1, 1, PAL.ink);
+          R(6, -6, 1, 1, PAL.gold);
         }
         if (caw) { g.fillStyle = PAL.ink; g.fillRect(x + f * 8, y - 10, 1, 1); g.fillRect(x + f * 10, y - 12, 1, 1); }
       } else {

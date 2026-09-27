@@ -346,7 +346,8 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
 - **Innenräume** (`world/interiors.ts`): kleiner (Haus 10×8 … Kapelle 11×11), eigene Böden
   `ROOM_PLANK` 81 / `ROOM_FLAG` 82, zwei Wandreihen mit Wandflächen-Prop (`face`), voll
   möbliert per `dress()`. Interiors sind nicht Teil der eingefrorenen Westwelt.
-- **NPC-Standorte passen zum Text:** Pell (Laden) und Sable (Apotheke) stehen drinnen,
+- **NPC-Standorte passen zum Text:** Pell (Laden) und Sable (Apotheke) stehen drinnen, Corin
+  tagsüber am Amboss (Funken kommen von `townLife`),
   Ivo „am Tisch beim Feuer“, Rook am Brunnenplatz, neuer Lehrling **Wyn** (`smith_wyn`,
   Esse, Rohstoffe). `check-npc-schedules` erwartet 3 Außenbewohner (Hanne, Corin, Kesh).
 - **Starter-NPCs sind nützlich** über drei Dialog-Aktionen (`dialogue/types.ts`):
@@ -359,7 +360,7 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
   Ladenschilder bekommen ihr Symbol per Renderer-Overlay (`SIGN_DEVICE`) — Prop-Liste
   der Westwelt bleibt unverändert.
 - Design-Kritik-Loops (eigener Kritiker-Agent, max. 3 Runden, Ziel ≥ 9/10): Interiors
-  5 → 7, Wolf 5 → 6, Golem 6 → 7, Außen-Props 5,5 → 7, Stadt-Details 5 → siehe PR.
+  5 → 7, Wolf 5 → 6, Golem 6 → 7, Außen-Props 5,5 → 7, Stadt-Details 5 → 6,5 → 7.
   **Keiner hat 9/10 erreicht** — nicht als „fertig poliert“ weitergeben.
 
 ## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen
