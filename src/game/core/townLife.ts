@@ -3,6 +3,7 @@ import type { PropInstance } from '../world/map';
 import type { CharacterSheet, Look } from '../art/characters';
 import { DEFAULT_LOOK, getCharacterSheet } from '../art/characters';
 import { getBuilding } from '../art/buildings';
+import { getProp } from '../art/props';
 import { PAL, shade } from '../art/palette';
 import { TILE } from '../world/tiles';
 import { VILLAGE_TX, VILLAGE_TY } from '../../data/locations';
@@ -63,8 +64,8 @@ export class TownLife {
   private a: {
     farm?: PropInstance; cart?: PropInstance; barrels?: PropInstance; inn?: PropInstance; well?: PropInstance; board?: PropInstance;
     anvil?: PropInstance; grind?: PropInstance; forge?: PropInstance; chapel?: PropInstance; hall?: PropInstance; store?: PropInstance;
-    stalls: PropInstance[]; planters: PropInstance[]; braziers: PropInstance[]; houses: PropInstance[];
-  } = { stalls: [], planters: [], braziers: [], houses: [] };
+    stalls: PropInstance[]; planters: PropInstance[]; braziers: PropInstance[]; torches: PropInstance[]; houses: PropInstance[];
+  } = { stalls: [], planters: [], braziers: [], torches: [], houses: [] };
   private hens: Critter[] = [];
   private cat: Critter | null = null;
   private dog: Critter | null = null;
@@ -91,10 +92,20 @@ export class TownLife {
     a.cart = find('cart', 14); a.barrels = find('barrel_stack', 14); a.well = find('well', 10); a.board = find('notice_board', 10);
     a.anvil = find('anvil', 20); a.grind = find('grindstone', 20); a.forge = find('forge', 20);
     a.stalls = all('market_stall', 12); a.planters = all('planter'); a.braziers = all('brazier', 14);
+    a.torches = all('torch', 14);
     a.houses = all('bld:townhouse').sort((p, q) => Math.hypot(p.x - cx, p.y - cy) - Math.hypot(q.x - cx, q.y - cy));
     const critter = (x: number, y: number, seed: number): Critter => ({ x, y, hx: x, hy: y, vx: 0, vy: 0, t: 0, state: 0, seed, face: 1 });
     if (a.farm) for (let i = 0; i < 3; i++) this.hens.push(critter(a.farm.x - 40 + i * 34, a.farm.y + 30 + (i % 2) * 14, i + 1));
-    if (a.barrels) this.cat = critter(a.barrels.x + 2, a.barrels.y - 22, 7);
+    if (a.barrels) {
+      // sit the cat on the lid: first opaque row of the sprite above its middle
+      const art = getProp('barrel_stack');
+      let lid = art.anchorY - 22;
+      try {
+        const px = (art.canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(Math.round(art.fw / 2), 0, 1, art.fh).data;
+        for (let y = 0; y < art.fh; y++) if (px[y * 4 + 3] > 200) { lid = y; break; }
+      } catch { /* headless */ }
+      this.cat = critter(a.barrels.x + 2, a.barrels.y - art.anchorY + lid + 3, 7);
+    }
     if (a.inn) this.dog = critter(a.inn.x - 40, a.inn.y + 22, 11);
     if (a.well) for (let i = 0; i < 2; i++) this.kids.push(critter(a.well.x, a.well.y, 20 + i));
     // crows on the ridges, sparrows on the well roof
@@ -117,8 +128,8 @@ export class TownLife {
       });
     }
     if (a.well) for (let i = 0; i < 2; i++) {
-      const x = a.well.x - 8 + i * 14, y = a.well.y - 44;
-      this.birds.push({ x, y, hx: x, hy: y, state: 'perch', t: i * 3, vx: 0, vy: 0, seed: 0.3 + i * 0.4, kind: 'sparrow' });
+      const x = a.well.x - 12 + i * 19, y = a.well.y - 44 + i;
+      this.birds.push({ x, y, hx: x, hy: y, state: 'perch', t: i * 3, vx: 0, vy: 0, seed: i ? 0.8 : 0.2, kind: 'sparrow' });
     }
     // two errand-runners: the market round, and water from the well to the farm
     const look = (o: Partial<Look>): Look => ({ ...DEFAULT_LOOK, ...o });
@@ -215,12 +226,12 @@ export class TownLife {
 
     // 11 anvil sparks while the smith is at it, by day
     const smith = game.npcs.find((n) => n.def.id === 'smith_corin');
-    this.smithAtAnvil = !!(smith && a.anvil && day && Math.hypot(smith.x - a.anvil.x, smith.y - a.anvil.y) < 70);
+    this.smithAtAnvil = !!(smith && a.anvil && day && Math.hypot(smith.x - a.anvil.x, smith.y - a.anvil.y) < 120);
     if (this.smithAtAnvil && a.anvil && Math.floor(now / 1.6) !== Math.floor((now - dt) / 1.6)) {
       for (let i = 0; i < 8; i++) spawn({ kind: 'spark', x: a.anvil.x + 2, y: a.anvil.y - 26, vx: (Math.random() - 0.5) * 90, vy: -30 - Math.random() * 60, t: 0, max: 0.4 + Math.random() * 0.3, color: Math.random() < 0.5 ? PAL.flameLit : PAL.goldLit });
     }
     // 12 grindstone spray
-    if (a.grind && day && Math.random() < dt * 0.25) for (let i = 0; i < 6; i++) spawn({ kind: 'spark', x: a.grind.x - 2, y: a.grind.y - 20, vx: 30 + Math.random() * 50, vy: -20 + Math.random() * 30, t: 0, max: 0.35, color: PAL.goldLit });
+    if (a.grind && day && Math.random() < dt * 0.6) for (let i = 0; i < 7; i++) spawn({ kind: 'spark', x: a.grind.x - 2, y: a.grind.y - 20, vx: 30 + Math.random() * 50, vy: -30 + Math.random() * 30, t: 0, max: 0.5, color: Math.random() < 0.5 ? PAL.goldLit : PAL.flameLit });
 
     // 13, 14 birds on the roofs and the well
     for (const b of this.birds) {
@@ -252,7 +263,6 @@ export class TownLife {
     if (this.apple) { const ap = this.apple; ap.t += dt; ap.x += ap.vx * dt; ap.vx *= 1 - dt * 1.2; if (ap.t > 6) this.apple = null; }
     // 22 moths at night; 23 forge chimney sparks at night
     if (this.night > 0.4) {
-      for (const br of a.braziers) if (Math.random() < dt * 0.25) spawn({ kind: 'dust', x: br.x, y: br.y - 34, ox: br.x, oy: br.y - 36, seed: Math.random() * 6, vx: 0, vy: 0, t: 0, max: 6, color: PAL.bone });
       if (a.forge && Math.random() < dt * 6) spawn({ kind: 'ember', x: a.forge.x + (Math.random() - 0.5) * 6, y: a.forge.y - 52, vx: this.wind * 0.4, vy: -26 - Math.random() * 20, t: 0, max: 1.4, color: Math.random() < 0.5 ? PAL.flameLit : PAL.flame });
     }
     // 24 the chapel bell
@@ -261,7 +271,7 @@ export class TownLife {
     if (h !== 6 && h !== 12 && h !== 18) this.lastBellHour = -1;
     // 25 rug-beating dust, by day
     const rug = this.rugAt();
-    if (rug && day && Math.floor(now / 1.3) !== Math.floor((now - dt) / 1.3)) for (let i = 0; i < 5; i++) spawn({ kind: 'dust', x: rug.x + (Math.random() - 0.5) * 16, y: rug.y - 14 + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * 20 + this.wind * 0.5, vy: -8, t: 0, max: 1.2, color: PAL.sand });
+    if (rug && day && Math.floor(now / 1.3) !== Math.floor((now - dt) / 1.3)) for (let i = 0; i < 5; i++) spawn({ kind: 'dust', x: rug.x + (Math.random() - 0.5) * 18, y: rug.y - 12 + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * 24 + this.wind * 0.6, vy: -10, t: 0, max: 1.2, color: PAL.bone });
 
     for (let i = this.specks.length - 1; i >= 0; i--) {
       const s = this.specks[i];
@@ -312,41 +322,44 @@ export class TownLife {
       R(hx + 3, hy + 4, 1, 1, PAL.blood);                               // wattle
       R(-1, -1, 1, 1, PAL.gold); R(1, -1, 1, 1, PAL.gold);
     } });
-    // the rooster on the cart
+    // the rooster on the cart shaft
     const cart = this.a.cart;
     if (cart) out.push({ y: cart.y + 1, draw: () => {
-      const x = Math.round(cart.x - 14), y = Math.round(cart.y - 18);
+      const x = Math.round(cart.x + 30), y = Math.round(cart.y - 10);
       const crow = now - this.rooster < 1.4;
-      g.fillStyle = PAL.ink; g.fillRect(x - 4, y - 6, 8, 6);
-      g.fillStyle = PAL.clay; g.fillRect(x - 3, y - 5, 6, 4);
-      g.fillStyle = PAL.leafDark; g.fillRect(x - 6, y - 8, 3, 5);
-      const hy = crow ? y - 11 : y - 9;
-      g.fillStyle = PAL.ink; g.fillRect(x + 1, hy - 1, 4, 5);
-      g.fillStyle = PAL.flame; g.fillRect(x + 2, hy, 2, 3);
-      g.fillStyle = PAL.blood; g.fillRect(x + 2, hy - 2, 2, 2);
-      g.fillStyle = PAL.gold; g.fillRect(x + 4, hy + 1, crow ? 2 : 1, 1);
-      if (crow) { g.fillStyle = PAL.cloth; for (let i = 0; i < 3; i++) g.fillRect(x + 8 + i * 3, hy - 3 - i * 2 + Math.round(Math.sin(now * 10 + i)), 2, 1); }
+      const R = (dx: number, dy: number, w: number, h: number, c: string) => { g.fillStyle = c; g.fillRect(x + dx, y + dy, w, h); };
+      R(-8, -13, 3, 2, PAL.ink); R(-9, -11, 2, 5, PAL.ink); R(-7, -15, 2, 3, PAL.ink);   // sickle tail
+      R(-6, -9, 9, 7, PAL.ink); R(-5, -8, 7, 5, PAL.blood);                               // body
+      R(-4, -6, 4, 2, shade(PAL.blood, 0.75));                                             // wing
+      const hy = crow ? -16 : -14;
+      R(1, hy, 4, 7, PAL.ink); R(2, hy + 1, 2, 5, PAL.flame);                             // hackles
+      R(2, hy - 2, 3, 2, PAL.blood);                                                        // comb
+      R(3, hy + 2, 1, 1, PAL.ink);                                                          // eye
+      R(5, hy + 2, crow ? 2 : 1, 1, PAL.gold);                                              // beak
+      if (crow) R(5, hy + 3, 1, 1, PAL.gold);
+      R(-2, -2, 1, 2, PAL.gold); R(0, -2, 1, 2, PAL.gold);                                  // legs
+      if (crow) { g.fillStyle = PAL.cloth; for (let i = 0; i < 3; i++) g.fillRect(x + 9 + i * 3, y + hy - 2 - i * 2 + Math.round(Math.sin(now * 10 + i)), 2, 1); }
     } });
     // the cat
     const cat = this.cat;
-    if (cat && !(cat.state === 2 && cat.t < 25 && cat.t > 1.5)) out.push({ y: cat.state === 0 ? (this.a.barrels?.y ?? cat.y) + 1 : cat.y + 22, draw: () => {
+    if (cat && cat.state !== 2) out.push({ y: cat.state === 0 ? (this.a.barrels?.y ?? cat.y) + 1 : cat.y + 22, draw: () => {
       const x = Math.round(cat.x), y = Math.round(cat.y) + (cat.state === 0 ? 0 : 0);
       g.fillStyle = PAL.ink;
       if (cat.state === 0) {
         // curled asleep, tail flicking
         g.fillRect(x - 5, y - 4, 10, 5);
-        g.fillStyle = PAL.clay; g.fillRect(x - 4, y - 3, 8, 3);
-        g.fillStyle = shade(PAL.clay, 0.7); g.fillRect(x - 2, y - 3, 1, 3); g.fillRect(x + 1, y - 3, 1, 3);
-        g.fillStyle = PAL.clay; g.fillRect(x + 2, y - 5, 3, 2);
+        g.fillStyle = PAL.rock; g.fillRect(x - 4, y - 3, 8, 3);
+        g.fillStyle = shade(PAL.rock, 0.7); g.fillRect(x - 2, y - 3, 1, 3); g.fillRect(x + 1, y - 3, 1, 3);
+        g.fillStyle = PAL.rock; g.fillRect(x + 2, y - 5, 3, 2);
         g.fillStyle = PAL.ink; g.fillRect(x + 2, y - 6, 1, 1); g.fillRect(x + 4, y - 6, 1, 1);
         const flick = Math.sin(now * 2 + cat.seed) > 0.8 ? -1 : 0;
-        g.fillStyle = PAL.clay; g.fillRect(x - 6, y - 2 + flick, 2, 1);
+        g.fillStyle = PAL.rock; g.fillRect(x - 6, y - 2 + flick, 2, 1);
       } else {
         const run = Math.floor(now * 12) % 2;
         g.fillRect(x - 5, y - 5, 10, 5);
-        g.fillStyle = PAL.clay; g.fillRect(x - 4, y - 4, 8, 3);
+        g.fillStyle = PAL.rock; g.fillRect(x - 4, y - 4, 8, 3);
         g.fillStyle = PAL.ink; g.fillRect(x + cat.face * 4 - 1, y - 7, 3, 3);
-        g.fillStyle = PAL.clay; g.fillRect(x + cat.face * 4, y - 6, 1, 1);
+        g.fillStyle = PAL.rock; g.fillRect(x + cat.face * 4, y - 6, 1, 1);
         g.fillRect(x - cat.face * 6, y - 6 - run, 1, 3);
         g.fillStyle = PAL.ink; g.fillRect(x - 3 + run, y, 1, 1); g.fillRect(x + 2 - run, y, 1, 1);
       }
@@ -394,24 +407,43 @@ export class TownLife {
       g.fillStyle = PAL.woodDark;
       g.fillRect(line.x0 - 1, line.y - 2, 2, 34); g.fillRect(line.x1 - 1, line.y - 2, 2, 34);
       for (let x = line.x0; x < line.x1; x += 2) g.fillRect(x, line.y + Math.round(Math.sin(((x - line.x0) / (line.x1 - line.x0)) * Math.PI) * 4), 2, 1);
-      const cloths: Array<[number, string, number, number]> = [[0.18, PAL.cloth, 10, 12], [0.4, '#6a8ab0', 8, 14], [0.62, PAL.blood, 12, 10], [0.84, PAL.sandLit, 8, 11]];
-      for (const [k, c, w, h] of cloths) {
+      const items: Array<[number, string, 'shirt' | 'trousers' | 'sheet' | 'towel']> = [[0.16, PAL.cloth, 'sheet'], [0.4, '#6a8ab0', 'shirt'], [0.62, '#4a5a7a', 'trousers'], [0.85, PAL.blood, 'towel']];
+      for (const [k, c, kind] of items) {
+        const w = kind === 'sheet' ? 14 : kind === 'shirt' ? 10 : kind === 'trousers' ? 8 : 6;
+        const h = kind === 'sheet' ? 13 : kind === 'shirt' ? 9 : kind === 'trousers' ? 12 : 8;
         const x = Math.round(line.x0 + (line.x1 - line.x0) * k - w / 2), y = Math.round(line.y + Math.sin(k * Math.PI) * 4 + 1);
-        const billow = Math.round(Math.sin(now * 2.5 + k * 9) * (this.wind / 9));
-        g.fillStyle = PAL.ink; g.fillRect(x - 1, y - 1, w + 2, h + 2);
-        g.fillStyle = c; g.fillRect(x, y, w, h);
-        g.fillStyle = shade(c, 0.8); g.fillRect(x + (billow > 0 ? w - 2 : 0), y + 2, 2, h - 2);
-        g.fillRect(x + billow, y + h, w, 1);
+        const gust = this.wind / 9;
+        const col = (cx: number) => Math.round(Math.sin(now * 3 + k * 9 + cx * 0.9) * gust * 0.8);
+        // silhouette, in ink first, then the cloth one pixel in
+        const shape = (inset: number, colr: string) => {
+          g.fillStyle = colr;
+          for (let cx = -1 + inset; cx < w + 1 - inset; cx++) {
+            let top = -1 + inset, bot = h + 1 - inset + (cx % 2 === 0 ? col(cx) : col(cx - 1));
+            if (kind === 'shirt' && (cx < 2 || cx >= w - 2)) bot = Math.min(bot, 4 - inset);      // sleeves
+            if (kind === 'trousers' && cx >= w / 2 - 1 && cx <= w / 2 && bot > 4) bot = 4 + inset; // the gap between the legs
+            g.fillRect(x + cx, y + top, 1, Math.max(0, bot - top));
+          }
+        };
+        shape(0, PAL.ink); shape(1, c);
+        g.fillStyle = shade(c, 0.8); g.fillRect(x, y + 1, w, 1);
+        g.fillStyle = PAL.woodDark; g.fillRect(x + 1, y - 1, 1, 2); g.fillRect(x + w - 2, y - 1, 1, 2);   // pegs
       }
     } });
     // 25 the rug over its rail
     const rug = this.rugAt();
     if (rug) out.push({ y: rug.y, draw: () => {
-      g.fillStyle = PAL.woodDark; g.fillRect(rug.x - 14, rug.y - 18, 2, 18); g.fillRect(rug.x + 12, rug.y - 18, 2, 18); g.fillRect(rug.x - 14, rug.y - 19, 28, 2);
-      g.fillStyle = PAL.ink; g.fillRect(rug.x - 11, rug.y - 18, 22, 14);
-      g.fillStyle = '#6a2a3a'; g.fillRect(rug.x - 10, rug.y - 17, 20, 12);
-      g.fillStyle = PAL.gold; g.fillRect(rug.x - 10, rug.y - 17, 20, 1); g.fillRect(rug.x - 10, rug.y - 7, 20, 1);
-      for (let i = 0; i < 3; i++) g.fillRect(rug.x - 6 + i * 6, rug.y - 13, 2, 2);
+      const jolt = (now % 1.3) < 0.12 ? 1 : 0;
+      const x = rug.x, y = rug.y;
+      g.fillStyle = PAL.ink; g.fillRect(x - 15, y - 20, 3, 21); g.fillRect(x + 12, y - 20, 3, 21); g.fillRect(x - 15, y - 21, 30, 3);
+      g.fillStyle = PAL.woodDark; g.fillRect(x - 14, y - 19, 1, 19); g.fillRect(x + 13, y - 19, 1, 19); g.fillRect(x - 14, y - 20, 28, 1);
+      const rx = x - 11 + jolt, red = '#6a2a3a';
+      g.fillStyle = PAL.ink; g.fillRect(rx, y - 22, 22, 4); g.fillRect(rx, y - 19, 22, 15);  // back flap, front drop
+      g.fillStyle = shade(red, 0.7); g.fillRect(rx + 1, y - 21, 20, 2);
+      g.fillStyle = red; g.fillRect(rx + 1, y - 18, 20, 13);
+      g.fillStyle = shade(red, 1.35); g.fillRect(rx + 1, y - 19, 20, 1);                        // the fold, lit
+      g.fillStyle = PAL.gold; g.fillRect(rx + 3, y - 16, 16, 1); g.fillRect(rx + 3, y - 8, 16, 1);
+      g.fillStyle = PAL.goldLit; for (let i = 0; i < 3; i++) g.fillRect(rx + 6 + i * 4, y - 13, 2, 2);
+      g.fillStyle = PAL.sandLit; for (let i = 1; i < 21; i += 2) g.fillRect(rx + i, y - 4, 1, 1 + (i % 4 === 1 ? 1 : 0)); // tassels
     } });
     // children
     const kidLook: Look[] = [{ ...DEFAULT_LOOK, hair: '#c9a86b', shirt: '#6a8ab0', height: 0.72 }, { ...DEFAULT_LOOK, hair: '#4a2a1a', hairStyle: 'ponytail', shirt: '#b5462f', height: 0.7 }];
@@ -496,11 +528,13 @@ export class TownLife {
           R(2, -6, 1, 1, PAL.goldLit);              // eye
           R(-1, 0, 1, 1, PAL.ink); R(1, 0, 1, 1, PAL.ink);
         } else {
-          R(-4, -4, 7, 5, PAL.ink); R(1, -6, 4, 4, PAL.ink);
-          R(-3, -3, 5, 3, PAL.dirtLit); R(2, -5, 2, 2, PAL.dirt);
-          R(-2, -1, 4, 1, PAL.sandLit);             // pale belly
+          R(-6, -6, 3, 3, PAL.ink); R(-5, -5, 1, 1, PAL.dirt);   // cocked tail
+          R(-4, -4, 7, 5, PAL.ink); R(1, -7, 4, 4, PAL.ink);
+          R(-3, -3, 5, 3, PAL.dirtLit); R(2, -6, 2, 2, PAL.dirt);
           R(-3, -3, 3, 1, PAL.dirt);                // wing bar
-          R(5, -4, 1, 1, PAL.gold);
+          R(-2, -1, 4, 1, PAL.sandLit);             // pale belly, underneath
+          R(3, -6, 1, 1, PAL.ink);                  // eye
+          R(5, -5, 1, 1, PAL.gold);
         }
         if (caw) { g.fillStyle = PAL.ink; g.fillRect(x + f * 8, y - 10, 1, 1); g.fillRect(x + f * 10, y - 12, 1, 1); }
       } else {
@@ -509,12 +543,24 @@ export class TownLife {
         g.fillRect(x - 4, y - 1 - up * 2, 3, 1); g.fillRect(x + 2, y - 1 - up * 2, 3, 1);
       }
     }
+    // 22 moths: two round every fire after dark
+    if (this.night > 0.4) {
+      const fires = [...a.braziers.map((b) => ({ x: b.x, y: b.y - 36 })), ...a.torches.map((t) => ({ x: t.x, y: t.y - 30 }))];
+      g.globalAlpha = Math.min(1, (this.night - 0.4) * 4);
+      fires.forEach((fp, j) => { for (let i = 0; i < 2; i++) {
+        const q = j * 1.7 + i * 3.1;
+        const mx = Math.round(fp.x + Math.cos(now * 3.1 + q) * 10 + Math.sin(now * 7 + q) * 2), my = Math.round(fp.y + Math.sin(now * 4.3 + q) * 6);
+        g.fillStyle = PAL.bone; g.fillRect(mx, my, 2, 1);
+        if (Math.floor(now * 16 + q) % 2) { g.fillStyle = PAL.cloth; g.fillRect(mx, my - 1, 1, 1); g.fillRect(mx + 1, my + 1, 1, 1); }
+      } });
+      g.globalAlpha = 1;
+    }
     // specks: sparks, petals, hay, dust, steam, drops
     for (const s of this.specks) {
       const k = s.t / s.max;
-      g.globalAlpha = s.kind === 'steam' ? 0.55 * (1 - k) : s.kind === 'dust' && s.max < 3 ? 0.6 * (1 - k) : Math.min(1, (1 - k) * 2);
+      g.globalAlpha = s.kind === 'steam' ? 0.55 * (1 - k) : s.kind === 'dust' && s.max < 3 ? 0.8 * (1 - k) : Math.min(1, (1 - k) * 2);
       g.fillStyle = s.color;
-      const size = s.kind === 'steam' ? 2 + Math.round(k * 3) : s.kind === 'dust' && s.max < 3 ? 2 : 1;
+      const size = s.kind === 'steam' ? 2 + Math.round(k * 3) : s.kind === 'dust' && s.max < 3 ? 3 - Math.round(k * 2) : 1;
       g.fillRect(Math.round(s.x), Math.round(s.y), size, s.kind === 'hay' ? 1 : size);
       if (s.kind === 'hay') g.fillRect(Math.round(s.x) + 1, Math.round(s.y) + 1, 2, 1);
     }
