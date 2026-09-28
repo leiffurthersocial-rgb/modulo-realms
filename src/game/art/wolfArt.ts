@@ -131,14 +131,14 @@ const SIDE_BITE = [
 
 /** Coming at the camera: back and crest behind, head in front, forelegs under the chin, hind paws outside. */
 const FRONT = [
-  '........#......#........',
-  '...#...#o#.##.#o#...#...',
-  '...##.#o+#o++o#+o#.##...',
-  '...#l##o+o++++o+o##l#...',
-  '...#ll#oo++++++oo#ll#...',
-  '...#oll#o++++++o#llo#...',
-  '...#ooo#++++++++#ooo#...',
-  '....#o#o++++++++o#o#....',
+  '........................',
+  '......#..........#......',
+  '......##........##......',
+  '.....#l+#......#+l#.....',
+  '.....#ll+#.##.#+ll#.....',
+  '....##ll+##oo##+ll##....',
+  '...#o#o+++o++o+++o#o#...',
+  '...#oo#o++++++++o#oo#...',
   '...#o#oo+++oo+++oo#o#...',
   '..#oo#o###++++###o#oo#..',
   '..#o#oo#W#++++#W#oo#o#..',
@@ -160,26 +160,26 @@ const FRONT = [
 
 /** Going away: crest and ears far, dark haunches, a tail hanging off-centre between the hocks. */
 const BACK = [
-  '........#......#........',
-  '.....#..#o#..#o#..#.....',
-  '....#o#.#o+##+o#.#o#....',
-  '....#o+##oo++oo##+o#....',
-  '...#o#+#ooo++ooo#+#o#...',
-  '...#oo#oooooooooo#oo#...',
-  '..#o#ooooo+oo+ooooo#o#..',
+  '.........#....#.........',
+  '......#..#o##o#..#......',
+  '......##.#o++o#.##......',
+  '.....#o+##o++o##+o#.....',
+  '.....#oo#oooooo#oo#.....',
+  '....#o#oooooooooo#o#....',
+  '....#oo#oo+oo+oo#oo#....',
+  '...#oo#oooo++oooo#oo#...',
+  '...#o#ooooo++ooooo#o#...',
+  '...#oo#oooo++oooo#oo#...',
+  '...#o#ooooo++ooooo#o#...',
   '..#oo#ooooo++ooooo#oo#..',
-  '.#oo#oooooo++oooooo#oo#.',
-  '.#o#ooooooo++ooooooo#o#.',
-  '.#oo#oooooo++oooooo#oo#.',
-  '.#o#ooooooo++ooooooo#o#.',
-  '.#dd#oooooooooooooo#dd#.',
+  '..#dd#oooooooooooo#dd#..',
   '.#ddd#oooooooooooo#ddd#.',
-  '.#ddd#oooooooooooo#ddd#.',
-  '..#dd#ooo##ooooooo#dd#..',
-  '..#dd#oo#od##ooooo#dd#..',
-  '..#ddd#o#od##oooo#ddd#..',
-  '..#dd##o#od#.#ooo##dd#..',
-  '..#dd#.##od#.####.#dd#..',
+  '.#dddd#oooooooooo#dddd#.',
+  '.#dddd#oo##oooooo#dddd#.',
+  '..#ddd#o#+o##oooo#ddd#..',
+  '..#dd#oo#+o#.##ooo#dd#..',
+  '..#dd#.##+d#..###.#dd#..',
+  '..#dd#..#+d#......#dd#..',
   '..#dd#..#od#......#dd#..',
   '..#dd#..#lL#......#dd#..',
   '..#ld#..#Ll#......#dl#..',
@@ -357,10 +357,11 @@ export function drawWolfFrame(s: CreatureStyle, dir: 'down' | 'up' | 'right', po
       if (x % 2 === 0) p.set(x0 + x, y0 + top - 2, shade(bone, 1.12));
     }
   }
+  // an old scar: pale on a dark coat, dark on a pale one
+  const scar = luma(coat) > 0.5 ? shade(coat, 0.7) : pale;
   if (dir === 'right' && !pose.hurt) {
     if (tier >= 1) {
-      // an old scar across the flank
-      p.set(x0 + 9, y0 + 12, pale); p.set(x0 + 10, y0 + 13, pale); p.set(x0 + 11, y0 + 14, pale);
+      p.set(x0 + 9, y0 + 12, scar); p.set(x0 + 10, y0 + 13, scar); p.set(x0 + 11, y0 + 14, scar);
     }
     if (tier >= 3) {
       const v = withAlpha(glow, 0.9);
@@ -368,8 +369,8 @@ export function drawWolfFrame(s: CreatureStyle, dir: 'down' | 'up' | 'right', po
     }
   }
   if (dir === 'down' && tier >= 1 && !pose.hurt) {
-    p.set(x0 + 6, y0 + 12, pale); p.set(x0 + 7, y0 + 13, pale);
-    if (tier >= 3) for (const [vx, vy] of [[4, 18], [5, 19], [18, 18], [19, 19]]) p.set(x0 + vx, y0 + vy, withAlpha(glow, 0.9));
+    p.set(x0 + 6, y0 + 12, scar); p.set(x0 + 7, y0 + 13, scar);
+    if (tier >= 3) for (const [vx, vy] of [[5, 12], [5, 13], [18, 12], [18, 13]]) p.set(x0 + vx, y0 + vy, withAlpha(glow, 0.9));
   }
   if (dir === 'up' && tier >= 3) for (let i = 0; i < 4; i++) p.set(x0 + 11 + (i % 2), y0 + 7 + i * 2, withAlpha(glow, 0.9));
   return p;
