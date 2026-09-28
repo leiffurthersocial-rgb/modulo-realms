@@ -36,7 +36,8 @@ npm run check:aegean   # 27 serielle Regressionsgruppen — DER große Lauf
 **Vor jedem Push:** `npm run typecheck && npm run build && npm run check:aegean`.
 
 Letzter verifizierter Stand (selbst ausgeführt): typecheck 0 Fehler, Build OK
-(1,297 MB / 415 KB gzip, Single-Chunk-Warnung ist bekannt und akzeptiert),
+(Haupt-Chunk 1,39 MB / 455 KB gzip + `react`-Chunk 141 KB + 11 Lazy-Panels; die
+Chunk-Warnung für den Haupt-Chunk ist bekannt und akzeptiert),
 check:aegean alle 27 Gruppen grün (27.09., mit Hauptquest). Keine TODO/FIXME/HACK im Code.
 
 ⚠️ `esbuild` und `tsx` sind **nicht in `package.json` deklariert**. `esbuild` kommt nur
@@ -50,6 +51,12 @@ transitiv über Vite, `tsx` gar nicht. `check:aegean` kann bei einem Vite-Major 
    Kein React-State für Spielzustand.
 2. **Content ist nicht Logik.** Alles in `src/data/` ist reine Daten. Item, Gegner, Quest,
    NPC oder Dorf hinzufügen darf **kein** System anfassen.
+
+**Code-Splitting (28.09.):** Selten geöffnete Panels (Storage, Travel, Forge, Remake, Crown,
+Shipyard, Poker, Slots, Roulette, Debug, Help) sind `React.lazy` in `App.tsx` und werden nach
+Spielstart im Leerlauf vorgeladen (`prefetchPanels`). React/ReactDOM liegen per `manualChunks`
+in eigenem Chunk. Ein neues selten genutztes Panel → in `loaders` eintragen, nicht statisch
+importieren. Spiel-Kern (Game, Art, Data, Aegean) bleibt bewusst ein Chunk — zirkuläre Imports.
 
 Loop (`src/App.tsx`): fixed timestep, Simulation **immer 60 Hz** (`accumulator`,
 `g.update(1/60)`). Battery Saver rendert 30 fps, simuliert weiter 60 Hz.
@@ -142,11 +149,15 @@ src/
                          Staubteufel+Geier in `south`, Schnee+Blizzard in `north`/
                          `deepnorth`, Asche in `farsouth`/`emberdeep`). Läuft auf
                          `game.now`, Dev-Hook `window.moduloAmbience`.
-  game/art/beasts.ts     Wolf- und Golem-Anatomie + `menaceTier(level)` (0..3 aus
-                         dem Bestiarium-Level) und Menace-Trims für späte Kreaturen.
-                         Seit 27.09. neu gezeichnet: Wolf mit echter Front-/Rückansicht
-                         (Kopf vorn, Schulterfell, Hinterläufe + Rute hinten), Golem aus
+  game/art/beasts.ts     Golem-Anatomie + `menaceTier(level)` (0..3 aus dem
+                         Bestiarium-Level) und Menace-Trims für späte Kreaturen. Golem aus
                          Steinblöcken mit Ober-/Unterarm und Fäusten, die am Boden ruhen
+  game/art/wolfArt.ts    Der Wolf **nach User-Referenzbild** (28.09.): Seitenposen (Stand,
+                         Blinzeln, Sprung, Biss) sind die Referenz 1:1 als Zeichen-Grids,
+                         Front/Rück im selben Stil von Hand; nur die Palette wird pro
+                         Variante berechnet. Eigener Frame 44 px breit (`WOLF_FRAME_W`),
+                         eigene Outline (kein generischer `outline()`-Pass). Walk = Schienbein-
+                         Reihen diagonal versetzt (`stepLegs`). Nicht durch Ellipsen ersetzen.
   game/art/interiorProps.ts  Möbel der Ashvale-Innenräume (Wandflächen, Kamin, Theke,
                          Fässer, Esse, Blasebalg, Bänke, Altar, Thron, Regale …) —
                          `getProp` fragt hier nach casino/cave, vor GEN
@@ -360,7 +371,7 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
   Ladenschilder bekommen ihr Symbol per Renderer-Overlay (`SIGN_DEVICE`) — Prop-Liste
   der Westwelt bleibt unverändert.
 - Design-Kritik-Loops (eigener Kritiker-Agent, max. 3 Runden, Ziel ≥ 9/10): Interiors
-  5 → 7, Wolf 5 → 6, Golem 6 → 7, Außen-Props 5,5 → 7, Stadt-Details 5 → 6,5 → 7.
+  5 → 7, Wolf (alt) 5 → 6 → ersetzt durch Referenz-Wolf (siehe `wolfArt.ts`), Golem 6 → 7, Außen-Props 5,5 → 7, Stadt-Details 5 → 6,5 → 7.
   **Keiner hat 9/10 erreicht** — nicht als „fertig poliert“ weitergeben.
 
 ## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen
