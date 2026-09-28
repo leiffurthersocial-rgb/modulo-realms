@@ -2,7 +2,8 @@ import { PAL, mix, shade, withAlpha } from './palette';
 import { drawMythCreature, type MythCreatureKind } from './aegeanCreatures';
 import { Px, sheetGrid, type Canvas } from './pixel';
 import { CH_W, CH_H, CH_FEET, SHEET_COLS, type CharacterSheet } from './characters';
-import { drawGolem, drawMenaceTrim, drawWolf, menaceTier, scorpionStinger } from './beasts';
+import { drawGolem, drawMenaceTrim, menaceTier, scorpionStinger } from './beasts';
+import { WOLF_FRAME_W, drawWolfFrame } from './wolfArt';
 
 export type CreatureKind =
   | 'wolf' | 'spider' | 'bat' | 'slime' | 'wisp' | 'golem' | 'treant'
@@ -115,6 +116,8 @@ function quadruped(
 
 function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPose): Px {
   if (s.kind.startsWith('myth_')) return drawMythCreature(s, dir, pose);
+  // the wolf carries its own ink line, so it skips the generic outline pass
+  if (s.kind === 'wolf') return withGlow(drawWolfFrame(s, dir, pose, s.menace ?? 0), s);
   const p = new Px(CH_W, CH_H);
   const cx = CH_W / 2;
   const { primary, secondary, accent, eye } = s;
@@ -235,9 +238,6 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
       p.fill(cx - 4, yy - 4, 3, 2, eye); p.fill(cx + 3, yy - 4, 3, 2, eye);
       break;
     }
-    case 'wolf':
-      drawWolf(p, s, dir, pose, s.menace ?? 0);
-      break;
     case 'boar':
       quadruped(p, s, dir, pose, { bodyW: 24, bodyH: 13, legH: 6, headR: 6, maned: true, tusks: true, tail: 'thin' });
       break;
@@ -428,6 +428,11 @@ function drawCreature(s: CreatureStyle, dir: 'down' | 'up' | 'right', pose: CPos
 
   drawMenaceTrim(p, s, dir, pose, s.menace ?? 0);
   p.outline('rgba(12,9,18,0.8)');
+  return withGlow(p, s);
+}
+
+/** A soft halo of the creature's own light behind it, for the ones that glow. */
+function withGlow(p: Px, s: CreatureStyle): Px {
   if (s.glow) {
     const g = p.clone();
     g.tint(s.glow, 0.6);
@@ -460,7 +465,7 @@ export function getCreatureSheet(style: CreatureStyle): CharacterSheet {
   if (hit) return hit;
   const scale = style.scale ?? 1;
   const myth = style.kind.startsWith('myth_'), mythBoss = style.kind.startsWith('myth_boss_');
-  const frameW = myth ? mythBoss ? 64 : 48 : CH_W;
+  const frameW = myth ? mythBoss ? 64 : 48 : style.kind === 'wolf' ? WOLF_FRAME_W : CH_W;
   const frameH = myth ? mythBoss ? 64 : 56 : CH_H;
   const feet = myth ? frameH - 4 : CH_FEET;
   const rows: Px[][] = (['down', 'up', 'right'] as const).map((dir) =>
@@ -492,7 +497,7 @@ export const CREATURE_PALETTES: Record<string, Pick<CreatureStyle, 'primary' | '
   aegean_fire: { primary: '#a55a35', secondary: '#3a272e', accent: '#eaae52', eye: '#fff1a2' },
   aegean_shade: { primary: '#8ba9ae', secondary: '#334952', accent: '#b2d5cb', eye: '#c7faed' },
   aegean_sea: { primary: '#4e93a3', secondary: '#284957', accent: '#95d3d1', eye: '#ffd99f' },
-  wolf: { primary: '#6b6a74', secondary: '#4a4955', accent: '#8f8e99', eye: PAL.flameLit },
+  wolf: { primary: '#364955', secondary: '#26343d', accent: '#8caec4', eye: '#f1f0fd' },
   direwolf: { primary: '#3e3a48', secondary: '#282430', accent: '#5a5568', eye: PAL.ember },
   frostwolf: { primary: '#a9c2d4', secondary: '#7d95ab', accent: PAL.white, eye: PAL.frost },
   spider: { primary: '#37313f', secondary: '#241f2b', accent: PAL.blood, eye: PAL.ember },

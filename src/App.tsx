@@ -1,5 +1,4 @@
-import ShipyardPanel from './ui/ShipyardPanel';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Game } from './game/core/game';
 import { ambience, render } from './game/core/renderer';
 import { townLife } from './game/core/townLife';
@@ -19,22 +18,53 @@ import SkillPanel from './ui/SkillPanel';
 import QuestPanel from './ui/QuestPanel';
 import MapPanel from './ui/MapPanel';
 import ShopPanel from './ui/ShopPanel';
-import StoragePanel from './ui/StoragePanel';
-import TravelPanel from './ui/TravelPanel';
-import ForgePanel from './ui/ForgePanel';
-import RemakePanel from './ui/RemakePanel';
-import CrownPanel from './ui/CrownPanel';
-import PokerPanel from './ui/PokerPanel';
-import RoulettePanel from './ui/RoulettePanel';
-import SlotsPanel from './ui/SlotsPanel';
-import DebugPanel from './ui/DebugPanel';
 import PausePanel from './ui/PausePanel';
-import HelpPanel from './ui/HelpPanel';
 import LootPanel from './ui/LootPanel';
 import TouchControls from './ui/TouchControls';
 import SettingsPanel from './ui/SettingsPanel';
 import DeathScreen from './ui/DeathScreen';
 import { uiSound } from './ui/kit/sfx';
+
+/*
+ * Panels a session may never open — the forge, the shipyard, the casino
+ * tables, the debug and help pages — load as their own chunks, so the first
+ * download is only what the title screen and the open world need. They are
+ * fetched in the background once the game is running, so opening one later
+ * does not wait on the network.
+ */
+const loaders = {
+  ShipyardPanel: () => import('./ui/ShipyardPanel'),
+  StoragePanel: () => import('./ui/StoragePanel'),
+  TravelPanel: () => import('./ui/TravelPanel'),
+  ForgePanel: () => import('./ui/ForgePanel'),
+  RemakePanel: () => import('./ui/RemakePanel'),
+  CrownPanel: () => import('./ui/CrownPanel'),
+  PokerPanel: () => import('./ui/PokerPanel'),
+  RoulettePanel: () => import('./ui/RoulettePanel'),
+  SlotsPanel: () => import('./ui/SlotsPanel'),
+  DebugPanel: () => import('./ui/DebugPanel'),
+  HelpPanel: () => import('./ui/HelpPanel'),
+};
+const ShipyardPanel = lazy(loaders.ShipyardPanel);
+const StoragePanel = lazy(loaders.StoragePanel);
+const TravelPanel = lazy(loaders.TravelPanel);
+const ForgePanel = lazy(loaders.ForgePanel);
+const RemakePanel = lazy(loaders.RemakePanel);
+const CrownPanel = lazy(loaders.CrownPanel);
+const PokerPanel = lazy(loaders.PokerPanel);
+const RoulettePanel = lazy(loaders.RoulettePanel);
+const SlotsPanel = lazy(loaders.SlotsPanel);
+const DebugPanel = lazy(loaders.DebugPanel);
+const HelpPanel = lazy(loaders.HelpPanel);
+
+let prefetched = false;
+function prefetchPanels(): void {
+  if (prefetched) return;
+  prefetched = true;
+  const run = () => { for (const load of Object.values(loaders)) void load().catch(() => { /* retried when opened */ }); };
+  const idle = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
+  if (idle) idle(run); else window.setTimeout(run, 2000);
+}
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -219,6 +249,7 @@ function UiLayer({ game }: { game: Game }) {
   // `touchMode` on the input stops a tap on the scenery also swinging the
   // weapon, and the class hides the keyboard hint and the desktop ability bar.
   game.input.touchMode = game.settings.touchControls;
+  prefetchPanels();
 
   return (
     <div className={`overlay${game.settings.touchControls ? ' touch-on' : ''}`} {...uiSounds}>
@@ -231,18 +262,20 @@ function UiLayer({ game }: { game: Game }) {
       {game.panel === 'quests' ? <QuestPanel game={game} /> : null}
       {game.panel === 'map' ? <MapPanel game={game} /> : null}
       {game.panel === 'shop' && game.shop ? <ShopPanel game={game} /> : null}
-      {game.panel === 'storage' ? <StoragePanel game={game} /> : null}
-      {game.panel === 'travel' ? <TravelPanel game={game} /> : null}
-      {game.panel === 'forge' ? <ForgePanel game={game} /> : null}
-      {game.panel === 'remake' ? <RemakePanel game={game} /> : null}
-      {game.panel === 'crown' ? <CrownPanel game={game} /> : null}
-      {game.panel === 'shipyard' ? <ShipyardPanel game={game} /> : null}
-      {game.panel === 'poker' ? <PokerPanel game={game} /> : null}
-      {game.panel === 'slots' ? <SlotsPanel game={game} /> : null}
-      {game.panel === 'roulette' ? <RoulettePanel game={game} /> : null}
-      {game.panel === 'debug' ? <DebugPanel game={game} /> : null}
+      <Suspense fallback={null}>
+        {game.panel === 'storage' ? <StoragePanel game={game} /> : null}
+        {game.panel === 'travel' ? <TravelPanel game={game} /> : null}
+        {game.panel === 'forge' ? <ForgePanel game={game} /> : null}
+        {game.panel === 'remake' ? <RemakePanel game={game} /> : null}
+        {game.panel === 'crown' ? <CrownPanel game={game} /> : null}
+        {game.panel === 'shipyard' ? <ShipyardPanel game={game} /> : null}
+        {game.panel === 'poker' ? <PokerPanel game={game} /> : null}
+        {game.panel === 'slots' ? <SlotsPanel game={game} /> : null}
+        {game.panel === 'roulette' ? <RoulettePanel game={game} /> : null}
+        {game.panel === 'debug' ? <DebugPanel game={game} /> : null}
+        {game.panel === 'help' ? <HelpPanel game={game} /> : null}
+      </Suspense>
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
-      {game.panel === 'help' ? <HelpPanel game={game} /> : null}
       {game.panel === 'loot' ? <LootPanel game={game} /> : null}
       {showSettings ? (
         <SettingsPanel
