@@ -3202,6 +3202,8 @@ export class Game implements WorldCtx {
     const out: Array<{ x: number; y: number; name: string; loc: string }> = [];
     def.objectives.forEach((o, i) => {
       if (aq && this.quests.isObjectiveDone(def, aq, i, this.player)) return;
+      // a hunt has no one place — it is the whole region, named in the tracker
+      if (o.type === 'hunt') return;
       let id: string | undefined;
       if (o.type === 'boss' || o.type === 'kill') id = LOCATIONS.find((l) => l.dungeon?.boss === o.enemy || l.dungeon?.miniboss === o.enemy)?.id;
       else if (o.type === 'explore') id = o.location;
@@ -3210,8 +3212,15 @@ export class Game implements WorldCtx {
       const t = id ? at(id) : null;
       if (t && !out.some((x) => x.loc === t.loc)) out.push(t);
     });
-    if (!out.length && def.marker) { const t = at(def.marker); if (t) out.push(t); }
+    if (!out.length && def.marker && !this.onlyHuntLeft(def)) { const t = at(def.marker); if (t) out.push(t); }
     return out;
+  }
+
+  /** Every objective of an active quest is done except its region hunts. */
+  onlyHuntLeft(def: QuestDef): boolean {
+    const aq = this.quests.get(def.id);
+    if (!aq || !def.objectives.some((o) => o.type === 'hunt')) return false;
+    return def.objectives.every((o, i) => o.type === 'hunt' || this.quests.isObjectiveDone(def, aq, i, this.player));
   }
 
   /**
@@ -3350,6 +3359,10 @@ export class Game implements WorldCtx {
       return at && this.player.discovered.has(at.id) ? { x: at.tx * TILE, y: at.ty * TILE, name: at.name } : null;
     }
     if (!def?.marker || !this.quests.markerVisible(def, this.player)) return null;
+    // Once only a hunt is left, the place is done with: the hunt is anywhere
+    // in its region and the tracker says which. Pointing on at a cleared mine
+    // reads as "you missed something there".
+    if (this.onlyHuntLeft(def)) return null;
     const loc = LOCATION_BY_ID[def.marker];
     if (!loc) return null;
     return { x: loc.tx * TILE, y: loc.ty * TILE, name: loc.name };
