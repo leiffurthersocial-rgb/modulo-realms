@@ -316,7 +316,9 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
   wenn der Spieler den Ort selbst entdeckt hat. Vorher nur `hint` (Richtung ab welcher
   Stadt). Jeder unguided Schritt braucht einen `hint` (Check erzwingt).
 - **`hunt`-Ziel** `{ region, count }`: jeder echte Spawn-Kill in der Region; Beschwörungen
-  zählen nicht. Grind im Kapitel.
+  zählen nicht. Grind im Kapitel. Ist nur noch die Jagd offen (`Game.onlyHuntLeft`), zeigen
+  Kompass und Story-„?“ **nicht** mehr auf den Kapitel-Ort (las sich als „dort fehlt noch
+  was“, z. B. Mine nach toter Brood Mother); der Tracker sagt „No need to go back“.
 - **Vorher erledigt zählt** (`QuestLog.precredit`): Boss (`bossesKilled`/`killCounts`),
   Dungeon (`clearedDungeons`), Ort (`discovered`). Hunts nie — außer beim Laden, wenn der
   Spieler die Region überlevelt hat (`catchUp`). Alte Saves laufen beim Laden in einem

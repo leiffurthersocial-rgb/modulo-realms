@@ -219,6 +219,7 @@ function MainStoryBlock({ game, story }: { game: Game; story: MainStoryState }) 
         );
       })}
       {target ? <small>→ {target.name} · {Math.round(Math.hypot(target.x - p.x, target.y - p.y) / 32)}m</small>
+        : !report && game.onlyHuntLeft(def) ? <small>Anything that lives there counts. No need to go back.</small>
         : !report && def.hint && !story.guided ? <small>{def.hint}</small> : null}
     </div>
   );

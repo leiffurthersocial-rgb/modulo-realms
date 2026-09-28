@@ -21,7 +21,7 @@ import type { Game } from './game';
 
 type Kind =
   | 'smoke' | 'leaf' | 'spark' | 'ember' | 'bird' | 'butterfly' | 'firefly'
-  | 'drop' | 'dust' | 'breath' | 'snowclump' | 'mote' | 'ash' | 'bubble' | 'pigeon';
+  | 'drop' | 'dust' | 'breath' | 'snowclump' | 'mote' | 'ash' | 'bubble';
 
 interface Mote {
   kind: Kind;
@@ -207,7 +207,6 @@ export class Ambience {
         this.spawnPlayerTrail(game, map, dt, now);
       }
     }
-    this.player = game.player;
     this.stepSnow(game, map, view, dt, now);
     this.step(dt, now, map);
   }
@@ -381,13 +380,6 @@ export class Ambience {
         for (let i = 0; i < 2; i++) this.spawn({ kind: 'firefly', x: at.x + (Math.random() - 0.5) * 40, y: at.y + (Math.random() - 0.5) * 30, vx: 0, vy: 0, life: 0, max: 8 + Math.random() * 8, size: 1, color: '#d8f07a' });
       }
     }
-    // pigeons pecking on the paving in the valley, until you walk into them
-    if (day && this.climate === 'meadow' && count('pigeon') < 7) {
-      const at = pick();
-      if (at.id === T.ROAD && Math.hypot(at.x - game.player.x, at.y - game.player.y) > 90) {
-        for (let i = 0; i < 3; i++) this.spawn({ kind: 'pigeon', x: at.x + (Math.random() - 0.5) * 24, y: at.y + (Math.random() - 0.5) * 12, vx: 0, vy: 0, life: 0, max: 40, size: 1, color: Math.random() < 0.3 ? PAL.ash : PAL.fog });
-      }
-    }
     void dt;
   }
 
@@ -482,8 +474,6 @@ export class Ambience {
 
   /* ---------------------------------------------------------------- */
 
-  private player: { x: number; y: number } | null = null;
-
   private step(dt: number, now: number, map: GameMap): void {
     const wind = this.wind;
     for (let i = this.motes.length - 1; i >= 0; i--) {
@@ -505,19 +495,6 @@ export class Ambience {
         case 'bird':
           m.vy -= 12 * dt;
           break;
-        case 'pigeon': {
-          const pl = this.player;
-          if (pl && Math.hypot(pl.x - m.x, pl.y - m.y) < 46) {
-            const a = Math.atan2(m.y - pl.y, m.x - pl.x) + (Math.random() - 0.5);
-            m.kind = 'bird'; m.vx = Math.cos(a) * 80; m.vy = Math.sin(a) * 40 - 40; m.life = 0; m.max = 3; m.color = PAL.ash;
-          } else {
-            // a few steps, a peck, a few steps
-            const walk = Math.sin(now * 1.3 + m.seed) > 0.4;
-            m.vx = walk ? Math.cos(m.seed + Math.floor(now / 2)) * 6 : 0;
-            m.vy = walk ? Math.sin(m.seed + Math.floor(now / 2)) * 3 : 0;
-          }
-          break;
-        }
         case 'butterfly': {
           const a = Math.sin(now * 0.7 + m.seed) * 3 + m.seed;
           m.vx = Math.cos(a) * 14 + wind * 0.2;
@@ -936,41 +913,6 @@ export class Ambience {
           g.fillRect(x, y, 1, 1);
           g.fillRect(x - 2, y + (up ? -1 : 1), 2, 1);
           g.fillRect(x + 1, y + (up ? -1 : 1), 2, 1);
-          break;
-        }
-        case 'pigeon': {
-          // a plump grey bird side-on: shadow, body, darker wing bars, an
-          // iridescent neck, a small round head that bobs or pecks, an orange
-          // beak and two pink feet — readable as a pigeon, not as grit
-          g.globalAlpha = 1;
-          const peck = Math.sin(now * 5 + m.seed) > 0.6 && m.vx === 0;
-          const bob = Math.floor(now * 4 + m.seed) % 2;
-          const face = m.vx < 0 ? -1 : 1;
-          g.fillStyle = 'rgba(10,8,16,0.3)';
-          g.fillRect(x - 4, y + 1, 8, 1);
-          g.fillStyle = PAL.ink;
-          g.fillRect(x - 4, y - 4, 8, 5);
-          g.fillStyle = m.color;
-          g.fillRect(x - 3, y - 3, 6, 3);
-          g.fillStyle = shade(m.color, 1.2);
-          g.fillRect(x - 3, y - 3, 4, 1);
-          g.fillStyle = shade(m.color, 0.65);
-          g.fillRect(x - 2 * face - (face < 0 ? 0 : 1), y - 2, 2, 1);
-          g.fillRect(x - 4 * face - (face < 0 ? 0 : 1), y - 3, 2, 2);
-          const hx = x + face * (peck ? 3 : 2 + bob) - (face < 0 ? 2 : 0);
-          const hy = peck ? y - 1 : y - 6;
-          g.fillStyle = PAL.ink;
-          g.fillRect(hx - 1, hy - 1, 4, 4);
-          g.fillStyle = '#6a7486';
-          g.fillRect(hx, hy, 2, 2);
-          g.fillStyle = PAL.leafLit;
-          g.fillRect(hx - 1, hy + 2, 3, 1);
-          g.fillStyle = PAL.arcaneLit;
-          g.fillRect(hx + 1, hy + 2, 1, 1);
-          g.fillStyle = PAL.flame;
-          g.fillRect(face > 0 ? hx + 2 : hx - 1, hy + 1, 1, 1);
-          g.fillStyle = '#d88a8a';
-          g.fillRect(x - 1, y + 1, 1, 1); g.fillRect(x + 1, y + 1, 1, 1);
           break;
         }
         case 'butterfly': {
