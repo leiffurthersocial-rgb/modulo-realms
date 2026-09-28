@@ -371,7 +371,7 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
   Ladenschilder bekommen ihr Symbol per Renderer-Overlay (`SIGN_DEVICE`) — Prop-Liste
   der Westwelt bleibt unverändert.
 - Design-Kritik-Loops (eigener Kritiker-Agent, max. 3 Runden, Ziel ≥ 9/10): Interiors
-  5 → 7, Wolf (alt) 5 → 6 → ersetzt durch Referenz-Wolf (siehe `wolfArt.ts`), Golem 6 → 7, Außen-Props 5,5 → 7, Stadt-Details 5 → 6,5 → 7.
+  5 → 7, Wolf (alt) 5 → 6 → ersetzt durch Referenz-Wolf (`wolfArt.ts`, 5 → 7 → 8), Golem 6 → 7, Außen-Props 5,5 → 7, Stadt-Details 5 → 6,5 → 7.
   **Keiner hat 9/10 erreicht** — nicht als „fertig poliert“ weitergeben.
 
 ## Die eingefrorene Westwelt — vor jeder Ortsänderung lesen

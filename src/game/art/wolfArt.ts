@@ -149,6 +149,8 @@ const FRONT = [
   '...#oo#oo##nn##oo#oo#...',
   '....#o#oo+####+oo#o#....',
   '....#o#o#++++++#o#o#....',
+  '....#o#o#++++++#o#o#....',
+  '...#oo#o#+l++l+#o#oo#...',
   '...##d#o#+l++l+#o#d##...',
   '..#dd#o#+#l++l#+#o#dd#..',
   '..#dd#o#o#l##l#o#o#dd#..',
@@ -171,20 +173,22 @@ const BACK = [
   '...#o#ooooo++ooooo#o#...',
   '...#oo#oooo++oooo#oo#...',
   '...#o#ooooo++ooooo#o#...',
+  '...#oo#oooo++oooo#oo#...',
+  '...#o#ooooo++ooooo#o#...',
   '..#oo#ooooo++ooooo#oo#..',
   '..#dd#oooooooooooo#dd#..',
   '.#ddd#oooooooooooo#ddd#.',
   '.#dddd#oooooooooo#dddd#.',
   '.#dddd#oo##oooooo#dddd#.',
   '..#ddd#o#+o##oooo#ddd#..',
-  '..#dd#oo#+o#.##ooo#dd#..',
-  '..#dd#.##+d#..###.#dd#..',
-  '..#dd#..#+d#......#dd#..',
-  '..#dd#..#od#......#dd#..',
-  '..#dd#..#lL#......#dd#..',
-  '..#ld#..#Ll#......#dl#..',
-  '..#lL#...##.......#Ll#..',
-  '..####............####..',
+  '..#ddd#o#+o#.##oo#ddd#..',
+  '...#dd###+d#..####dd#...',
+  '...#dd#.#+d#.....#dd#...',
+  '...#dd#.#od#.....#dd#...',
+  '...#dd#.#lL#.....#dd#...',
+  '...#ld#.#Ll#.....#dl#...',
+  '...#lL#..##......#Ll#...',
+  '...####..........####...',
 ];
 
 /** Wolves get a wider frame than people: the reference animal is 38 px nose to tail. */
@@ -233,7 +237,7 @@ function replaceChar(grid: Grid, from: string, to: string): Grid {
 const SIDE_LEGS: Array<[number, number]> = [[5, 11], [11, 18], [18, 24], [24, 31]];
 /** Front: fore left, fore right, hind left, hind right. Back: hind left, hind right. */
 const FRONT_LEGS: Array<[number, number]> = [[7, 11], [13, 17], [2, 6], [18, 22]];
-const BACK_LEGS: Array<[number, number]> = [[2, 6], [18, 22]];
+const BACK_LEGS: Array<[number, number]> = [[3, 7], [17, 21]];
 
 /** Trot phase: swing of the first diagonal pair, which pair is lifted, and the body's hop. */
 function trot(t: number): { swing: number; liftA: number; liftB: number; bob: number } {
@@ -257,12 +261,12 @@ function sideWalk(t: number): { grid: Grid; bob: number } {
 function frontWalk(base: Grid, t: number): Grid {
   const { liftA, liftB } = trot(t);
   const b = (i: number, lift: number): Band => ({ x0: FRONT_LEGS[i][0], x1: FRONT_LEGS[i][1], dx: 0, lift });
-  return stepLegs(base, [b(0, liftA), b(3, liftA), b(1, liftB), b(2, liftB)], 19);
+  return stepLegs(base, [b(0, liftA), b(3, liftA), b(1, liftB), b(2, liftB)], 21);
 }
 
 function backWalk(base: Grid, t: number): Grid {
   const { liftA, liftB } = trot(t);
-  return stepLegs(base, [{ x0: BACK_LEGS[0][0], x1: BACK_LEGS[0][1], dx: 0, lift: liftA }, { x0: BACK_LEGS[1][0], x1: BACK_LEGS[1][1], dx: 0, lift: liftB }], 20);
+  return stepLegs(base, [{ x0: BACK_LEGS[0][0], x1: BACK_LEGS[0][1], dx: 0, lift: liftA }, { x0: BACK_LEGS[1][0], x1: BACK_LEGS[1][1], dx: 0, lift: liftB }], 22);
 }
 
 /** Front view with the jaws open: the nose lifts, teeth show under it. */
@@ -318,7 +322,8 @@ export function drawWolfFrame(s: CreatureStyle, dir: 'down' | 'up' | 'right', po
   const colour: Record<string, string> = {
     '#': ink,
     o: coat,
-    '+': mix(coat, pale, 0.3),
+    // a near-black coat needs a stronger lit tone or its ruff and haunches vanish
+    '+': mix(coat, pale, luma(coat) < 0.2 ? 0.5 : 0.3),
     d: shade(coat, 0.72),
     l: point,
     L: lowContrast ? s.secondary : mix(pale, PAL.white, 0.5),
