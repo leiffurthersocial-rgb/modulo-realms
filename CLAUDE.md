@@ -335,6 +335,16 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
 - Nicht gebaut (Vorschlag, offen): Kopfgeld-Brett mit täglichen Aufträgen, Marken-Währung,
   Boss-Rematch-Stufen, Jagdbuch.
 
+## Marketing / Social Media (seit 06.10.)
+
+`marketing/` — README (Ablauf + Upload-Stufen), `content-plan.md`, `posts.md` (fertige Captions),
+`record.mjs` (Szene headless aufnehmen, Autopilot kämpft, nur Welt-Canvas + Spielton; braucht `npm run dev`),
+`scenes.mjs`, `edit.mjs` (1080x1920, Pixel-Schrift, Endkarte, −14 LUFS), `brand.mjs` (Avatar/Banner aus
+Wappen + Logo), `youtube.mjs` (Device-Flow-Login, Upload, Stats; Env `YOUTUBE_CLIENT_ID/SECRET/REFRESH_TOKEN`).
+Videos nie ins Repo. Konten (TikTok/Instagram/YouTube, @modulorealms, modulorealms@gmail.com) legt der
+**User** an — Bot-Kontoerstellung verbieten TikTok/Instagram. Stand 06.10.: 4 Shorts geschnitten
+(wolfpack, ashvale, frost, ember) und dem User geschickt; Matriarch-Szene liest sich schlecht (Boss = Baum).
+
 ## Story erzählen (seit 06.10.)
 
 - **Story-Karten** (`data/story.ts`, `Game.storyCards`, `ui/StoryCard.tsx`, Panel `'story'` pausiert die Welt):
