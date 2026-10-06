@@ -7,3 +7,4 @@ dist-ssr
 .DS_Store
 .vite
 tsconfig.tsbuildinfo
+marketing/.cache/
