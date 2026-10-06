@@ -69,7 +69,10 @@ def small_text_cells(text):
         out.append((idx, cells)); idx += 1; x += len(g[0]) + 1
     return out, x - 1
 
-def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep):
+RUNE_WARM = ['', 'stone', 'copper', 'gold', 'goldLit', 'holy']
+RUNE_ARCANE = ['', 'arcaneDark', 'arcane', 'arcaneLit', 'arcaneLit', 'white']
+
+def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_WARM, ring=None):
     metal, outline, shadow, LW, LH = logo_layers(word)
     xs = [x for x, _ in metal]; ys = [y for _, y in metal]
     x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
@@ -120,6 +123,26 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep):
             y = CH + 1 - t * (CH + 6); x = ex + round(1.6 * math.sin(2 * math.pi * (t * 2 + wob)))
             col = 'flameLit' if t < .2 else 'flame' if t < .45 else 'ember' if t < .75 else 'emberDark'
             put(x, y, col)
+        # --- magic circle: dashed ring turning once per loop, drawn in during the summon
+        if ring:
+            rcx, rcy, rr = ring
+            seg = 2 * math.pi / 20
+            rot = 2 * math.pi * f / N
+            spot = (2 * math.pi * f / N * 3) % (2 * math.pi)
+            for y in range(int(rcy - rr - 1), int(rcy + rr + 2)):
+                for x in range(int(rcx - rr - 1), int(rcx + rr + 2)):
+                    if abs(math.hypot(x + .5 - rcx, y + .5 - rcy) - rr) >= .5: continue
+                    th = math.atan2(x + .5 - rcx, -(y + .5 - rcy)) % (2 * math.pi)
+                    if ((th - rot) % seg) > seg * 0.62: continue
+                    if f < 30 or f >= 84 or 62 <= f < 84: lvl = 2
+                    elif f < 50: lvl = 2 if f < 38 else 1 if f < 46 else 0
+                    elif f < 54: lvl = 0
+                    else:  # 54..61: the circle is traced clockwise from the top
+                        sweep = (f - 54 + 1) / 8 * 2 * math.pi
+                        lvl = 0 if th > sweep else 5 if sweep - th < 0.5 else 3 if sweep - th < 1.1 else 2
+                    if lvl == 2 and min(abs(th - spot), 2 * math.pi - abs(th - spot)) < 0.35: lvl = 3
+                    if f in (94, 95, 96, 97) and lvl: lvl = 3
+                    if lvl: put(x, y, scheme[lvl])
         # --- runes (clock digits / subtitle)
         for idx, cells, rx0, ry0 in runes:
             b = 2  # 0 off,1 stone,2 copper,3 gold,4 goldLit,5 holy
@@ -136,7 +159,7 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep):
             else:
                 b = 5 if f in (95, 96) else 4 if f in (94, 97) else 3 if f == 98 else 2
             if b:
-                col = ['', 'stone', 'copper', 'gold', 'goldLit', 'holy'][b]
+                col = scheme[b]
                 for (x, y) in cells: put(rx0 + x, ry0 + y, col)
         # --- the logo
         def P(x, y, c): put(ox + x, oy + y, c)
@@ -241,19 +264,30 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep):
     return path
 
 if __name__ == '__main__':
-    # avatar: M + modulo-12 clock
+    # avatar: M inside a magic circle, ringed by twelve runes
+    RUNES = [
+        ['#.#', '##.', '#.#', '#..', '#..'],  # fehu
+        ['##.', '#.#', '#.#', '#.#', '#.#'],  # uruz
+        ['#..', '##.', '#.#', '##.', '#..'],  # thurisaz
+        ['..#', '.#.', '#..', '.#.', '..#'],  # kenaz
+        ['#.#', '#.#', '.#.', '#.#', '#.#'],  # gebo
+        ['#.#', '###', '#.#', '###', '#.#'],  # hagalaz
+        ['.#.', '.#.', '.#.', '.#.', '.#.'],  # isa
+        ['.##', '.#.', '.#.', '.#.', '##.'],  # eihwaz
+        ['#.#', '###', '.#.', '.#.', '.#.'],  # algiz
+        ['..#', '.#.', '###', '.#.', '#..'],  # sowilo
+        ['.#.', '###', '#.#', '.#.', '.#.'],  # tiwaz
+        ['#.#', '###', '.#.', '###', '#.#'],  # dagaz
+    ]
     CW = CH = 64; c = 32
     runes = []
-    for i in range(12):
-        s = str(i); cells, w = [], 0
-        for ch in s:
-            g = SMALL[ch]; cells += [(w + cx, cy) for cy, row in enumerate(g) for cx, cc in enumerate(row) if cc == '#']; w += 4
-        w -= 1
+    for i, g in enumerate(RUNES):
+        cells = [(cx, cy) for cy, row in enumerate(g) for cx, cc in enumerate(row) if cc == '#']
         a = i / 12 * 2 * math.pi
-        runes.append((i, cells, round(c + 26.5 * math.sin(a) - w / 2), round(c - 26.5 * math.cos(a) - 2.5)))
+        runes.append((i, cells, round(c + 26.5 * math.sin(a) - 1.5), round(c - 26.5 * math.cos(a) - 2.5)))
     for sc in (8, 4):
         render('M', CW, CH, 20, 15, runes, (32, 33, [(23, 25), (17, 20), (11, 14)]), sc,
-               f'docs/brand/modulo-avatar-anim-{CW*sc}.gif', 0.5)
+               f'docs/brand/modulo-avatar-anim-{CW*sc}.gif', 0.5, RUNE_ARCANE, (32, 31.5, 21.5))
     # header: MODULO + subtitle
     CW, CH = 160, 52
     cells, w = small_text_cells('REALMS OF ASH')
