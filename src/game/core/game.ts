@@ -1,3 +1,4 @@
+import { syncLeaderboard } from '../online/leaderboard';
 import { arenaZoom, navalZoom, worldZoom } from './zoom';
 import { AegeanHazards } from '../aegean/hazards';
 import { AegeanWeaponCombat } from '../aegean/weapons';
@@ -56,7 +57,7 @@ export type MainStoryState =
   | { kind: 'level'; def: QuestDef; act: MainAct; needLevel: number; huntRegion?: string }
   | { kind: 'done' };
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'shipyard' | 'poker' | 'slots' | 'roulette' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'shipyard' | 'poker' | 'slots' | 'roulette' | 'leaderboard' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -3698,9 +3699,12 @@ export class Game implements WorldCtx {
    * accident, a save that has it keeps it, and anyone testing the game can
    * get to the tools from the title screen in about four seconds. Everything
    * it unlocks is additive, so an ordinary save is untouched by any of it.
+   *
+   * Development builds only: a published game has a global leaderboard, and
+   * a level-100 button anyone can find would fill it on day one.
    */
   get isDebug(): boolean {
-    return this.player?.name.trim().toLowerCase() === 'debug';
+    return !!import.meta.env?.DEV && this.player?.name.trim().toLowerCase() === 'debug';
   }
 
   /**
@@ -5227,6 +5231,7 @@ export class Game implements WorldCtx {
     } catch {
       /* storage unavailable — keep playing */
     }
+    syncLeaderboard(this.player);
   }
 }
 

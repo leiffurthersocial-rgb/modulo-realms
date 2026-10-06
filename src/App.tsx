@@ -44,6 +44,7 @@ const loaders = {
   SlotsPanel: () => import('./ui/SlotsPanel'),
   DebugPanel: () => import('./ui/DebugPanel'),
   HelpPanel: () => import('./ui/HelpPanel'),
+  LeaderboardPanel: () => import('./ui/LeaderboardPanel'),
 };
 const ShipyardPanel = lazy(loaders.ShipyardPanel);
 const StoragePanel = lazy(loaders.StoragePanel);
@@ -56,6 +57,7 @@ const RoulettePanel = lazy(loaders.RoulettePanel);
 const SlotsPanel = lazy(loaders.SlotsPanel);
 const DebugPanel = lazy(loaders.DebugPanel);
 const HelpPanel = lazy(loaders.HelpPanel);
+const LeaderboardPanel = lazy(loaders.LeaderboardPanel);
 
 let prefetched = false;
 function prefetchPanels(): void {
@@ -192,6 +194,7 @@ const uiSounds = {
 function UiLayer({ game }: { game: Game }) {
   useSyncExternalStore(game.subscribe, game.getSnapshot);
   const [showSettings, setShowSettings] = useState(false);
+  const [showBoard, setShowBoard] = useState(false);
   const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
@@ -213,7 +216,13 @@ function UiLayer({ game }: { game: Game }) {
           onNew={() => { game.screen = 'creation'; audio.resume(); audio.playMusic('title'); game.touch(); }}
           onContinue={() => { audio.resume(); setLoadError(loadGame(game) ? '' : getLoadError()); }}
           onSettings={() => setShowSettings(true)}
+          onLeaderboard={() => setShowBoard(true)}
         />
+        {showBoard ? (
+          <Suspense fallback={null}>
+            <LeaderboardPanel onClose={() => setShowBoard(false)} />
+          </Suspense>
+        ) : null}
         {showSettings ? (
           <SettingsPanel
             game={game}
@@ -274,6 +283,7 @@ function UiLayer({ game }: { game: Game }) {
         {game.panel === 'roulette' ? <RoulettePanel game={game} /> : null}
         {game.panel === 'debug' ? <DebugPanel game={game} /> : null}
         {game.panel === 'help' ? <HelpPanel game={game} /> : null}
+        {game.panel === 'leaderboard' ? <LeaderboardPanel player={game.player} onClose={() => game.closeAll()} /> : null}
       </Suspense>
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
       {game.panel === 'loot' ? <LootPanel game={game} /> : null}

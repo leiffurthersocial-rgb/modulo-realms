@@ -11,9 +11,10 @@ interface Props {
   onNew: () => void;
   onContinue: () => void;
   onSettings: () => void;
+  onLeaderboard: () => void;
 }
 
-export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onSettings }: Props) {
+export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onSettings, onLeaderboard }: Props) {
   const preview = hasSave ? savePreview() : null;
   return (
     <div className="title-screen">
@@ -46,6 +47,7 @@ export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onS
           ) : null}
           {loadError ? <div className="save-note" role="alert" style={{ color: 'var(--c-flame-lit)', maxWidth: 165 }}>{loadError}</div> : null}
           <button className="btn" onClick={onNew}>New Game</button>
+          <button className="btn" onClick={onLeaderboard}>Leaderboard</button>
           <button className="btn" onClick={onSettings}>Settings</button>
         </div>
       </div>
@@ -58,6 +60,7 @@ export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onS
         <span><KeyCap>M</KeyCap> map</span>
         <span><KeyCap>ESC</KeyCap> menu</span>
       </div>
+      <div className="title-legal"><a href="/legal.html" target="_blank" rel="noopener">Imprint &amp; Privacy</a></div>
     </div>
   );
 }

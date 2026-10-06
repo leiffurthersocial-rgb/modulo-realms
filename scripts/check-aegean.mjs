@@ -10,6 +10,8 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const temporary = mkdtempSync(join(tmpdir(), "modulo-aegean-"));
 const checks = [
   "check-content",
+  "check-names",
+  "check-leaderboard",
   "check-mainquest",
   "check-npc-schedules",
   "check-casino",

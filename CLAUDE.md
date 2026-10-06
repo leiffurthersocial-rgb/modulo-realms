@@ -30,7 +30,8 @@ npm install
 npm run dev            # http://localhost:5173
 npm run typecheck      # tsc --noEmit
 npm run build          # typecheck + vite build
-npm run check:aegean   # 27 serielle Regressionsgruppen — DER große Lauf
+npm run check:aegean   # 29 serielle Regressionsgruppen — DER große Lauf
+npm run build:api      # api/leaderboard.js aus src/server neu bündeln
 ```
 
 **Vor jedem Push:** `npm run typecheck && npm run build && npm run check:aegean`.
@@ -40,8 +41,7 @@ Letzter verifizierter Stand (selbst ausgeführt): typecheck 0 Fehler, Build OK
 Chunk-Warnung für den Haupt-Chunk ist bekannt und akzeptiert),
 check:aegean alle 27 Gruppen grün (27.09., mit Hauptquest). Keine TODO/FIXME/HACK im Code.
 
-⚠️ `esbuild` und `tsx` sind **nicht in `package.json` deklariert**. `esbuild` kommt nur
-transitiv über Vite, `tsx` gar nicht. `check:aegean` kann bei einem Vite-Major brechen.
+⚠️ `tsx` ist **nicht in `package.json` deklariert** (`esbuild` seit 06.10. schon, gepinnt auf Vites Version).
 
 ## Die zwei Architekturregeln — nicht brechen
 
@@ -454,8 +454,30 @@ Tag = 16 Spielminuten (`DAY_SECONDS`).
 `V` Waffenkraft. Menüs: `I`/`Tab` `C` `K` `J` `M` `N` `P`/`Esc` `F3`.
 Zur See: `WASD` steuern · `Space` Salve · `G` Rammen · `Shift` Burst-Row · `E` Anlegen · `R` Deck.
 
-**Debug-Menü: Charakter „debug" nennen** (auch in Production, Button im Pause-Menü) (`src/ui/DebugPanel.tsx` — Build, Spawning,
+**Debug-Menü: Charakter „debug" nennen** — **nur im DEV-Build** (seit 06.10., wegen Leaderboard; `Game.isDebug`
+prüft `import.meta.env.DEV`), Button im Pause-Menü (`src/ui/DebugPanel.tsx` — Build, Spawning,
 Weltkontrolle, Godmode, Timescale, Free Casting, One-Shot).
+
+## Online: Leaderboard & Namensfilter (seit 06.10.)
+
+- **Namensfilter** `src/game/names/nameFilter.ts` (`checkName`, `isNameBlocked`, `canonicalName`): 3–16 Zeichen,
+  nur `A-Z 0-9 Leerzeichen _ -`. Daten `src/data/nameBlocklist.ts` sind **generiert** von
+  `scripts/build-name-blocklist.mjs` (LDNOOBW 7 Sprachen + dsojevic + eigene DE/CH/Extremismus-Liste im Skript).
+  HARD = Teilstring nach Normalisierung (Leetspeak, Homoglyphen, Trenner, gedehnte Buchstaben) mit Ausnahmen;
+  SOFT = nur ganzes Wort. Begriffe/Ausnahmen im Skript ändern, nicht im Datenfile. Fehltreffer bewusst
+  in Kauf genommen (User: „better safe than sorry“); `check-names` hält NPC-Namen + echte Vornamen frei.
+- **Leaderboard-Server** `src/server/leaderboard.ts` (Logik, testbar) + `leaderboardRoute.ts` (Upstash REST).
+  Deployt wird **`api/leaderboard.js` — generiert und eingecheckt** (`npm run build:api`), damit Vercel kein
+  TS kompilieren muss. Nach jeder Änderung an `src/server/` oder dem Filter neu bauen; `check-leaderboard`
+  schlägt sonst fehl. Env: `KV_REST_API_URL`/`KV_REST_API_TOKEN` (Upstash-Integration),
+  `LEADERBOARD_ADMIN_TOKEN` (Admin: `reports`/`ban`/`ban-name`/`restore` per Header `x-admin-token`).
+- **Client** `src/game/online/leaderboard.ts`: nur im PROD-Build, sendet aus `Game.autosave` nur bei neuem
+  Level/Namen. Identität (UUID + Token) pro Charakter in localStorage `modulo-realms-online-v1` —
+  **nicht im Save** (Save-Format unangetastet). Panel `LeaderboardPanel` (lazy) im Titel und Pausemenü.
+- Anti-Cheat ist nur Erschwernis: Spielzeit-Mindestkurve `minPlaySeconds`, Spielzeit ≤ Wanduhr, Token,
+  Rate-Limits, 3 Meldungen → versteckt. Der Spielstand liegt im Browser; fälschungssicher geht nicht.
+- **Impressum/Datenschutz** `public/legal.html` (Link unten rechts im Titel). Betreiber = „Entwicklerteam“,
+  Kontakt `modulorealms@gmail.com`. **Kein Name, keine Adresse** (User-Wunsch, ggf. später).
 
 ## Doku im Repo — Autoritätsreihenfolge
 

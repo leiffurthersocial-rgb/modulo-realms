@@ -57,7 +57,7 @@ function Controls({ game }: { game: Game }) {
  * right, and the two ways out of the game set apart underneath — the
  * destructive one needs a second press.
  *
- * The debug menu button appears for a character called "debug", in any build.
+ * The debug menu button appears for a character called "debug", in a development build.
  */
 export default function PausePanel({ game, onSettings }: { game: Game; onSettings: () => void }) {
   const p = game.player;
@@ -83,6 +83,7 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
           <button className="btn block" onClick={() => { if (saveGame(game)) game.toast('Game saved', undefined, PAL.toxic); }}>Save game</button>
           <button className="btn block" onClick={() => game.setPanel('character')}>Character</button>
           <button className="btn block" onClick={() => game.setPanel('quests')}>Journal</button>
+          <button className="btn block" onClick={() => game.setPanel('leaderboard')}>Leaderboard</button>
           <button className="btn block" onClick={() => game.setPanel('help')}>How to play</button>
           <button className="btn block" onClick={onSettings}>Settings</button>
           {showDebug ? <button className="btn iron block" onClick={() => game.setPanel('debug')}>Debug menu</button> : null}

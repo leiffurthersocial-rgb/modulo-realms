@@ -5,6 +5,7 @@ import type { Look } from '../game/art/characters';
 import type { PlayerInit } from '../game/player/player';
 import { PAL } from '../game/art/palette';
 import SpritePreview from './SpritePreview';
+import { NAME_MAX, checkName } from '../game/names/nameFilter';
 
 const HAIR_STYLES: Array<Look['hairStyle']> = ['short', 'long', 'ponytail', 'braid', 'mohawk', 'wild', 'bald'];
 const BEARDS: Array<NonNullable<Look['beard']>> = ['none', 'stubble', 'full', 'long'];
@@ -54,7 +55,9 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
     offhand: classDef.look.offhand ?? 'none',
   }), [raceDef, classDef, skinIndex, hairIndex, hairStyle, beard]);
 
-  const finalName = name.trim() || NAME_POOL[(hairIndex + skinIndex) % NAME_POOL.length];
+  const typed = name.trim() ? checkName(name) : null;
+  const finalName = typed?.ok ? typed.name : NAME_POOL[(hairIndex + skinIndex) % NAME_POOL.length];
+  const nameProblem = typed && !typed.ok ? typed.message : null;
 
   const totals = useMemo(() => {
     const b = classDef.base;
@@ -98,10 +101,11 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
           <input
             className="name-input"
             value={name}
-            maxLength={18}
+            maxLength={NAME_MAX}
             placeholder={NAME_POOL[(hairIndex + skinIndex) % NAME_POOL.length]}
             onChange={(e) => setName(e.target.value)}
           />
+          {nameProblem ? <p className="blurb" style={{ color: 'var(--danger)' }}>{nameProblem}</p> : null}
 
           <div className="field-label">Race</div>
           <div className="card-grid">
@@ -178,6 +182,7 @@ export default function CharacterCreation({ onStart, onBack }: Props) {
           </div>
           <button
             className="btn primary"
+            disabled={!!nameProblem}
             onClick={() => onStart({ name: finalName, race, cls, hairIndex, skinIndex, hairStyle, beard })}
           >
             Begin the journey
