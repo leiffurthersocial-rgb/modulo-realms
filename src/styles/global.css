@@ -1692,6 +1692,16 @@ details[open] > summary::before { content: '↓ '; }
 .title-legal a { color: var(--muted); }
 
 /* ================================================================== */
+/* Story cards                                                        */
+/* ================================================================== */
+
+.story-card .sc-body { display: flex; flex-direction: column; gap: 6px; line-height: 14px; }
+.story-card .sc-body p { margin: 0; }
+.story-card .sc-goal { margin-top: 4px; }
+.story-card .sc-hint { color: var(--muted); }
+.story-card .sc-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+
+/* ================================================================== */
 /* Parchment pages (journal, charts): the same pieces in ink          */
 /* ================================================================== */
 

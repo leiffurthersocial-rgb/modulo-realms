@@ -120,6 +120,7 @@ function fresh(level: number): void {
   game.quests = new QuestLog();
   game.trackedQuest = null;
   game.toasts.length = 0;
+  game.storyCards.length = 0;
 }
 game.map = createMap({ id: "overworld", name: "Story bootstrap", w: 64, h: 64 });
 game.map.tiles.fill(T.GRASS);
@@ -206,5 +207,29 @@ for (const id of ["tutorial", "main_count"]) game.quests.completed.push(id);
 game.player.killCounts.mini_broodmother = 1;
 game.offerMainQuests(true);
 assert(game.quests.isCompleted("main_brood"), "a level-30 player who outgrew the valley is not sent back to it");
+
+// 8. The story is told: a chapter opened in play gets its card (its act's card
+// first when it opens an act); a catch-up on load shows none; a level gate
+// names the experience still to earn.
+fresh(6);
+game.quests.completed.push("tutorial", "main_count");
+game.offerMainQuests();
+assert.deepEqual(game.storyCards.map((c) => c.title), ["Too Many Legs"], "a chapter opened in play gets one card");
+assert.equal(game.storyCards[0].goal, QUEST_BY_ID.main_brood.summary, "the card says what to do");
+fresh(9);
+game.quests.completed.push("tutorial", "main_count", "main_brood");
+game.offerMainQuests();
+assert.deepEqual(game.storyCards.map((c) => c.title), [MAIN_ACTS[1].name, "Word to the Court"], "a new act opens with its own card");
+game.nextStoryCard();
+game.nextStoryCard();
+assert.equal(game.storyCards.length, 0, "cards are read one by one");
+fresh(80);
+for (const q of steps) for (const o of q.objectives) if (o.type === "boss") game.player.bossesKilled.add(o.enemy);
+game.offerMainQuests(true);
+assert.equal(game.storyCards.length, 0, "catching up on load tells no story");
+fresh(4);
+game.quests.completed.push("tutorial", "main_count");
+const gate = game.levelGateHelp(6);
+assert(gate.xpToGo > 0, "a level gate names the experience still to earn");
 
 console.log(`Main story: ${steps.length} chapters across ${MAIN_ACTS.length} acts — chain, references, level gates, guidance, hunts, pre-credit, the bar and catch-up all hold.`);

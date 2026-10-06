@@ -190,7 +190,7 @@ function MainStoryBlock({ game, story }: { game: Game; story: MainStoryState }) 
         <div className="qname">{story.def.name}</div>
         <div className="obj"><span>Reach level {story.needLevel}</span><span>{p.level}/{story.needLevel}</span></div>
         <SegBar kind="xp" value={p.xp} max={xpToNext(p.level)} />
-        <small>Meanwhile: bounties, dungeons{story.huntRegion ? `, or hunting in ${story.huntRegion}` : ''}.</small>
+        <LevelGateHelp game={game} needLevel={story.needLevel!} huntRegion={story.huntRegion} />
       </div>
     );
   }
@@ -222,6 +222,18 @@ function MainStoryBlock({ game, story }: { game: Game; story: MainStoryState }) 
         : !report && game.onlyHuntLeft(def) ? <small>Anything that lives there counts. No need to go back.</small>
         : !report && def.hint && !story.guided ? <small>{def.hint}</small> : null}
     </div>
+  );
+}
+
+/** While the story waits on a level: how far, and one concrete thing to go and do. */
+function LevelGateHelp({ game, needLevel, huntRegion }: { game: Game; needLevel: number; huntRegion?: string }) {
+  const help = game.levelGateHelp(needLevel);
+  return (
+    <>
+      <small>{help.xpToGo.toLocaleString('en-US')} XP to go.</small>
+      {help.bounty ? <small>{help.bounty.name} (Lv {help.bounty.level}) · {help.bounty.where}</small> : null}
+      {huntRegion ? <small>{help.bounty ? 'Or hunt' : 'Hunt'} anywhere in {huntRegion}.</small> : null}
+    </>
   );
 }
 

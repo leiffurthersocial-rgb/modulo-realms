@@ -335,6 +335,17 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
 - Nicht gebaut (Vorschlag, offen): Kopfgeld-Brett mit täglichen Aufträgen, Marken-Währung,
   Boss-Rematch-Stufen, Jagdbuch.
 
+## Story erzählen (seit 06.10.)
+
+- **Story-Karten** (`data/story.ts`, `Game.storyCards`, `ui/StoryCard.tsx`, Panel `'story'` pausiert die Welt):
+  Prolog (4 Seiten, „Skip prologue“) vor dem Training jedes neuen Charakters; jedes in Spielzeit geöffnete
+  Hauptkapitel bekommt eine Karte (aus `detail`/`summary`/`hint`), das erste Kapitel eines Akts zusätzlich
+  eine Akt-Karte. **Ersetzt den alten Kapitel-Toast.** Catch-up beim Laden zeigt keine Karten. Die UI öffnet
+  das Panel erst, wenn nichts anderes offen ist (Hand-in-Dialog läuft zuerst). Nie gespeichert.
+- **Level-Gate „Was jetzt?“** (`Game.levelGateHelp`): Tracker zeigt XP bis zum Level, die nächstgelegene
+  offene Bounty (≤ Level+3, Westwelt) mit Richtung + Distanz ab Spieler, und die Jagdregion.
+- Titel-Slogan: „The world is divided by the Modulo. What is left over is growing.“
+
 ## Einstieg & Höhlen (seit 27.09.)
 
 - **Training statt Tasten-Ecke:** Neuer Charakter startet `Training` (`core/training.ts`):

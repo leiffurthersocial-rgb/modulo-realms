@@ -30,7 +30,7 @@ export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onS
           <div className="rule" />
           <h2 className="title-sub">Realms of Ash</h2>
           <div className="title-tag">
-            An open-world fantasy RPG in the Ashvale valley.
+            The world is divided by the Modulo. What is left over is growing.
           </div>
         </div>
 

@@ -23,6 +23,7 @@ import LootPanel from './ui/LootPanel';
 import TouchControls from './ui/TouchControls';
 import SettingsPanel from './ui/SettingsPanel';
 import DeathScreen from './ui/DeathScreen';
+import StoryCard from './ui/StoryCard';
 import { uiSound } from './ui/kit/sfx';
 
 /*
@@ -201,6 +202,12 @@ function UiLayer({ game }: { game: Game }) {
     audio.setVolumes(game.settings.master, game.settings.music, game.settings.sfx);
   }, [game, game.settings.master, game.settings.music, game.settings.sfx]);
 
+  // Story cards wait for whatever else is open (a hand-in dialogue, a shop)
+  // and then take the screen.
+  useEffect(() => {
+    if (game.screen === 'playing' && game.storyCards.length && !game.uiOpen) game.setPanel('story');
+  });
+
   // the in-game reduced-motion switch, on top of the OS preference
   useEffect(() => {
     document.documentElement.dataset.motion = game.settings.reduceMotion ? 'reduced' : '';
@@ -287,6 +294,7 @@ function UiLayer({ game }: { game: Game }) {
       </Suspense>
       {game.panel === 'pause' ? <PausePanel game={game} onSettings={() => setShowSettings(true)} /> : null}
       {game.panel === 'loot' ? <LootPanel game={game} /> : null}
+      {game.panel === 'story' ? <StoryCard game={game} /> : null}
       {showSettings ? (
         <SettingsPanel
           game={game}

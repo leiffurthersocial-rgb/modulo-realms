@@ -17,11 +17,12 @@ import { CLASS_BY_ID, type AbilityDef, type ClassId } from '../../data/classes';
 import { ALL_ENEMIES, ENEMY_BY_ID } from '../../data/enemies';
 import { LOOT_LEVEL_REACH, MAGIC_SHOT, TRASH_DROP_RATE, armorDefenseAt, damageTaken } from '../../data/balance';
 import { ALL_TEMPLATES, TEMPLATE_BY_ID, type ItemTemplate } from '../../data/items';
-import { LOCATIONS, LOCATION_BY_ID, REGIONS, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
+import { LEGACY_WORLD_W, LOCATIONS, LOCATION_BY_ID, REGIONS, REGION_BY_ID, REGION_BY_INDEX, VILLAGE_TX, VILLAGE_TY, WAYSTONE_SITES, WORLD_W, type LocationDef, type RegionId } from '../../data/locations';
 import { NPCS, NPC_BY_ID, type NpcDef } from '../../data/npcs';
 import { QUESTS, QUEST_BY_ID, type QuestDef } from '../../data/quests';
 import { Training, TRAINING_DONE } from './training';
 import { MAIN_ACT_BY_NUM, MAIN_ORDER, MAIN_REPORT, type MainAct } from '../../data/mainquest';
+import { PROLOGUE, type StoryPage } from '../../data/story';
 import { FACTION_BY_ID, FACTIONS, RACE_BY_ID, type FactionId, type RaceId } from '../../data/races';
 import type { Look } from '../art/characters';
 import { PAL } from '../art/palette';
@@ -37,7 +38,7 @@ import { makeItem, refreshFromTemplate, relevelItem, type ItemCurveMigration, ro
 import { EFFECT_BY_ID } from '../items/effects';
 import { enchantValue } from '../items/enchants';
 import { EQUIP_SLOT_ORDER, RARITY_COLOR, RARITY_ENCHANT_SLOTS, RARITY_LABEL, RARITY_ORDER, type EquipSlot, type Item, type Rarity } from '../items/types';
-import { DEFAULT_SWING_ARC, MAX_LEVEL, Player, SWING_ARC, skillPointsFor, type PlayerInit } from '../player/player';
+import { DEFAULT_SWING_ARC, MAX_LEVEL, Player, SWING_ARC, skillPointsFor, xpToNext, type PlayerInit } from '../player/player';
 import { QuestLog } from '../quests/questlog';
 import { generateDungeon, dungeonEntry } from '../world/dungeons';
 import { buildInterior, interiorEntry } from '../world/interiors';
@@ -57,7 +58,7 @@ export type MainStoryState =
   | { kind: 'level'; def: QuestDef; act: MainAct; needLevel: number; huntRegion?: string }
   | { kind: 'done' };
 
-export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'shipyard' | 'poker' | 'slots' | 'roulette' | 'leaderboard' | null;
+export type UiPanel = 'inventory' | 'character' | 'map' | 'quests' | 'skills' | 'pause' | 'shop' | 'storage' | 'settings' | 'travel' | 'forge' | 'help' | 'loot' | 'remake' | 'crown' | 'debug' | 'shipyard' | 'poker' | 'slots' | 'roulette' | 'leaderboard' | 'story' | null;
 export type GameScreen = 'title' | 'creation' | 'playing' | 'dead';
 
 export interface Pickup {
@@ -196,6 +197,13 @@ export class Game implements WorldCtx {
   seed = 1337;
   screen: GameScreen = 'title';
   panel: UiPanel = null;
+  /**
+   * Story cards waiting to be read: the prologue, a new act, a new chapter.
+   * The UI opens the 'story' panel for them as soon as nothing else is open
+   * (so a chapter handed out inside a dialogue waits for the dialogue), and
+   * the panel pauses the world like any other. Never saved.
+   */
+  storyCards: StoryPage[] = [];
   dialogue: DialogueState | null = null;
   shop: ShopState | null = null;
   toasts: Toast[] = [];
@@ -375,6 +383,8 @@ export class Game implements WorldCtx {
 
   closeAll(): void {
     if (this.loot) this.abandonLoot();
+    // Escape on a story card reads as "next", not as "show it again".
+    if (this.panel === 'story') this.storyCards.shift();
     this.casino.close();
     this.cameraFocus = null;
     this.panel = null;
@@ -436,6 +446,7 @@ export class Game implements WorldCtx {
     this.screen = 'playing';
     this.panel = null;
     this.toast('Ashvale', 'Your story begins at the edge of the valley.', PAL.goldLit);
+    this.storyCards = [...PROLOGUE];
     // The first quest waits for the training: walk, fight, dodge.
     this.training = new Training(this);
     this.touch();
@@ -456,8 +467,56 @@ export class Game implements WorldCtx {
       this.toast('Training complete', 'The rest you learn on the road.', PAL.goldLit, 'quest');
       audio.play('levelup', 0.6);
     }
-    this.toast('New quest: Somewhere to Start', 'Head south-west and find Whisperwell Cave.', '#6fbf5a');
+    const first = QUEST_BY_ID.tutorial;
+    if (first && this.quests.isActive('tutorial')) this.storyCards.push(...this.chapterCards(first));
     this.touch();
+  }
+
+  /** The cards a main chapter opens with: its act's card first if it is the act's first chapter. */
+  chapterCards(def: QuestDef): StoryPage[] {
+    const act = MAIN_ACT_BY_NUM[def.act ?? 0];
+    const pages: StoryPage[] = [];
+    const firstOfAct = act && MAIN_ORDER.map((id) => QUEST_BY_ID[id]).find((q) => q?.act === def.act)?.id === def.id;
+    if (act && firstOfAct) pages.push({ kicker: `Act ${act.numeral}`, title: act.name, lines: [act.blurb] });
+    pages.push({
+      kicker: act ? `Act ${act.numeral} · ${act.name}` : 'Main story',
+      title: def.name,
+      lines: def.detail ? [def.detail] : [],
+      goal: def.summary,
+      hint: def.hint,
+    });
+    return pages;
+  }
+
+  /** Closes the card on top; "skip" drops every following card of the same group too. */
+  nextStoryCard(skipGroup = false): void {
+    const top = this.storyCards.shift();
+    if (skipGroup && top?.group) while (this.storyCards[0]?.group === top.group) this.storyCards.shift();
+    if (!this.storyCards.length && this.panel === 'story') this.panel = null;
+    this.touch();
+  }
+
+  /**
+   * What to do while the story waits on a level: how much experience is
+   * left, and the nearest bounty worth the walk, with directions from where
+   * you stand. Bounties offer themselves when you reach their place.
+   */
+  levelGateHelp(needLevel: number): { xpToGo: number; bounty?: { name: string; level: number; where: string } } {
+    const p = this.player;
+    let xpToGo = Math.max(0, xpToNext(p.level) - p.xp);
+    for (let l = p.level + 1; l < needLevel; l++) xpToGo += xpToNext(l);
+    const ptx = p.x / TILE, pty = p.y / TILE;
+    const westOnly = (l: LocationDef) => l.tx < LEGACY_WORLD_W;
+    const open = QUESTS.filter((q) => q.auto && !q.main && q.marker && LOCATION_BY_ID[q.marker] && westOnly(LOCATION_BY_ID[q.marker])
+      && q.level <= p.level + 3 && this.quests.canAccept(q, p) && !this.quests.isActive(q.id))
+      .map((q) => { const l = LOCATION_BY_ID[q.marker!]; return { q, l, d: Math.hypot(l.tx - ptx, l.ty - pty) }; })
+      .sort((a, b) => a.d - b.d);
+    const best = open[0];
+    if (!best) return { xpToGo };
+    const names = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
+    const i = ((Math.round(Math.atan2(best.l.ty - pty, best.l.tx - ptx) / (Math.PI / 4)) % 8) + 8) % 8;
+    const where = best.d < 12 ? `${best.l.name}, right here` : `${best.l.name}, ${names[i]} · ${Math.round(best.d)}m`;
+    return { xpToGo, bounty: { name: best.q.name, level: best.q.level, where } };
   }
 
   /**
@@ -3057,6 +3116,7 @@ export class Game implements WorldCtx {
    * load so a save made before a bounty existed still picks it up.
    */
   catchUpBounties(): void {
+    this.storyCards = [];
     this.resumeTraining();
     for (const id of this.player.discovered) this.offerAutoQuests(id, true);
     this.offerMainQuests(true);
@@ -3094,8 +3154,7 @@ export class Game implements WorldCtx {
         continue;
       }
       if (!catchUp) {
-        const act = MAIN_ACT_BY_NUM[def.act ?? 0];
-        this.toast(act ? `Act ${act.numeral} · ${def.name}` : def.name, def.summary, PAL.goldLit, 'quest');
+        this.storyCards.push(...this.chapterCards(def));
         audio.play('quest', 0.7);
       }
       // A step whose objectives were all done beforehand still needs its
