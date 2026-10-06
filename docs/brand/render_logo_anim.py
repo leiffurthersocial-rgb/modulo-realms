@@ -72,7 +72,8 @@ def small_text_cells(text):
 RUNE_WARM = ['', 'stone', 'copper', 'gold', 'goldLit', 'holy']
 RUNE_ARCANE = ['', 'arcaneDark', 'arcane', 'arcaneLit', 'arcaneLit', 'white']
 
-def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_WARM, ring=None):
+def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_WARM, ring=None, simple=False):
+    """simple=True: no crumble/forge cycle, the brass logo just idles while the circle turns."""
     metal, outline, shadow, LW, LH = logo_layers(word)
     xs = [x for x, _ in metal]; ys = [y for _, y in metal]
     x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
@@ -101,7 +102,7 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_W
             if 0 <= x < CW and 0 <= y < CH: px[x, y] = C[c]
         # --- halo intensity (stepped flat ovals, no gradients)
         flick = 1 if h01(f // 3, 99) > 0.55 else 0
-        if f < 30: hi = 2 + flick
+        if f < 30 or simple: hi = 2 + flick
         elif f < 50: hi = 2 if f < 40 else (1 if f < 46 else 0)
         elif f < 58: hi = 0
         elif f < 66: hi = 1
@@ -111,7 +112,7 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_W
         cx, cy, rads = halo
         for lvl, (rx, ry), col in zip((1, 2, 3), rads, ('charcoal', 'soilDark', 'emberDark')):
             if hi < lvl: continue
-            if lvl == 3 and not (66 <= f < 94): continue  # red core only while metal is molten
+            if lvl == 3 and (simple or not (66 <= f < 94)): continue  # red core only while metal is molten
             j = 1 if (lvl == 3 and flick) else 0
             rx += j; ry += j
             for y in range(int(cy - ry), int(cy + ry) + 1):
@@ -134,7 +135,7 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_W
                     if abs(math.hypot(x + .5 - rcx, y + .5 - rcy) - rr) >= .5: continue
                     th = math.atan2(x + .5 - rcx, -(y + .5 - rcy)) % (2 * math.pi)
                     if ((th - rot) % seg) > seg * 0.62: continue
-                    if f < 30 or f >= 84 or 62 <= f < 84: lvl = 2
+                    if simple or f < 30 or f >= 62: lvl = 2
                     elif f < 50: lvl = 2 if f < 38 else 1 if f < 46 else 0
                     elif f < 54: lvl = 0
                     else:  # 54..61: the circle is traced clockwise from the top
@@ -146,7 +147,10 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_W
         # --- runes (clock digits / subtitle)
         for idx, cells, rx0, ry0 in runes:
             b = 2  # 0 off,1 stone,2 copper,3 gold,4 goldLit,5 holy
-            if f < 30:
+            if simple:
+                k = f * nr // N
+                b = 5 if k == idx else 4 if (k - 1) % nr == idx else 3 if (k - 2) % nr == idx else 2
+            elif f < 30:
                 k = f // 2
                 b = 5 if k == idx else 4 if k - 1 == idx else 3 if k - 2 == idx else 2
             elif f < 50:
@@ -163,9 +167,9 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_W
                 for (x, y) in cells: put(rx0 + x, ry0 + y, col)
         # --- the logo
         def P(x, y, c): put(ox + x, oy + y, c)
-        if f < 30 or f >= 98 or (84 <= f):
+        if simple or f < 30 or f >= 84:
             heat = {}
-            if 84 <= f < 98:
+            if 84 <= f < 98 and not simple:
                 for p in metal: heat[p] = max(0, min(4, 4 - int((f - 84 + 2.2 * h01(p[0], p[1], 3)) // 3)))
             hot = max(heat.values()) if heat else 0
             if hot <= 3:
@@ -233,7 +237,7 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_W
                         a = h01(i, f, 21) * math.pi; r = 1 + h01(i, f, 22) * 3
                         P(tx + math.cos(a) * r * 1.4, ty - math.sin(a) * r, 'flameLit' if i % 2 else 'holy')
         # --- quench: sparks + steam
-        if 84 <= f < 98:
+        if 84 <= f < 98 and not simple:
             for (sx, sy, vx, vy, life) in sparks:
                 a = f - 84
                 if a > life: continue
@@ -263,7 +267,7 @@ def render(word, CW, CH, ox, oy, runes, halo, scale, path, hsweep, scheme=RUNE_W
     frames[0].resize((CW * scale, CH * scale), Image.NEAREST).save(path.replace('.gif', '-f0.png'))
     return path
 
-if __name__ == '__main__':
+def main():
     # avatar: M inside a magic circle, ringed by twelve runes
     RUNES = [
         ['#.#', '##.', '#.#', '#..', '#..'],  # fehu
@@ -285,9 +289,12 @@ if __name__ == '__main__':
         cells = [(cx, cy) for cy, row in enumerate(g) for cx, cc in enumerate(row) if cc == '#']
         a = i / 12 * 2 * math.pi
         runes.append((i, cells, round(c + 26.5 * math.sin(a) - 1.5), round(c - 26.5 * math.cos(a) - 2.5)))
+    global N
+    N = 96  # one rune lap per loop: 8 frames per rune
     for sc in (8, 4):
         render('M', CW, CH, 20, 15, runes, (32, 33, [(23, 25), (17, 20), (11, 14)]), sc,
-               f'docs/brand/modulo-avatar-anim-{CW*sc}.gif', 0.5, RUNE_ARCANE, (32, 31.5, 21.5))
+               f'docs/brand/modulo-avatar-anim-{CW*sc}.gif', 0.5, RUNE_ARCANE, (32, 31.5, 21.5), simple=True)
+    N = 100
     # header: MODULO + subtitle
     CW, CH = 160, 52
     cells, w = small_text_cells('REALMS OF ASH')
@@ -296,3 +303,7 @@ if __name__ == '__main__':
     render('MODULO', CW, CH, 10, 4, runes, (80, 22, [(78, 24), (64, 18), (50, 13)]), 4,
            'docs/brand/modulo-header-anim.gif', 0.7)
     print('ok')
+
+
+if __name__ == '__main__':
+    main()
