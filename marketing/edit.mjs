@@ -45,9 +45,11 @@ const filters = [
   'scale=1080:1920:flags=neighbor',
   'fps=30',
   // small title, always
-  `drawtext=fontfile=${small}:textfile=${text('title', 'MODULO: REALMS OF ASH')}:fontsize=36:fontcolor=#e7c778:borderw=4:bordercolor=#0d0b12:x=(w-text_w)/2:y=120`,
-  hook ? draw(text('hook', hook), 78, 300, 0, Math.min(4.5, endAt)) : null,
-  sub ? draw(text('sub', sub), 56, 1500, 1.5, endAt, '#ffffff', 5) : null,
+  // Kept clear of the platforms' own chrome: tabs on top, caption and buttons
+  // in the bottom fifth, the action column on the right.
+  `drawtext=fontfile=${font}:textfile=${text('title', 'MODULO: REALMS OF ASH')}:fontsize=44:fontcolor=#e7c778:borderw=5:bordercolor=#0d0b12:x=(w-text_w)/2:y=230`,
+  hook ? draw(text('hook', hook), 80, 340, 0, Math.min(4.5, endAt)) : null,
+  sub ? draw(text('sub', sub), 56, 1300, 1.5, endAt, '#ffffff', 5) : null,
   // end card
   `drawbox=x=0:y=0:w=iw:h=ih:color=#0d0b12@0.72:t=fill:enable='gte(t,${endAt})'`,
   draw(text('end1', 'Play free\nin your browser'), 86, 700, endAt, dur),
