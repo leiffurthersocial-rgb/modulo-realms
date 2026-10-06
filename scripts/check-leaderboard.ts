@@ -4,6 +4,8 @@
  * committed api/leaderboard.js bundle matches the source.
  */
 import { spawnSync } from 'node:child_process';
+import { createServer } from 'node:net';
+import { respRedis } from '../src/server/resp';
 import { handleLeaderboard, minPlaySeconds, type Cmd, type LeaderboardEnv } from '../src/server/leaderboard';
 
 let failures = 0;
@@ -146,12 +148,78 @@ async function main() {
   ok((await call('POST', 'not an object')).status === 400, 'junk body');
   ok((await call('PUT')).status === 405, 'wrong method');
 
+  // the plain-protocol client (REDIS_URL) against a tiny RESP server over the same memory store
+  await respCheck();
+
   // the deployed bundle is the source
   const fresh = spawnSync(process.execPath, ['scripts/build-api.mjs', '--check'], { stdio: 'inherit' });
   ok(fresh.status === 0, 'api/leaderboard.js is up to date');
 
   if (failures) { console.error(`check-leaderboard: ${failures} failure(s)`); process.exit(1); }
   console.log('check-leaderboard: ok');
+}
+
+/** Serves memory-redis over the wire, so respRedis is checked end to end: AUTH, pipelining, every reply type. */
+async function respCheck() {
+  const store = memoryRedis();
+  const seen: string[] = [];
+  const encode = (v: unknown): string => {
+    if (v === null || v === undefined) return '$-1\r\n';
+    if (typeof v === 'number') return `:${v}\r\n`;
+    if (Array.isArray(v)) return `*${v.length}\r\n${v.map(encode).join('')}`;
+    const s = String(v);
+    return `$${Buffer.byteLength(s)}\r\n${s}\r\n`;
+  };
+  const server = createServer((socket) => {
+    let text = '';
+    socket.on('data', async (chunk: Uint8Array) => {
+      text += Buffer.from(chunk).toString('utf8');
+      // requests arrive whole in this check: *N then N bulk strings
+      const lines = text.split('\r\n');
+      const cmds: string[][] = [];
+      let i = 0;
+      while (i < lines.length && lines[i].startsWith('*')) {
+        const n = Number(lines[i].slice(1));
+        const args: string[] = [];
+        for (let k = 0; k < n; k++) args.push(lines[i + 2 + k * 2]);
+        cmds.push(args);
+        i += 1 + n * 2;
+      }
+      text = '';
+      let out = '';
+      for (const c of cmds) {
+        seen.push(c[0]);
+        if (c[0] === 'AUTH') { out += c[2] === 's3cr3t pw' ? '+OK\r\n' : '-WRONGPASS bad\r\n'; continue; }
+        const [r] = await store.exec([c]);
+        out += encode(r);
+      }
+      socket.write(out);
+    });
+  });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  const wire = { ...env, redis: respRedis(`redis://default:${encodeURIComponent('s3cr3t pw')}@127.0.0.1:${port}`) };
+  const submitWire = async (n: number, name: string, level: number) => {
+    const res = await handleLeaderboard(new Request('http://local/api/leaderboard', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '10.9.9.9' },
+      body: JSON.stringify({ action: 'submit', id: uuid(n), token: tok(n), name, level, cls: 'mage', race: 'elf', playTime: minPlaySeconds(level) + 60 }),
+    }), wire);
+    return { status: res.status, body: await res.json() as Record<string, any> };
+  };
+  let r = await submitWire(31, 'Wired', 7);
+  ok(r.body.ok && r.body.rank === 1, `resp submit ${JSON.stringify(r.body)}`);
+  await submitWire(32, 'Wirëless', 9);
+  r = await submitWire(33, 'Wireless', 9);
+  ok(r.body.ok && r.body.rank === 1, 'resp rank');
+  const res = await handleLeaderboard(new Request(`http://local/api/leaderboard?id=${uuid(31)}`), wire);
+  const board = await res.json() as Record<string, any>;
+  ok(board.top.map((x: any) => x.name).join(',') === 'Wireless,Wired' && board.me.rank === 2, `resp board ${JSON.stringify(board)}`);
+  ok(seen.includes('AUTH') && seen.includes('HGETALL') && seen.includes('ZREVRANGE'), 'resp commands reached the server');
+  const bad = respRedis(`redis://default:wrong@127.0.0.1:${port}`);
+  let rejected = false;
+  try { await bad.exec([['ZCARD', 'x']]); } catch { rejected = true; }
+  ok(rejected, 'resp wrong password rejected');
+  server.close();
 }
 
 void main();

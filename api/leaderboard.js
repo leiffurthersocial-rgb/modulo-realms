@@ -1214,6 +1214,112 @@ async function handleLeaderboard(req, env2) {
   }
 }
 
+// src/server/resp.ts
+import { connect as tcpConnect } from "node:net";
+import { connect as tlsConnect } from "node:tls";
+var CRLF = "\r\n";
+function encode(commands) {
+  let out = "";
+  for (const cmd of commands) {
+    out += `*${cmd.length}${CRLF}`;
+    for (const arg of cmd) {
+      const s = String(arg);
+      out += `$${new TextEncoder().encode(s).length}${CRLF}${s}${CRLF}`;
+    }
+  }
+  return out;
+}
+var ReplyError = class extends Error {
+};
+function parse(buf, pos) {
+  const lineEnd = (from) => {
+    for (let i = from; i + 1 < buf.length; i++) if (buf[i] === 13 && buf[i + 1] === 10) return i;
+    return -1;
+  };
+  const end = lineEnd(pos);
+  if (end < 0) return null;
+  const type = String.fromCharCode(buf[pos]);
+  const line = new TextDecoder().decode(buf.subarray(pos + 1, end));
+  const after = end + 2;
+  switch (type) {
+    case "+":
+      return { value: line, next: after };
+    case "-":
+      return { value: new ReplyError(line), next: after };
+    case ":":
+      return { value: Number(line), next: after };
+    case "$": {
+      const len = Number(line);
+      if (len < 0) return { value: null, next: after };
+      if (buf.length < after + len + 2) return null;
+      return { value: new TextDecoder().decode(buf.subarray(after, after + len)), next: after + len + 2 };
+    }
+    case "*": {
+      const n = Number(line);
+      if (n < 0) return { value: null, next: after };
+      const items = [];
+      let at = after;
+      for (let i = 0; i < n; i++) {
+        const r = parse(buf, at);
+        if (!r) return null;
+        items.push(r.value);
+        at = r.next;
+      }
+      return { value: items, next: at };
+    }
+    default:
+      throw new Error(`redis: unexpected reply type ${JSON.stringify(type)}`);
+  }
+}
+function respRedis(url, timeoutMs = 5e3) {
+  const u = new URL(url);
+  const secure = u.protocol === "rediss:";
+  const host = u.hostname;
+  const port = Number(u.port || 6379);
+  const prefix = [];
+  if (u.password) {
+    const pw = decodeURIComponent(u.password);
+    prefix.push(u.username ? ["AUTH", decodeURIComponent(u.username), pw] : ["AUTH", pw]);
+  }
+  const db = u.pathname.replace("/", "");
+  if (db && db !== "0") prefix.push(["SELECT", db]);
+  return {
+    exec(commands) {
+      const all = [...prefix, ...commands];
+      return new Promise((resolve, reject) => {
+        const socket = secure ? tlsConnect({ host, port, servername: host }) : tcpConnect({ host, port });
+        let buf = new Uint8Array(0);
+        let pos = 0;
+        const replies = [];
+        const finish = (err) => {
+          clearTimeout(timer);
+          socket.destroy();
+          if (err) return reject(err);
+          const failed = replies.find((r) => r instanceof ReplyError);
+          if (failed) return reject(new Error(`redis ${failed.message}`));
+          resolve(replies.slice(prefix.length));
+        };
+        const timer = setTimeout(() => finish(new Error("redis timeout")), timeoutMs);
+        socket.on("error", (err) => finish(err));
+        socket.on(secure ? "secureConnect" : "connect", () => socket.write(encode(all)));
+        socket.on("data", (chunk) => {
+          const merged = new Uint8Array(buf.length + chunk.length);
+          merged.set(buf);
+          merged.set(chunk, buf.length);
+          buf = merged;
+          for (; ; ) {
+            const r = parse(buf, pos);
+            if (!r) break;
+            replies.push(r.value);
+            pos = r.next;
+          }
+          if (replies.length >= all.length) finish();
+        });
+      });
+    }
+  };
+}
+
 // src/server/leaderboardRoute.ts
 var env = globalThis.process?.env ?? {};
 function upstash(url, token) {
@@ -1236,11 +1342,12 @@ function upstash(url, token) {
 function handler(req) {
   const url = env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL;
   const token = env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
+  const redis = url && token ? upstash(url, token) : env.REDIS_URL ? respRedis(env.REDIS_URL) : null;
+  if (!redis) {
     return new Response(JSON.stringify({ ok: false, error: "offline" }), { status: 503, headers: { "content-type": "application/json" } });
   }
   return handleLeaderboard(req, {
-    redis: upstash(url, token),
+    redis,
     adminToken: env.LEADERBOARD_ADMIN_TOKEN ?? "",
     salt: env.LEADERBOARD_SALT ?? env.LEADERBOARD_ADMIN_TOKEN ?? "modulo",
     now: () => Date.now()

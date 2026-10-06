@@ -471,6 +471,14 @@ Weltkontrolle, Godmode, Timescale, Free Casting, One-Shot).
   TS kompilieren muss. Nach jeder Änderung an `src/server/` oder dem Filter neu bauen; `check-leaderboard`
   schlägt sonst fehl. Env: `KV_REST_API_URL`/`KV_REST_API_TOKEN` (Upstash-Integration),
   `LEADERBOARD_ADMIN_TOKEN` (Admin: `reports`/`ban`/`ban-name`/`restore` per Header `x-admin-token`).
+- **Speicher:** Upstash-REST (`KV_REST_API_*`) **oder** `REDIS_URL` (Vercel-Redis-Integration, normales
+  Redis-Protokoll) — dafür `src/server/resp.ts`, ein Mini-RESP-Client (TCP/TLS, eine Pipeline je Request);
+  `node-shim.d.ts` ersetzt `@types/node` (absichtlich nicht installiert).
+- **Zweites Deployment (User, seit 06.10.):** Vercel-Team `ruben-f2c0`, Projekt `modulo-realms`,
+  **https://modulo-realms-one.vercel.app** — dort läuft das Leaderboard (Redis `redis-cerulean-field`).
+  **Nicht mit Git verbunden** (Repo gehört dem Kollegen) → Deploy per CLI aus dem Arbeitsbaum:
+  `npx vercel deploy --prod --yes --token "$VERCEL_TOKEN" --scope ruben-f2c0`. Das Kollegen-Vercel
+  deployt weiter automatisch den Default-Branch, hat aber keine DB (Leaderboard dort „offline“).
 - **Client** `src/game/online/leaderboard.ts`: nur im PROD-Build, sendet aus `Game.autosave` nur bei neuem
   Level/Namen. Identität (UUID + Token) pro Charakter in localStorage `modulo-realms-online-v1` —
   **nicht im Save** (Save-Format unangetastet). Panel `LeaderboardPanel` (lazy) im Titel und Pausemenü.

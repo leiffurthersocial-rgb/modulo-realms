@@ -6,10 +6,13 @@
  * Env (Vercel → Project → Settings → Environment Variables):
  *   KV_REST_API_URL / KV_REST_API_TOKEN   set by the Upstash for Redis integration
  *     (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN also work)
+ *   REDIS_URL                             set by Vercel's Redis integration; used when
+ *                                         there is no REST endpoint
  *   LEADERBOARD_ADMIN_TOKEN               ≥ 16 characters, for ban / restore / reports
  *   LEADERBOARD_SALT                      optional, salts the IP hashes
  */
 import { handleLeaderboard, type Cmd, type Redis } from './leaderboard';
+import { respRedis } from './resp';
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
@@ -34,11 +37,12 @@ function upstash(url: string, token: string): Redis {
 function handler(req: Request): Promise<Response> | Response {
   const url = env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL;
   const token = env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
+  const redis = url && token ? upstash(url, token) : env.REDIS_URL ? respRedis(env.REDIS_URL) : null;
+  if (!redis) {
     return new Response(JSON.stringify({ ok: false, error: 'offline' }), { status: 503, headers: { 'content-type': 'application/json' } });
   }
   return handleLeaderboard(req, {
-    redis: upstash(url, token),
+    redis,
     adminToken: env.LEADERBOARD_ADMIN_TOKEN ?? '',
     salt: env.LEADERBOARD_SALT ?? env.LEADERBOARD_ADMIN_TOKEN ?? 'modulo',
     now: () => Date.now(),
