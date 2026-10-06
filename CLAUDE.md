@@ -340,7 +340,10 @@ Regeln — nicht aufweichen, das ist der Sucht-/Grind-Kern:
 `marketing/` — README (Ablauf + Upload-Stufen), `content-plan.md`, `posts.md` (fertige Captions),
 `record.mjs` (Szene headless aufnehmen, Autopilot kämpft, nur Welt-Canvas + Spielton; braucht `npm run dev`),
 `scenes.mjs`, `edit.mjs` (1080x1920, Pixel-Schrift, Endkarte, −14 LUFS), `brand.mjs` (Avatar/Banner aus
-Wappen + Logo), `youtube.mjs` (Device-Flow-Login, Upload, Stats; Env `YOUTUBE_CLIENT_ID/SECRET/REFRESH_TOKEN`).
+Wappen + Logo), `youtube.mjs` (Device-Flow-Login, Upload, Stats; Env `YOUTUBE_CLIENT_ID/SECRET/REFRESH_TOKEN`),
+`stats.mjs` (Besuche/Spielstarts pro `utm_source` und Tag — Server-Aktion `track`, nur Tagessummen,
+Client `game/online/attribution.ts`; Lesen nur mit `LEADERBOARD_ADMIN_TOKEN`). Vercel Web Analytics ist
+**nicht** aktiv (braucht interaktive Bestätigung des Users im Dashboard).
 Videos nie ins Repo. Konten (TikTok/Instagram/YouTube, @modulorealms, modulorealms@gmail.com) legt der
 **User** an — Bot-Kontoerstellung verbieten TikTok/Instagram. Stand 06.10.: 4 Shorts geschnitten
 (wolfpack, ashvale, frost, ember) und dem User geschickt; Matriarch-Szene liest sich schlecht (Boss = Baum).

@@ -987,8 +987,14 @@ var K = {
   bannedNames: "lb:banned-names",
   hidden: "lb:hidden",
   reports: (id) => `lb:rep:${id}`,
-  rate: (what, ip, window) => `lb:rl:${what}:${ip}:${window}`
+  rate: (what, ip, window) => `lb:rl:${what}:${ip}:${window}`,
+  stats: (kind, day2) => `stats:${kind}:${day2}`
 };
+var STAT_KINDS = ["visit", "start"];
+var SOURCE_RE = /^[a-z0-9_-]{1,24}$/;
+var STATS_KEEP_SECONDS = 400 * 86400;
+var VISITS_PER_MINUTE = 30;
+var day = (ms) => new Date(ms).toISOString().slice(0, 10);
 var ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 var TOKEN_RE = /^[A-Za-z0-9_-]{32,64}$/;
 var SLUG_RE = /^[a-z_]{2,24}$/;
@@ -1136,9 +1142,33 @@ async function report(b, ipHash, env2) {
   if (Number(count) >= REPORTS_TO_HIDE) await env2.redis.exec([["ZREM", K.board, target], ["SADD", K.hidden, target]]);
   return json({ ok: true });
 }
+async function track(b, ipHash, env2) {
+  const kind = String(b.kind ?? "");
+  if (!STAT_KINDS.includes(kind)) return json({ ok: false, error: "bad-request" }, 400);
+  if (!await underLimit(env2, "track", ipHash, VISITS_PER_MINUTE, 60)) return json({ ok: false, error: "rate" }, 429);
+  const raw = String(b.src ?? "").toLowerCase();
+  const src = !raw ? "direct" : SOURCE_RE.test(raw) ? raw : "other";
+  const key = K.stats(kind, day(env2.now()));
+  await env2.redis.exec([["HINCRBY", key, src, 1], ["EXPIRE", key, STATS_KEEP_SECONDS]]);
+  return json({ ok: true });
+}
 async function admin(b, env2) {
   const target = String(b.target ?? "");
   switch (b.action) {
+    case "stats": {
+      const days = Math.max(1, Math.min(90, Number(b.days) || 14));
+      const dates = Array.from({ length: days }, (_, i) => day(env2.now() - i * 864e5));
+      const rows = await env2.redis.exec(dates.flatMap((d) => STAT_KINDS.map((k) => ["HGETALL", K.stats(k, d)])));
+      const out = {};
+      dates.forEach((d, i) => {
+        out[d] = {};
+        STAT_KINDS.forEach((k, j) => {
+          const rec = hashToRecord(rows[i * STAT_KINDS.length + j]);
+          out[d][k] = Object.fromEntries(Object.entries(rec).map(([src, n]) => [src, Number(n)]));
+        });
+      });
+      return json({ ok: true, stats: out });
+    }
     case "reports": {
       const [ids] = await env2.redis.exec([["SMEMBERS", K.hidden]]);
       const list = ids ?? [];
@@ -1199,6 +1229,8 @@ async function handlePost(req, env2) {
       return remove(body, env2);
     case "report":
       return report(body, ipHash, env2);
+    case "track":
+      return track(body, ipHash, env2);
     default:
       return json({ ok: false, error: "bad-request" }, 400);
   }

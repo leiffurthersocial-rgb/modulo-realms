@@ -25,6 +25,7 @@ import SettingsPanel from './ui/SettingsPanel';
 import DeathScreen from './ui/DeathScreen';
 import StoryCard from './ui/StoryCard';
 import { uiSound } from './ui/kit/sfx';
+import { trackStart, trackVisit } from './game/online/attribution';
 
 /*
  * Panels a session may never open — the forge, the shipyard, the casino
@@ -83,6 +84,7 @@ export default function App() {
     // build, so it never ships.
     if (import.meta.env.DEV) (window as unknown as { game: Game }).game = g;
 
+    trackVisit();
     const stored = loadSettings();
     if (stored) {
       g.settings = { ...g.settings, ...stored };
@@ -248,7 +250,7 @@ function UiLayer({ game }: { game: Game }) {
       <div className="overlay" {...uiSounds}>
         <CharacterCreation
           onBack={() => { game.screen = 'title'; game.touch(); }}
-          onStart={(init) => { audio.resume(); game.newGame(init); }}
+          onStart={(init) => { audio.resume(); game.newGame(init); trackStart(); }}
         />
       </div>
     );

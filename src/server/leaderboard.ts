@@ -57,7 +57,15 @@ const K = {
   hidden: 'lb:hidden',
   reports: (id: string) => `lb:rep:${id}`,
   rate: (what: string, ip: string, window: number) => `lb:rl:${what}:${ip}:${window}`,
+  stats: (kind: string, day: string) => `stats:${kind}:${day}`,
 };
+
+/** Where players come from: counted per source and day, nothing else. */
+const STAT_KINDS = ['visit', 'start'] as const;
+const SOURCE_RE = /^[a-z0-9_-]{1,24}$/;
+const STATS_KEEP_SECONDS = 400 * 86400;
+const VISITS_PER_MINUTE = 30;
+const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 const ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const TOKEN_RE = /^[A-Za-z0-9_-]{32,64}$/;
@@ -209,9 +217,40 @@ async function report(b: { target?: unknown }, ipHash: string, env: LeaderboardE
   return json({ ok: true });
 }
 
-async function admin(b: { action?: unknown; target?: unknown }, env: LeaderboardEnv): Promise<Response> {
+/**
+ * One visit or one new game, counted under its source (utm_source, lower
+ * case; anything else is "other", none is "direct"). Only the daily sums are
+ * stored — no id, no IP — so this needs no consent and tells us which channel
+ * brings players.
+ */
+async function track(b: { kind?: unknown; src?: unknown }, ipHash: string, env: LeaderboardEnv): Promise<Response> {
+  const kind = String(b.kind ?? '');
+  if (!(STAT_KINDS as readonly string[]).includes(kind)) return json({ ok: false, error: 'bad-request' }, 400);
+  if (!(await underLimit(env, 'track', ipHash, VISITS_PER_MINUTE, 60))) return json({ ok: false, error: 'rate' }, 429);
+  const raw = String(b.src ?? '').toLowerCase();
+  const src = !raw ? 'direct' : SOURCE_RE.test(raw) ? raw : 'other';
+  const key = K.stats(kind, day(env.now()));
+  await env.redis.exec([['HINCRBY', key, src, 1], ['EXPIRE', key, STATS_KEEP_SECONDS]]);
+  return json({ ok: true });
+}
+
+async function admin(b: { action?: unknown; target?: unknown; days?: unknown }, env: LeaderboardEnv): Promise<Response> {
   const target = String(b.target ?? '');
   switch (b.action) {
+    case 'stats': {
+      const days = Math.max(1, Math.min(90, Number(b.days) || 14));
+      const dates = Array.from({ length: days }, (_, i) => day(env.now() - i * 86400000));
+      const rows = await env.redis.exec(dates.flatMap((d) => STAT_KINDS.map((k) => ['HGETALL', K.stats(k, d)])));
+      const out: Record<string, Record<string, Record<string, number>>> = {};
+      dates.forEach((d, i) => {
+        out[d] = {};
+        STAT_KINDS.forEach((k, j) => {
+          const rec = hashToRecord(rows[i * STAT_KINDS.length + j]);
+          out[d][k] = Object.fromEntries(Object.entries(rec).map(([src, n]) => [src, Number(n)]));
+        });
+      });
+      return json({ ok: true, stats: out });
+    }
     case 'reports': {
       const [ids] = await env.redis.exec([['SMEMBERS', K.hidden]]);
       const list = (ids as string[] | null) ?? [];
@@ -267,6 +306,7 @@ async function handlePost(req: Request, env: LeaderboardEnv): Promise<Response> 
     case 'submit': return submit(body, ipHash, env);
     case 'remove': return remove(body, env);
     case 'report': return report(body, ipHash, env);
+    case 'track': return track(body, ipHash, env);
     default: return json({ ok: false, error: 'bad-request' }, 400);
   }
 }

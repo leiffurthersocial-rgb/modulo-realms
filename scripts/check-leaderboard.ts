@@ -31,6 +31,7 @@ function memoryRedis() {
       case 'HGET': return hashes.get(k)?.get(String(a[1])) ?? null;
       case 'HMGET': return a.slice(1).map((f) => hashes.get(k)?.get(String(f)) ?? null);
       case 'HGETALL': return [...(hashes.get(k) ?? new Map()).entries()].flat();
+      case 'HINCRBY': { const m = h(k); const n = Number(m.get(String(a[1])) ?? 0) + Number(a[2]); m.set(String(a[1]), String(n)); return n; }
       case 'DEL': { const had = hashes.delete(k) || sets.delete(k) || kv.delete(k); return had ? 1 : 0; }
       case 'SADD': { const m = s(k); const before = m.size; for (const v of a.slice(1)) m.add(String(v)); return m.size - before; }
       case 'SREM': return sets.get(k)?.delete(String(a[1])) ? 1 : 0;
@@ -143,6 +144,19 @@ async function main() {
   let limited = false;
   for (let i = 0; i < 25; i++) if ((await submit(7, 'Spammer', 1, 0)).status === 429) limited = true;
   ok(limited, 'submit rate limit');
+
+  // where players come from: daily sums per source, junk sources folded, admin-only read
+  ip = 77;
+  await call('POST', { action: 'track', kind: 'visit', src: 'TikTok' });
+  await call('POST', { action: 'track', kind: 'visit', src: 'tiktok' });
+  await call('POST', { action: 'track', kind: 'visit', src: '<script>' });
+  await call('POST', { action: 'track', kind: 'visit' });
+  await call('POST', { action: 'track', kind: 'start', src: 'youtube' });
+  ok((await call('POST', { action: 'track', kind: 'buy', src: 'x' })).status === 400, 'unknown stat kind rejected');
+  ok((await call('POST', { action: 'stats' })).status === 400, 'stats are admin-only');
+  r = await call('POST', { action: 'stats', days: 2 }, { 'x-admin-token': env.adminToken });
+  const today = r.body.stats?.[new Date(clock).toISOString().slice(0, 10)];
+  ok(today?.visit?.tiktok === 2 && today?.visit?.other === 1 && today?.visit?.direct === 1 && today?.start?.youtube === 1, `stats ${JSON.stringify(today)}`);
 
   // junk
   ok((await call('POST', 'not an object')).status === 400, 'junk body');
