@@ -432,6 +432,11 @@ repariert von der ersten Expansion beschädigte Items ohne spätere Upgrades zu 
 
 **Am Save-Format nichts ändern ohne `scripts/check-save-rejoin.ts` zu verstehen.**
 
+**Export/Import (seit 06.10.)** `game/save/transfer.ts`: kopiert alle localStorage-Strings mit Präfix
+`modulo-realms-` (Save, Recovery, Rollback, Settings, Leaderboard-Identität) in eine JSON-Datei und zurück —
+Format unberührt, Migrationen laufen beim normalen Laden. Import wird zuerst auf einer Kopie mit
+`readExpansionSave` geprüft. Pausemenü „Export save“, Titel „Import save“ (ConfirmButton, wenn ein Save da ist).
+
 Forging bis Level 75 ist unverändert; Upgrades **jenseits 75** nutzen dieselbe
 Template-Kurve wie der Loader — sonst entsteht temporäre Exponentialkraft, die beim
 Reload verschwindet. Abgedeckt von `scripts/check-endgame-reforge.ts`.

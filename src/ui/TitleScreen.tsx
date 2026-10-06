@@ -1,7 +1,9 @@
 import type { Game } from '../game/core/game';
+import { useRef, useState } from 'react';
 import { savePreview } from '../game/save/save';
+import { importSave } from '../game/save/transfer';
 import TitleArt from './TitleArt';
-import { KeyCap } from './kit';
+import { ConfirmButton, KeyCap } from './kit';
 import { uiSpriteUrl } from '../game/art/uiArt';
 
 interface Props {
@@ -14,8 +16,17 @@ interface Props {
   onLeaderboard: () => void;
 }
 
-export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onSettings, onLeaderboard }: Props) {
+export default function TitleScreen({ game, hasSave, loadError, onNew, onContinue, onSettings, onLeaderboard }: Props) {
   const preview = hasSave ? savePreview() : null;
+  const file = useRef<HTMLInputElement>(null);
+  const [importNote, setImportNote] = useState('');
+  const onFile = async (f: File | undefined) => {
+    if (!f) return;
+    const r = importSave(await f.text());
+    setImportNote(r.ok ? `Imported ${r.name}, level ${r.level}. Press Continue.` : r.error);
+    if (file.current) file.current.value = '';
+    game.touch();
+  };
   return (
     <div className="title-screen">
       <TitleArt />
@@ -47,6 +58,11 @@ export default function TitleScreen({ hasSave, loadError, onNew, onContinue, onS
           ) : null}
           {loadError ? <div className="save-note" role="alert" style={{ color: 'var(--c-flame-lit)', maxWidth: 165 }}>{loadError}</div> : null}
           <button className="btn" onClick={onNew}>New Game</button>
+          {hasSave
+            ? <ConfirmButton confirm="Replace your save? Again" onConfirm={() => file.current?.click()}>Import save</ConfirmButton>
+            : <button className="btn" onClick={() => file.current?.click()}>Import save</button>}
+          <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => void onFile(e.target.files?.[0])} />
+          {importNote ? <div className="save-note" role="status">{importNote}</div> : null}
           <button className="btn" onClick={onLeaderboard}>Leaderboard</button>
           <button className="btn" onClick={onSettings}>Settings</button>
         </div>

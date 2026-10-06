@@ -1,5 +1,6 @@
 import type { Game } from '../game/core/game';
 import { deleteSave, saveGame } from '../game/save/save';
+import { exportFileName, exportSave } from '../game/save/transfer';
 import { PAL } from '../game/art/palette';
 import { uiSpriteUrl } from '../game/art/uiArt';
 import { ConfirmButton, KeyCap, Modal } from './kit';
@@ -86,6 +87,7 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
           <button className="btn block" onClick={() => game.setPanel('leaderboard')}>Leaderboard</button>
           <button className="btn block" onClick={() => game.setPanel('help')}>How to play</button>
           <button className="btn block" onClick={onSettings}>Settings</button>
+          <button className="btn block" onClick={() => downloadSave(game)}>Export save</button>
           {showDebug ? <button className="btn iron block" onClick={() => game.setPanel('debug')}>Debug menu</button> : null}
         </div>
       </div>
@@ -117,4 +119,17 @@ export default function PausePanel({ game, onSettings }: { game: Game; onSetting
       </>}
     </Modal>
   );
+}
+
+/** Saves, then hands the whole game over as a file — to keep, or to load in another browser. */
+function downloadSave(game: Game): void {
+  if (!saveGame(game)) return;
+  const data = exportSave();
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = exportFileName(data);
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  game.toast('Save exported', 'Load it on another device from the title screen.', PAL.toxic);
 }
